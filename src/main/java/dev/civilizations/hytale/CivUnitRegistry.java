@@ -87,8 +87,6 @@ public final class CivUnitRegistry {
         }
 
         int columns = (int) Math.ceil(Math.sqrt(count));
-        int rows = (int) Math.ceil((double) count / columns);
-
         for (int index = 0; index < count; index++) {
             int column = index % columns;
             int row = index / columns;
