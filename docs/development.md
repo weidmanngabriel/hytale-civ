@@ -88,7 +88,7 @@ Do not add follow-up commits to a branch after its final validated state and the
 
 ## GitHub workflow
 
-Pushes and pull requests run tests and a full Java-25 Gradle build. The release bundle ZIP is uploaded as an Actions artifact. Failed test reports are uploaded for inspection.
+Pull requests run tests and a full Java-25 Gradle build for feature branches. Ordinary pushes to non-main branches do not start a second duplicate workflow. Pushes to `main` and `v*` tags still run CI because they drive development and stable releases. When a newer commit updates the same pull request or branch/ref, GitHub Actions cancels the older in-progress workflow so only the newest revision continues. The release bundle ZIP is uploaded as an Actions artifact. Failed test reports are uploaded for inspection.
 
 Every successful push to `main` additionally creates a GitHub pre-release with a deterministic tag based on the commit SHA:
 
