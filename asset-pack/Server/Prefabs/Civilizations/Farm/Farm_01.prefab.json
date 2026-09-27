@@ -1,0 +1,1980 @@
+{
+  "version": 8,
+  "blockIdVersion": 11,
+  "anchorX": 0,
+  "anchorY": 0,
+  "anchorZ": 0,
+  "blocks": [
+    {
+      "x": -4,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone_Cobble"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 7,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -3,
+      "y": 1,
+      "z": 0,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -3,
+      "y": 1,
+      "z": 7,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -2,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -2,
+      "y": 1,
+      "z": 7,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -1,
+      "y": 1,
+      "z": 0,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -1,
+      "y": 1,
+      "z": 7,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": 7,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 1,
+      "y": 1,
+      "z": 0,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 1,
+      "y": 1,
+      "z": 7,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "z": 7,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "z": 0,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "z": 7,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 7,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 1,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 1,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 2,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 2,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 3,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 3,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 4,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 4,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 5,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 5,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 6,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 6,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 7,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -3,
+      "y": 2,
+      "z": 0,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -3,
+      "y": 2,
+      "z": 7,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -2,
+      "y": 2,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -1,
+      "y": 2,
+      "z": 0,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -1,
+      "y": 2,
+      "z": 7,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "z": 7,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 1,
+      "y": 2,
+      "z": 0,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 1,
+      "y": 2,
+      "z": 7,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 3,
+      "y": 2,
+      "z": 0,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 3,
+      "y": 2,
+      "z": 7,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 7,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 1,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 1,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 3,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 3,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 4,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 4,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 6,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 6,
+      "name": "Rock_Chalk_Brick"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -3,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -3,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -2,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -2,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -1,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -1,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 1,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 1,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 3,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 3,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 1,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 1,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 2,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 2,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 3,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 3,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 4,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 4,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 5,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 5,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 6,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 6,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": 0,
+      "name": "Furniture_Village_Door",
+      "rotation": 2
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "z": 0,
+      "name": "Furniture_Village_Door",
+      "rotation": 2,
+      "filler": 1024
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": 2,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": 3,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": 4,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": 5,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -5,
+      "y": 4,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -5,
+      "y": 4,
+      "z": 0,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 0,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 0,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 0,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 0,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 0,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 0,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 0,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 0,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 0,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 0,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -5,
+      "y": 4,
+      "z": 1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -5,
+      "y": 4,
+      "z": 2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -5,
+      "y": 4,
+      "z": 3,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 3,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 3,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 3,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 3,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 3,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 3,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 3,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 3,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 3,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 3,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -5,
+      "y": 4,
+      "z": 4,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 4,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 4,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 4,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 4,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 4,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 4,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 4,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 4,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 4,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 4,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -5,
+      "y": 4,
+      "z": 5,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 5,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 5,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 5,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 5,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 5,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 5,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 5,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 5,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 5,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 5,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -5,
+      "y": 4,
+      "z": 6,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 6,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 6,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 6,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 6,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 6,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 6,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 6,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 6,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 6,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 6,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -5,
+      "y": 4,
+      "z": 7,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 7,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 7,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 7,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 7,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 7,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 7,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 7,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 7,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 7,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 7,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -5,
+      "y": 4,
+      "z": 8,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 8,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 8,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 8,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 8,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 8,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 8,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 8,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 8,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 8,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 8,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -2,
+      "y": 3,
+      "z": -2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -2,
+      "y": 3,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -1,
+      "y": 3,
+      "z": -2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -1,
+      "y": 3,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "z": -2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 1,
+      "y": 3,
+      "z": -2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 1,
+      "y": 3,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "z": -2,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "z": -1,
+      "name": "Wood_Darkwood_Roof_Flat"
+    },
+    {
+      "x": -2,
+      "y": 1,
+      "z": -1,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "z": -1,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": -2,
+      "y": 2,
+      "z": -1,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "z": -1,
+      "name": "Wood_Darkwood_Beam"
+    },
+    {
+      "x": 6,
+      "y": 0,
+      "z": 1,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 6,
+      "y": 0,
+      "z": 2,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 6,
+      "y": 0,
+      "z": 4,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 6,
+      "y": 0,
+      "z": 5,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 6,
+      "y": 0,
+      "z": 6,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 7,
+      "y": 0,
+      "z": 1,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 7,
+      "y": 0,
+      "z": 2,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 7,
+      "y": 0,
+      "z": 4,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 7,
+      "y": 0,
+      "z": 5,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 7,
+      "y": 0,
+      "z": 6,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 8,
+      "y": 0,
+      "z": 1,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 8,
+      "y": 0,
+      "z": 2,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 8,
+      "y": 0,
+      "z": 4,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 8,
+      "y": 0,
+      "z": 5,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 8,
+      "y": 0,
+      "z": 6,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 9,
+      "y": 0,
+      "z": 1,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 9,
+      "y": 0,
+      "z": 2,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 9,
+      "y": 0,
+      "z": 4,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 9,
+      "y": 0,
+      "z": 5,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 9,
+      "y": 0,
+      "z": 6,
+      "name": "Soil_Dirt"
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 10,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "z": 1,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 10,
+      "y": 1,
+      "z": 1,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "z": 2,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 10,
+      "y": 1,
+      "z": 2,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "z": 3,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 10,
+      "y": 1,
+      "z": 3,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "z": 4,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 10,
+      "y": 1,
+      "z": 4,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "z": 5,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 10,
+      "y": 1,
+      "z": 5,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "z": 6,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 10,
+      "y": 1,
+      "z": 6,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "z": 7,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 10,
+      "y": 1,
+      "z": 7,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 6,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 6,
+      "y": 1,
+      "z": 7,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 7,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 7,
+      "y": 1,
+      "z": 7,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 8,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 8,
+      "y": 1,
+      "z": 7,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 9,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Drywood_Fence"
+    },
+    {
+      "x": 9,
+      "y": 1,
+      "z": 7,
+      "name": "Wood_Drywood_Fence"
+    }
+  ]
+}
