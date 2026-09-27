@@ -92,6 +92,7 @@ public final class CivNpcMovementSystem extends EntityTickingSystem<EntityStore>
 
         Steering bodySteering = role.getBodySteering();
         SteeringForcePursue pursue = new SteeringForcePursue();
+        pursue.setComponentSelector(new Vector3d(motionController.getComponentSelector()));
         pursue.setPositions(position, target);
         pursue.setStopDistance(STOP_DISTANCE);
         pursue.setSlowdownDistance(SLOWDOWN_DISTANCE);
