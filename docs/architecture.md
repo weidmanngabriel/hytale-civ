@@ -4,6 +4,8 @@
 
 Keep the simulation testable without starting Hytale. Hytale is an integration boundary, not the domain model.
 
+Before version 1, backward compatibility is not a goal when it would require migrations, parallel legacy paths, compatibility defaults or feature-specific exceptions. The current documented architecture and data model are authoritative. This policy must be revisited before persistent player worlds or public stable releases make compatibility a product requirement.
+
 ## Layers
 
 ```text
