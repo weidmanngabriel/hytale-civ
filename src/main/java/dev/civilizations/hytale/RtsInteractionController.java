@@ -20,9 +20,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Owns per-player state for the RTS validation spike and the farm vertical slice.
- */
 public final class RtsInteractionController {
 
     private final RtsCameraController cameraController;
@@ -138,7 +135,10 @@ public final class RtsInteractionController {
             return;
         }
 
-        NPCEntity npc = target.getStore().getComponentConcurrent(target, NPCEntity.getComponentType());
+        NPCEntity npc = target.getStore().getComponentConcurrent(
+            target,
+            NPCEntity.getComponentType()
+        );
         if (npc == null) {
             playerRef.sendMessage(Message.raw("Target is not an NPCEntity and cannot be claimed."));
             return;
@@ -156,7 +156,11 @@ public final class RtsInteractionController {
         ));
     }
 
-    private void handleSelection(PlayerMouseButtonEvent event, PlayerRef playerRef, Session session) {
+    private void handleSelection(
+        PlayerMouseButtonEvent event,
+        PlayerRef playerRef,
+        Session session
+    ) {
         Ref<EntityStore> target = event.getTargetEntityRef();
         if (target == null) {
             session.selected.clear();
@@ -223,8 +227,8 @@ public final class RtsInteractionController {
             farmPrefabService.placeFarm(playerRef, world, targetBlock);
             FarmBuildingRegistry.FarmSite site = farmRegistry.registerFarm(worldId, targetBlock);
             playerRef.sendMessage(Message.raw(
-                "Farm " + site.building().id() + " placed. "
-                    + "Select exactly one claimed NPC and right click the doorway to assign a Farmer."
+                "Farm " + site.building().id() + " placed. Select exactly one claimed NPC "
+                    + "and right click the doorway to assign a Farmer."
             ));
         } catch (RuntimeException exception) {
             playerRef.sendMessage(Message.raw("Farm placement failed: " + exception.getMessage()));
