@@ -47,13 +47,13 @@ public final class BuildingMenuPage
         events.addEventBinding(
             CustomUIEventBindingType.Activating,
             "#FarmButton",
-            EventData.of("@Action", ACTION_FARM),
+            EventData.of("Action", ACTION_FARM),
             false
         );
         events.addEventBinding(
             CustomUIEventBindingType.Activating,
             "#CloseButton",
-            EventData.of("@Action", ACTION_CLOSE),
+            EventData.of("Action", ACTION_CLOSE),
             false
         );
     }
@@ -78,7 +78,7 @@ public final class BuildingMenuPage
         public static final BuilderCodec<ActionData> CODEC =
             BuilderCodec.builder(ActionData.class, ActionData::new)
                 .append(
-                    new KeyedCodec<>("@Action", Codec.STRING),
+                    new KeyedCodec<>("Action", Codec.STRING),
                     (data, value) -> data.action = value,
                     data -> data.action
                 )
