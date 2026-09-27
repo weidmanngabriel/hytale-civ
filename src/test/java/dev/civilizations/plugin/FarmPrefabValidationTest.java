@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FarmPrefabValidationTest {
 
+    private static final String ENTRANCE_MARKER = "Civ_BuildingEntrance";
     private static final Path FARM_PREFAB = Path.of(
         "asset-pack",
         "Server",
@@ -22,11 +23,19 @@ class FarmPrefabValidationTest {
         "Farm",
         "Farm_01.prefab.json"
     );
+    private static final Path ENTRANCE_MARKER_ASSET = Path.of(
+        "asset-pack",
+        "Server",
+        "Item",
+        "Block",
+        "Blocks",
+        ENTRANCE_MARKER + ".json"
+    );
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    void farmPrefabHasExpectedStructureAndEntrance() throws Exception {
+    void farmPrefabHasExpectedStructureAndEntranceMarker() throws Exception {
         assertTrue(Files.isRegularFile(FARM_PREFAB));
 
         JsonNode prefab = objectMapper.readTree(Files.readString(FARM_PREFAB));
@@ -42,7 +51,8 @@ class FarmPrefabValidationTest {
 
         Set<String> coordinates = new HashSet<>();
         boolean hasEntranceThreshold = false;
-        boolean doorwayIsOpen = true;
+        boolean hasEntranceMarker = false;
+        boolean upperDoorwayIsOpen = true;
         boolean hasRoof = false;
         boolean hasCropBed = false;
 
@@ -56,16 +66,31 @@ class FarmPrefabValidationTest {
 
             hasEntranceThreshold |= x == 0 && y == 0 && z == 0
                 && name.equals("Rock_Stone");
-            if (x == 0 && z == 0 && (y == 1 || y == 2)) {
-                doorwayIsOpen = false;
+            hasEntranceMarker |= x == 0 && y == 1 && z == 0
+                && name.equals(ENTRANCE_MARKER);
+            if (x == 0 && y == 2 && z == 0) {
+                upperDoorwayIsOpen = false;
             }
             hasRoof |= name.equals("Rock_Shale") && y >= 4;
             hasCropBed |= name.equals("Soil_Dirt") && x >= 6;
         }
 
         assertTrue(hasEntranceThreshold);
-        assertTrue(doorwayIsOpen);
+        assertTrue(hasEntranceMarker);
+        assertTrue(upperDoorwayIsOpen);
         assertTrue(hasRoof);
         assertTrue(hasCropBed);
+    }
+
+    @Test
+    void entranceMarkerIsEditorVisibleButNonPhysical() throws Exception {
+        assertTrue(Files.isRegularFile(ENTRANCE_MARKER_ASSET));
+
+        JsonNode marker = objectMapper.readTree(Files.readString(ENTRANCE_MARKER_ASSET));
+        assertEquals("@Tech", marker.path("Group").asText());
+        assertEquals("GizmoCube", marker.path("DrawType").asText());
+        assertEquals("Empty", marker.path("Material").asText());
+        assertEquals("Empty", marker.path("HitboxType").asText());
+        assertEquals("Full", marker.path("InteractionHitboxType").asText());
     }
 }
