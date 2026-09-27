@@ -23,7 +23,10 @@ While RTS mode is active:
 - unclaimed entities cannot become the Civ selection;
 - pressing Hytale's standard Use action (default F) opens the action menu for the selected person;
 - the first implemented action is assigning the Woodcutter profession;
-- right-clicking a world block still gives the selected Civ unit a direct movement target.
+- right-clicking a world block still gives the selected Civ unit a direct movement target;
+- a persistent menu bar appears on the left with a **Bauen** entry;
+- clicking **Bauen** opens a modal building catalog to the right of the bar. The catalog must be closed or a building selected before normal RTS world interaction resumes;
+- building entries are ordered alphabetically by display name.
 
 The current Custom camera does not switch the player into Spectator. Hiding only the local player model is not part of this slice because no verified native self-hide mechanism has been established yet.
 
@@ -46,7 +49,13 @@ There is no work-area selection, carrying, warehouse delivery or persistent job 
 
 ## Farm vertical slice
 
-/civfarm arms placement of the first Farm prefab while RTS test mode is active. The next right click places the Farm at that prefab anchor. Doorways are defined independently by one or more creator-visible entrance markers stored inside the prefab.
+In RTS mode, **Bauen → Farm** closes the building catalog and starts Farm placement. A Farm ghost follows the world position under the cursor. Left click attempts to place it; right click cancels the placement. `/civfarm` remains a debug shortcut into the same placement mode.
+
+The visible floor of the Farm is embedded one block into the pointed terrain rather than being placed on top of it. Placement is accepted only when the footprint is supported, contains no holes or liquids, the building volume and entrances are clear, and the footprint does not overlap another Civ building. The server rechecks these conditions when left click confirms the build; the preview is not authoritative.
+
+Each placed Farm retains the original blocks replaced by its embedded floor. A future demolition action can therefore restore the prior ground instead of leaving a building-shaped hole. This snapshot currently has the same runtime-only lifetime as the placed Farm.
+
+Doorways are defined independently by one or more creator-visible entrance markers stored inside the prefab.
 
 A player can then select one claimed Civ NPC and right click any marked Farm doorway. The NPC is marked as a Farmer and assigned to that Farm. If the prefab contains several entrances, the current prototype uses the entrance nearest to the NPC.
 
