@@ -7,8 +7,11 @@ import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
+import com.hypixel.hytale.server.core.universe.Universe;
+import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
+import dev.civilizations.core.Profession;
 import org.joml.Vector3i;
 
 import java.util.LinkedHashMap;
@@ -18,21 +21,28 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Owns per-player state for the RTS camera/input validation spike.
+ * Owns per-player state for the RTS validation spike and the farm vertical slice.
  */
 public final class RtsInteractionController {
 
     private final RtsCameraController cameraController;
     private final CivUnitRegistry unitRegistry;
+    private final FarmBuildingRegistry farmRegistry;
+    private final FarmPrefabService farmPrefabService;
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
     private final Set<UUID> claimArmed = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> farmPlacementArmed = ConcurrentHashMap.newKeySet();
 
     public RtsInteractionController(
         RtsCameraController cameraController,
-        CivUnitRegistry unitRegistry
+        CivUnitRegistry unitRegistry,
+        FarmBuildingRegistry farmRegistry,
+        FarmPrefabService farmPrefabService
     ) {
         this.cameraController = cameraController;
         this.unitRegistry = unitRegistry;
+        this.farmRegistry = farmRegistry;
+        this.farmPrefabService = farmPrefabService;
     }
 
     public boolean toggle(PlayerRef playerRef) {
@@ -41,6 +51,7 @@ public final class RtsInteractionController {
 
         if (removed != null) {
             claimArmed.remove(playerId);
+            farmPlacementArmed.remove(playerId);
             cameraController.disable(playerRef);
             playerRef.sendMessage(Message.raw("Civ RTS test disabled."));
             return false;
@@ -49,8 +60,8 @@ public final class RtsInteractionController {
         sessions.put(playerId, new Session());
         cameraController.enable(playerRef);
         playerRef.sendMessage(Message.raw(
-            "Civ RTS test enabled. Use /civclaim then click an NPC to toggle Civ control. "
-                + "Left click selects Civ units; right click moves the selection."
+            "Civ RTS test enabled. /civclaim claims NPCs; /civfarm arms farm placement. "
+                + "Left click selects Civ units; right click moves or assigns a selected unit to a farm entrance."
         ));
         return true;
     }
@@ -64,6 +75,19 @@ public final class RtsInteractionController {
 
         claimArmed.add(playerId);
         playerRef.sendMessage(Message.raw("Civ claim armed. Left click an NPC to toggle Civ control."));
+    }
+
+    public void armFarmPlacement(PlayerRef playerRef) {
+        UUID playerId = playerRef.getUuid();
+        if (!sessions.containsKey(playerId)) {
+            playerRef.sendMessage(Message.raw("Enable /civrtstest before placing a farm."));
+            return;
+        }
+
+        farmPlacementArmed.add(playerId);
+        playerRef.sendMessage(Message.raw(
+            "Farm placement armed. Right click reasonably flat ground; the entrance faces south."
+        ));
     }
 
     public void handleMouseButton(PlayerMouseButtonEvent event) {
@@ -82,7 +106,7 @@ public final class RtsInteractionController {
         }
 
         if (button == MouseButtonType.Right) {
-            handleMoveTarget(event, playerRef, session);
+            handleRightClick(event, playerRef, session);
             event.setCancelled(true);
         }
     }
@@ -91,6 +115,7 @@ public final class RtsInteractionController {
         UUID playerId = event.getPlayerRef().getUuid();
         sessions.remove(playerId);
         claimArmed.remove(playerId);
+        farmPlacementArmed.remove(playerId);
     }
 
     private void handleLeftClick(
@@ -122,6 +147,7 @@ public final class RtsInteractionController {
         CivUnitRegistry.UnitKey key = unitRegistry.keyOf(target);
         boolean claimed = unitRegistry.toggleClaim(target);
         if (!claimed) {
+            farmRegistry.unassignFarmer(target);
             sessions.values().forEach(otherSession -> otherSession.selected.remove(key));
         }
 
@@ -152,10 +178,26 @@ public final class RtsInteractionController {
         playerRef.sendMessage(Message.raw("Selected Civ units: " + session.selected.size()));
     }
 
-    private void handleMoveTarget(PlayerMouseButtonEvent event, PlayerRef playerRef, Session session) {
+    private void handleRightClick(
+        PlayerMouseButtonEvent event,
+        PlayerRef playerRef,
+        Session session
+    ) {
         Vector3i targetBlock = event.getTargetBlock();
         if (targetBlock == null) {
             playerRef.sendMessage(Message.raw("No ground target under cursor."));
+            return;
+        }
+
+        if (farmPlacementArmed.remove(playerRef.getUuid())) {
+            placeFarm(playerRef, targetBlock);
+            return;
+        }
+
+        UUID worldId = playerRef.getWorldUuid();
+        FarmBuildingRegistry.FarmSite farm = farmRegistry.findByEntranceHit(worldId, targetBlock);
+        if (farm != null) {
+            assignSelectedFarmer(playerRef, session, farm);
             return;
         }
 
@@ -166,6 +208,62 @@ public final class RtsInteractionController {
             "Move command " + targetBlock.x + ", " + targetBlock.y + ", " + targetBlock.z
                 + " assigned to " + assigned + " Civ units."
         ));
+    }
+
+    private void placeFarm(PlayerRef playerRef, Vector3i targetBlock) {
+        UUID worldId = playerRef.getWorldUuid();
+        World world = worldId == null ? null : Universe.get().getWorld(worldId);
+
+        if (world == null) {
+            playerRef.sendMessage(Message.raw("Could not resolve your current world."));
+            return;
+        }
+
+        try {
+            farmPrefabService.placeFarm(playerRef, world, targetBlock);
+            FarmBuildingRegistry.FarmSite site = farmRegistry.registerFarm(worldId, targetBlock);
+            playerRef.sendMessage(Message.raw(
+                "Farm " + site.building().id() + " placed. "
+                    + "Select exactly one claimed NPC and right click the doorway to assign a Farmer."
+            ));
+        } catch (RuntimeException exception) {
+            playerRef.sendMessage(Message.raw("Farm placement failed: " + exception.getMessage()));
+        }
+    }
+
+    private void assignSelectedFarmer(
+        PlayerRef playerRef,
+        Session session,
+        FarmBuildingRegistry.FarmSite farm
+    ) {
+        removeInvalidSelections(session);
+
+        if (session.selected.size() != 1) {
+            playerRef.sendMessage(Message.raw(
+                "Select exactly one claimed Civ NPC before right clicking the farm entrance."
+            ));
+            return;
+        }
+
+        Ref<EntityStore> farmer = session.selected.values().iterator().next();
+        FarmBuildingRegistry.AssignmentResult result = farmRegistry.assignFarmer(farmer, farm);
+
+        switch (result) {
+            case ASSIGNED -> {
+                unitRegistry.assignProfession(farmer, Profession.FARMER);
+                unitRegistry.setMoveTarget(farmer, farm.entranceTarget());
+                playerRef.sendMessage(Message.raw(
+                    "Farmer assigned to " + farm.building().id()
+                        + ". Production: 1 wheat per 5 seconds of work, target 10."
+                ));
+            }
+            case ALREADY_ASSIGNED ->
+                playerRef.sendMessage(Message.raw("That NPC is already assigned to this farm."));
+            case OCCUPIED ->
+                playerRef.sendMessage(Message.raw("That farm already has a Farmer."));
+            case COMPLETE ->
+                playerRef.sendMessage(Message.raw("That farm already contains 10 wheat."));
+        }
     }
 
     private void removeInvalidSelections(Session session) {
