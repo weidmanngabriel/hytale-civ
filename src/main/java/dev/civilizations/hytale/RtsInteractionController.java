@@ -1,6 +1,7 @@
 package dev.civilizations.hytale;
 
 import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.protocol.MouseButtonState;
 import com.hypixel.hytale.protocol.MouseButtonType;
 import com.hypixel.hytale.server.core.Message;
