@@ -138,3 +138,10 @@ A prefab must contain at least one entrance marker. Multiple markers are support
 The NPC remains a normal Hytale entity; "inside" is currently a simulation state reached when its position reaches the selected entrance target. The prototype does not hide, despawn or teleport the NPC while working.
 
 The Farm prefab is creator-editable at `asset-pack/Server/Prefabs/Civilizations/Farm/Farm_01.prefab.json`. The prefab anchor is placement metadata only and no longer defines the entrance. During RTS placement the clicked terrain surface is treated as the finished floor height, so the prefab anchor is shifted down by one block and the prefab's floor replaces that terrain layer. The replaced block IDs are retained on the placed Farm instance for future demolition restoration. The current exterior exit target remains two blocks south of the selected entrance because Farm rotation is still fixed. Rotation-aware entrance direction metadata is deferred until rotated building placement is introduced.
+
+
+### In-game wiki
+
+The RTS toolbar now exposes a **?** action next to **Bauen**. `RtsToolbarAnchorUi` routes it through the existing Hytale anchor-action mechanism to `RtsInteractionController.openWiki`.
+
+`WikiPage` is an Hytale-facing `InteractiveCustomUIPage` and stays outside the core simulation. Its UI layouts live in the editable Asset Pack under `Common/UI/Custom/Pages/CivWiki*.ui`. Navigation replaces the current custom page with another wiki screen through Hytale's native page manager. The content is deliberately limited to implemented behavior so the help system cannot become a speculative second source of domain rules.
