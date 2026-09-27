@@ -1,0 +1,111 @@
+package dev.civilizations.hytale;
+
+import com.hypixel.hytale.component.ArchetypeChunk;
+import com.hypixel.hytale.component.CommandBuffer;
+import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.component.Store;
+import com.hypixel.hytale.component.query.Query;
+import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
+import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
+import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import com.hypixel.hytale.server.npc.entities.NPCEntity;
+import dev.civilizations.core.FarmBuilding;
+import org.joml.Vector3d;
+
+/**
+ * Translates the core farm work state into Hytale NPC movement targets.
+ */
+public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
+
+    private static final double ARRIVAL_DISTANCE = 0.45;
+
+    private final CivUnitRegistry unitRegistry;
+    private final FarmBuildingRegistry farmRegistry;
+
+    public FarmNpcWorkSystem(
+        CivUnitRegistry unitRegistry,
+        FarmBuildingRegistry farmRegistry
+    ) {
+        this.unitRegistry = unitRegistry;
+        this.farmRegistry = farmRegistry;
+    }
+
+    @Override
+    public boolean isParallel(int archetypeChunkSize, int taskCount) {
+        return false;
+    }
+
+    @Override
+    public Query<EntityStore> getQuery() {
+        return NPCEntity.getComponentType();
+    }
+
+    @Override
+    public void tick(
+        float dt,
+        int index,
+        ArchetypeChunk<EntityStore> archetypeChunk,
+        Store<EntityStore> store,
+        CommandBuffer<EntityStore> commandBuffer
+    ) {
+        Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
+        FarmBuildingRegistry.FarmSite site = farmRegistry.getAssignment(ref);
+
+        if (site == null) {
+            return;
+        }
+
+        if (!ref.isValid()) {
+            farmRegistry.unassignFarmer(ref);
+            unitRegistry.forget(ref);
+            return;
+        }
+
+        TransformComponent transform =
+            commandBuffer.getComponent(ref, TransformComponent.getComponentType());
+        if (transform == null) {
+            farmRegistry.unassignFarmer(ref);
+            return;
+        }
+
+        FarmBuilding building = site.building();
+        Vector3d position = transform.getPosition();
+
+        switch (building.workState()) {
+            case WAITING_FOR_FARMER -> unitRegistry.clearMoveTarget(ref);
+            case WALKING_TO_ENTRANCE -> {
+                Vector3d target = site.entranceTarget();
+                unitRegistry.setMoveTarget(ref, target);
+                if (hasArrived(position, target)) {
+                    unitRegistry.clearMoveTarget(ref);
+                    building.enterBuilding();
+                }
+            }
+            case WORKING_INSIDE -> {
+                unitRegistry.clearMoveTarget(ref);
+                if (building.advanceWork(dt)) {
+                    unitRegistry.setMoveTarget(ref, site.exitTarget());
+                }
+            }
+            case LEAVING_BUILDING -> {
+                Vector3d target = site.exitTarget();
+                unitRegistry.setMoveTarget(ref, target);
+                if (hasArrived(position, target)) {
+                    unitRegistry.clearMoveTarget(ref);
+                    building.exitBuilding();
+                    if (building.workState() == FarmBuilding.WorkState.WALKING_TO_ENTRANCE) {
+                        unitRegistry.setMoveTarget(ref, site.entranceTarget());
+                    }
+                }
+            }
+            case COMPLETE -> unitRegistry.clearMoveTarget(ref);
+        }
+    }
+
+    private static boolean hasArrived(Vector3d position, Vector3d target) {
+        double dx = position.x - target.x;
+        double dy = position.y - target.y;
+        double dz = position.z - target.z;
+        return dx * dx + dy * dy + dz * dz <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
+    }
+}
