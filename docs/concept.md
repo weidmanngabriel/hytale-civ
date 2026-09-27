@@ -70,3 +70,12 @@ The prototype loop is intentionally narrow:
 7. At ten wheat the Farmer remains outside and production stops.
 
 Travel time is additional to the five seconds of active production time. Wheat is currently a local integer inventory on the Farm only; there are no physical wheat items, input crops, carriers or warehouse delivery yet.
+
+
+## In-game wiki
+
+The persistent left RTS menu includes a **?** button below **Bauen**. It opens a modal in-game wiki with four sections: **Berufe**, **Ressourcen**, **Gebäude** and **Tiere**.
+
+The wiki documents implemented Civ behavior only and cross-links related sections. The current entries cover Holzfäller, Bauer, Holz, Weizen and Farm. The animal section explicitly states that no animal has a Civ-specific gameplay role yet; animals are added only when a real Civ system uses them.
+
+Opening the wiki cancels an active Farm placement preview before the page is shown, matching the building catalog's modal interaction model.
