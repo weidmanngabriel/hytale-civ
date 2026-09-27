@@ -298,6 +298,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             null,
             FELL_DAMAGE_SCALE,
             0,
+            false,
             chunkRef,
             entityStore,
             chunkStore
