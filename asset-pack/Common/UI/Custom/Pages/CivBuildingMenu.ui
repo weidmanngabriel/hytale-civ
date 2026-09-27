@@ -1,0 +1,41 @@
+$C = "../Common.ui";
+
+$C.@PageOverlay {}
+
+$C.@DecoratedContainer {
+  Anchor: (Left: 170, Width: 560, Height: 420);
+
+  #Title {
+    Group {
+      $C.@Title {
+        @Text = "Gebäude";
+      }
+    }
+  }
+
+  #Content {
+    LayoutMode: Top;
+    FlexWeight: 1;
+
+    Label {
+      Text: "Gebäude auswählen";
+      Style: (FontSize: 18, TextColor: #ffffff);
+    }
+
+    Label {
+      Text: "Alphabetisch sortiert";
+      Style: (FontSize: 14, TextColor: #aeb6c2);
+      Anchor: (Bottom: 16);
+    }
+
+    $C.@TextButton #FarmButton {
+      @Text = "Farm";
+      Anchor: (Width: 260, Height: 48);
+    }
+  }
+
+  $C.@TextButton #CloseButton {
+    @Text = "Schließen";
+    Anchor: (Bottom: 16, Right: 16, Width: 160, Height: 44);
+  }
+}
