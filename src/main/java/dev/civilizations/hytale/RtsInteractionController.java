@@ -11,7 +11,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import org.joml.Vector3i;
 
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -119,9 +119,10 @@ public final class RtsInteractionController {
             return;
         }
 
+        CivUnitRegistry.UnitKey key = unitRegistry.keyOf(target);
         boolean claimed = unitRegistry.toggleClaim(target);
         if (!claimed) {
-            sessions.values().forEach(session -> session.selected.remove(target));
+            sessions.values().forEach(otherSession -> otherSession.selected.remove(key));
         }
 
         playerRef.sendMessage(Message.raw(
@@ -142,11 +143,12 @@ public final class RtsInteractionController {
             return;
         }
 
-        if (!session.selected.add(target)) {
-            session.selected.remove(target);
+        CivUnitRegistry.UnitKey key = unitRegistry.keyOf(target);
+        if (session.selected.remove(key) == null) {
+            session.selected.put(key, target);
         }
 
-        session.selected.removeIf(ref -> !unitRegistry.isClaimed(ref));
+        removeInvalidSelections(session);
         playerRef.sendMessage(Message.raw("Selected Civ units: " + session.selected.size()));
     }
 
@@ -157,8 +159,8 @@ public final class RtsInteractionController {
             return;
         }
 
-        session.selected.removeIf(ref -> !unitRegistry.isClaimed(ref));
-        int assigned = unitRegistry.assignMoveTargets(session.selected, targetBlock);
+        removeInvalidSelections(session);
+        int assigned = unitRegistry.assignMoveTargets(session.selected.values(), targetBlock);
 
         playerRef.sendMessage(Message.raw(
             "Move command " + targetBlock.x + ", " + targetBlock.y + ", " + targetBlock.z
@@ -166,7 +168,11 @@ public final class RtsInteractionController {
         ));
     }
 
+    private void removeInvalidSelections(Session session) {
+        session.selected.entrySet().removeIf(entry -> !unitRegistry.isClaimed(entry.getValue()));
+    }
+
     private static final class Session {
-        private final Set<Ref<EntityStore>> selected = new LinkedHashSet<>();
+        private final Map<CivUnitRegistry.UnitKey, Ref<EntityStore>> selected = new LinkedHashMap<>();
     }
 }
