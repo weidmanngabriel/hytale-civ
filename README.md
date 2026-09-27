@@ -1,10 +1,10 @@
 # Hytale Civ
 
-Java plugin foundation for a future Hytale civilization/RTS simulation. The repository and artifact name is `hytale-civ`; game logic does not depend on that name.
+Java plugin foundation for a future Hytale civilization/RTS simulation.
 
 ## Current milestone
 
-The plugin currently exposes four prototype commands:
+Prototype commands:
 
 ```text
 /civtest
@@ -13,31 +13,27 @@ The plugin currently exposes four prototype commands:
 /civfarm
 ```
 
-`/civtest` is the plugin-load smoke test.
+`/civrtstest` enables the fixed angled RTS cursor camera. It is a Custom camera, not Spectator mode.
 
-`/civrtstest` toggles the RTS interaction mode with an angled cursor camera.
+`/civclaim` arms the next left click so an existing Hytale `NPCEntity` can be claimed or released as a temporary Civ unit.
 
-`/civclaim` arms the next left click so an existing Hytale `NPCEntity` can be explicitly claimed or released as a temporary Civ test unit. Only claimed Civ units can be selected and commanded.
+In RTS mode:
 
-In RTS mode, left-click claimed units to build a multi-selection and right-click ground to move the selection. Multiple units receive slightly offset destinations. Movement uses each NPC's existing Hytale motion controller and steering, not teleportation.
+- left click a claimed NPC to make it the single selected person;
+- press Hytale's standard Use key, normally **F**, to open that person's action menu;
+- choose **Holzfäller** to assign the Woodcutter profession;
+- right click ground for the existing direct move command.
 
-The RTS spike validates direct collision-aware NPC locomotion. The Farm vertical slice adds the first concrete building and production loop; full route planning, persistent Civ ownership, custom Civ NPC spawning and a general economy are still future work.
+A Woodcutter searches for a nearby tree, walks beside its trunk, works briefly and then fells the base through Hytale's native block-harvest path. Hytale therefore remains responsible for normal drops and the tree asset's support/falling-block behavior.
+
+The Farm vertical slice remains available through `/civfarm`.
 
 ## Requirements
 
 - Java 25
 - Git
-- Hytale only for the final manual smoke test
-- No global Gradle installation; use the Gradle Wrapper
-
-## VS Code
-
-Recommended extensions are in `.vscode/extensions.json`:
-- Red Hat Java
-- Gradle for Java
-- Test Runner for Java
-
-Open the repository root. The Java extension should import the Gradle project automatically.
+- Hytale for manual engine/UX validation
+- Gradle Wrapper included
 
 ## Test and build
 
@@ -55,120 +51,35 @@ gradlew.bat test
 gradlew.bat build
 ```
 
-The Java plugin JAR is written to:
-
-```text
-build/libs/hytale-civ-<version>.jar
-```
-
-The distributable bundle is written to:
-
-```text
-build/distributions/hytale-civ-<version>-bundle.zip
-```
-
-The bundle contains:
-
-```text
-hytale-civ.jar
-hytale-civ-assets/
-└── manifest.json
-```
-
-The outer ZIP is only the download package. Hytale receives the Java plugin as a JAR and the assets as a separate Asset Pack. Files in `hytale-civ-assets/` can therefore be changed after installation without recompiling the Java plugin.
-
-Editable source assets live in `asset-pack/`. The artifact name is configured centrally via `artifactBaseName` in `gradle.properties`.
+The plugin JAR is written to `build/libs/`. The distributable bundle is written to `build/distributions/` and contains the plugin JAR plus the editable `hytale-civ-assets` Asset Pack.
 
 ## Hytale API
 
-The build uses the official release repository `https://maven.hytale.com/release` and `com.hypixel.hytale:Server` as a `compileOnly` dependency. The selector is configured as `hytaleServerVersion`.
+The build uses the official Hytale release Maven repository and `com.hypixel.hytale:Server` as a `compileOnly` dependency.
 
-Hytale API usage must be re-checked against current official docs when changed.
+Before implementing Hytale-facing behavior, the project first checks for an existing native Hytale API, asset, interaction, game mode, UI primitive or engine system and prefers that over recreating equivalent behavior.
 
 ## Local deployment
 
-Configure a local Mods folder without committing its path.
-
-macOS/Linux:
+Set `HYTALE_MODS_DIR` or pass `-PhytaleModsDir=/path/to/mods`, then run:
 
 ```bash
-export HYTALE_MODS_DIR="$HOME/path/to/Hytale/UserData/Mods"
 ./gradlew deployToHytale
 ```
 
-Windows PowerShell:
-
-```powershell
-$env:HYTALE_MODS_DIR = "$env:APPDATA\Hytale\UserData\Mods"
-.\gradlew.bat deployToHytale
-```
-
-Alternative:
-
-```bash
-./gradlew deployToHytale -PhytaleModsDir=/path/to/mods
-```
-
-The deployment task copies both `hytale-civ-<version>.jar` and the editable `hytale-civ-assets/` directory into the Mods folder.
-
-If no path is configured, normal tests and builds still work; only `deployToHytale` fails.
+The deployment task copies both the plugin JAR and editable Asset Pack into the Mods folder.
 
 ## Manual Hytale smoke test
 
-1. Deploy or extract the release bundle and copy both the JAR and `hytale-civ-assets/` into the Hytale Mods folder.
+1. Deploy both artifacts.
 2. Start a compatible Hytale server/world.
-3. Confirm the plugin loads and run `/civtest`.
-4. Run `/civrtstest`.
-5. Run `/civclaim`, then left-click an existing NPC to claim it.
-6. Left-click the claimed NPC to select it.
-7. Right-click open ground and confirm it walks toward the target rather than teleporting.
-8. Repeat with several claimed NPCs and confirm their destinations are slightly separated.
-9. Verify an unclaimed NPC cannot be selected or commanded.
-10. Run `/civclaim` and click a claimed NPC to release it.
-11. Run `/civrtstest` again to restore the normal camera.
+3. Run `/civrtstest`.
+4. Run `/civclaim` and claim an NPC.
+5. Left-click the claimed NPC to select it.
+6. Press **F** and select **Holzfäller**.
+7. Confirm it finds a nearby tree, walks beside it and fells it.
+8. Confirm native drops/physics occur.
+9. Right-click ground and confirm direct movement still works.
+10. Run `/civrtstest` to restore the normal camera.
 
-Obstacle avoidance beyond the NPC motion controller's direct collision handling is not an acceptance criterion yet.
-
-## Architecture
-
-```text
-Core Simulation
-      ↓
-Hytale Adapter
-      ↓
-Hytale Plugin / API
-```
-
-See `docs/architecture.md`, `docs/testing.md`, and `docs/development.md`.
-
-## CI and releases
-
-GitHub Actions runs on pushes and pull requests with Java 25, executes tests and a full build, and uploads the release bundle ZIP as an Actions artifact. Test reports are uploaded when tests fail.
-
-Every successful push to `main` also creates a GitHub pre-release tagged `build-<short-sha>`. Its downloadable asset is named:
-
-```text
-hytale-civ-build-<short-sha>.zip
-```
-
-Each Release gets a one-line description taken from the released commit subject. With the repository's squash-merge workflow, that means the Release directly summarizes the corresponding change on `main`.
-
-Stable versions use explicit `v*` tags such as `v0.1.0`. A successful tagged build creates a normal GitHub Release with the same ZIP bundle attached.
-
-
-## Farm prototype
-
-The first building/production slice is available in RTS test mode:
-
-~~~text
-/civrtstest
-/civfarm
-→ right click flat ground to place the Farm
-
-/civclaim
-→ left click an NPC to claim it
-→ left click the claimed NPC to select it
-→ right click the Farm doorway
-~~~
-
-The assigned Farmer walks into the Farm, produces one local wheat after five seconds of work, walks outside after every unit, re-enters, and stops once the Farm reaches 10 wheat. The visible building is a creator-editable Hytale prefab in the standalone hytale-civ-assets Asset Pack.
+See `docs/architecture.md`, `docs/concept.md`, `docs/domain.md` and `docs/testing.md` for the maintained details.
