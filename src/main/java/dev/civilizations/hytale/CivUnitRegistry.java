@@ -3,6 +3,7 @@ package dev.civilizations.hytale;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import dev.civilizations.core.Profession;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
@@ -14,8 +15,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Runtime-only registry used by the RTS validation spike.
  *
- * <p>Claimed NPCs and movement targets intentionally live outside the future simulation model.
- * This keeps the engine-validation code small until Civ inhabitants have a real lifecycle.</p>
+ * <p>Claimed NPCs, professions and movement targets intentionally remain runtime-only
+ * until Civ inhabitants have a persistent lifecycle.</p>
  */
 public final class CivUnitRegistry {
 
@@ -36,7 +37,7 @@ public final class CivUnitRegistry {
             return false;
         }
 
-        units.put(key, new UnitState(ref, null));
+        units.put(key, new UnitState(ref, null, null));
         return true;
     }
 
@@ -104,7 +105,8 @@ public final class CivUnitRegistry {
                     targetBlock.x + 0.5 + offsetX,
                     targetBlock.y + 1.0,
                     targetBlock.z + 0.5 + offsetZ
-                )
+                ),
+                state.profession()
             ));
         }
 
@@ -112,13 +114,41 @@ public final class CivUnitRegistry {
     }
 
     public void clearMoveTarget(Ref<EntityStore> ref) {
+        setMoveTarget(ref, null);
+    }
+
+    public void setMoveTarget(Ref<EntityStore> ref, Vector3d target) {
         UnitKey key = keyOf(ref);
-        units.computeIfPresent(key, (ignored, state) -> new UnitState(state.ref(), null));
+        units.computeIfPresent(
+            key,
+            (ignored, state) -> new UnitState(
+                state.ref(),
+                target == null ? null : new Vector3d(target),
+                state.profession()
+            )
+        );
+    }
+
+    public void assignProfession(Ref<EntityStore> ref, Profession profession) {
+        UnitKey key = keyOf(ref);
+        units.computeIfPresent(
+            key,
+            (ignored, state) -> new UnitState(state.ref(), state.moveTarget(), profession)
+        );
+    }
+
+    public Profession getProfession(Ref<EntityStore> ref) {
+        UnitState state = units.get(keyOf(ref));
+        return state == null ? null : state.profession();
     }
 
     public record UnitKey(Store<EntityStore> store, int entityIndex) {
     }
 
-    private record UnitState(Ref<EntityStore> ref, Vector3d moveTarget) {
+    private record UnitState(
+        Ref<EntityStore> ref,
+        Vector3d moveTarget,
+        Profession profession
+    ) {
     }
 }
