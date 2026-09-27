@@ -3,6 +3,7 @@ package dev.civilizations.hytale;
 import com.hypixel.hytale.protocol.ClientCameraView;
 import com.hypixel.hytale.protocol.Direction;
 import com.hypixel.hytale.protocol.MouseInputType;
+import com.hypixel.hytale.protocol.MovementForceRotationType;
 import com.hypixel.hytale.protocol.PositionDistanceOffsetType;
 import com.hypixel.hytale.protocol.RotationType;
 import com.hypixel.hytale.protocol.ServerCameraSettings;
@@ -26,6 +27,8 @@ public final class RtsCameraController {
         settings.displayCursor = true;
         settings.displayReticle = false;
         settings.isFirstPerson = false;
+        settings.movementForceRotationType = MovementForceRotationType.Custom;
+        settings.movementForceRotation = new Direction(YAW_RADIANS, 0.0f, 0.0f);
         settings.eyeOffset = true;
         settings.positionDistanceOffsetType = PositionDistanceOffsetType.DistanceOffset;
         settings.rotationType = RotationType.Custom;
