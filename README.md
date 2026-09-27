@@ -54,13 +54,29 @@ gradlew.bat test
 gradlew.bat build
 ```
 
-The plugin JAR is written to:
+The Java plugin JAR is written to:
 
 ```text
 build/libs/hytale-civ-<version>.jar
 ```
 
-The artifact name is configured centrally via `artifactBaseName` in `gradle.properties`.
+The distributable bundle is written to:
+
+```text
+build/distributions/hytale-civ-<version>-bundle.zip
+```
+
+The bundle contains:
+
+```text
+hytale-civ.jar
+hytale-civ-assets/
+└── manifest.json
+```
+
+The outer ZIP is only the download package. Hytale receives the Java plugin as a JAR and the assets as a separate Asset Pack. Files in `hytale-civ-assets/` can therefore be changed after installation without recompiling the Java plugin.
+
+Editable source assets live in `asset-pack/`. The artifact name is configured centrally via `artifactBaseName` in `gradle.properties`.
 
 ## Hytale API
 
@@ -92,11 +108,13 @@ Alternative:
 ./gradlew deployToHytale -PhytaleModsDir=/path/to/mods
 ```
 
+The deployment task copies both `hytale-civ-<version>.jar` and the editable `hytale-civ-assets/` directory into the Mods folder.
+
 If no path is configured, normal tests and builds still work; only `deployToHytale` fails.
 
 ## Manual Hytale smoke test
 
-1. Deploy or copy the built JAR into the Hytale Mods folder.
+1. Deploy or extract the release bundle and copy both the JAR and `hytale-civ-assets/` into the Hytale Mods folder.
 2. Start a compatible Hytale server/world.
 3. Confirm the plugin loads and run `/civtest`.
 4. Run `/civrtstest`.
@@ -124,8 +142,14 @@ See `docs/architecture.md`, `docs/testing.md`, and `docs/development.md`.
 
 ## CI and releases
 
-GitHub Actions runs on pushes and pull requests with Java 25, executes tests and a full build, uploads the plugin JAR as an Actions artifact, and uploads test reports when tests fail.
+GitHub Actions runs on pushes and pull requests with Java 25, executes tests and a full build, and uploads the release bundle ZIP as an Actions artifact. Test reports are uploaded when tests fail.
 
-Every successful push to `main` also creates a GitHub pre-release tagged `build-<short-sha>`. Its JAR is named `hytale-civ-build-<short-sha>.jar`, so every successfully built main revision remains directly downloadable.
+Every successful push to `main` also creates a GitHub pre-release tagged `build-<short-sha>`. Its downloadable asset is named:
 
-Stable versions use explicit `v*` tags such as `v0.1.0`. A successful tagged build creates a normal GitHub Release with the tested JAR attached.
+```text
+hytale-civ-build-<short-sha>.zip
+```
+
+Each Release gets a one-line description taken from the released commit subject. With the repository's squash-merge workflow, that means the Release directly summarizes the corresponding change on `main`.
+
+Stable versions use explicit `v*` tags such as `v0.1.0`. A successful tagged build creates a normal GitHub Release with the same ZIP bundle attached.

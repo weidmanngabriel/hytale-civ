@@ -69,3 +69,28 @@ The current engine-validation milestone tests the first controllable Civ NPC loo
 Unclaimed animals, monsters or other NPCs are not controllable merely because they are `NPCEntity` instances. The debug claim command can deliberately claim any compatible NPC for testing.
 
 NPC spawning, persistent Civ ownership, obstacle route planning, visual selection markers, drag-box selection, zoom and camera panning are not part of this milestone.
+
+
+## Distribution boundary
+
+Runtime Java code and creator-editable Hytale assets are distributed separately inside one convenience archive.
+
+Repository layout:
+
+```text
+src/main/...           Java plugin code and plugin manifest
+asset-pack/            standalone editable Hytale Asset Pack
+```
+
+Release layout:
+
+```text
+hytale-civ-<release>.zip
+├── hytale-civ.jar
+└── hytale-civ-assets/
+    └── manifest.json
+```
+
+The outer ZIP is only the downloadable release bundle. Hytale still receives the Java plugin as a JAR and the assets as a standalone Asset Pack folder. This keeps asset changes independent from Java compilation: after installation, files inside `hytale-civ-assets/` can be changed without rebuilding the plugin JAR.
+
+Gameplay data should only move into the Asset Pack when a concrete Hytale asset type is required. Core simulation rules and domain state remain in the existing Java architecture unless a later feature establishes a different boundary.
