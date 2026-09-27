@@ -1,10 +1,13 @@
 package dev.civilizations.plugin;
 
+import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseMotionEvent;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
+import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import dev.civilizations.hytale.CivInhabitantData;
 import dev.civilizations.hytale.CivUnitRegistry;
 import dev.civilizations.hytale.FarmBuildingRegistry;
 import dev.civilizations.hytale.FarmNpcWorkSystem;
@@ -16,6 +19,8 @@ import dev.civilizations.hytale.WoodcutterWorkSystem;
 
 public final class CivilizationsPlugin extends JavaPlugin {
 
+    private static final String CIV_INHABITANT_DATA_ID = "CivInhabitantData";
+
     public CivilizationsPlugin(JavaPluginInit init) {
         super(init);
     }
@@ -23,7 +28,14 @@ public final class CivilizationsPlugin extends JavaPlugin {
     @Override
     @SuppressWarnings("deprecation")
     public void setup() {
-        CivUnitRegistry unitRegistry = new CivUnitRegistry();
+        ComponentType<EntityStore, CivInhabitantData> inhabitantDataType =
+            getEntityStoreRegistry().registerComponent(
+                CivInhabitantData.class,
+                CIV_INHABITANT_DATA_ID,
+                CivInhabitantData.CODEC
+            );
+
+        CivUnitRegistry unitRegistry = new CivUnitRegistry(inhabitantDataType);
         FarmBuildingRegistry farmRegistry = new FarmBuildingRegistry(unitRegistry);
         RtsInteractionController rtsInteractionController =
             new RtsInteractionController(

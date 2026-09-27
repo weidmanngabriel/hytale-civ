@@ -1,6 +1,7 @@
 package dev.civilizations.hytale;
 
 import com.hypixel.hytale.builtin.path.path.TransientPath;
+import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.math.vector.Rotation3f;
@@ -16,16 +17,21 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Runtime-only registry used by the RTS validation spike.
+ * Runtime registry for temporary RTS claims and movement targets.
  *
- * <p>Claimed NPCs, professions and movement targets intentionally remain runtime-only
- * until Civ inhabitants have a persistent lifecycle.</p>
+ * <p>Persistent inhabitant identity such as profession data lives on the NPC in
+ * {@link CivInhabitantData}; debug claims and transient movement remain runtime-only.</p>
  */
 public final class CivUnitRegistry {
 
     private static final double FORMATION_SPACING = 1.4;
 
+    private final ComponentType<EntityStore, CivInhabitantData> inhabitantDataType;
     private final Map<UnitKey, UnitState> units = new ConcurrentHashMap<>();
+
+    public CivUnitRegistry(ComponentType<EntityStore, CivInhabitantData> inhabitantDataType) {
+        this.inhabitantDataType = inhabitantDataType;
+    }
 
     public UnitKey keyOf(Ref<EntityStore> ref) {
         return new UnitKey(ref.getStore(), ref.getIndex());
@@ -41,7 +47,8 @@ public final class CivUnitRegistry {
             return false;
         }
 
-        units.put(key, new UnitState(ref, null, null));
+        ref.getStore().ensureAndGetComponent(ref, inhabitantDataType);
+        units.put(key, new UnitState(ref, null));
         return true;
     }
 
@@ -130,7 +137,7 @@ public final class CivUnitRegistry {
             return;
         }
 
-        units.put(key, new UnitState(current.ref(), nextTarget, current.profession()));
+        units.put(key, new UnitState(current.ref(), nextTarget));
         applyNativePath(ref, nextTarget);
     }
 
@@ -158,16 +165,19 @@ public final class CivUnitRegistry {
     }
 
     public void assignProfession(Ref<EntityStore> ref, Profession profession) {
-        UnitKey key = keyOf(ref);
-        units.computeIfPresent(
-            key,
-            (ignored, state) -> new UnitState(state.ref(), state.moveTarget(), profession)
-        );
+        if (!isClaimed(ref)) {
+            return;
+        }
+
+        CivInhabitantData data =
+            ref.getStore().ensureAndGetComponent(ref, inhabitantDataType);
+        data.setProfession(profession);
     }
 
     public Profession getProfession(Ref<EntityStore> ref) {
-        UnitState state = units.get(keyOf(ref));
-        return state == null ? null : state.profession();
+        CivInhabitantData data =
+            ref.getStore().getComponentConcurrent(ref, inhabitantDataType);
+        return data == null ? null : data.profession();
     }
 
     public record UnitKey(Store<EntityStore> store, int entityIndex) {
@@ -175,8 +185,7 @@ public final class CivUnitRegistry {
 
     private record UnitState(
         Ref<EntityStore> ref,
-        Vector3d moveTarget,
-        Profession profession
+        Vector3d moveTarget
     ) {
     }
 }

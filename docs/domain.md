@@ -10,7 +10,14 @@ Unknown behavior stays unknown until it is decided or verified. Do not turn impl
 
 The project is still in an engine-validation milestone. Most planned simulation domains such as persistent inhabitants, needs, general inventories, logistics, families and economy do not yet have implemented domain rules. Farm and Woodcutter are the first implemented job slices.
 
-The current NPC claim and movement state is deliberately temporary integration-test state, not persistent Civ ownership or an inhabitant lifecycle.
+The current NPC claim and movement state is deliberately temporary integration-test state, not persistent Civ ownership or a complete inhabitant lifecycle. Profession data is the first inhabitant state moved onto a serializable per-entity component.
+
+## Inhabitants
+
+- A claimed Civ NPC can carry persistent inhabitant data directly on its Hytale entity.
+- Current profession and profession experience belong to that individual inhabitant rather than to the temporary RTS claim registry.
+- An inhabitant may have no profession; profession experience starts at zero and cannot be negative.
+- Workplace identity is not yet a persistent domain rule because placed Civ buildings do not yet have stable persistent identity.
 
 ## Planned domain areas
 
@@ -54,11 +61,11 @@ The first implemented building domain is intentionally specific rather than a sp
 
 - A building prefab must define at least one entrance marker; a Farm may define multiple entrances.
 - A Farm has one Farmer slot.
-- Assigning a claimed Civ NPC to a Farm marks that NPC with the FARMER profession for the current runtime.
+- Assigning a claimed Civ NPC to a Farm marks that NPC with the FARMER profession on its persistent inhabitant data.
 - The current Farm assignment selects the entrance nearest to the assigned Farmer by straight-line world distance. Reaching that entrance transitions the Farmer into the logical WORKING_INSIDE state.
 - One wheat is produced after five seconds of active work inside the Farm.
 - After every wheat production, the Farmer must leave the building before another production step can begin.
 - The exterior exit target is two blocks south of the selected entrance for the current fixed-orientation Farm prefab.
 - A Farm stops production at exactly 10 local wheat.
 - Travel time is not part of the five-second work timer.
-- Farm placement, NPC assignment, profession marking and wheat inventory are runtime-only and are not persisted across a server/plugin restart yet.
+- Farm placement, Farm assignment and wheat inventory remain runtime-only and are not persisted across a server/plugin restart yet. The NPC's profession is stored persistently, but no persistent Farm reference is written until buildings have stable persistent identity.

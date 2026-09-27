@@ -58,7 +58,8 @@ The controllable-NPC spike has this acceptance sequence:
 8. right-click behind an obstacle and confirm Hytale's native path/movement stack, rather than Civ code, determines the route behavior;
 9. run `/civclaim` and click a claimed NPC again to release it; confirm it can no longer be selected or commanded;
 10. run `/civrtstest` again and confirm normal camera control returns;
-11. confirm claims are runtime-only and do not survive a plugin/server restart.
+11. confirm claims are runtime-only and do not survive a plugin/server restart;
+12. assign a profession to a claimed NPC, restart the server/plugin, reclaim the same persisted NPC entity and confirm its profession data is still present. Farm assignment itself is not expected to survive yet.
 
 A compatible NPC role that can follow a Hytale `PathManager` transient path is required for the movement test. Civ no longer applies its own per-tick steering force.
 
