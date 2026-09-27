@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
@@ -23,6 +24,11 @@ repositories {
 val hytaleServerVersion = providers.gradleProperty("hytaleServerVersion").getOrElse("latest.release")
 val artifactBaseName = providers.gradleProperty("artifactBaseName").getOrElse("hytale-civ")
 val assetPackDir = layout.projectDirectory.dir("asset-pack")
+val hytaleReferenceDir = layout.projectDirectory.dir("docs/hytale-reference/generated")
+
+val referenceGenerator by sourceSets.creating {
+    java.srcDir("tools/hytale-reference/src/main/java")
+}
 
 dependencies {
     compileOnly("com.hypixel.hytale:Server:$hytaleServerVersion")
@@ -53,6 +59,40 @@ tasks.withType<Test>().configureEach {
     reports {
         junitXml.required = true
         html.required = true
+    }
+}
+
+val hytaleReference = tasks.register<JavaExec>("hytaleReference") {
+    group = "documentation"
+    description = "Generates a source-free API/asset reference from the exact resolved Hytale Server dependency."
+    dependsOn(tasks.named(referenceGenerator.compileJavaTaskName))
+
+    classpath = referenceGenerator.runtimeClasspath
+    mainClass.set("dev.civilizations.tools.HytaleReferenceGenerator")
+
+    inputs.property("hytaleServerVersion", hytaleServerVersion)
+    outputs.dir(hytaleReferenceDir)
+
+    doFirst {
+        val serverArtifact = configurations.compileClasspath.get()
+            .resolvedConfiguration
+            .resolvedArtifacts
+            .firstOrNull {
+                it.moduleVersion.id.group == "com.hypixel.hytale" && it.name == "Server"
+            }
+            ?: throw GradleException(
+                "Could not resolve com.hypixel.hytale:Server from compileClasspath."
+            )
+
+        setArgs(
+            listOf(
+                "--server-artifact", serverArtifact.file.absolutePath,
+                "--classpath", configurations.compileClasspath.get().asPath,
+                "--output", hytaleReferenceDir.asFile.absolutePath,
+                "--requested-version", hytaleServerVersion,
+                "--resolved-coordinate", serverArtifact.moduleVersion.id.toString()
+            )
+        )
     }
 }
 
