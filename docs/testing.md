@@ -26,7 +26,7 @@ Future deterministic multi-step tests for people, needs, jobs, inventories, prod
 
 Tests around translation and adapter behavior where possible without a running server.
 
-The current RTS spike mainly exercises client camera and cursor behavior and therefore does not pretend to cover those engine contracts with mocked unit tests.
+The current RTS spike mainly exercises client camera, cursor targeting and Hytale NPC motion behavior and therefore does not pretend to cover those engine contracts with mocked unit tests.
 
 ## Hytale server integration tests
 
@@ -34,17 +34,20 @@ Future controlled-server tests for lifecycle, registration and engine interactio
 
 ## Manual client / UX tests
 
-The RTS interaction spike has a concrete manual acceptance sequence:
+The controllable-NPC spike has this acceptance sequence:
 
 1. run `/civrtstest` and confirm the view changes to an angled cursor camera;
-2. click several existing entities and confirm the reported selection count increases;
-3. click a selected entity again and confirm it is removed;
-4. left-click empty world space and confirm selection clears;
-5. select one or more entities, right-click a visible world block and confirm its coordinates and the selection count are reported;
-6. run `/civrtstest` again and confirm normal camera control returns;
-7. verify ordinary mouse interactions are suppressed only while the RTS test mode is active.
+2. left-click an unclaimed NPC and confirm it is not added to the Civ selection;
+3. run `/civclaim`, left-click that NPC and confirm it is claimed;
+4. left-click the claimed NPC and confirm the selection count changes;
+5. claim and select several NPCs;
+6. right-click open, reasonably flat ground and confirm selected NPCs move toward nearby, slightly offset targets rather than teleporting;
+7. right-click behind an obstacle and observe collision behavior; this milestone does not require the NPCs to find a route around the obstacle;
+8. run `/civclaim` and click a claimed NPC again to release it; confirm it can no longer be selected or commanded;
+9. run `/civrtstest` again and confirm normal camera control returns;
+10. confirm claims are runtime-only and do not survive a plugin/server restart.
 
-Actual NPC movement is not an acceptance criterion for this milestone.
+A compatible NPC role with an active motion controller is required for the movement test. Native NPC behavior may compete with the debug steering and is part of what this spike is intended to reveal.
 
 ## Current automated tests
 

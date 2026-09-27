@@ -8,28 +8,31 @@ import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import org.joml.Vector3i;
 
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Owns per-player state for the deliberately small RTS camera/input validation spike.
- *
- * <p>This does not move NPCs yet. A right click records and reports the world-space
- * movement target so the camera -> cursor -> world-target interaction loop can be
- * validated before choosing an NPC role and navigation API.</p>
+ * Owns per-player state for the RTS camera/input validation spike.
  */
 public final class RtsInteractionController {
 
     private final RtsCameraController cameraController;
+    private final CivUnitRegistry unitRegistry;
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
+    private final Set<UUID> claimArmed = ConcurrentHashMap.newKeySet();
 
-    public RtsInteractionController(RtsCameraController cameraController) {
+    public RtsInteractionController(
+        RtsCameraController cameraController,
+        CivUnitRegistry unitRegistry
+    ) {
         this.cameraController = cameraController;
+        this.unitRegistry = unitRegistry;
     }
 
     public boolean toggle(PlayerRef playerRef) {
@@ -37,6 +40,7 @@ public final class RtsInteractionController {
         Session removed = sessions.remove(playerId);
 
         if (removed != null) {
+            claimArmed.remove(playerId);
             cameraController.disable(playerRef);
             playerRef.sendMessage(Message.raw("Civ RTS test disabled."));
             return false;
@@ -45,9 +49,21 @@ public final class RtsInteractionController {
         sessions.put(playerId, new Session());
         cameraController.enable(playerRef);
         playerRef.sendMessage(Message.raw(
-            "Civ RTS test enabled. Left click toggles entity selection; right click sets a movement target."
+            "Civ RTS test enabled. Use /civclaim then click an NPC to toggle Civ control. "
+                + "Left click selects Civ units; right click moves the selection."
         ));
         return true;
+    }
+
+    public void armClaim(PlayerRef playerRef) {
+        UUID playerId = playerRef.getUuid();
+        if (!sessions.containsKey(playerId)) {
+            playerRef.sendMessage(Message.raw("Enable /civrtstest before claiming an NPC."));
+            return;
+        }
+
+        claimArmed.add(playerId);
+        playerRef.sendMessage(Message.raw("Civ claim armed. Left click an NPC to toggle Civ control."));
     }
 
     public void handleMouseButton(PlayerMouseButtonEvent event) {
@@ -60,7 +76,7 @@ public final class RtsInteractionController {
 
         MouseButtonType button = event.getMouseButton().mouseButtonType;
         if (button == MouseButtonType.Left) {
-            handleSelection(event, playerRef, session);
+            handleLeftClick(event, playerRef, session);
             event.setCancelled(true);
             return;
         }
@@ -72,7 +88,46 @@ public final class RtsInteractionController {
     }
 
     public void handleDisconnect(PlayerDisconnectEvent event) {
-        sessions.remove(event.getPlayerRef().getUuid());
+        UUID playerId = event.getPlayerRef().getUuid();
+        sessions.remove(playerId);
+        claimArmed.remove(playerId);
+    }
+
+    private void handleLeftClick(
+        PlayerMouseButtonEvent event,
+        PlayerRef playerRef,
+        Session session
+    ) {
+        if (claimArmed.remove(playerRef.getUuid())) {
+            handleClaim(event, playerRef);
+            return;
+        }
+
+        handleSelection(event, playerRef, session);
+    }
+
+    private void handleClaim(PlayerMouseButtonEvent event, PlayerRef playerRef) {
+        Ref<EntityStore> target = event.getTargetEntityRef();
+        if (target == null || !target.isValid()) {
+            playerRef.sendMessage(Message.raw("No NPC under cursor."));
+            return;
+        }
+
+        NPCEntity npc = target.getStore().getComponentConcurrent(target, NPCEntity.getComponentType());
+        if (npc == null) {
+            playerRef.sendMessage(Message.raw("Target is not an NPCEntity and cannot be claimed."));
+            return;
+        }
+
+        CivUnitRegistry.UnitKey key = unitRegistry.keyOf(target);
+        boolean claimed = unitRegistry.toggleClaim(target);
+        if (!claimed) {
+            sessions.values().forEach(otherSession -> otherSession.selected.remove(key));
+        }
+
+        playerRef.sendMessage(Message.raw(
+            claimed ? "NPC claimed as Civ test unit." : "NPC released from Civ control."
+        ));
     }
 
     private void handleSelection(PlayerMouseButtonEvent event, PlayerRef playerRef, Session session) {
@@ -83,11 +138,18 @@ public final class RtsInteractionController {
             return;
         }
 
-        if (!session.selected.add(target)) {
-            session.selected.remove(target);
+        if (!unitRegistry.isClaimed(target)) {
+            playerRef.sendMessage(Message.raw("That entity is not a Civ unit. Use /civclaim first."));
+            return;
         }
 
-        playerRef.sendMessage(Message.raw("Selected entities: " + session.selected.size()));
+        CivUnitRegistry.UnitKey key = unitRegistry.keyOf(target);
+        if (session.selected.remove(key) == null) {
+            session.selected.put(key, target);
+        }
+
+        removeInvalidSelections(session);
+        playerRef.sendMessage(Message.raw("Selected Civ units: " + session.selected.size()));
     }
 
     private void handleMoveTarget(PlayerMouseButtonEvent event, PlayerRef playerRef, Session session) {
@@ -97,15 +159,20 @@ public final class RtsInteractionController {
             return;
         }
 
-        session.lastMoveTarget = new Vector3i(targetBlock);
+        removeInvalidSelections(session);
+        int assigned = unitRegistry.assignMoveTargets(session.selected.values(), targetBlock);
+
         playerRef.sendMessage(Message.raw(
-            "Move target " + targetBlock.x + ", " + targetBlock.y + ", " + targetBlock.z
-                + " for " + session.selected.size() + " selected entities."
+            "Move command " + targetBlock.x + ", " + targetBlock.y + ", " + targetBlock.z
+                + " assigned to " + assigned + " Civ units."
         ));
     }
 
+    private void removeInvalidSelections(Session session) {
+        session.selected.entrySet().removeIf(entry -> !unitRegistry.isClaimed(entry.getValue()));
+    }
+
     private static final class Session {
-        private final Set<Ref<EntityStore>> selected = new LinkedHashSet<>();
-        private Vector3i lastMoveTarget;
+        private final Map<CivUnitRegistry.UnitKey, Ref<EntityStore>> selected = new LinkedHashMap<>();
     }
 }
