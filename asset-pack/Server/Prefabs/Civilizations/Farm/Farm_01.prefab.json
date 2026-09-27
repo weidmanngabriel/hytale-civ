@@ -6,1052 +6,8 @@
   "anchorZ": 0,
   "blocks": [
     {
-      "x": -4,
-      "y": 0,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 0,
-      "z": 1,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 0,
-      "z": 2,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 0,
-      "z": 3,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 0,
-      "z": 4,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 0,
-      "z": 5,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 0,
-      "z": 6,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 0,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -3,
-      "y": 0,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -3,
-      "y": 0,
-      "z": 1,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -3,
-      "y": 0,
-      "z": 2,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -3,
-      "y": 0,
-      "z": 3,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -3,
-      "y": 0,
-      "z": 4,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -3,
-      "y": 0,
-      "z": 5,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -3,
-      "y": 0,
-      "z": 6,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -3,
-      "y": 0,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -2,
-      "y": 0,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -2,
-      "y": 0,
-      "z": 1,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -2,
-      "y": 0,
-      "z": 2,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -2,
-      "y": 0,
-      "z": 3,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -2,
-      "y": 0,
-      "z": 4,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -2,
-      "y": 0,
-      "z": 5,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -2,
-      "y": 0,
-      "z": 6,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -2,
-      "y": 0,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -1,
-      "y": 0,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -1,
-      "y": 0,
-      "z": 1,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -1,
-      "y": 0,
-      "z": 2,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -1,
-      "y": 0,
-      "z": 3,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -1,
-      "y": 0,
-      "z": 4,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -1,
-      "y": 0,
-      "z": 5,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -1,
-      "y": 0,
-      "z": 6,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -1,
-      "y": 0,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 0,
-      "y": 0,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 0,
-      "y": 0,
-      "z": 1,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 0,
-      "y": 0,
-      "z": 2,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 0,
-      "y": 0,
-      "z": 3,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 0,
-      "y": 0,
-      "z": 4,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 0,
-      "y": 0,
-      "z": 5,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 0,
-      "y": 0,
-      "z": 6,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 0,
-      "y": 0,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 1,
-      "y": 0,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 1,
-      "y": 0,
-      "z": 1,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 1,
-      "y": 0,
-      "z": 2,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 1,
-      "y": 0,
-      "z": 3,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 1,
-      "y": 0,
-      "z": 4,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 1,
-      "y": 0,
-      "z": 5,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 1,
-      "y": 0,
-      "z": 6,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 1,
-      "y": 0,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 2,
-      "y": 0,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 2,
-      "y": 0,
-      "z": 1,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 2,
-      "y": 0,
-      "z": 2,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 2,
-      "y": 0,
-      "z": 3,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 2,
-      "y": 0,
-      "z": 4,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 2,
-      "y": 0,
-      "z": 5,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 2,
-      "y": 0,
-      "z": 6,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 2,
-      "y": 0,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 3,
-      "y": 0,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 3,
-      "y": 0,
-      "z": 1,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 3,
-      "y": 0,
-      "z": 2,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 3,
-      "y": 0,
-      "z": 3,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 3,
-      "y": 0,
-      "z": 4,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 3,
-      "y": 0,
-      "z": 5,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 3,
-      "y": 0,
-      "z": 6,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 3,
-      "y": 0,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 0,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 0,
-      "z": 1,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 0,
-      "z": 2,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 0,
-      "z": 3,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 0,
-      "z": 4,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 0,
-      "z": 5,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 0,
-      "z": 6,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 0,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 1,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -4,
-      "y": 1,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -3,
-      "y": 1,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -3,
-      "y": 1,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -2,
-      "y": 1,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -2,
-      "y": 1,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -1,
-      "y": 1,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -1,
-      "y": 1,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 0,
-      "y": 1,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 1,
-      "y": 1,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 1,
-      "y": 1,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 2,
-      "y": 1,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 2,
-      "y": 1,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 3,
-      "y": 1,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 3,
-      "y": 1,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 1,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 4,
-      "y": 1,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -4,
-      "y": 1,
-      "z": 1,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 1,
-      "z": 1,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 1,
-      "z": 2,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 1,
-      "z": 2,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 1,
-      "z": 3,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 4,
-      "y": 1,
-      "z": 3,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -4,
-      "y": 1,
-      "z": 4,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 1,
-      "z": 4,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 1,
-      "z": 5,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 1,
-      "z": 5,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 1,
-      "z": 6,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 1,
-      "z": 6,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 2,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -4,
-      "y": 2,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -3,
-      "y": 2,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -3,
-      "y": 2,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -2,
-      "y": 2,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -2,
-      "y": 2,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -1,
-      "y": 2,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -1,
-      "y": 2,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 0,
-      "y": 2,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 1,
-      "y": 2,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 1,
-      "y": 2,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 2,
-      "y": 2,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 2,
-      "y": 2,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 3,
-      "y": 2,
-      "z": 0,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 3,
-      "y": 2,
-      "z": 7,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 2,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 4,
-      "y": 2,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -4,
-      "y": 2,
-      "z": 1,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 2,
-      "z": 1,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 2,
-      "z": 2,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 2,
-      "z": 2,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 2,
-      "z": 3,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 4,
-      "y": 2,
-      "z": 3,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -4,
-      "y": 2,
-      "z": 4,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 2,
-      "z": 4,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 2,
-      "z": 5,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 2,
-      "z": 5,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 2,
-      "z": 6,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": 4,
-      "y": 2,
-      "z": 6,
-      "name": "Rock_Stone"
-    },
-    {
-      "x": -4,
-      "y": 3,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -4,
-      "y": 3,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -3,
-      "y": 3,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -3,
-      "y": 3,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -2,
-      "y": 3,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -2,
-      "y": 3,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -1,
-      "y": 3,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -1,
-      "y": 3,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 0,
-      "y": 3,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 0,
-      "y": 3,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 1,
-      "y": 3,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 1,
-      "y": 3,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 2,
-      "y": 3,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 2,
-      "y": 3,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 3,
-      "y": 3,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 3,
-      "y": 3,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 4,
-      "y": 3,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 4,
-      "y": 3,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -4,
-      "y": 3,
-      "z": 1,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 4,
-      "y": 3,
-      "z": 1,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -4,
-      "y": 3,
-      "z": 2,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 4,
-      "y": 3,
-      "z": 2,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -4,
-      "y": 3,
-      "z": 3,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 4,
-      "y": 3,
-      "z": 3,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -4,
-      "y": 3,
-      "z": 4,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 4,
-      "y": 3,
-      "z": 4,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -4,
-      "y": 3,
-      "z": 5,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 4,
-      "y": 3,
-      "z": 5,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": -4,
-      "y": 3,
-      "z": 6,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 4,
-      "y": 3,
-      "z": 6,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 0,
-      "y": 1,
-      "z": 2,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 0,
-      "y": 1,
-      "z": 3,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 0,
-      "y": 1,
-      "z": 4,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 0,
-      "y": 1,
-      "z": 5,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
       "x": -5,
       "y": 4,
-      "z": -1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 5,
-      "y": 4,
-      "z": -1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -4,
-      "y": 5,
-      "z": -1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 4,
-      "y": 5,
-      "z": -1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -3,
-      "y": 6,
-      "z": -1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 3,
-      "y": 6,
-      "z": -1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -2,
-      "y": 7,
-      "z": -1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 2,
-      "y": 7,
-      "z": -1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -1,
-      "y": 8,
-      "z": -1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 0,
-      "y": 8,
-      "z": -1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 1,
-      "y": 8,
       "z": -1,
       "name": "Rock_Shale"
     },
@@ -1062,128 +18,8 @@
       "name": "Rock_Shale"
     },
     {
-      "x": 5,
-      "y": 4,
-      "z": 0,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -4,
-      "y": 5,
-      "z": 0,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 4,
-      "y": 5,
-      "z": 0,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -3,
-      "y": 6,
-      "z": 0,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 3,
-      "y": 6,
-      "z": 0,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -2,
-      "y": 7,
-      "z": 0,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 2,
-      "y": 7,
-      "z": 0,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -1,
-      "y": 8,
-      "z": 0,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 0,
-      "y": 8,
-      "z": 0,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 1,
-      "y": 8,
-      "z": 0,
-      "name": "Rock_Shale"
-    },
-    {
       "x": -5,
       "y": 4,
-      "z": 1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 5,
-      "y": 4,
-      "z": 1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -4,
-      "y": 5,
-      "z": 1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 4,
-      "y": 5,
-      "z": 1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -3,
-      "y": 6,
-      "z": 1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 3,
-      "y": 6,
-      "z": 1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -2,
-      "y": 7,
-      "z": 1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 2,
-      "y": 7,
-      "z": 1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -1,
-      "y": 8,
-      "z": 1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 0,
-      "y": 8,
-      "z": 1,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 1,
-      "y": 8,
       "z": 1,
       "name": "Rock_Shale"
     },
@@ -1194,128 +30,8 @@
       "name": "Rock_Shale"
     },
     {
-      "x": 5,
-      "y": 4,
-      "z": 2,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -4,
-      "y": 5,
-      "z": 2,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 4,
-      "y": 5,
-      "z": 2,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -3,
-      "y": 6,
-      "z": 2,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 3,
-      "y": 6,
-      "z": 2,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -2,
-      "y": 7,
-      "z": 2,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 2,
-      "y": 7,
-      "z": 2,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -1,
-      "y": 8,
-      "z": 2,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 0,
-      "y": 8,
-      "z": 2,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 1,
-      "y": 8,
-      "z": 2,
-      "name": "Rock_Shale"
-    },
-    {
       "x": -5,
       "y": 4,
-      "z": 3,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 5,
-      "y": 4,
-      "z": 3,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -4,
-      "y": 5,
-      "z": 3,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 4,
-      "y": 5,
-      "z": 3,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -3,
-      "y": 6,
-      "z": 3,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 3,
-      "y": 6,
-      "z": 3,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -2,
-      "y": 7,
-      "z": 3,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 2,
-      "y": 7,
-      "z": 3,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -1,
-      "y": 8,
-      "z": 3,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 0,
-      "y": 8,
-      "z": 3,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 1,
-      "y": 8,
       "z": 3,
       "name": "Rock_Shale"
     },
@@ -1326,128 +42,8 @@
       "name": "Rock_Shale"
     },
     {
-      "x": 5,
-      "y": 4,
-      "z": 4,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -4,
-      "y": 5,
-      "z": 4,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 4,
-      "y": 5,
-      "z": 4,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -3,
-      "y": 6,
-      "z": 4,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 3,
-      "y": 6,
-      "z": 4,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -2,
-      "y": 7,
-      "z": 4,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 2,
-      "y": 7,
-      "z": 4,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -1,
-      "y": 8,
-      "z": 4,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 0,
-      "y": 8,
-      "z": 4,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 1,
-      "y": 8,
-      "z": 4,
-      "name": "Rock_Shale"
-    },
-    {
       "x": -5,
       "y": 4,
-      "z": 5,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 5,
-      "y": 4,
-      "z": 5,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -4,
-      "y": 5,
-      "z": 5,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 4,
-      "y": 5,
-      "z": 5,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -3,
-      "y": 6,
-      "z": 5,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 3,
-      "y": 6,
-      "z": 5,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -2,
-      "y": 7,
-      "z": 5,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 2,
-      "y": 7,
-      "z": 5,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -1,
-      "y": 8,
-      "z": 5,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 0,
-      "y": 8,
-      "z": 5,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 1,
-      "y": 8,
       "z": 5,
       "name": "Rock_Shale"
     },
@@ -1458,128 +54,8 @@
       "name": "Rock_Shale"
     },
     {
-      "x": 5,
-      "y": 4,
-      "z": 6,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -4,
-      "y": 5,
-      "z": 6,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 4,
-      "y": 5,
-      "z": 6,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -3,
-      "y": 6,
-      "z": 6,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 3,
-      "y": 6,
-      "z": 6,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -2,
-      "y": 7,
-      "z": 6,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 2,
-      "y": 7,
-      "z": 6,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -1,
-      "y": 8,
-      "z": 6,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 0,
-      "y": 8,
-      "z": 6,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 1,
-      "y": 8,
-      "z": 6,
-      "name": "Rock_Shale"
-    },
-    {
       "x": -5,
       "y": 4,
-      "z": 7,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 5,
-      "y": 4,
-      "z": 7,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -4,
-      "y": 5,
-      "z": 7,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 4,
-      "y": 5,
-      "z": 7,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -3,
-      "y": 6,
-      "z": 7,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 3,
-      "y": 6,
-      "z": 7,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -2,
-      "y": 7,
-      "z": 7,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 2,
-      "y": 7,
-      "z": 7,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": -1,
-      "y": 8,
-      "z": 7,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 0,
-      "y": 8,
-      "z": 7,
-      "name": "Rock_Shale"
-    },
-    {
-      "x": 1,
-      "y": 8,
       "z": 7,
       "name": "Rock_Shale"
     },
@@ -1590,9 +66,249 @@
       "name": "Rock_Shale"
     },
     {
-      "x": 5,
-      "y": 4,
-      "z": 8,
+      "x": -4,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 1,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 2,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 3,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 4,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 5,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 6,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 1,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 2,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 3,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 4,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 5,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 6,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 1,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 2,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 3,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 4,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 5,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 6,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": -1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 0,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 2,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 3,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 4,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 5,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 6,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "z": 7,
       "name": "Rock_Shale"
     },
     {
@@ -1602,9 +318,141 @@
       "name": "Rock_Shale"
     },
     {
-      "x": 4,
-      "y": 5,
-      "z": 8,
+      "x": -3,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -3,
+      "y": 1,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -3,
+      "y": 1,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -3,
+      "y": 2,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -3,
+      "y": 2,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -3,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -3,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": -1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 0,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 2,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 3,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 4,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 5,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 6,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -3,
+      "y": 6,
+      "z": 7,
       "name": "Rock_Shale"
     },
     {
@@ -1614,40 +462,52 @@
       "name": "Rock_Shale"
     },
     {
-      "x": 3,
-      "y": 6,
-      "z": 8,
-      "name": "Rock_Shale"
+      "x": -2,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone"
     },
     {
       "x": -2,
-      "y": 7,
-      "z": 8,
-      "name": "Rock_Shale"
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone"
     },
     {
-      "x": 2,
-      "y": 7,
-      "z": 8,
-      "name": "Rock_Shale"
+      "x": -2,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone"
     },
     {
-      "x": -1,
-      "y": 8,
-      "z": 8,
-      "name": "Rock_Shale"
+      "x": -2,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone"
     },
     {
-      "x": 0,
-      "y": 8,
-      "z": 8,
-      "name": "Rock_Shale"
+      "x": -2,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone"
     },
     {
-      "x": 1,
-      "y": 8,
-      "z": 8,
-      "name": "Rock_Shale"
+      "x": -2,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone"
     },
     {
       "x": -2,
@@ -1656,9 +516,15 @@
       "name": "Wood_Ash_Trunk"
     },
     {
-      "x": 2,
+      "x": -2,
       "y": 1,
-      "z": -1,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -2,
+      "y": 1,
+      "z": 7,
       "name": "Wood_Ash_Trunk"
     },
     {
@@ -1668,10 +534,22 @@
       "name": "Wood_Ash_Trunk"
     },
     {
-      "x": 2,
+      "x": -2,
       "y": 2,
-      "z": -1,
+      "z": 0,
       "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -2,
+      "y": 2,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -2,
+      "y": 3,
+      "z": -2,
+      "name": "Rock_Shale"
     },
     {
       "x": -2,
@@ -1681,6 +559,150 @@
     },
     {
       "x": -2,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -2,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": -1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 0,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 2,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 3,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 4,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 5,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 6,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 7,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "z": 8,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -1,
+      "y": 1,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -1,
+      "y": 1,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -1,
+      "y": 2,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -1,
+      "y": 2,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": -1,
       "y": 3,
       "z": -2,
       "name": "Rock_Shale"
@@ -1694,6 +716,168 @@
     {
       "x": -1,
       "y": 3,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -1,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": -1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 0,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 2,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 3,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 4,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 5,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 6,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 7,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": -1,
+      "y": 8,
+      "z": 8,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": 0,
+      "name": "Civ_BuildingEntrance"
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": 2,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": 3,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": 4,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": 5,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 0,
+      "y": 3,
       "z": -2,
       "name": "Rock_Shale"
     },
@@ -1705,6 +889,150 @@
     },
     {
       "x": 0,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": -1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 0,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 2,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 3,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 4,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 5,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 6,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 7,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 0,
+      "y": 8,
+      "z": 8,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 1,
+      "y": 1,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 1,
+      "y": 1,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 1,
+      "y": 2,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 1,
+      "y": 2,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 1,
       "y": 3,
       "z": -2,
       "name": "Rock_Shale"
@@ -1718,6 +1046,162 @@
     {
       "x": 1,
       "y": 3,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 1,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": -1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 0,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 2,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 3,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 4,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 5,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 6,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 7,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 1,
+      "y": 8,
+      "z": 8,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "z": -1,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "z": -1,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 2,
+      "y": 3,
       "z": -2,
       "name": "Rock_Shale"
     },
@@ -1730,7 +1214,553 @@
     {
       "x": 2,
       "y": 3,
-      "z": -2,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": -1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 0,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 2,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 3,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 4,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 5,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 6,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 7,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 2,
+      "y": 7,
+      "z": 8,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 3,
+      "y": 2,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 3,
+      "y": 2,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 3,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 3,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": -1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 0,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 2,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 3,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 4,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 5,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 6,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 7,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 3,
+      "y": 6,
+      "z": 8,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 1,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 3,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 4,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 5,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 6,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 7,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 1,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 2,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 3,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 4,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 5,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 6,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 1,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 2,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 3,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 4,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 5,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 6,
+      "name": "Rock_Stone"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 1,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 2,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 3,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 4,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 5,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 6,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": -1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 0,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 2,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 3,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 4,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 5,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 6,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 7,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 4,
+      "y": 5,
+      "z": 8,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 5,
+      "y": 2,
+      "z": 0,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 5,
+      "y": 2,
+      "z": 7,
+      "name": "Wood_Ash_Trunk"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": -1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 0,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 1,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 2,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 3,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 4,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 5,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 6,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 7,
+      "name": "Rock_Shale"
+    },
+    {
+      "x": 5,
+      "y": 4,
+      "z": 8,
       "name": "Rock_Shale"
     },
     {
@@ -1972,30 +2002,6 @@
       "y": 0,
       "z": 7,
       "name": "Soil_Dirt"
-    },
-    {
-      "x": 5,
-      "y": 1,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 5,
-      "y": 2,
-      "z": 0,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 5,
-      "y": 1,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
-    },
-    {
-      "x": 5,
-      "y": 2,
-      "z": 7,
-      "name": "Wood_Ash_Trunk"
     },
     {
       "x": 11,
@@ -2005,14 +2011,14 @@
     },
     {
       "x": 11,
-      "y": 2,
-      "z": 0,
+      "y": 1,
+      "z": 7,
       "name": "Wood_Ash_Trunk"
     },
     {
       "x": 11,
-      "y": 1,
-      "z": 7,
+      "y": 2,
+      "z": 0,
       "name": "Wood_Ash_Trunk"
     },
     {
