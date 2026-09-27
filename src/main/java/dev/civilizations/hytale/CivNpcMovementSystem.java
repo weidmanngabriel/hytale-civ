@@ -33,6 +33,11 @@ public final class CivNpcMovementSystem extends EntityTickingSystem<EntityStore>
     }
 
     @Override
+    public boolean isParallel(int archetypeChunkSize, int taskCount) {
+        return false;
+    }
+
+    @Override
     public Query<EntityStore> getQuery() {
         return NPCEntity.getComponentType();
     }
