@@ -212,6 +212,29 @@ public final class RtsInteractionController {
         );
     }
 
+    public void openWiki(
+        PlayerRef playerRef,
+        Ref<EntityStore> playerEntityRef,
+        Store<EntityStore> store
+    ) {
+        Session session = sessions.get(playerRef.getUuid());
+        if (session == null || playerEntityRef == null || !playerEntityRef.isValid()) {
+            return;
+        }
+
+        Player player = store.getComponent(playerEntityRef, Player.getComponentType());
+        if (player == null) {
+            return;
+        }
+
+        clearPlacement(playerRef, session);
+        player.getPageManager().openCustomPage(
+            playerEntityRef,
+            store,
+            new WikiPage(playerRef)
+        );
+    }
+
     private void startFarmPlacement(PlayerRef playerRef, Session session) {
         clearPlacement(playerRef, session);
         session.placingFarm = true;

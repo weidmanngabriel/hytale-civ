@@ -1,7 +1,5 @@
 package dev.civilizations.hytale;
 
-import com.hypixel.hytale.component.Ref;
-import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.protocol.packets.interface_.CustomUIEventBindingType;
 import com.hypixel.hytale.protocol.packets.interface_.UpdateAnchorUI;
 import com.hypixel.hytale.server.core.modules.anchoraction.AnchorActionModule;
@@ -9,7 +7,6 @@ import com.hypixel.hytale.server.core.ui.builder.EventData;
 import com.hypixel.hytale.server.core.ui.builder.UICommandBuilder;
 import com.hypixel.hytale.server.core.ui.builder.UIEventBuilder;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
-import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 
 import javax.annotation.Nonnull;
 
@@ -20,6 +17,7 @@ public final class RtsToolbarAnchorUi {
 
     private static final String ANCHOR_ID = "ReticleServerEvent";
     private static final String ACTION_OPEN_BUILD_MENU = "civilizationsOpenBuildMenu";
+    private static final String ACTION_OPEN_WIKI = "civilizationsOpenWiki";
 
     private RtsToolbarAnchorUi() {
     }
@@ -29,6 +27,11 @@ public final class RtsToolbarAnchorUi {
             ACTION_OPEN_BUILD_MENU,
             (playerRef, ref, store) ->
                 controller.openBuildingMenu(playerRef, ref, store)
+        );
+        AnchorActionModule.get().register(
+            ACTION_OPEN_WIKI,
+            (playerRef, ref, store) ->
+                controller.openWiki(playerRef, ref, store)
         );
     }
 
@@ -41,6 +44,12 @@ public final class RtsToolbarAnchorUi {
             CustomUIEventBindingType.Activating,
             "#BuildButton",
             EventData.of("action", ACTION_OPEN_BUILD_MENU),
+            false
+        );
+        events.addEventBinding(
+            CustomUIEventBindingType.Activating,
+            "#WikiButton",
+            EventData.of("action", ACTION_OPEN_WIKI),
             false
         );
 
