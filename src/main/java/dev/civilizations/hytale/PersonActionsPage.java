@@ -46,7 +46,7 @@ public final class PersonActionsPage
         events.addEventBinding(
             CustomUIEventBindingType.Activating,
             "#WoodcutterButton",
-            EventData.of("@Action", ACTION_WOODCUTTER),
+            EventData.of("Action", ACTION_WOODCUTTER),
             false
         );
     }
@@ -67,7 +67,7 @@ public final class PersonActionsPage
         public static final BuilderCodec<ActionData> CODEC =
             BuilderCodec.builder(ActionData.class, ActionData::new)
                 .append(
-                    new KeyedCodec<>("@Action", Codec.STRING),
+                    new KeyedCodec<>("Action", Codec.STRING),
                     (data, value) -> data.action = value,
                     data -> data.action
                 )
