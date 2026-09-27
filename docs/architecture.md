@@ -27,13 +27,14 @@ Adapters translating between Hytale concepts and core concepts. Entities, NPCs, 
 The current RTS validation spike plus Farm and Woodcutter slices contains these deliberately small Hytale-facing components:
 
 - `RtsCameraController` applies and clears the fixed angled cursor camera. RTS mode does not switch the player to Spectator.
-- `RtsInteractionController` owns temporary per-player RTS input state. Selection is deliberately single-select.
+- `RtsInteractionController` owns temporary per-player RTS input state. Selection is deliberately single-select; build-menu and placement state are also isolated per player.
+- `RtsToolbarHud` renders the persistent left-side RTS menu and `BuildingMenuPage` provides the modal building catalog.
 - Hytale's standard `Use` action (default F) opens `PersonActionsPage` for the selected Civ NPC.
 - `CivUnitRegistry` is a runtime-only registry that marks explicitly claimed NPCs as Civ test units and stores profession and movement target state.
 - `CivNpcMovementSystem` drives claimed NPCs toward movement targets through their existing Hytale `MotionController`.
 - `WoodcutterWorkSystem` finds nearby natural-looking Hytale trunk blocks, drives a WOODCUTTER to an adjacent work position, and uses Hytale's native `BlockHarvestUtils.performBlockDamage` path to fell the base block so normal drops, break events and block physics remain engine-owned.
-- `FarmPrefabService` loads the Farm prefab from the standalone Asset Pack through Hytale's `PrefabStore`, reads `Civ_BuildingEntrance` creator markers, maps those markers to empty blocks during placement and returns their world positions.
-- `FarmBuildingRegistry` binds placed farm instances and assigned NPC refs to the core `FarmBuilding` state.
+- `FarmPrefabService` loads the Farm prefab from the standalone Asset Pack through Hytale's `PrefabStore`, validates terrain, renders the per-player placement preview, sinks the prefab floor one block into the terrain, maps `Civ_BuildingEntrance` markers to empty blocks, and records the world blocks replaced by the embedded floor.
+- `FarmBuildingRegistry` binds placed farm instances and assigned NPC refs to the core `FarmBuilding` state, tracks placement footprints for overlap checks, and retains each instance's replaced-floor snapshot for future demolition restoration.
 - `FarmNpcWorkSystem` translates the core farm states into entrance/exit movement targets and advances production while the Farmer is inside.
 
 `CivUnitRegistry` identifies a runtime entity by its `Store` plus entity index while retaining and validating the original `Ref`. This avoids relying on Java object identity for repeated `Ref` instances and prevents stale entity slots from being treated as valid Civ units.
@@ -52,13 +53,21 @@ Hytale bootstrap and lifecycle. It wires adapters/services and registers Hytale-
 
 - registers the Farm, Woodcutter and shared Civ NPC movement ticking systems;
 - exposes `/civtest`, `/civrtstest`, `/civclaim` and `/civfarm`;
-- wires mouse-button, Hytale Use/F interaction and disconnect events to the RTS interaction controller.
+- wires mouse-button, mouse-motion, Hytale Use/F interaction and disconnect events to the RTS interaction controller.
 
 ## Dependency rule
 
 Dependencies point toward the core. `core` is Hytale-independent. `hytale` may depend on `core` and the Hytale API. `plugin` may depend on both and on the Hytale API.
 
 This keeps most behavior executable in ordinary JUnit tests. Hytale is required only where engine behavior itself is under test.
+
+## Multiplayer interaction and world authority
+
+Player-facing transient state is isolated by player UUID. Selection, modal/build interaction and active placement previews must never be stored as one global RTS state shared by all players.
+
+The preview is advisory client UX only. Any action that mutates shared world state must be validated again on the server at commit time against the current world and building registry. This prevents two players from successfully committing overlapping placements after both previously saw a valid preview.
+
+Placed building instances retain the original world block IDs replaced by their embedded floor. That snapshot is runtime-only while buildings themselves are runtime-only. When placed buildings become persistent, the terrain snapshot must be persisted with the same building instance so future demolition can restore the previous ground.
 
 ## Current milestone
 
@@ -109,7 +118,9 @@ The first real production feature intentionally stays concrete rather than intro
 ~~~text
 Farm prefab in Asset Pack
         ↓
-FarmPrefabService places it in Hytale
+RTS menu → modal catalog → per-player ghost placement
+        ↓
+FarmPrefabService validates terrain, sinks the floor by one block and places it in Hytale
         ↓
 FarmBuildingRegistry creates a core FarmBuilding
         ↓
@@ -127,4 +138,4 @@ A prefab must contain at least one entrance marker. Multiple markers are support
 
 The NPC remains a normal Hytale entity; "inside" is currently a simulation state reached when its position reaches the selected entrance target. The prototype does not hide, despawn or teleport the NPC while working.
 
-The Farm prefab is creator-editable at `asset-pack/Server/Prefabs/Civilizations/Farm/Farm_01.prefab.json`. The prefab anchor is placement metadata only and no longer defines the entrance. The current exterior exit target remains two blocks south of the selected entrance because Farm rotation is still fixed. Rotation-aware entrance direction metadata is deferred until rotated building placement is introduced.
+The Farm prefab is creator-editable at `asset-pack/Server/Prefabs/Civilizations/Farm/Farm_01.prefab.json`. The prefab anchor is placement metadata only and no longer defines the entrance. During RTS placement the clicked terrain surface is treated as the finished floor height, so the prefab anchor is shifted down by one block and the prefab's floor replaces that terrain layer. The replaced block IDs are retained on the placed Farm instance for future demolition restoration. The current exterior exit target remains two blocks south of the selected entrance because Farm rotation is still fixed. Rotation-aware entrance direction metadata is deferred until rotated building placement is introduced.
