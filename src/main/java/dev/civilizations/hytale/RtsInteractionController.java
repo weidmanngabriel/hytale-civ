@@ -224,11 +224,14 @@ public final class RtsInteractionController {
         }
 
         try {
-            farmPrefabService.placeFarm(playerRef, world, targetBlock);
-            FarmBuildingRegistry.FarmSite site = farmRegistry.registerFarm(worldId, targetBlock);
+            FarmPrefabService.PlacedFarm placedFarm =
+                farmPrefabService.placeFarm(playerRef, world, targetBlock);
+            FarmBuildingRegistry.FarmSite site =
+                farmRegistry.registerFarm(worldId, placedFarm.entranceBlocks());
             playerRef.sendMessage(Message.raw(
-                "Farm " + site.building().id() + " placed. Select exactly one claimed NPC "
-                    + "and right click the doorway to assign a Farmer."
+                "Farm " + site.building().id() + " placed with " + site.entranceCount()
+                    + " entrance marker(s). Select exactly one claimed NPC "
+                    + "and right click a doorway to assign a Farmer."
             ));
         } catch (RuntimeException exception) {
             playerRef.sendMessage(Message.raw("Farm placement failed: " + exception.getMessage()));
