@@ -1,13 +1,11 @@
 package dev.civilizations.hytale;
 
 import com.hypixel.hytale.component.Ref;
-import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.MouseButtonState;
 import com.hypixel.hytale.protocol.MouseButtonType;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
-import com.hypixel.hytale.server.core.event.events.player.PlayerInteractEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseMotionEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
@@ -16,7 +14,6 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import dev.civilizations.core.Profession;
-import org.joml.Vector2fc;
 import org.joml.Vector3i;
 
 import java.util.List;
@@ -26,11 +23,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class RtsInteractionController {
-
-    private static final int TOOLBAR_LEFT = 16;
-    private static final int TOOLBAR_TOP = 220;
-    private static final int TOOLBAR_WIDTH = 124;
-    private static final int TOOLBAR_HEIGHT = 72;
 
     private final RtsCameraController cameraController;
     private final CivUnitRegistry unitRegistry;
@@ -166,53 +158,6 @@ public final class RtsInteractionController {
         }
     }
 
-    @SuppressWarnings("deprecation")
-    public void handleInteract(PlayerInteractEvent event) {
-        if (event.getActionType() != InteractionType.Use) {
-            return;
-        }
-
-        Ref<EntityStore> playerEntityRef = event.getPlayerRef();
-        PlayerRef playerRef = playerEntityRef.getStore().getComponent(
-            playerEntityRef,
-            PlayerRef.getComponentType()
-        );
-        if (playerRef == null) {
-            return;
-        }
-
-        Session session = sessions.get(playerRef.getUuid());
-        if (session == null) {
-            return;
-        }
-
-        if (session.placingFarm) {
-            playerRef.sendMessage(Message.raw(
-                "Farm-Platzierung aktiv: Linksklick platziert, Rechtsklick bricht ab."
-            ));
-            event.setCancelled(true);
-            return;
-        }
-
-        removeInvalidSelection(session);
-        if (session.selected == null) {
-            playerRef.sendMessage(Message.raw("Select one Civ NPC before pressing F."));
-            event.setCancelled(true);
-            return;
-        }
-
-        Ref<EntityStore> selected = session.selected;
-        event.getPlayer().getPageManager().openCustomPage(
-            playerEntityRef,
-            playerEntityRef.getStore(),
-            new PersonActionsPage(
-                playerRef,
-                () -> assignWoodcutter(playerRef, selected)
-            )
-        );
-        event.setCancelled(true);
-    }
-
     public void handleDisconnect(PlayerDisconnectEvent event) {
         PlayerRef playerRef = event.getPlayerRef();
         Session session = sessions.remove(playerRef.getUuid());
@@ -232,11 +177,6 @@ public final class RtsInteractionController {
             return;
         }
 
-        if (isBuildToolbarClick(event.getScreenPoint())) {
-            openBuildingMenu(event, playerRef, session);
-            return;
-        }
-
         if (claimArmed.remove(playerRef.getUuid())) {
             handleClaim(event, playerRef);
             return;
@@ -245,16 +185,25 @@ public final class RtsInteractionController {
         handleSelection(event, playerRef, session);
     }
 
-    private void openBuildingMenu(
-        PlayerMouseButtonEvent event,
+    public void openBuildingMenu(
         PlayerRef playerRef,
-        Session session
+        Ref<EntityStore> playerEntityRef,
+        Store<EntityStore> store
     ) {
+        Session session = sessions.get(playerRef.getUuid());
+        if (session == null || playerEntityRef == null || !playerEntityRef.isValid()) {
+            return;
+        }
+
+        Player player = store.getComponent(playerEntityRef, Player.getComponentType());
+        if (player == null) {
+            return;
+        }
+
         clearPlacement(playerRef, session);
-        Ref<EntityStore> playerEntityRef = event.getPlayerRef();
-        event.getPlayer().getPageManager().openCustomPage(
+        player.getPageManager().openCustomPage(
             playerEntityRef,
-            playerEntityRef.getStore(),
+            store,
             new BuildingMenuPage(
                 playerRef,
                 () -> startFarmPlacement(playerRef, session)
@@ -386,7 +335,9 @@ public final class RtsInteractionController {
         }
 
         session.selected = target;
-        playerRef.sendMessage(Message.raw("Civ unit selected. Press F for actions."));
+        playerRef.sendMessage(Message.raw(
+            "Civ-Bewohner ausgewählt. Rechtsklick auf ihn öffnet die Aktionen."
+        ));
     }
 
     private void handleRightClick(
@@ -394,9 +345,17 @@ public final class RtsInteractionController {
         PlayerRef playerRef,
         Session session
     ) {
+        removeInvalidSelection(session);
+
+        Ref<EntityStore> targetEntity = event.getTargetEntityRef();
+        if (targetEntity != null && isSelected(session, targetEntity)) {
+            openPersonActions(event, playerRef, session.selected);
+            return;
+        }
+
         Vector3i targetBlock = event.getTargetBlock();
         if (targetBlock == null) {
-            playerRef.sendMessage(Message.raw("No ground target under cursor."));
+            playerRef.sendMessage(Message.raw("Kein Bodenziel unter dem Cursor."));
             return;
         }
 
@@ -407,17 +366,40 @@ public final class RtsInteractionController {
             return;
         }
 
-        removeInvalidSelection(session);
         if (session.selected == null) {
-            playerRef.sendMessage(Message.raw("Select one Civ NPC before issuing a move command."));
+            playerRef.sendMessage(Message.raw(
+                "Wähle zuerst einen Civ-Bewohner aus."
+            ));
             return;
         }
 
         int assigned = unitRegistry.assignMoveTargets(List.of(session.selected), targetBlock);
         playerRef.sendMessage(Message.raw(
-            "Move command " + targetBlock.x + ", " + targetBlock.y + ", " + targetBlock.z
-                + " assigned to " + assigned + " Civ unit."
+            "Bewegungsbefehl " + targetBlock.x + ", " + targetBlock.y + ", " + targetBlock.z
+                + " an " + assigned + " Civ-Bewohner."
         ));
+    }
+
+    private void openPersonActions(
+        PlayerMouseButtonEvent event,
+        PlayerRef playerRef,
+        Ref<EntityStore> selected
+    ) {
+        Ref<EntityStore> playerEntityRef = event.getPlayerRef();
+        event.getPlayer().getPageManager().openCustomPage(
+            playerEntityRef,
+            playerEntityRef.getStore(),
+            new PersonActionsPage(
+                playerRef,
+                () -> assignWoodcutter(playerRef, selected)
+            )
+        );
+    }
+
+    private boolean isSelected(Session session, Ref<EntityStore> target) {
+        return session.selected != null
+            && unitRegistry.isClaimed(target)
+            && unitRegistry.keyOf(session.selected).equals(unitRegistry.keyOf(target));
     }
 
     private void assignSelectedFarmer(
@@ -483,42 +465,17 @@ public final class RtsInteractionController {
     }
 
     private void showToolbar(PlayerRef playerRef) {
-        Player player = getPlayer(playerRef);
-        if (player != null) {
-            player.getHudManager().addCustomHud(playerRef, new RtsToolbarHud(playerRef));
-        }
+        RtsToolbarAnchorUi.send(playerRef);
     }
 
     private void removeToolbar(PlayerRef playerRef) {
-        Player player = getPlayer(playerRef);
-        if (player != null) {
-            player.getHudManager().removeCustomHud(playerRef, RtsToolbarHud.KEY);
-        }
-    }
-
-    private static Player getPlayer(PlayerRef playerRef) {
-        Ref<EntityStore> playerEntityRef = playerRef.getReference();
-        if (playerEntityRef == null || !playerEntityRef.isValid()) {
-            return null;
-        }
-        return playerEntityRef.getStore().getComponent(
-            playerEntityRef,
-            Player.getComponentType()
-        );
+        RtsToolbarAnchorUi.clear(playerRef);
     }
 
     private void removeInvalidSelection(Session session) {
         if (session.selected != null && !unitRegistry.isClaimed(session.selected)) {
             session.selected = null;
         }
-    }
-
-    private static boolean isBuildToolbarClick(Vector2fc point) {
-        return point != null
-            && point.x() >= TOOLBAR_LEFT
-            && point.x() < TOOLBAR_LEFT + TOOLBAR_WIDTH
-            && point.y() >= TOOLBAR_TOP
-            && point.y() < TOOLBAR_TOP + TOOLBAR_HEIGHT;
     }
 
     private static final class Session {
