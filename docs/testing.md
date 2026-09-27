@@ -73,7 +73,7 @@ A compatible NPC role with an active motion controller is required for the movem
 Automated coverage now includes:
 
 - FarmBuildingTest, which proves one Farmer slot, five seconds of active work per wheat, mandatory exit after every production step and a hard stop at 10 wheat;
-- FarmPrefabValidationTest, which validates the committed Asset Pack prefab metadata, unique block coordinates, visible entrance, door, roof and crop-bed materials.
+- FarmPrefabValidationTest, which validates the committed Asset Pack prefab metadata, unique block coordinates, visible entrance opening, roof and crop-bed materials.
 
 Manual acceptance sequence:
 
