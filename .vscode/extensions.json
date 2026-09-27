@@ -1,0 +1,7 @@
+{
+  "recommendations": [
+    "redhat.java",
+    "vscjava.vscode-gradle",
+    "vscjava.vscode-java-test"
+  ]
+}
