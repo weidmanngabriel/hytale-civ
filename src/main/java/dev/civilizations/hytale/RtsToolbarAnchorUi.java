@@ -27,7 +27,7 @@ public final class RtsToolbarAnchorUi {
     public static void register(RtsInteractionController controller) {
         AnchorActionModule.get().register(
             ACTION_OPEN_BUILD_MENU,
-            (playerRef, ref, store, data) ->
+            (playerRef, ref, store) ->
                 controller.openBuildingMenu(playerRef, ref, store)
         );
     }
