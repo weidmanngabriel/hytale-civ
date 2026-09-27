@@ -10,7 +10,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FarmPrefabValidationTest {
@@ -28,7 +27,7 @@ class FarmPrefabValidationTest {
 
     @Test
     void farmPrefabHasExpectedStructureAndEntrance() throws Exception {
-        assertTrue(Files.isRegularFile(FARM_PREFAB), "Farm prefab must be packaged in the Asset Pack");
+        assertTrue(Files.isRegularFile(FARM_PREFAB));
 
         JsonNode prefab = objectMapper.readTree(Files.readString(FARM_PREFAB));
         assertEquals(8, prefab.path("version").asInt());
@@ -39,37 +38,34 @@ class FarmPrefabValidationTest {
 
         JsonNode blocks = prefab.path("blocks");
         assertTrue(blocks.isArray());
-        assertTrue(blocks.size() > 150, "Farm should be a real visible building, not a marker block");
+        assertTrue(blocks.size() > 200);
 
         Set<String> coordinates = new HashSet<>();
         boolean hasEntranceThreshold = false;
-        boolean hasDoor = false;
+        boolean doorwayIsOpen = true;
         boolean hasRoof = false;
         boolean hasCropBed = false;
 
         for (JsonNode block : blocks) {
-            String coordinate = block.path("x").asInt()
-                + ":" + block.path("y").asInt()
-                + ":" + block.path("z").asInt();
-            assertTrue(coordinates.add(coordinate), "Duplicate prefab coordinate: " + coordinate);
-
             int x = block.path("x").asInt();
             int y = block.path("y").asInt();
             int z = block.path("z").asInt();
             String name = block.path("name").asText();
 
+            assertTrue(coordinates.add(x + ":" + y + ":" + z));
+
             hasEntranceThreshold |= x == 0 && y == 0 && z == 0
-                && name.equals("Rock_Stone_Cobble");
-            hasDoor |= x == 0 && y == 1 && z == 0
-                && name.equals("Furniture_Village_Door");
-            hasRoof |= name.equals("Wood_Darkwood_Roof_Flat");
+                && name.equals("Rock_Stone");
+            if (x == 0 && z == 0 && (y == 1 || y == 2)) {
+                doorwayIsOpen = false;
+            }
+            hasRoof |= name.equals("Rock_Shale") && y >= 4;
             hasCropBed |= name.equals("Soil_Dirt") && x >= 6;
         }
 
         assertTrue(hasEntranceThreshold);
-        assertTrue(hasDoor);
+        assertTrue(doorwayIsOpen);
         assertTrue(hasRoof);
         assertTrue(hasCropBed);
-        assertFalse(coordinates.isEmpty());
     }
 }
