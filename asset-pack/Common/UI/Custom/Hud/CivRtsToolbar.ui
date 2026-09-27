@@ -5,12 +5,8 @@ Group #RtsToolbar {
   Background: PatchStyle(Color: #161b22E8);
   Padding: (Full: 8);
 
-  Group {
-    LayoutMode: CenterMiddle;
-
-    Label {
-      Text: "Bauen";
-      Style: (FontSize: 18, TextColor: #ffffff);
-    }
+  $C.@TextButton #BuildButton {
+    @Text = "Bauen";
+    Anchor: (Width: 108, Height: 56);
   }
 }

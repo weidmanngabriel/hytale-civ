@@ -21,7 +21,7 @@ While RTS mode is active:
 - left-clicking a claimed Civ unit makes it the only selected person;
 - left-clicking empty world space clears the selection;
 - unclaimed entities cannot become the Civ selection;
-- pressing Hytale's standard Use action (default F) opens the action menu for the selected person;
+- right-clicking the currently selected Civ NPC opens that person's action menu;
 - the first implemented action is assigning the Woodcutter profession;
 - right-clicking a world block still gives the selected Civ unit a direct movement target;
 - a persistent menu bar appears on the left with a **Bauen** entry;
@@ -30,11 +30,11 @@ While RTS mode is active:
 
 The current Custom camera does not switch the player into Spectator. Hiding only the local player model is not part of this slice because no verified native self-hide mechanism has been established yet.
 
-Movement uses the claimed NPC's existing Hytale role and motion controller. Claims, selection, profession and work state reset with the plugin/server.
+Movement targets are handed to the claimed NPC's native Hytale `PathManager` instead of being steered by a Civ-owned tick loop. Hytale therefore controls the NPC's normal travel speed and route-following behavior. Claims, selection, profession and work state reset with the plugin/server.
 
 ## Woodcutter vertical slice
 
-A selected claimed Civ NPC can be assigned the Woodcutter profession from the F action menu.
+A selected claimed Civ NPC can be assigned the Woodcutter profession by right-clicking that NPC and choosing the action from its context menu.
 
 The first loop is intentionally focused on the visible world interaction:
 

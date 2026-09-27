@@ -38,7 +38,7 @@ Scenario tests should remain Hytale-independent unless the behavior being tested
 
 Tests around translation and adapter behavior where possible without a running server.
 
-The current RTS spike mainly exercises client camera, cursor targeting, Hytale Use/F input, custom HUD/page UI, client-side placement preview, native tree harvesting and Hytale NPC motion behavior and therefore does not pretend to cover those engine contracts with mocked unit tests.
+The current RTS spike mainly exercises client camera, cursor targeting, anchor UI actions, custom pages, client-side placement preview, native tree harvesting and Hytale NPC path/movement behavior and therefore does not pretend to cover those engine contracts with mocked unit tests.
 
 ## Hytale server integration tests
 
@@ -53,14 +53,14 @@ The controllable-NPC spike has this acceptance sequence:
 3. run `/civclaim`, left-click that NPC and confirm it is claimed;
 4. left-click the claimed NPC and confirm it becomes the selected Civ unit;
 5. claim another NPC and select it; confirm it replaces the previous selection rather than creating a multi-selection;
-6. press the standard Hytale Use key (default F) and confirm the Personenaktionen page opens;
-7. right-click open, reasonably flat ground and confirm the selected NPC moves toward the target rather than teleporting;
-8. right-click behind an obstacle and observe collision behavior; this milestone does not require the NPC to find a route around the obstacle;
+6. right-click the selected NPC and confirm the Personenaktionen page opens;
+7. right-click open, reasonably flat ground and confirm the selected NPC travels toward the target using its normal Hytale movement speed rather than the previous slow Civ steering;
+8. right-click behind an obstacle and confirm Hytale's native path/movement stack, rather than Civ code, determines the route behavior;
 9. run `/civclaim` and click a claimed NPC again to release it; confirm it can no longer be selected or commanded;
 10. run `/civrtstest` again and confirm normal camera control returns;
 11. confirm claims are runtime-only and do not survive a plugin/server restart.
 
-A compatible NPC role with an active motion controller is required for the movement test. Native NPC behavior may compete with the debug steering and is part of what this spike is intended to reveal.
+A compatible NPC role that can follow a Hytale `PathManager` transient path is required for the movement test. Civ no longer applies its own per-tick steering force.
 
 ## Current automated tests
 
@@ -76,7 +76,7 @@ Manual acceptance sequence:
 1. install/deploy both `hytale-civ.jar` and `hytale-civ-assets`;
 2. run `/civrtstest`;
 3. claim an NPC with `/civclaim`, then select it with a normal left click;
-4. press **F** and confirm the Personenaktionen menu opens;
+4. right-click the selected NPC and confirm the Personenaktionen menu opens;
 5. click `Holzfäller` and confirm the page closes and the NPC starts autonomous work;
 6. keep the NPC near a normal Hytale tree and confirm it walks beside the trunk rather than trying to stand inside it;
 7. after the chopping phase, confirm the base trunk is broken through Hytale's normal harvesting path;
@@ -95,8 +95,8 @@ Automated coverage now includes:
 Manual acceptance sequence:
 
 1. install/deploy both `hytale-civ.jar` and `hytale-civ-assets`;
-2. run `/civrtstest` and confirm a **Bauen** menu entry appears on the left;
-3. click **Bauen** and confirm a modal **Gebäude** catalog opens to its right and blocks normal RTS world interaction;
+2. run `/civrtstest` and confirm an interactive **Bauen** button appears on the left;
+3. click **Bauen** and confirm the click is handled by Hytale's anchor UI event system and a modal **Gebäude** catalog opens to its right, blocking normal RTS world interaction;
 4. confirm the current catalog contains **Farm** and can be closed without starting placement;
 5. open it again, choose **Farm**, then move the cursor across terrain and confirm a Farm ghost follows the pointed block;
 6. right click and confirm placement is cancelled without changing the world;
