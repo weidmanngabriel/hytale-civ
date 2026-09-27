@@ -4,12 +4,13 @@ Java plugin foundation for a future Hytale civilization/RTS simulation. The repo
 
 ## Current milestone
 
-The plugin contains three validation commands:
+The plugin currently exposes four prototype commands:
 
 ```text
 /civtest
 /civrtstest
 /civclaim
+/civfarm
 ```
 
 `/civtest` is the plugin-load smoke test.
@@ -20,7 +21,7 @@ The plugin contains three validation commands:
 
 In RTS mode, left-click claimed units to build a multi-selection and right-click ground to move the selection. Multiple units receive slightly offset destinations. Movement uses each NPC's existing Hytale motion controller and steering, not teleportation.
 
-This milestone validates direct collision-aware NPC locomotion. It does not yet provide full route planning around arbitrary obstacles, persistent Civ ownership, custom Civ NPC spawning, economy, buildings or production systems.
+The RTS spike validates direct collision-aware NPC locomotion. The Farm vertical slice adds the first concrete building and production loop; full route planning, persistent Civ ownership, custom Civ NPC spawning and a general economy are still future work.
 
 ## Requirements
 
