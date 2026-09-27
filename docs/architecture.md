@@ -18,7 +18,7 @@ Hytale Plugin / API
 
 ### core
 
-Pure Java simulation and domain rules. It must not import `com.hypixel.hytale.*`. Future people, jobs, needs, inventories, goods, production, building state, commands, economy and simulation ticks belong here.
+Pure Java simulation and domain rules. It must not import `com.hypixel.hytale.*`. People, jobs, needs, inventories, goods, production, building state, commands, economy and simulation ticks belong here. The first implemented building slice is represented by the Hytale-independent FarmBuilding, BlockPosition and Profession domain types.
 
 ### hytale
 
@@ -30,6 +30,9 @@ The current RTS validation spike contains four deliberately small Hytale-facing 
 - `RtsInteractionController` owns temporary per-player RTS input state and translates clicks into claim, selection and move commands.
 - `CivUnitRegistry` is a runtime-only registry that marks explicitly claimed NPCs as Civ test units and stores their temporary movement targets.
 - `CivNpcMovementSystem` ticks claimed NPCs with active targets and drives their existing Hytale `MotionController` using pursuit steering.
+- `FarmPrefabService` loads the Farm prefab from the standalone Asset Pack through Hytale's `PrefabStore` and places it as a `BlockSelection`.
+- `FarmBuildingRegistry` binds placed farm instances and assigned NPC refs to the core `FarmBuilding` state.
+- `FarmNpcWorkSystem` translates the core farm states into entrance/exit movement targets and advances production while the Farmer is inside.
 
 `CivUnitRegistry` identifies a runtime entity by its `Store` plus entity index while retaining and validating the original `Ref`. This avoids relying on Java object identity for repeated `Ref` instances and prevents stale entity slots from being treated as valid Civ units.
 
@@ -44,7 +47,7 @@ Hytale bootstrap and lifecycle. It wires adapters/services and registers Hytale-
 `CivilizationsPlugin` currently:
 
 - registers the Civ NPC movement ticking system;
-- exposes `/civtest`, `/civrtstest` and `/civclaim`;
+- exposes `/civtest`, `/civrtstest`, `/civclaim` and `/civfarm`;
 - wires mouse-button and disconnect events to the RTS interaction controller.
 
 ## Dependency rule
@@ -68,7 +71,7 @@ The current engine-validation milestone tests the first controllable Civ NPC loo
 
 Unclaimed animals, monsters or other NPCs are not controllable merely because they are `NPCEntity` instances. The debug claim command can deliberately claim any compatible NPC for testing.
 
-NPC spawning, persistent Civ ownership, obstacle route planning, visual selection markers, drag-box selection, zoom and camera panning are not part of this milestone.
+NPC spawning, persistent Civ ownership, obstacle route planning, visual selection markers, drag-box selection, zoom and camera panning are not part of this milestone. The Farm vertical slice is the first concrete building feature layered on top of the validation spike.
 
 
 ## Distribution boundary
@@ -94,3 +97,27 @@ hytale-civ-<release>.zip
 The outer ZIP is only the downloadable release bundle. Hytale still receives the Java plugin as a JAR and the assets as a standalone Asset Pack folder. This keeps asset changes independent from Java compilation: after installation, files inside `hytale-civ-assets/` can be changed without rebuilding the plugin JAR.
 
 Gameplay data should only move into the Asset Pack when a concrete Hytale asset type is required. Core simulation rules and domain state remain in the existing Java architecture unless a later feature establishes a different boundary.
+
+
+## Farm production vertical slice
+
+The first real production feature intentionally stays concrete rather than introducing a speculative generic building framework.
+
+~~~text
+Farm prefab in Asset Pack
+        ↓
+FarmPrefabService places it in Hytale
+        ↓
+FarmBuildingRegistry creates a core FarmBuilding
+        ↓
+one claimed NPC is assigned Profession.FARMER
+        ↓
+FarmNpcWorkSystem drives:
+entrance → 5 s inside → +1 local wheat → exit → repeat
+        ↓
+stop outside when local wheat reaches 10
+~~~
+
+The entrance is both a visible prefab threshold and the logical building boundary. The NPC remains a normal Hytale entity; "inside" is currently a simulation state reached when its position reaches the entrance target. The prototype does not hide, despawn or teleport the NPC while working.
+
+The Farm prefab is creator-editable at asset-pack/Server/Prefabs/Civilizations/Farm/Farm_01.prefab.json. Its anchor is the entrance threshold. The building extends primarily north of the anchor and the exterior exit target is two blocks south. Fixed orientation is deliberate for the first slice; rotation-aware building metadata is deferred until building placement needs it.
