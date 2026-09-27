@@ -153,3 +153,21 @@ hytale-civ-build-<short-sha>.zip
 Each Release gets a one-line description taken from the released commit subject. With the repository's squash-merge workflow, that means the Release directly summarizes the corresponding change on `main`.
 
 Stable versions use explicit `v*` tags such as `v0.1.0`. A successful tagged build creates a normal GitHub Release with the same ZIP bundle attached.
+
+
+## Farm prototype
+
+The first building/production slice is available in RTS test mode:
+
+~~~text
+/civrtstest
+/civfarm
+→ right click flat ground to place the Farm
+
+/civclaim
+→ left click an NPC to claim it
+→ left click the claimed NPC to select it
+→ right click the Farm doorway
+~~~
+
+The assigned Farmer walks into the Farm, produces one local wheat after five seconds of work, walks outside after every unit, re-enters, and stops once the Farm reaches 10 wheat. The visible building is a creator-editable Hytale prefab in the standalone hytale-civ-assets Asset Pack.
