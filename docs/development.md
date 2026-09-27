@@ -55,6 +55,54 @@ hytale-civ-assets/
 
 The outer ZIP is only a release/download container. The asset directory stays separate from the JAR so installed assets can be edited or replaced without recompiling Java.
 
+## In-game prefab authoring
+
+Hytale's prefab editor can load prefabs from Asset Packs and save them back into a selected Asset Pack. During development, the repository's `asset-pack/` directory should therefore be the authoritative editable copy rather than a separately deployed copy.
+
+Recommended local setup:
+
+```text
+Git repository
+└── asset-pack/                    ← authoritative editable files
+
+Hytale Mods directory
+└── hytale-civ-assets              ← directory link/junction to repo asset-pack/
+```
+
+With that setup the authoring loop is:
+
+```text
+open Hytale prefab editor
+    ↓
+load Civilizations/Farm/Farm_01
+    ↓
+edit blocks and creator markers
+    ↓
+save to HytaleCivAssets
+    ↓
+asset-pack/ in the Git working tree changes directly
+    ↓
+review diff, test, commit
+```
+
+Do not use `deployToHytale` as the authoring source when editing prefabs in-game. That task intentionally copies the Asset Pack into the Mods directory, so subsequent in-game edits would modify the copied installation instead of the repository. Use deployment copies for runtime testing; use a directory link/junction for round-trip prefab authoring.
+
+Example development links (paths are placeholders and must not be committed):
+
+Windows Command Prompt, using a directory junction:
+
+```bat
+mklink /J "%APPDATA%\\Hytale\\UserData\\Mods\\hytale-civ-assets" "C:\\path\\to\\hytale-civ\\asset-pack"
+```
+
+macOS/Linux:
+
+```bash
+ln -s /path/to/hytale-civ/asset-pack /path/to/Hytale/UserData/Mods/hytale-civ-assets
+```
+
+If a normal deployed `hytale-civ-assets` directory already exists, remove or rename that deployed copy before creating the link. Never commit machine-specific Hytale paths or links into the repository.
+
 ## Local deployment
 
 Set `HYTALE_MODS_DIR` and run:
