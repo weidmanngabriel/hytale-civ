@@ -1,8 +1,11 @@
 package dev.civilizations.hytale;
 
+import com.hypixel.hytale.builtin.path.path.TransientPath;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
+import com.hypixel.hytale.math.vector.Rotation3f;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import dev.civilizations.core.Profession;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
@@ -99,15 +102,14 @@ public final class CivUnitRegistry {
             Ref<EntityStore> ref = valid.get(index);
             UnitKey key = keyOf(ref);
 
-            units.computeIfPresent(key, (ignored, state) -> new UnitState(
-                state.ref(),
+            setMoveTarget(
+                ref,
                 new Vector3d(
                     targetBlock.x + 0.5 + offsetX,
                     targetBlock.y + 1.0,
                     targetBlock.z + 0.5 + offsetZ
-                ),
-                state.profession()
-            ));
+                )
+            );
         }
 
         return count;
@@ -119,14 +121,42 @@ public final class CivUnitRegistry {
 
     public void setMoveTarget(Ref<EntityStore> ref, Vector3d target) {
         UnitKey key = keyOf(ref);
-        units.computeIfPresent(
-            key,
-            (ignored, state) -> new UnitState(
-                state.ref(),
-                target == null ? null : new Vector3d(target),
-                state.profession()
-            )
-        );
+        UnitState current = units.get(key);
+        if (current == null || !current.ref().isValid()) {
+            units.remove(key);
+            return;
+        }
+
+        Vector3d nextTarget = target == null ? null : new Vector3d(target);
+        if (sameTarget(current.moveTarget(), nextTarget)) {
+            return;
+        }
+
+        units.put(key, new UnitState(current.ref(), nextTarget, current.profession()));
+        applyNativePath(ref, nextTarget);
+    }
+
+    private static void applyNativePath(Ref<EntityStore> ref, Vector3d target) {
+        NPCEntity npc = ref.getStore().getComponent(ref, NPCEntity.getComponentType());
+        if (npc == null) {
+            return;
+        }
+
+        if (target == null) {
+            npc.getPathManager().setTransientPath(null);
+            return;
+        }
+
+        TransientPath path = new TransientPath();
+        path.addWaypoint(new Vector3d(target), new Rotation3f(0.0f, 0.0f, 0.0f));
+        npc.getPathManager().setTransientPath(path);
+    }
+
+    private static boolean sameTarget(Vector3d current, Vector3d next) {
+        if (current == null || next == null) {
+            return current == next;
+        }
+        return current.distanceSquared(next) < 0.0001;
     }
 
     public void assignProfession(Ref<EntityStore> ref, Profession profession) {
