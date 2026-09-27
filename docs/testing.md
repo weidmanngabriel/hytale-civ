@@ -38,7 +38,7 @@ Scenario tests should remain Hytale-independent unless the behavior being tested
 
 Tests around translation and adapter behavior where possible without a running server.
 
-The current RTS spike mainly exercises client camera, cursor targeting and Hytale NPC motion behavior and therefore does not pretend to cover those engine contracts with mocked unit tests.
+The current RTS spike mainly exercises client camera, cursor targeting, Hytale Use/F input, native tree harvesting and Hytale NPC motion behavior and therefore does not pretend to cover those engine contracts with mocked unit tests.
 
 ## Hytale server integration tests
 
@@ -48,16 +48,17 @@ Future controlled-server tests for lifecycle, registration and engine interactio
 
 The controllable-NPC spike has this acceptance sequence:
 
-1. run `/civrtstest` and confirm the view changes to an angled cursor camera;
+1. run `/civrtstest` and confirm the view changes to a fixed angled cursor camera without entering Spectator mode;
 2. left-click an unclaimed NPC and confirm it is not added to the Civ selection;
 3. run `/civclaim`, left-click that NPC and confirm it is claimed;
-4. left-click the claimed NPC and confirm the selection count changes;
-5. claim and select several NPCs;
-6. right-click open, reasonably flat ground and confirm selected NPCs move toward nearby, slightly offset targets rather than teleporting;
-7. right-click behind an obstacle and observe collision behavior; this milestone does not require the NPCs to find a route around the obstacle;
-8. run `/civclaim` and click a claimed NPC again to release it; confirm it can no longer be selected or commanded;
-9. run `/civrtstest` again and confirm normal camera control returns;
-10. confirm claims are runtime-only and do not survive a plugin/server restart.
+4. left-click the claimed NPC and confirm it becomes the selected Civ unit;
+5. claim another NPC and select it; confirm it replaces the previous selection rather than creating a multi-selection;
+6. press the standard Hytale Use key (default F) and confirm the Personenaktionen page opens;
+7. right-click open, reasonably flat ground and confirm the selected NPC moves toward the target rather than teleporting;
+8. right-click behind an obstacle and observe collision behavior; this milestone does not require the NPC to find a route around the obstacle;
+9. run `/civclaim` and click a claimed NPC again to release it; confirm it can no longer be selected or commanded;
+10. run `/civrtstest` again and confirm normal camera control returns;
+11. confirm claims are runtime-only and do not survive a plugin/server restart.
 
 A compatible NPC role with an active motion controller is required for the movement test. Native NPC behavior may compete with the debug steering and is part of what this spike is intended to reveal.
 
@@ -65,8 +66,24 @@ A compatible NPC role with an active motion controller is required for the movem
 
 - `CoreSmokeTest` proves JUnit works.
 - `CoreIndependenceTest` guards against direct Hytale imports in `core`.
+- `WoodcutterJobTest` proves the target → arrival → chopping → ready-to-fell work cycle.
 - `ManifestValidationTest` validates packaged plugin metadata without starting Hytale.
 
+## Woodcutter vertical-slice coverage
+
+Manual acceptance sequence:
+
+1. install/deploy both `hytale-civ.jar` and `hytale-civ-assets`;
+2. run `/civrtstest`;
+3. claim an NPC with `/civclaim`, then select it with a normal left click;
+4. press **F** and confirm the Personenaktionen menu opens;
+5. click `Holzfäller` and confirm the page closes and the NPC starts autonomous work;
+6. keep the NPC near a normal Hytale tree and confirm it walks beside the trunk rather than trying to stand inside it;
+7. after the chopping phase, confirm the base trunk is broken through Hytale's normal harvesting path;
+8. verify normal drops appear and the remaining tree reacts according to its native support/falling-block configuration;
+9. confirm the Woodcutter then searches for another nearby tree.
+
+The prototype intentionally relies on Hytale's native tree asset behavior after the trunk is broken. If a specific tree asset does not collapse, inspect that asset's support/physics configuration before adding custom Civ collapse logic.
 
 ## Farm vertical-slice coverage
 
@@ -80,7 +97,7 @@ Manual acceptance sequence:
 1. install/deploy both hytale-civ.jar and hytale-civ-assets;
 2. run /civrtstest;
 3. run /civfarm, then right click reasonably flat ground and confirm the visible Farm prefab appears with its doorway at the clicked anchor;
-4. claim an NPC with /civclaim and select exactly that NPC;
+4. claim an NPC with /civclaim and select that NPC;
 5. right click the Farm doorway and confirm the assignment message identifies the NPC as the Farm's Farmer;
 6. confirm the NPC walks to the doorway, waits inside for about five seconds, then walks two blocks outside;
 7. confirm it re-enters and repeats this leave/re-enter cycle for each production step;

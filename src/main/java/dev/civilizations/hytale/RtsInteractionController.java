@@ -1,10 +1,12 @@
 package dev.civilizations.hytale;
 
 import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.MouseButtonState;
 import com.hypixel.hytale.protocol.MouseButtonType;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
+import com.hypixel.hytale.server.core.event.events.player.PlayerInteractEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.Universe;
@@ -14,7 +16,7 @@ import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import dev.civilizations.core.Profession;
 import org.joml.Vector3i;
 
-import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -57,8 +59,8 @@ public final class RtsInteractionController {
         sessions.put(playerId, new Session());
         cameraController.enable(playerRef);
         playerRef.sendMessage(Message.raw(
-            "Civ RTS test enabled. /civclaim claims NPCs; /civfarm arms farm placement. "
-                + "Left click selects Civ units; right click moves or assigns a selected unit to a farm entrance."
+            "Civ RTS test enabled. Left click selects one Civ unit; F opens its action menu; "
+                + "right click moves it or assigns it to a farm entrance."
         ));
         return true;
     }
@@ -108,6 +110,45 @@ public final class RtsInteractionController {
         }
     }
 
+    @SuppressWarnings("deprecation")
+    public void handleInteract(PlayerInteractEvent event) {
+        if (event.getActionType() != InteractionType.Use) {
+            return;
+        }
+
+        Ref<EntityStore> playerEntityRef = event.getPlayerRef();
+        PlayerRef playerRef = playerEntityRef.getStore().getComponent(
+            playerEntityRef,
+            PlayerRef.getComponentType()
+        );
+        if (playerRef == null) {
+            return;
+        }
+
+        Session session = sessions.get(playerRef.getUuid());
+        if (session == null) {
+            return;
+        }
+
+        removeInvalidSelection(session);
+        if (session.selected == null) {
+            playerRef.sendMessage(Message.raw("Select one Civ NPC before pressing F."));
+            event.setCancelled(true);
+            return;
+        }
+
+        Ref<EntityStore> selected = session.selected;
+        event.getPlayer().getPageManager().openCustomPage(
+            playerEntityRef,
+            playerEntityRef.getStore(),
+            new PersonActionsPage(
+                playerRef,
+                () -> assignWoodcutter(playerRef, selected)
+            )
+        );
+        event.setCancelled(true);
+    }
+
     public void handleDisconnect(PlayerDisconnectEvent event) {
         UUID playerId = event.getPlayerRef().getUuid();
         sessions.remove(playerId);
@@ -148,7 +189,12 @@ public final class RtsInteractionController {
         boolean claimed = unitRegistry.toggleClaim(target);
         if (!claimed) {
             farmRegistry.unassignFarmer(target);
-            sessions.values().forEach(otherSession -> otherSession.selected.remove(key));
+            sessions.values().forEach(otherSession -> {
+                if (otherSession.selected != null
+                    && unitRegistry.keyOf(otherSession.selected).equals(key)) {
+                    otherSession.selected = null;
+                }
+            });
         }
 
         playerRef.sendMessage(Message.raw(
@@ -163,7 +209,7 @@ public final class RtsInteractionController {
     ) {
         Ref<EntityStore> target = event.getTargetEntityRef();
         if (target == null) {
-            session.selected.clear();
+            session.selected = null;
             playerRef.sendMessage(Message.raw("Selection cleared."));
             return;
         }
@@ -173,13 +219,8 @@ public final class RtsInteractionController {
             return;
         }
 
-        CivUnitRegistry.UnitKey key = unitRegistry.keyOf(target);
-        if (session.selected.remove(key) == null) {
-            session.selected.put(key, target);
-        }
-
-        removeInvalidSelections(session);
-        playerRef.sendMessage(Message.raw("Selected Civ units: " + session.selected.size()));
+        session.selected = target;
+        playerRef.sendMessage(Message.raw("Civ unit selected. Press F for actions."));
     }
 
     private void handleRightClick(
@@ -205,12 +246,16 @@ public final class RtsInteractionController {
             return;
         }
 
-        removeInvalidSelections(session);
-        int assigned = unitRegistry.assignMoveTargets(session.selected.values(), targetBlock);
+        removeInvalidSelection(session);
+        if (session.selected == null) {
+            playerRef.sendMessage(Message.raw("Select one Civ NPC before issuing a move command."));
+            return;
+        }
 
+        int assigned = unitRegistry.assignMoveTargets(List.of(session.selected), targetBlock);
         playerRef.sendMessage(Message.raw(
             "Move command " + targetBlock.x + ", " + targetBlock.y + ", " + targetBlock.z
-                + " assigned to " + assigned + " Civ units."
+                + " assigned to " + assigned + " Civ unit."
         ));
     }
 
@@ -230,7 +275,7 @@ public final class RtsInteractionController {
                 farmRegistry.registerFarm(worldId, placedFarm.entranceBlocks());
             playerRef.sendMessage(Message.raw(
                 "Farm " + site.building().id() + " placed with " + site.entranceCount()
-                    + " entrance marker(s). Select exactly one claimed NPC "
+                    + " entrance marker(s). Select one claimed NPC "
                     + "and right click a doorway to assign a Farmer."
             ));
         } catch (RuntimeException exception) {
@@ -243,16 +288,16 @@ public final class RtsInteractionController {
         Session session,
         FarmBuildingRegistry.FarmSite farm
     ) {
-        removeInvalidSelections(session);
+        removeInvalidSelection(session);
 
-        if (session.selected.size() != 1) {
+        if (session.selected == null) {
             playerRef.sendMessage(Message.raw(
-                "Select exactly one claimed Civ NPC before right clicking the farm entrance."
+                "Select one claimed Civ NPC before right clicking the farm entrance."
             ));
             return;
         }
 
-        Ref<EntityStore> farmer = session.selected.values().iterator().next();
+        Ref<EntityStore> farmer = session.selected;
         FarmBuildingRegistry.AssignmentResult result = farmRegistry.assignFarmer(farmer, farm);
 
         switch (result) {
@@ -273,11 +318,27 @@ public final class RtsInteractionController {
         }
     }
 
-    private void removeInvalidSelections(Session session) {
-        session.selected.entrySet().removeIf(entry -> !unitRegistry.isClaimed(entry.getValue()));
+    private void assignWoodcutter(PlayerRef playerRef, Ref<EntityStore> selected) {
+        if (!unitRegistry.isClaimed(selected)) {
+            playerRef.sendMessage(Message.raw("The selected Civ NPC is no longer available."));
+            return;
+        }
+
+        farmRegistry.unassignFarmer(selected);
+        unitRegistry.clearMoveTarget(selected);
+        unitRegistry.assignProfession(selected, Profession.WOODCUTTER);
+        playerRef.sendMessage(Message.raw(
+            "Woodcutter assigned. The NPC will search nearby for the closest tree and fell it."
+        ));
+    }
+
+    private void removeInvalidSelection(Session session) {
+        if (session.selected != null && !unitRegistry.isClaimed(session.selected)) {
+            session.selected = null;
+        }
     }
 
     private static final class Session {
-        private final Map<CivUnitRegistry.UnitKey, Ref<EntityStore>> selected = new LinkedHashMap<>();
+        private Ref<EntityStore> selected;
     }
 }

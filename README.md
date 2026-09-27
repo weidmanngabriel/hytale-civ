@@ -15,11 +15,13 @@ The plugin currently exposes four prototype commands:
 
 `/civtest` is the plugin-load smoke test.
 
-`/civrtstest` toggles the RTS interaction mode with an angled cursor camera.
+`/civrtstest` toggles the RTS interaction mode with a fixed angled cursor camera. The mode uses a Hytale Custom camera, not Spectator mode.
 
 `/civclaim` arms the next left click so an existing Hytale `NPCEntity` can be explicitly claimed or released as a temporary Civ test unit. Only claimed Civ units can be selected and commanded.
 
-In RTS mode, left-click claimed units to build a multi-selection and right-click ground to move the selection. Multiple units receive slightly offset destinations. Movement uses each NPC's existing Hytale motion controller and steering, not teleportation.
+In RTS mode, left-click a claimed unit to make it the single selected person. Press Hytale's standard Use key (normally **F**) to open that person's action menu. Right-click ground still issues the existing direct move command.
+
+The first action-menu profession is **Holzfäller**. A Woodcutter searches for a nearby tree, walks beside the trunk, works briefly and then fells the base through Hytale's native block-harvest path. Hytale therefore remains responsible for normal drops and the tree asset's support/falling-block behavior.
 
 The RTS spike validates direct collision-aware NPC locomotion. The Farm vertical slice adds the first concrete building and production loop; full route planning, persistent Civ ownership, custom Civ NPC spawning and a general economy are still future work.
 
@@ -83,7 +85,7 @@ Editable source assets live in `asset-pack/`. The artifact name is configured ce
 
 The build uses the official release repository `https://maven.hytale.com/release` and `com.hypixel.hytale:Server` as a `compileOnly` dependency. The selector is configured as `hytaleServerVersion`.
 
-Hytale API usage must be re-checked against current official docs when changed.
+Hytale API usage must be re-checked against current official docs when changed. Before implementing Hytale-facing behavior, the project first checks for an existing native Hytale API, asset, interaction, game mode, UI primitive or engine system and prefers that over recreating equivalent behavior.
 
 ## Local deployment
 
@@ -121,11 +123,14 @@ If no path is configured, normal tests and builds still work; only `deployToHyta
 4. Run `/civrtstest`.
 5. Run `/civclaim`, then left-click an existing NPC to claim it.
 6. Left-click the claimed NPC to select it.
-7. Right-click open ground and confirm it walks toward the target rather than teleporting.
-8. Repeat with several claimed NPCs and confirm their destinations are slightly separated.
-9. Verify an unclaimed NPC cannot be selected or commanded.
-10. Run `/civclaim` and click a claimed NPC to release it.
-11. Run `/civrtstest` again to restore the normal camera.
+7. Press **F** and confirm the Personenaktionen menu opens.
+8. Choose **Holzfäller** and confirm the NPC finds a nearby tree, walks beside it and fells it through normal Hytale harvesting.
+9. Confirm the tree's normal drops and native support/falling-block behavior occur.
+10. Right-click open ground and confirm the selected NPC can still receive a direct move command.
+11. Verify selecting a second claimed NPC replaces the first selection.
+12. Verify an unclaimed NPC cannot be selected or commanded.
+13. Run `/civclaim` and click a claimed NPC to release it.
+14. Run `/civrtstest` again to restore the normal camera.
 
 Obstacle avoidance beyond the NPC motion controller's direct collision handling is not an acceptance criterion yet.
 
@@ -154,7 +159,6 @@ hytale-civ-build-<short-sha>.zip
 Each Release gets a one-line description taken from the released commit subject. With the repository's squash-merge workflow, that means the Release directly summarizes the corresponding change on `main`.
 
 Stable versions use explicit `v*` tags such as `v0.1.0`. A successful tagged build creates a normal GitHub Release with the same ZIP bundle attached.
-
 
 ## Farm prototype
 
