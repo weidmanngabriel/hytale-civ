@@ -1,0 +1,20 @@
+{
+  "Group": "Civilizations",
+  "Name": "HytaleCivAssets",
+  "Version": "0.1.0",
+  "Description": "Editable asset pack for Hytale Civ.",
+  "Authors": [
+    {
+      "Name": "Hytale Civ",
+      "Email": "",
+      "Url": ""
+    }
+  ],
+  "Website": "",
+  "Dependencies": {},
+  "OptionalDependencies": {},
+  "LoadBefore": {},
+  "DisabledByDefault": false,
+  "IncludesAssetPack": false,
+  "SubPlugins": []
+}
