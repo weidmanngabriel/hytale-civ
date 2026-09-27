@@ -93,7 +93,7 @@ public final class WikiPage extends InteractiveCustomUIPage<WikiPage.ActionData>
         events.addEventBinding(
             CustomUIEventBindingType.Activating,
             selector,
-            EventData.of("@Action", action),
+            EventData.of("Action", action),
             false
         );
     }
@@ -152,7 +152,7 @@ public final class WikiPage extends InteractiveCustomUIPage<WikiPage.ActionData>
         public static final BuilderCodec<ActionData> CODEC =
             BuilderCodec.builder(ActionData.class, ActionData::new)
                 .append(
-                    new KeyedCodec<>("@Action", Codec.STRING),
+                    new KeyedCodec<>("Action", Codec.STRING),
                     (data, value) -> data.action = value,
                     data -> data.action
                 )
