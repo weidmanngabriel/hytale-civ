@@ -1,5 +1,6 @@
 package dev.civilizations.plugin;
 
+import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
@@ -20,5 +21,6 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getCommandRegistry().registerCommand(new CivTestCommand());
         getCommandRegistry().registerCommand(new CivRtsTestCommand(rtsInteractionController));
         getEventRegistry().register(PlayerMouseButtonEvent.class, rtsInteractionController::handleMouseButton);
+        getEventRegistry().register(PlayerDisconnectEvent.class, rtsInteractionController::handleDisconnect);
     }
 }
