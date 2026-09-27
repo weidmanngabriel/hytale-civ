@@ -8,7 +8,7 @@ Unknown behavior stays unknown until it is decided or verified. Do not turn impl
 
 ## Current domain status
 
-The project is still in an engine-validation milestone. Most planned simulation domains such as persistent inhabitants, needs, general inventories, logistics, families and economy do not yet have implemented domain rules. The Farm vertical slice is the first implemented building/job/production rule set.
+The project is still in an engine-validation milestone. Most planned simulation domains such as persistent inhabitants, needs, general inventories, logistics, families and economy do not yet have implemented domain rules. Farm and Woodcutter are the first implemented job slices.
 
 The current NPC claim and movement state is deliberately temporary integration-test state, not persistent Civ ownership or an inhabitant lifecycle.
 
@@ -30,6 +30,14 @@ As concrete features are implemented, keep their verified rules here under focus
 
 Do not predefine their detailed rules before the corresponding product behavior is decided.
 
+## Woodcutter
+
+- Woodcutter is a profession that can currently be assigned to one selected claimed Civ NPC.
+- After assignment, the Woodcutter autonomously seeks a nearby tree rather than waiting for a building assignment.
+- The Woodcutter walks beside the tree before working on it.
+- Felling must use Hytale's native block harvesting and physics behavior rather than deleting a tree through Civ-only simulation state.
+- After a tree is felled, the Woodcutter searches for another nearby tree.
+- Work areas, carrying wood, storage delivery, tools, experience and persistence are not domain rules yet.
 
 ## Farm
 
