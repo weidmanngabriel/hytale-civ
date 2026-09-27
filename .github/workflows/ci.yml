@@ -32,14 +32,14 @@ jobs:
       - name: Run tests
         run: ./gradlew test --stacktrace
 
-      - name: Build plugin
+      - name: Build plugin and release bundle
         run: ./gradlew build --stacktrace
 
-      - name: Upload plugin JAR
+      - name: Upload release bundle
         uses: actions/upload-artifact@v4
         with:
-          name: hytale-plugin-jar
-          path: build/libs/*.jar
+          name: hytale-release-bundle
+          path: build/distributions/*-bundle.zip
           if-no-files-found: error
 
       - name: Upload test reports on failure
@@ -61,10 +61,13 @@ jobs:
       contents: write
 
     steps:
-      - name: Download tested plugin JAR
+      - name: Check out release commit
+        uses: actions/checkout@v4
+
+      - name: Download tested release bundle
         uses: actions/download-artifact@v4
         with:
-          name: hytale-plugin-jar
+          name: hytale-release-bundle
           path: release-artifact
 
       - name: Prepare release metadata
@@ -73,27 +76,30 @@ jobs:
         run: |
           set -euo pipefail
 
-          jar_path="$(find release-artifact -maxdepth 1 -type f -name '*.jar' -print -quit)"
-          if [[ -z "$jar_path" ]]; then
-            echo "No plugin JAR found in downloaded artifact." >&2
+          bundle_path="$(find release-artifact -maxdepth 1 -type f -name '*.zip' -print -quit)"
+          if [[ -z "$bundle_path" ]]; then
+            echo "No release bundle found in downloaded artifact." >&2
             exit 1
+          fi
+
+          commit_subject="$(git log -1 --pretty=%s HEAD)"
+          if [[ -z "$commit_subject" ]]; then
+            commit_subject="Automated Hytale Civ build."
           fi
 
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             tag="$GITHUB_REF_NAME"
             title="$GITHUB_REF_NAME"
             prerelease="false"
-            notes="Stable Hytale Civ release built and tested from commit $GITHUB_SHA."
           else
             short_sha="${GITHUB_SHA::7}"
             tag="build-$short_sha"
             title="Development build $short_sha"
             prerelease="true"
-            notes="Automated Hytale Civ development build from main commit $GITHUB_SHA."
           fi
 
-          asset="hytale-civ-$tag.jar"
-          cp "$jar_path" "$asset"
+          asset="hytale-civ-$tag.zip"
+          cp "$bundle_path" "$asset"
 
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "title=$title" >> "$GITHUB_OUTPUT"
@@ -101,7 +107,7 @@ jobs:
           echo "asset=$asset" >> "$GITHUB_OUTPUT"
           {
             echo "notes<<EOF"
-            echo "$notes"
+            echo "$commit_subject"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -118,6 +124,10 @@ jobs:
           set -euo pipefail
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$RELEASE_TITLE" \
+              --notes "$RELEASE_NOTES"
             gh release upload "$RELEASE_TAG" "$RELEASE_ASSET" --clobber --repo "$GITHUB_REPOSITORY"
             exit 0
           fi
