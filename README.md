@@ -4,18 +4,23 @@ Java plugin foundation for a future Hytale civilization/RTS simulation. The repo
 
 ## Current milestone
 
-The plugin contains two validation commands:
+The plugin contains three validation commands:
 
 ```text
 /civtest
 /civrtstest
+/civclaim
 ```
 
-`/civtest` is the original plugin-load smoke test.
+`/civtest` is the plugin-load smoke test.
 
-`/civrtstest` toggles the first RTS interaction spike: an angled cursor camera, logical entity multi-selection by repeated left clicks, and right-click world targeting. It does not move or spawn NPCs yet; that remains a separate engine validation once a concrete NPC role and navigation path are selected.
+`/civrtstest` toggles the RTS interaction mode with an angled cursor camera.
 
-No economy, buildings or production systems are implemented yet.
+`/civclaim` arms the next left click so an existing Hytale `NPCEntity` can be explicitly claimed or released as a temporary Civ test unit. Only claimed Civ units can be selected and commanded.
+
+In RTS mode, left-click claimed units to build a multi-selection and right-click ground to move the selection. Multiple units receive slightly offset destinations. Movement uses each NPC's existing Hytale motion controller and steering, not teleportation.
+
+This milestone validates direct collision-aware NPC locomotion. It does not yet provide full route planning around arbitrary obstacles, persistent Civ ownership, custom Civ NPC spawning, economy, buildings or production systems.
 
 ## Requirements
 
@@ -93,12 +98,17 @@ If no path is configured, normal tests and builds still work; only `deployToHyta
 
 1. Deploy or copy the built JAR into the Hytale Mods folder.
 2. Start a compatible Hytale server/world.
-3. Confirm the plugin loads.
-4. Run `/civtest` and confirm `Civilizations smoke test OK.`.
-5. Run `/civrtstest` and confirm an angled cursor camera is activated.
-6. Left-click existing entities to build a multi-selection; click one again to remove it.
-7. Right-click a world block and confirm the target coordinates plus current selection count are reported.
-8. Run `/civrtstest` again and confirm the normal camera returns.
+3. Confirm the plugin loads and run `/civtest`.
+4. Run `/civrtstest`.
+5. Run `/civclaim`, then left-click an existing NPC to claim it.
+6. Left-click the claimed NPC to select it.
+7. Right-click open ground and confirm it walks toward the target rather than teleporting.
+8. Repeat with several claimed NPCs and confirm their destinations are slightly separated.
+9. Verify an unclaimed NPC cannot be selected or commanded.
+10. Run `/civclaim` and click a claimed NPC to release it.
+11. Run `/civrtstest` again to restore the normal camera.
+
+Obstacle avoidance beyond the NPC motion controller's direct collision handling is not an acceptance criterion yet.
 
 ## Architecture
 
