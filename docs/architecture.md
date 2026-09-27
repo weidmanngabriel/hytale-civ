@@ -24,7 +24,7 @@ Pure Java simulation and domain rules. It must not import `com.hypixel.hytale.*`
 
 Adapters translating between Hytale concepts and core concepts. Entities, NPCs, world access, navigation, camera, input, UI and rendering belong here.
 
-The current RTS validation spike contains four deliberately small Hytale-facing components:
+The current RTS validation spike plus Farm slice contains these deliberately small Hytale-facing components:
 
 - `RtsCameraController` applies and clears a custom angled cursor camera.
 - `RtsInteractionController` owns temporary per-player RTS input state and translates clicks into claim, selection and move commands.
