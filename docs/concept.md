@@ -26,6 +26,25 @@ While RTS mode is active:
 
 Movement uses the claimed NPC's existing Hytale role and motion controller. The spike validates locomotion and collision-aware steering without teleporting the NPC. It does not yet guarantee route finding around arbitrary obstacles.
 
-Claims and movement targets are runtime test state only and reset with the plugin/server. There is not yet a persistent inhabitant identity, custom Civ NPC role, visual selection marker, drag-box selection, building system, economy or simulation.
+Claims and movement targets are runtime test state only and reset with the plugin/server. There is not yet a persistent inhabitant identity, custom Civ NPC role, visual selection marker, drag-box selection or general economy. A minimal Farm building/production slice now exists as the first concrete building feature.
 
 Do not introduce speculative interfaces until a concrete feature needs them.
+
+
+## Farm vertical slice
+
+/civfarm arms placement of the first Farm prefab while RTS test mode is active. The next right click places the Farm with its doorway/anchor at the clicked block.
+
+A player can then select exactly one claimed Civ NPC and right click the Farm doorway. The NPC is marked as a Farmer and assigned to that Farm.
+
+The prototype loop is intentionally narrow:
+
+1. Farmer walks to the Farm entrance.
+2. Reaching the entrance means the Farmer is logically inside.
+3. The Farmer works inside for five seconds.
+4. The Farm gains one local wheat.
+5. The Farmer walks two blocks outside.
+6. If the Farm has fewer than ten wheat, the Farmer returns and repeats.
+7. At ten wheat the Farmer remains outside and production stops.
+
+Travel time is additional to the five seconds of active production time. Wheat is currently a local integer inventory on the Farm only; there are no physical wheat items, input crops, carriers or warehouse delivery yet.
