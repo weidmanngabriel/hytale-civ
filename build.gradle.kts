@@ -76,7 +76,7 @@ val releaseBundle = tasks.register<Zip>("releaseBundle") {
     destinationDirectory.set(layout.buildDirectory.dir("distributions"))
 
     from(pluginJar.flatMap { it.archiveFile }) {
-        rename { "$artifactBaseName.jar" }
+        rename(".*\\.jar", "$artifactBaseName.jar")
     }
 
     from(assetPackDir) {
