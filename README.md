@@ -4,13 +4,18 @@ Java plugin foundation for a future Hytale civilization/RTS simulation. The repo
 
 ## Current milestone
 
-The plugin currently only registers `/civtest`. A successful invocation replies:
+The plugin contains two validation commands:
 
 ```text
-Civilizations smoke test OK.
+/civtest
+/civrtstest
 ```
 
-No economy, NPC control, RTS camera, buildings or production systems are implemented yet.
+`/civtest` is the original plugin-load smoke test.
+
+`/civrtstest` toggles the first RTS interaction spike: an angled cursor camera, logical entity multi-selection by repeated left clicks, and right-click world targeting. It does not move or spawn NPCs yet; that remains a separate engine validation once a concrete NPC role and navigation path are selected.
+
+No economy, buildings or production systems are implemented yet.
 
 ## Requirements
 
@@ -56,7 +61,7 @@ The artifact name is configured centrally via `artifactBaseName` in `gradle.prop
 
 The build uses the official release repository `https://maven.hytale.com/release` and `com.hypixel.hytale:Server` as a `compileOnly` dependency. The selector is configured as `hytaleServerVersion`.
 
-The bootstrap was checked against the stable Hytale Server API documentation for Release 0.6.8. Hytale API usage must be re-checked against current official docs when changed.
+Hytale API usage must be re-checked against current official docs when changed.
 
 ## Local deployment
 
@@ -89,8 +94,11 @@ If no path is configured, normal tests and builds still work; only `deployToHyta
 1. Deploy or copy the built JAR into the Hytale Mods folder.
 2. Start a compatible Hytale server/world.
 3. Confirm the plugin loads.
-4. Run `/civtest`.
-5. Confirm `Civilizations smoke test OK.`.
+4. Run `/civtest` and confirm `Civilizations smoke test OK.`.
+5. Run `/civrtstest` and confirm an angled cursor camera is activated.
+6. Left-click existing entities to build a multi-selection; click one again to remove it.
+7. Right-click a world block and confirm the target coordinates plus current selection count are reported.
+8. Run `/civrtstest` again and confirm the normal camera returns.
 
 ## Architecture
 
