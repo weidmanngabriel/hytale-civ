@@ -1,0 +1,22 @@
+{
+  "Group": "Civilizations",
+  "Name": "HytaleCiv",
+  "Version": "0.1.0",
+  "Description": "Minimal Hytale plugin bootstrap for Hytale Civ.",
+  "Authors": [
+    {
+      "Name": "Hytale Civ",
+      "Email": "",
+      "Url": ""
+    }
+  ],
+  "Website": "",
+  "Main": "dev.civilizations.plugin.CivilizationsPlugin",
+  "ServerVersion": "^0.6.0",
+  "Dependencies": {},
+  "OptionalDependencies": {},
+  "LoadBefore": {},
+  "DisabledByDefault": false,
+  "IncludesAssetPack": false,
+  "SubPlugins": []
+}

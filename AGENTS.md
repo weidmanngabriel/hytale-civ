@@ -7,7 +7,7 @@
 5. Update `docs/testing.md` when test strategy or test infrastructure changes.
 6. Keep Hytale-specific code out of `src/main/java/dev/civilizations/core`.
 7. Do not add Hytale-specific exceptions to the core when an adapter in `hytale` or wiring in `plugin` is sufficient.
-8. Do not invent Hytale APIs, dependencies, manifest fields or lifecycle behavior. Check the current official Hytale documentation before changing Hytale API usage.
+8. Do not invent Hytale APIs, dependencies, manifest fields or lifecycle behavior. Check current official Hytale documentation before changing Hytale API usage.
 9. Prefer root-cause fixes over accumulating special cases or compatibility branches.
 10. Add the smallest abstraction needed for the current feature; do not create speculative interfaces for planned RTS, NPC, economy, building or logistics systems.
 11. Run `./gradlew test` and `./gradlew build` before considering a change complete whenever the local environment permits it.
