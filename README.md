@@ -150,15 +150,11 @@ See `docs/architecture.md`, `docs/testing.md`, and `docs/development.md`.
 
 GitHub Actions runs on pushes and pull requests with Java 25, executes tests and a full build, and uploads the release bundle ZIP as an Actions artifact. Test reports are uploaded when tests fail.
 
-Every successful push to `main` also creates a GitHub pre-release tagged `build-<short-sha>`. Its downloadable asset is named:
-
-```text
-hytale-civ-build-<short-sha>.zip
-```
+Every successful push to `main` creates a SemVer-compatible development pre-release based on `projectVersion`. For example, `0.1.0-SNAPSHOT` produces versions such as `v0.1.0-dev.42`, with an asset such as `hytale-civ-0.1.0-dev.42.zip`. The GitHub Actions run number provides the ordered development suffix; the commit SHA remains in the release notes for traceability.
 
 Each Release gets a one-line description taken from the released commit subject. With the repository's squash-merge workflow, that means the Release directly summarizes the corresponding change on `main`.
 
-Stable versions use explicit `v*` tags such as `v0.1.0`. A successful tagged build creates a normal GitHub Release with the same ZIP bundle attached.
+Stable versions use explicit `v*` tags such as `v0.1.0`. A successful tagged build creates a normal GitHub Release with the same ZIP bundle attached. Before beginning a new stable line, bump `projectVersion` to its next `-SNAPSHOT` base.
 
 ## Farm prototype
 
