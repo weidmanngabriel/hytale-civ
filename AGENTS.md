@@ -17,7 +17,7 @@
 
 11. Keep Hytale-specific code out of `src/main/java/dev/civilizations/core`.
 12. Do not add Hytale-specific exceptions to the core when an adapter in `hytale` or wiring in `plugin` is sufficient.
-13. Do not invent Hytale APIs, dependencies, manifest fields or lifecycle behavior. Check current official Hytale documentation before changing Hytale API usage.
+13. Do not invent Hytale APIs, dependencies, manifest fields or lifecycle behavior. Before changing Hytale-specific code, first inspect the existing project code for established usage, then verify any remaining uncertainty against current official Hytale documentation. Only do broader external research when those two sources are insufficient.
 14. Prefer root-cause fixes over accumulating special cases or compatibility branches.
 15. Add the smallest abstraction needed for the current feature; do not create speculative interfaces for planned RTS, NPC, economy, building or logistics systems.
 
