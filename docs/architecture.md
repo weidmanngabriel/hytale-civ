@@ -30,7 +30,8 @@ The current RTS validation spike plus Farm and Woodcutter slices contains these 
 - `RtsInteractionController` owns temporary per-player RTS input state. Selection is deliberately single-select; build-menu and placement state are also isolated per player.
 - `RtsToolbarAnchorUi` injects the persistent left-side RTS menu into Hytale's interactive `ReticleServerEvent` anchor; `BuildingMenuPage` provides the modal building catalog.
 - Right-clicking the currently selected Civ NPC opens `PersonActionsPage`; the deprecated generic `Use`/F interaction is not used by RTS controls.
-- `CivUnitRegistry` is a runtime-only registry that marks explicitly claimed NPCs as Civ test units, stores profession and movement target state, and delegates movement targets to the NPC's native Hytale `PathManager` using a transient path.
+- `CivInhabitantData` is a serializable Hytale ECS component attached to claimed NPC entities. It stores persistent per-inhabitant profession, profession XP and an optional future workplace identifier; the workplace field is deliberately not populated until placed buildings have stable persistent identity.
+- `CivUnitRegistry` remains a runtime-only registry for explicitly claimed NPCs and movement targets. Profession reads/writes go through `CivInhabitantData`, while movement still delegates to the NPC's native Hytale `PathManager` using a transient path.
 - `WoodcutterWorkSystem` finds nearby natural-looking Hytale trunk blocks, drives a WOODCUTTER to an adjacent work position, and uses Hytale's native `BlockHarvestUtils.performBlockDamage` path to fell the base block so normal drops, break events and block physics remain engine-owned.
 - `FarmPrefabService` loads the Farm prefab from the standalone Asset Pack through Hytale's `PrefabStore`, validates terrain, renders the per-player placement preview, sinks the prefab floor one block into the terrain, maps `Civ_BuildingEntrance` markers to empty blocks, and records the world blocks replaced by the embedded floor.
 - `FarmBuildingRegistry` binds placed farm instances and assigned NPC refs to the core `FarmBuilding` state, tracks placement footprints for overlap checks, and retains each instance's replaced-floor snapshot for future demolition restoration.
@@ -38,7 +39,7 @@ The current RTS validation spike plus Farm and Woodcutter slices contains these 
 
 `CivUnitRegistry` identifies a runtime entity by its `Store` plus entity index while retaining and validating the original `Ref`. This avoids relying on Java object identity for repeated `Ref` instances and prevents stale entity slots from being treated as valid Civ units.
 
-Claims, profession state and work targets are intentionally runtime-only. A future inhabitant lifecycle should replace this debug ownership mechanism.
+Claims and work targets remain intentionally runtime-only. Profession state now lives in the serializable `CivInhabitantData` component on the NPC entity, while profession XP is reserved there for the next inhabitant iterations. Workplace assignment remains runtime-only because placed buildings do not yet have stable persistent identity. A future inhabitant lifecycle should replace the debug claim mechanism.
 
 Movement commands no longer run a Civ-owned per-tick steering loop. `CivUnitRegistry` assigns a one-waypoint `TransientPath` to the NPC's native `PathManager`; the NPC's own Hytale role/movement stack remains responsible for following that path, including its normal movement speed and navigation behavior. Farm and Woodcutter systems still own their simulation-level arrival checks so job state changes remain deterministic from Civ's point of view.
 
@@ -50,6 +51,7 @@ Hytale bootstrap and lifecycle. It wires adapters/services and registers Hytale-
 
 `CivilizationsPlugin` currently:
 
+- registers the serializable `CivInhabitantData` ECS component before wiring Civ registries and systems;
 - registers the Farm and Woodcutter ticking systems; generic NPC travel is delegated to Hytale's native `PathManager` rather than a Civ movement ticking system;
 - exposes `/civtest`, `/civrtstest`, `/civclaim` and `/civfarm`;
 - registers the RTS anchor action used by the clickable **Bauen** button and wires mouse-button, mouse-motion and disconnect events to the RTS interaction controller.
