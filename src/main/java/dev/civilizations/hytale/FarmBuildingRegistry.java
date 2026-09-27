@@ -1,12 +1,14 @@
 package dev.civilizations.hytale;
 
 import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.FarmBuilding;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,16 +28,24 @@ public final class FarmBuildingRegistry {
         this.unitRegistry = unitRegistry;
     }
 
-    public FarmSite registerFarm(UUID worldId, Vector3i entranceBlock) {
-        BlockPosition entrance = toCore(entranceBlock);
-        BlockPosition exit = new BlockPosition(entrance.x(), entrance.y(), entrance.z() - 2);
+    public FarmSite registerFarm(UUID worldId, List<Vector3i> entranceBlocks) {
+        if (entranceBlocks == null || entranceBlocks.isEmpty()) {
+            throw new IllegalArgumentException("A farm requires at least one entrance.");
+        }
+
+        List<BlockPosition> entrances = entranceBlocks.stream()
+            .map(FarmBuildingRegistry::toCore)
+            .toList();
+
+        BlockPosition primaryEntrance = entrances.getFirst();
+        BlockPosition exit = exteriorExitFor(primaryEntrance);
         FarmBuilding building = new FarmBuilding(
             "farm-" + nextFarmId.getAndIncrement(),
-            entrance,
+            primaryEntrance,
             exit
         );
-        FarmSite site = new FarmSite(worldId, building);
-        farms.put(new FarmKey(worldId, entrance), site);
+        FarmSite site = new FarmSite(worldId, building, entrances);
+        farms.put(new FarmKey(worldId, building.id()), site);
         return site;
     }
 
@@ -75,6 +85,12 @@ public final class FarmBuildingRegistry {
                     : AssignmentResult.OCCUPIED;
             }
 
+            TransformComponent transform = ref.getStore().getComponentConcurrent(
+                ref,
+                TransformComponent.getComponentType()
+            );
+            site.selectEntranceFor(transform == null ? null : transform.getPosition());
+
             site.setAssignedFarmer(key);
             farmerAssignments.put(key, site);
             return AssignmentResult.ASSIGNED;
@@ -95,6 +111,7 @@ public final class FarmBuildingRegistry {
         synchronized (site) {
             if (key.equals(site.assignedFarmer())) {
                 site.setAssignedFarmer(null);
+                site.resetActiveEntrance();
                 site.building().unassignFarmer();
             }
         }
@@ -108,6 +125,10 @@ public final class FarmBuildingRegistry {
         return new BlockPosition(position.x, position.y, position.z);
     }
 
+    private static BlockPosition exteriorExitFor(BlockPosition entrance) {
+        return new BlockPosition(entrance.x(), entrance.y(), entrance.z() - 2);
+    }
+
     public enum AssignmentResult {
         ASSIGNED,
         ALREADY_ASSIGNED,
@@ -119,11 +140,19 @@ public final class FarmBuildingRegistry {
 
         private final UUID worldId;
         private final FarmBuilding building;
+        private final List<BlockPosition> entrances;
         private CivUnitRegistry.UnitKey assignedFarmer;
+        private BlockPosition activeEntrance;
 
-        private FarmSite(UUID worldId, FarmBuilding building) {
+        private FarmSite(
+            UUID worldId,
+            FarmBuilding building,
+            List<BlockPosition> entrances
+        ) {
             this.worldId = worldId;
             this.building = building;
+            this.entrances = List.copyOf(entrances);
+            this.activeEntrance = this.entrances.getFirst();
         }
 
         public UUID worldId() {
@@ -134,6 +163,10 @@ public final class FarmBuildingRegistry {
             return building;
         }
 
+        public int entranceCount() {
+            return entrances.size();
+        }
+
         public synchronized CivUnitRegistry.UnitKey assignedFarmer() {
             return assignedFarmer;
         }
@@ -142,25 +175,53 @@ public final class FarmBuildingRegistry {
             this.assignedFarmer = assignedFarmer;
         }
 
-        public Vector3d entranceTarget() {
-            BlockPosition block = building.entranceBlock();
-            return new Vector3d(block.x() + 0.5, block.y() + 1.0, block.z() + 0.5);
+        private synchronized void selectEntranceFor(Vector3d position) {
+            if (position == null || entrances.size() == 1) {
+                activeEntrance = entrances.getFirst();
+                return;
+            }
+
+            activeEntrance = entrances.stream()
+                .min((left, right) -> Double.compare(
+                    squaredDistance(position, left),
+                    squaredDistance(position, right)
+                ))
+                .orElse(entrances.getFirst());
         }
 
-        public Vector3d exitTarget() {
-            BlockPosition block = building.exitBlock();
-            return new Vector3d(block.x() + 0.5, block.y() + 1.0, block.z() + 0.5);
+        private synchronized void resetActiveEntrance() {
+            activeEntrance = entrances.getFirst();
+        }
+
+        public synchronized Vector3d entranceTarget() {
+            return targetAbove(activeEntrance);
+        }
+
+        public synchronized Vector3d exitTarget() {
+            return targetAbove(exteriorExitFor(activeEntrance));
         }
 
         private boolean matchesEntranceColumn(Vector3i clickedBlock) {
-            BlockPosition entrance = building.entranceBlock();
-            return clickedBlock.x == entrance.x()
-                && clickedBlock.z == entrance.z()
-                && clickedBlock.y >= entrance.y()
-                && clickedBlock.y <= entrance.y() + 2;
+            return entrances.stream().anyMatch(entrance ->
+                clickedBlock.x == entrance.x()
+                    && clickedBlock.z == entrance.z()
+                    && clickedBlock.y >= entrance.y()
+                    && clickedBlock.y <= entrance.y() + 2
+            );
+        }
+
+        private static double squaredDistance(Vector3d position, BlockPosition entrance) {
+            double dx = position.x - (entrance.x() + 0.5);
+            double dy = position.y - (entrance.y() + 1.0);
+            double dz = position.z - (entrance.z() + 0.5);
+            return dx * dx + dy * dy + dz * dz;
+        }
+
+        private static Vector3d targetAbove(BlockPosition block) {
+            return new Vector3d(block.x() + 0.5, block.y() + 1.0, block.z() + 0.5);
         }
     }
 
-    private record FarmKey(UUID worldId, BlockPosition entranceBlock) {
+    private record FarmKey(UUID worldId, String buildingId) {
     }
 }

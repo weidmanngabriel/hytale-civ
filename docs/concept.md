@@ -33,9 +33,9 @@ Do not introduce speculative interfaces until a concrete feature needs them.
 
 ## Farm vertical slice
 
-/civfarm arms placement of the first Farm prefab while RTS test mode is active. The next right click places the Farm with its doorway/anchor at the clicked block.
+/civfarm arms placement of the first Farm prefab while RTS test mode is active. The next right click places the Farm at that prefab anchor. Doorways are defined independently by one or more creator-visible entrance markers stored inside the prefab.
 
-A player can then select exactly one claimed Civ NPC and right click the Farm doorway. The NPC is marked as a Farmer and assigned to that Farm.
+A player can then select exactly one claimed Civ NPC and right click any marked Farm doorway. The NPC is marked as a Farmer and assigned to that Farm. If the prefab contains several entrances, the current prototype uses the entrance nearest to the NPC.
 
 The prototype loop is intentionally narrow:
 

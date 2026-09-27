@@ -30,7 +30,7 @@ The current RTS validation spike plus Farm slice contains these deliberately sma
 - `RtsInteractionController` owns temporary per-player RTS input state and translates clicks into claim, selection and move commands.
 - `CivUnitRegistry` is a runtime-only registry that marks explicitly claimed NPCs as Civ test units and stores their temporary movement targets.
 - `CivNpcMovementSystem` ticks claimed NPCs with active targets and drives their existing Hytale `MotionController` using pursuit steering.
-- `FarmPrefabService` loads the Farm prefab from the standalone Asset Pack through Hytale's `PrefabStore` and places it as a `BlockSelection`.
+- `FarmPrefabService` loads the Farm prefab from the standalone Asset Pack through Hytale's `PrefabStore`, reads `Civ_BuildingEntrance` creator markers, maps those markers to empty blocks during placement and returns their world positions.
 - `FarmBuildingRegistry` binds placed farm instances and assigned NPC refs to the core `FarmBuilding` state.
 - `FarmNpcWorkSystem` translates the core farm states into entrance/exit movement targets and advances production while the Farmer is inside.
 
@@ -118,6 +118,10 @@ entrance → 5 s inside → +1 local wheat → exit → repeat
 stop outside when local wheat reaches 10
 ~~~
 
-The entrance is both a visible prefab threshold and the logical building boundary. The NPC remains a normal Hytale entity; "inside" is currently a simulation state reached when its position reaches the entrance target. The prototype does not hide, despawn or teleport the NPC while working.
+Building entrances are authored inside the prefab with the technical `Civ_BuildingEntrance` marker block. The marker uses Hytale's editor-oriented GizmoCube rendering, has no physical collision, and is converted to an empty block when the runtime prefab is placed. Its cell sits one block above the physical threshold; the simulation derives the threshold block directly below it.
 
-The Farm prefab is creator-editable at asset-pack/Server/Prefabs/Civilizations/Farm/Farm_01.prefab.json. Its anchor is the entrance threshold. The building extends primarily north of the anchor and the exterior exit target is two blocks south. Fixed orientation is deliberate for the first slice; rotation-aware building metadata is deferred until building placement needs it.
+A prefab must contain at least one entrance marker. Multiple markers are supported. For the current one-Farmer Farm slice, the registry selects the marker nearest to the assigned NPC by straight-line world distance and then lets the NPC's normal Hytale movement controller travel to that target. This is not yet path-cost-aware entrance selection.
+
+The NPC remains a normal Hytale entity; "inside" is currently a simulation state reached when its position reaches the selected entrance target. The prototype does not hide, despawn or teleport the NPC while working.
+
+The Farm prefab is creator-editable at `asset-pack/Server/Prefabs/Civilizations/Farm/Farm_01.prefab.json`. The prefab anchor is placement metadata only and no longer defines the entrance. The current exterior exit target remains two blocks south of the selected entrance because Farm rotation is still fixed. Rotation-aware entrance direction metadata is deferred until rotated building placement is introduced.

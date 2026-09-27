@@ -35,13 +35,13 @@ Do not predefine their detailed rules before the corresponding product behavior 
 
 The first implemented building domain is intentionally specific rather than a speculative generic building framework.
 
-- A Farm has one entrance block and one exterior exit block.
+- A building prefab must define at least one entrance marker; a Farm may define multiple entrances.
 - A Farm has one Farmer slot.
 - Assigning a claimed Civ NPC to a Farm marks that NPC with the FARMER profession for the current runtime.
-- Reaching the entrance transitions the Farmer into the logical WORKING_INSIDE state.
+- The current Farm assignment selects the entrance nearest to the assigned Farmer by straight-line world distance. Reaching that entrance transitions the Farmer into the logical WORKING_INSIDE state.
 - One wheat is produced after five seconds of active work inside the Farm.
 - After every wheat production, the Farmer must leave the building before another production step can begin.
-- The exterior exit target is two blocks south of the entrance for the current fixed-orientation Farm prefab.
+- The exterior exit target is two blocks south of the selected entrance for the current fixed-orientation Farm prefab.
 - A Farm stops production at exactly 10 local wheat.
 - Travel time is not part of the five-second work timer.
 - Farm placement, NPC assignment, profession marking and wheat inventory are runtime-only and are not persisted across a server/plugin restart yet.

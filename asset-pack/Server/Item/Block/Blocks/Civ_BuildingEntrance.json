@@ -1,0 +1,10 @@
+{
+  "Group": "@Tech",
+  "DrawType": "GizmoCube",
+  "Material": "Empty",
+  "Opacity": "Semitransparent",
+  "HitboxType": "Empty",
+  "InteractionHitboxType": "Full",
+  "BlockSoundSetId": "EMPTY",
+  "PhysicalMaterialId": "EMPTY"
+}
