@@ -19,7 +19,7 @@ The plugin currently exposes four prototype commands:
 
 `/civclaim` arms the next left click so an existing Hytale `NPCEntity` can be explicitly claimed or released as a temporary Civ test unit. Only claimed Civ units can be selected and commanded.
 
-In RTS mode, left-click a claimed unit to make it the single selected person. Press Hytale's standard Use key (normally **F**) to open that person's action menu. Right-click ground still issues the existing direct move command.
+In RTS mode, left-click a claimed unit to make it the single selected person. Press Hytale's standard Use key (normally **F**) to open that person's action menu. Right-click ground still issues the existing direct move command. A left-side **Bauen** menu opens a modal, alphabetically ordered building catalog.
 
 The first action-menu profession is **Holzfäller**. A Woodcutter searches for a nearby tree, walks beside the trunk, works briefly and then fells the base through Hytale's native block-harvest path. Hytale therefore remains responsible for normal drops and the tree asset's support/falling-block behavior.
 
@@ -166,8 +166,13 @@ The first building/production slice is available in RTS test mode:
 
 ~~~text
 /civrtstest
+→ click Bauen
+→ select Farm
+→ move the ghost to valid ground
+→ left click to place, right click to cancel
+
 /civfarm
-→ right click flat ground to place the Farm
+→ debug shortcut into the same Farm placement mode
 
 /civclaim
 → left click an NPC to claim it
@@ -175,4 +180,4 @@ The first building/production slice is available in RTS test mode:
 → right click the Farm doorway
 ~~~
 
-The assigned Farmer walks into the Farm, produces one local wheat after five seconds of work, walks outside after every unit, re-enters, and stops once the Farm reaches 10 wheat. The visible building is a creator-editable Hytale prefab in the standalone hytale-civ-assets Asset Pack.
+The Farm floor is sunk one block into valid terrain rather than sitting above it. Placement is revalidated server-side at confirmation, and each placed Farm retains the original blocks replaced by its floor for future demolition restoration. The assigned Farmer walks into the Farm, produces one local wheat after five seconds of work, walks outside after every unit, re-enters, and stops once the Farm reaches 10 wheat. The visible building is a creator-editable Hytale prefab in the standalone hytale-civ-assets Asset Pack.
