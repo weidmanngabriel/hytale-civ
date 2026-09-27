@@ -4,6 +4,7 @@ import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.protocol.MouseButtonState;
 import com.hypixel.hytale.protocol.MouseButtonType;
 import com.hypixel.hytale.server.core.Message;
+import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
@@ -49,10 +50,6 @@ public final class RtsInteractionController {
         return true;
     }
 
-    public boolean isActive(PlayerRef playerRef) {
-        return sessions.containsKey(playerRef.getUuid());
-    }
-
     public void handleMouseButton(PlayerMouseButtonEvent event) {
         PlayerRef playerRef = event.getPlayerRefComponent();
         Session session = sessions.get(playerRef.getUuid());
@@ -72,6 +69,10 @@ public final class RtsInteractionController {
             handleMoveTarget(event, playerRef, session);
             event.setCancelled(true);
         }
+    }
+
+    public void handleDisconnect(PlayerDisconnectEvent event) {
+        sessions.remove(event.getPlayerRef().getUuid());
     }
 
     private void handleSelection(PlayerMouseButtonEvent event, PlayerRef playerRef, Session session) {
