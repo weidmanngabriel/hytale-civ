@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="PWA Template">
+  <rect width="512" height="512" rx="112" fill="#111827"/>
+  <path d="M150 132h120c72 0 116 39 116 103 0 66-46 106-120 106h-48v63h-68V132Zm68 61v88h45c35 0 54-15 54-44 0-29-19-44-54-44h-45Z" fill="#fff"/>
+  <circle cx="369" cy="373" r="35" fill="#60a5fa"/>
+</svg>
