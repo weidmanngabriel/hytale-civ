@@ -14,13 +14,25 @@ Hytale Server Integration Tests
 Manual Client / UX Tests
 ```
 
+## General regression rule
+
+Behavioral changes need coverage at the lowest layer that can prove the behavior without depending on Hytale unnecessarily.
+
+A successful compile or build is not sufficient coverage for a new domain rule. When a feature introduces a meaningful multi-step flow, add a regression test for the complete relevant path rather than testing only individual helper methods.
+
+Domain rules and invariants should normally be expressed through deterministic core tests. Hytale adapter tests should prove translation and engine-boundary behavior, not duplicate core rules with mocks.
+
 ## Unit tests
 
 Fast JUnit 5 tests for pure Java domain rules and utilities.
 
 ## Simulation / scenario tests
 
-Future deterministic multi-step tests for people, needs, jobs, inventories, production, logistics and economy.
+Deterministic multi-step tests are the preferred coverage for inhabitants, needs, jobs, inventories, production, logistics, economy and other coupled simulation behavior.
+
+As these systems are introduced, use small golden scenarios with explicit initial state, commands and expected resulting state. Important invariants should be checked directly, for example that inputs are consumed exactly once, inventories never become negative and the same command sequence produces the same result.
+
+Scenario tests should remain Hytale-independent unless the behavior being tested is genuinely an engine contract.
 
 ## Hytale adapter tests
 
