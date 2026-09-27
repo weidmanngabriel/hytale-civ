@@ -18,19 +18,20 @@
 11. Keep Hytale-specific code out of `src/main/java/dev/civilizations/core`.
 12. Do not add Hytale-specific exceptions to the core when an adapter in `hytale` or wiring in `plugin` is sufficient.
 13. Do not invent Hytale APIs, dependencies, manifest fields or lifecycle behavior. Before changing Hytale-specific code, first inspect the existing project code for established usage, then verify any remaining uncertainty against current official Hytale documentation. Only do broader external research when those two sources are insufficient.
-14. Prefer root-cause fixes over accumulating special cases or compatibility branches.
-15. Add the smallest abstraction needed for the current feature; do not create speculative interfaces for planned RTS, NPC, economy, building or logistics systems.
+14. Before implementing a new feature or subsystem, explicitly check whether Hytale already provides the required behavior, a closely related native API, asset type, interaction, game mode, UI primitive or engine system. Prefer composing or adapting native Hytale capabilities over recreating equivalent behavior, unless the native mechanism cannot satisfy the product requirement.
+15. Prefer root-cause fixes over accumulating special cases or compatibility branches.
+16. Add the smallest abstraction needed for the current feature; do not create speculative interfaces for planned RTS, NPC, economy, building or logistics systems.
 
 ## Engineering discipline
 
-16. If the same problem requires a second implementation iteration, explicitly reassess whether the underlying issue belongs in a more general abstraction, invariant, state transition or scheduling boundary instead of adding another local patch.
-17. Avoid profession-, building-, entity- or feature-specific branches when the behavior belongs to a shared system concern. Prefer one authoritative mechanism that specialized subsystems can call into.
-18. Treat growing chains of special-case conditions, duplicated retry/routing/state logic and feature-specific bypasses as architecture smells. Do not add another exception without first checking whether the common mechanism should be improved.
-19. When a general solution is practical, prefer it even if a local patch would be shorter. Keep the codebase coherent and testable rather than optimizing for the smallest immediate diff.
+17. If the same problem requires a second implementation iteration, explicitly reassess whether the underlying issue belongs in a more general abstraction, invariant, state transition or scheduling boundary instead of adding another local patch.
+18. Avoid profession-, building-, entity- or feature-specific branches when the behavior belongs to a shared system concern. Prefer one authoritative mechanism that specialized subsystems can call into.
+19. Treat growing chains of special-case conditions, duplicated retry/routing/state logic and feature-specific bypasses as architecture smells. Do not add another exception without first checking whether the common mechanism should be improved.
+20. When a general solution is practical, prefer it even if a local patch would be shorter. Keep the codebase coherent and testable rather than optimizing for the smallest immediate diff.
 
 ## Validation and repository hygiene
 
-20. Run `./gradlew test` and `./gradlew build` before considering a change complete whenever the local environment permits it.
-21. Never commit machine-specific paths, local Hytale installations, credentials or generated server/game files.
-22. Implement changes on a temporary branch. Complete code, tests and documentation there before final integration.
-23. At the end of a completed change, squash-merge it into `main` so one meaningful commit remains for that adjustment. Verify the resulting main build/release status.
+21. Run `./gradlew test` and `./gradlew build` before considering a change complete whenever the local environment permits it.
+22. Never commit machine-specific paths, local Hytale installations, credentials or generated server/game files.
+23. Implement changes on a temporary branch. Complete code, tests and documentation there before final integration.
+24. At the end of a completed change, squash-merge it into `main` so one meaningful commit remains for that adjustment. Verify the resulting main build/release status.
