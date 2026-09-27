@@ -38,7 +38,7 @@ Scenario tests should remain Hytale-independent unless the behavior being tested
 
 Tests around translation and adapter behavior where possible without a running server.
 
-The current RTS spike mainly exercises client camera, cursor targeting, Hytale Use/F input, native tree harvesting and Hytale NPC motion behavior and therefore does not pretend to cover those engine contracts with mocked unit tests.
+The current RTS spike mainly exercises client camera, cursor targeting, Hytale Use/F input, custom HUD/page UI, client-side placement preview, native tree harvesting and Hytale NPC motion behavior and therefore does not pretend to cover those engine contracts with mocked unit tests.
 
 ## Hytale server integration tests
 
@@ -94,14 +94,25 @@ Automated coverage now includes:
 
 Manual acceptance sequence:
 
-1. install/deploy both hytale-civ.jar and hytale-civ-assets;
-2. run /civrtstest;
-3. run /civfarm, then right click reasonably flat ground and confirm the visible Farm prefab appears with its doorway at the clicked anchor;
-4. claim an NPC with /civclaim and select that NPC;
-5. right click the Farm doorway and confirm the assignment message identifies the NPC as the Farm's Farmer;
-6. confirm the NPC walks to the doorway, waits inside for about five seconds, then walks two blocks outside;
-7. confirm it re-enters and repeats this leave/re-enter cycle for each production step;
-8. after the tenth wheat, confirm the NPC remains outside and stops cycling;
-9. release the NPC with /civclaim during a cycle and confirm the Farm assignment is cleared.
+1. install/deploy both `hytale-civ.jar` and `hytale-civ-assets`;
+2. run `/civrtstest` and confirm a **Bauen** menu entry appears on the left;
+3. click **Bauen** and confirm a modal **Gebäude** catalog opens to its right and blocks normal RTS world interaction;
+4. confirm the current catalog contains **Farm** and can be closed without starting placement;
+5. open it again, choose **Farm**, then move the cursor across terrain and confirm a Farm ghost follows the pointed block;
+6. right click and confirm placement is cancelled without changing the world;
+7. choose **Farm** again and left click valid, flat, supported ground; confirm the Farm is placed with its floor embedded into the terrain rather than sitting one block above it;
+8. try again over a hole, liquid, blocked building volume, blocked entrance and an existing Farm footprint; confirm placement is refused with a reason and remains in placement mode;
+9. confirm `/civfarm` enters the same Farm placement flow as the menu;
+10. claim an NPC with `/civclaim`, select it, right click the Farm doorway and confirm Farmer assignment still works;
+11. confirm the NPC walks to the doorway, waits inside for about five seconds, leaves, re-enters for each production step, and remains outside after the tenth wheat;
+12. release the NPC with `/civclaim` during a cycle and confirm the Farm assignment is cleared.
 
-The current prefab has a fixed south-facing entrance and assumes reasonably flat placement terrain. Terrain validation and rotation are separate future building-placement work.
+Multiplayer acceptance:
+
+1. connect two players and enter RTS mode with both;
+2. start Farm placement independently and confirm moving or cancelling one preview does not affect the other player's preview/state;
+3. make both previews target overlapping valid footprints;
+4. let player A place first, then let player B confirm without moving the cursor;
+5. confirm player B is rejected by the server-side revalidation instead of overlapping player A's Farm.
+
+The original floor-block snapshot is internal runtime state until demolition UI exists. When demolition is implemented, its acceptance test must verify exact restoration of those recorded blocks. Rotation remains separate future work.
