@@ -22,18 +22,28 @@ Pure Java simulation and domain rules. It must not import `com.hypixel.hytale.*`
 
 Adapters translating between Hytale concepts and core concepts. Entities, NPCs, world access, navigation, camera, input, UI and rendering belong here.
 
-The current RTS validation spike contains two deliberately small Hytale-facing components:
+The current RTS validation spike contains four deliberately small Hytale-facing components:
 
 - `RtsCameraController` applies and clears a custom angled cursor camera.
-- `RtsInteractionController` owns temporary per-player RTS test state, consumes cursor mouse-button events, toggles entity selection and records world-space movement targets.
+- `RtsInteractionController` owns temporary per-player RTS input state and translates clicks into claim, selection and move commands.
+- `CivUnitRegistry` is a runtime-only registry that marks explicitly claimed NPCs as Civ test units and stores their temporary movement targets.
+- `CivNpcMovementSystem` ticks claimed NPCs with active targets and drives their existing Hytale `MotionController` using pursuit steering.
 
-This state is a validation harness, not the future authoritative unit-selection or movement model. It intentionally does not move entities or spawn NPCs yet.
+`CivUnitRegistry` identifies a runtime entity by its `Store` plus entity index while retaining and validating the original `Ref`. This avoids relying on Java object identity for repeated `Ref` instances and prevents stale entity slots from being treated as valid Civ units.
+
+The registry is intentionally not a core-domain ownership model. Claims and move targets disappear when the plugin/server restarts. A future inhabitant lifecycle should replace this debug ownership mechanism.
+
+The movement system uses the NPC role's active `MotionController` and Hytale steering. This validates real locomotion and collision handling rather than teleporting entities. It is not an A* route planner and does not promise to route around arbitrary obstacles.
 
 ### plugin
 
 Hytale bootstrap and lifecycle. It wires adapters/services and registers Hytale-facing commands and systems. It should contain as little game logic as possible.
 
-`CivilizationsPlugin` currently wires the RTS interaction controller to `PlayerMouseButtonEvent` and exposes it through `/civrtstest`.
+`CivilizationsPlugin` currently:
+
+- registers the Civ NPC movement ticking system;
+- exposes `/civtest`, `/civrtstest` and `/civclaim`;
+- wires mouse-button and disconnect events to the RTS interaction controller.
 
 ## Dependency rule
 
@@ -45,11 +55,15 @@ This keeps most behavior executable in ordinary JUnit tests. Hytale is required 
 
 The bootstrap smoke test remains available through `/civtest`.
 
-The first engine-validation milestone adds an RTS camera/input spike. It proves or disproves these Hytale integration assumptions before simulation systems are added:
+The current engine-validation milestone tests the first controllable Civ NPC loop:
 
-1. the player can switch into and out of an angled cursor camera;
-2. cursor clicks can resolve entities and world blocks;
-3. several entities can be accumulated in one logical selection;
-4. a ground click can provide a world-space destination for a future movement command.
+1. switch into and out of an angled cursor camera;
+2. explicitly claim an existing `NPCEntity` as a temporary Civ test unit;
+3. select only claimed Civ units;
+4. select several Civ units;
+5. right-click a world block to assign slightly offset movement targets;
+6. let claimed NPCs locomote toward those targets through their existing Hytale motion controller.
 
-NPC role selection, NPC spawning, pathfinding, visual selection markers, drag-box selection, zoom and camera panning are not part of this first implementation.
+Unclaimed animals, monsters or other NPCs are not controllable merely because they are `NPCEntity` instances. The debug claim command can deliberately claim any compatible NPC for testing.
+
+NPC spawning, persistent Civ ownership, obstacle route planning, visual selection markers, drag-box selection, zoom and camera panning are not part of this milestone.
