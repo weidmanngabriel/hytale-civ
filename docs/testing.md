@@ -66,3 +66,25 @@ A compatible NPC role with an active motion controller is required for the movem
 - `CoreSmokeTest` proves JUnit works.
 - `CoreIndependenceTest` guards against direct Hytale imports in `core`.
 - `ManifestValidationTest` validates packaged plugin metadata without starting Hytale.
+
+
+## Farm vertical-slice coverage
+
+Automated coverage now includes:
+
+- FarmBuildingTest, which proves one Farmer slot, five seconds of active work per wheat, mandatory exit after every production step and a hard stop at 10 wheat;
+- FarmPrefabValidationTest, which validates the committed Asset Pack prefab metadata, unique block coordinates, visible entrance opening, roof and crop-bed materials.
+
+Manual acceptance sequence:
+
+1. install/deploy both hytale-civ.jar and hytale-civ-assets;
+2. run /civrtstest;
+3. run /civfarm, then right click reasonably flat ground and confirm the visible Farm prefab appears with its doorway at the clicked anchor;
+4. claim an NPC with /civclaim and select exactly that NPC;
+5. right click the Farm doorway and confirm the assignment message identifies the NPC as the Farm's Farmer;
+6. confirm the NPC walks to the doorway, waits inside for about five seconds, then walks two blocks outside;
+7. confirm it re-enters and repeats this leave/re-enter cycle for each production step;
+8. after the tenth wheat, confirm the NPC remains outside and stops cycling;
+9. release the NPC with /civclaim during a cycle and confirm the Farm assignment is cleared.
+
+The current prefab has a fixed south-facing entrance and assumes reasonably flat placement terrain. Terrain validation and rotation are separate future building-placement work.

@@ -8,7 +8,7 @@ Unknown behavior stays unknown until it is decided or verified. Do not turn impl
 
 ## Current domain status
 
-The project is still in an engine-validation milestone. Most planned simulation domains such as persistent inhabitants, jobs, needs, inventories, goods, production, logistics, buildings, families and economy do not yet have implemented domain rules.
+The project is still in an engine-validation milestone. Most planned simulation domains such as persistent inhabitants, needs, general inventories, logistics, families and economy do not yet have implemented domain rules. The Farm vertical slice is the first implemented building/job/production rule set.
 
 The current NPC claim and movement state is deliberately temporary integration-test state, not persistent Civ ownership or an inhabitant lifecycle.
 
@@ -29,3 +29,19 @@ As concrete features are implemented, keep their verified rules here under focus
 - missions and scenario state.
 
 Do not predefine their detailed rules before the corresponding product behavior is decided.
+
+
+## Farm
+
+The first implemented building domain is intentionally specific rather than a speculative generic building framework.
+
+- A Farm has one entrance block and one exterior exit block.
+- A Farm has one Farmer slot.
+- Assigning a claimed Civ NPC to a Farm marks that NPC with the FARMER profession for the current runtime.
+- Reaching the entrance transitions the Farmer into the logical WORKING_INSIDE state.
+- One wheat is produced after five seconds of active work inside the Farm.
+- After every wheat production, the Farmer must leave the building before another production step can begin.
+- The exterior exit target is two blocks south of the entrance for the current fixed-orientation Farm prefab.
+- A Farm stops production at exactly 10 local wheat.
+- Travel time is not part of the five-second work timer.
+- Farm placement, NPC assignment, profession marking and wheat inventory are runtime-only and are not persisted across a server/plugin restart yet.

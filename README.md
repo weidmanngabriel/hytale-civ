@@ -4,12 +4,13 @@ Java plugin foundation for a future Hytale civilization/RTS simulation. The repo
 
 ## Current milestone
 
-The plugin contains three validation commands:
+The plugin currently exposes four prototype commands:
 
 ```text
 /civtest
 /civrtstest
 /civclaim
+/civfarm
 ```
 
 `/civtest` is the plugin-load smoke test.
@@ -20,7 +21,7 @@ The plugin contains three validation commands:
 
 In RTS mode, left-click claimed units to build a multi-selection and right-click ground to move the selection. Multiple units receive slightly offset destinations. Movement uses each NPC's existing Hytale motion controller and steering, not teleportation.
 
-This milestone validates direct collision-aware NPC locomotion. It does not yet provide full route planning around arbitrary obstacles, persistent Civ ownership, custom Civ NPC spawning, economy, buildings or production systems.
+The RTS spike validates direct collision-aware NPC locomotion. The Farm vertical slice adds the first concrete building and production loop; full route planning, persistent Civ ownership, custom Civ NPC spawning and a general economy are still future work.
 
 ## Requirements
 
@@ -153,3 +154,21 @@ hytale-civ-build-<short-sha>.zip
 Each Release gets a one-line description taken from the released commit subject. With the repository's squash-merge workflow, that means the Release directly summarizes the corresponding change on `main`.
 
 Stable versions use explicit `v*` tags such as `v0.1.0`. A successful tagged build creates a normal GitHub Release with the same ZIP bundle attached.
+
+
+## Farm prototype
+
+The first building/production slice is available in RTS test mode:
+
+~~~text
+/civrtstest
+/civfarm
+→ right click flat ground to place the Farm
+
+/civclaim
+→ left click an NPC to claim it
+→ left click the claimed NPC to select it
+→ right click the Farm doorway
+~~~
+
+The assigned Farmer walks into the Farm, produces one local wheat after five seconds of work, walks outside after every unit, re-enters, and stops once the Farm reaches 10 wheat. The visible building is a creator-editable Hytale prefab in the standalone hytale-civ-assets Asset Pack.
