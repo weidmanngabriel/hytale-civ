@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
 
@@ -21,6 +22,7 @@ repositories {
 
 val hytaleServerVersion = providers.gradleProperty("hytaleServerVersion").getOrElse("latest.release")
 val artifactBaseName = providers.gradleProperty("artifactBaseName").getOrElse("hytale-civ")
+val assetPackDir = layout.projectDirectory.dir("asset-pack")
 
 dependencies {
     compileOnly("com.hypixel.hytale:Server:$hytaleServerVersion")
@@ -64,9 +66,31 @@ val pluginJar = tasks.named<Jar>("jar") {
     }
 }
 
+val releaseBundle = tasks.register<Zip>("releaseBundle") {
+    group = "distribution"
+    description = "Packages the plugin JAR and editable Hytale asset pack into one release ZIP."
+    dependsOn(pluginJar)
+
+    archiveBaseName.set(artifactBaseName)
+    archiveClassifier.set("bundle")
+    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+
+    from(pluginJar.flatMap { it.archiveFile }) {
+        rename { "$artifactBaseName.jar" }
+    }
+
+    from(assetPackDir) {
+        into("$artifactBaseName-assets")
+    }
+}
+
+tasks.named("build") {
+    dependsOn(releaseBundle)
+}
+
 tasks.register("deployToHytale") {
     group = "development"
-    description = "Builds and copies the plugin JAR to HYTALE_MODS_DIR (or -PhytaleModsDir)."
+    description = "Builds and copies the plugin JAR plus editable asset pack to HYTALE_MODS_DIR (or -PhytaleModsDir)."
     dependsOn(pluginJar)
 
     doLast {
@@ -82,6 +106,16 @@ tasks.register("deployToHytale") {
             into(file(destination))
         }
 
-        logger.lifecycle("Deployed {} to {}", pluginJar.get().archiveFileName.get(), destination)
+        copy {
+            from(assetPackDir)
+            into(file(destination).resolve("$artifactBaseName-assets"))
+        }
+
+        logger.lifecycle(
+            "Deployed {} and {} to {}",
+            pluginJar.get().archiveFileName.get(),
+            "$artifactBaseName-assets",
+            destination
+        )
     }
 }
