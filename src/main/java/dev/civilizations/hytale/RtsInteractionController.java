@@ -16,7 +16,7 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import dev.civilizations.core.Profession;
-import org.joml.Vector2i;
+import org.joml.Vector2fc;
 import org.joml.Vector3i;
 
 import java.util.List;
@@ -492,7 +492,7 @@ public final class RtsInteractionController {
     private void removeToolbar(PlayerRef playerRef) {
         Player player = getPlayer(playerRef);
         if (player != null) {
-            player.getHudManager().removeCustomHud(RtsToolbarHud.KEY);
+            player.getHudManager().removeCustomHud(playerRef, RtsToolbarHud.KEY);
         }
     }
 
@@ -513,12 +513,12 @@ public final class RtsInteractionController {
         }
     }
 
-    private static boolean isBuildToolbarClick(Vector2i point) {
+    private static boolean isBuildToolbarClick(Vector2fc point) {
         return point != null
-            && point.x >= TOOLBAR_LEFT
-            && point.x < TOOLBAR_LEFT + TOOLBAR_WIDTH
-            && point.y >= TOOLBAR_TOP
-            && point.y < TOOLBAR_TOP + TOOLBAR_HEIGHT;
+            && point.x() >= TOOLBAR_LEFT
+            && point.x() < TOOLBAR_LEFT + TOOLBAR_WIDTH
+            && point.y() >= TOOLBAR_TOP
+            && point.y() < TOOLBAR_TOP + TOOLBAR_HEIGHT;
     }
 
     private static final class Session {
