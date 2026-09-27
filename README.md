@@ -19,7 +19,7 @@ The plugin currently exposes four prototype commands:
 
 `/civclaim` arms the next left click so an existing Hytale `NPCEntity` can be explicitly claimed or released as a temporary Civ test unit. Only claimed Civ units can be selected and commanded.
 
-In RTS mode, left-click a claimed unit to make it the single selected person. Press Hytale's standard Use key (normally **F**) to open that person's action menu. Right-click ground still issues the existing direct move command.
+In RTS mode, left-click a claimed unit to make it the single selected person. Press Hytale's standard Use key (normally **F**) to open that person's action menu. Right-click ground still issues the existing direct move command. A left-side **Bauen** menu opens a modal, alphabetically ordered building catalog.
 
 The first action-menu profession is **Holzfäller**. A Woodcutter searches for a nearby tree, walks beside the trunk, works briefly and then fells the base through Hytale's native block-harvest path. Hytale therefore remains responsible for normal drops and the tree asset's support/falling-block behavior.
 
@@ -150,15 +150,11 @@ See `docs/architecture.md`, `docs/testing.md`, and `docs/development.md`.
 
 GitHub Actions runs on pushes and pull requests with Java 25, executes tests and a full build, and uploads the release bundle ZIP as an Actions artifact. Test reports are uploaded when tests fail.
 
-Every successful push to `main` also creates a GitHub pre-release tagged `build-<short-sha>`. Its downloadable asset is named:
-
-```text
-hytale-civ-build-<short-sha>.zip
-```
+Every successful push to `main` creates a SemVer-compatible development pre-release based on `projectVersion`. For example, `0.1.0-SNAPSHOT` produces versions such as `v0.1.0-dev.42`, with an asset such as `hytale-civ-0.1.0-dev.42.zip`. The GitHub Actions run number provides the ordered development suffix; the commit SHA remains in the release notes for traceability.
 
 Each Release gets a one-line description taken from the released commit subject. With the repository's squash-merge workflow, that means the Release directly summarizes the corresponding change on `main`.
 
-Stable versions use explicit `v*` tags such as `v0.1.0`. A successful tagged build creates a normal GitHub Release with the same ZIP bundle attached.
+Stable versions use explicit `v*` tags such as `v0.1.0`. A successful tagged build creates a normal GitHub Release with the same ZIP bundle attached. Before beginning a new stable line, bump `projectVersion` to its next `-SNAPSHOT` base.
 
 ## Farm prototype
 
@@ -166,8 +162,13 @@ The first building/production slice is available in RTS test mode:
 
 ~~~text
 /civrtstest
+→ click Bauen
+→ select Farm
+→ move the ghost to valid ground
+→ left click to place, right click to cancel
+
 /civfarm
-→ right click flat ground to place the Farm
+→ debug shortcut into the same Farm placement mode
 
 /civclaim
 → left click an NPC to claim it
@@ -175,4 +176,4 @@ The first building/production slice is available in RTS test mode:
 → right click the Farm doorway
 ~~~
 
-The assigned Farmer walks into the Farm, produces one local wheat after five seconds of work, walks outside after every unit, re-enters, and stops once the Farm reaches 10 wheat. The visible building is a creator-editable Hytale prefab in the standalone hytale-civ-assets Asset Pack.
+The Farm floor is sunk one block into valid terrain rather than sitting above it. Placement is revalidated server-side at confirmation, and each placed Farm retains the original blocks replaced by its floor for future demolition restoration. The assigned Farmer walks into the Farm, produces one local wheat after five seconds of work, walks outside after every unit, re-enters, and stops once the Farm reaches 10 wheat. The visible building is a creator-editable Hytale prefab in the standalone hytale-civ-assets Asset Pack.

@@ -39,6 +39,15 @@ Do not predefine their detailed rules before the corresponding product behavior 
 - After a tree is felled, the Woodcutter searches for another nearby tree.
 - Work areas, carrying wood, storage delivery, tools, experience and persistence are not domain rules yet.
 
+## Building placement
+
+- RTS building placement state belongs to the individual player; one player's preview or cancellation must not change another player's placement state.
+- A building placement preview is advisory. Shared-world placement is validated again when the player confirms it.
+- A building floor is embedded one block into the pointed terrain so its finished floor surface does not sit one full block above the surrounding ground.
+- The current placement rules require supported ground across the floor footprint, no liquid or holes in the replaced floor layer, clear required building volume, clear entrances and no overlap with an existing Civ building footprint.
+- Every placed building instance must retain the original world blocks replaced by its embedded floor so demolition can restore the prior terrain.
+- The retained terrain snapshot follows the lifetime of the placed building. It is runtime-only until building persistence is implemented.
+
 ## Farm
 
 The first implemented building domain is intentionally specific rather than a speculative generic building framework.

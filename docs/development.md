@@ -138,21 +138,24 @@ Do not add follow-up commits to a branch after its final validated state and the
 
 Pull requests run tests and a full Java-25 Gradle build for feature branches. Ordinary pushes to non-main branches do not start a second duplicate workflow. Pushes to `main` and `v*` tags still run CI because they drive development and stable releases. When a newer commit updates the same pull request or branch/ref, GitHub Actions cancels the older in-progress workflow so only the newest revision continues. The release bundle ZIP is uploaded as an Actions artifact. Failed test reports are uploaded for inspection.
 
-Every successful push to `main` additionally creates a GitHub pre-release with a deterministic tag based on the commit SHA:
+Every successful push to `main` creates a SemVer-compatible development pre-release. The base version comes from `projectVersion` in `gradle.properties`; the workflow removes `-SNAPSHOT` and appends the GitHub Actions run number:
 
 ```text
-build-<short-sha>
+projectVersion=0.1.0-SNAPSHOT
+→ v0.1.0-dev.42
 ```
 
-The release asset is:
+The same resolved version is passed into Gradle, so the built JAR/distribution metadata and GitHub release use the same project version. The downloadable release asset is named:
 
 ```text
-hytale-civ-build-<short-sha>.zip
+hytale-civ-0.1.0-dev.42.zip
 ```
 
-It contains the tested plugin JAR plus the editable Asset Pack. This keeps every successfully built main revision permanently downloadable without treating it as a stable version.
+The commit SHA is kept in the release notes for traceability, but is no longer used as the release version. This keeps development releases naturally sortable and leaves stable versions such as `v0.1.0` as the final version in that SemVer line.
 
-The GitHub Release description is the subject of the commit being released. Because completed project changes are squash-merged, this gives each main release a one-line summary of that adjustment.
+Before starting development for the next stable line, bump `projectVersion` accordingly, for example from `0.1.0-SNAPSHOT` to `0.2.0-SNAPSHOT`.
+
+The GitHub Release description includes the subject of the commit being released. Because completed project changes are squash-merged, this gives each main release a one-line summary of that adjustment.
 
 For stable versions, push a SemVer-style tag such as:
 

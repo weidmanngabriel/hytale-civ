@@ -28,7 +28,12 @@ public final class FarmBuildingRegistry {
         this.unitRegistry = unitRegistry;
     }
 
-    public FarmSite registerFarm(UUID worldId, List<Vector3i> entranceBlocks) {
+    public FarmSite registerFarm(
+        UUID worldId,
+        List<Vector3i> entranceBlocks,
+        FarmPrefabService.PlacementFootprint footprint,
+        Map<BlockPosition, Integer> replacedFloorBlocks
+    ) {
         if (entranceBlocks == null || entranceBlocks.isEmpty()) {
             throw new IllegalArgumentException("A farm requires at least one entrance.");
         }
@@ -44,9 +49,27 @@ public final class FarmBuildingRegistry {
             primaryEntrance,
             exit
         );
-        FarmSite site = new FarmSite(worldId, building, entrances);
+        FarmSite site = new FarmSite(
+            worldId,
+            building,
+            entrances,
+            footprint,
+            replacedFloorBlocks
+        );
         farms.put(new FarmKey(worldId, building.id()), site);
         return site;
+    }
+
+    public boolean overlaps(UUID worldId, FarmPrefabService.PlacementFootprint footprint) {
+        if (worldId == null || footprint == null) {
+            return false;
+        }
+
+        return farms.values().stream()
+            .filter(site -> site.worldId().equals(worldId))
+            .map(FarmSite::footprint)
+            .filter(existing -> existing != null)
+            .anyMatch(footprint::overlaps);
     }
 
     public FarmSite findByEntranceHit(UUID worldId, Vector3i clickedBlock) {
@@ -141,17 +164,23 @@ public final class FarmBuildingRegistry {
         private final UUID worldId;
         private final FarmBuilding building;
         private final List<BlockPosition> entrances;
+        private final FarmPrefabService.PlacementFootprint footprint;
+        private final Map<BlockPosition, Integer> replacedFloorBlocks;
         private CivUnitRegistry.UnitKey assignedFarmer;
         private BlockPosition activeEntrance;
 
         private FarmSite(
             UUID worldId,
             FarmBuilding building,
-            List<BlockPosition> entrances
+            List<BlockPosition> entrances,
+            FarmPrefabService.PlacementFootprint footprint,
+            Map<BlockPosition, Integer> replacedFloorBlocks
         ) {
             this.worldId = worldId;
             this.building = building;
             this.entrances = List.copyOf(entrances);
+            this.footprint = footprint;
+            this.replacedFloorBlocks = Map.copyOf(replacedFloorBlocks);
             this.activeEntrance = this.entrances.getFirst();
         }
 
@@ -165,6 +194,14 @@ public final class FarmBuildingRegistry {
 
         public int entranceCount() {
             return entrances.size();
+        }
+
+        public FarmPrefabService.PlacementFootprint footprint() {
+            return footprint;
+        }
+
+        public Map<BlockPosition, Integer> replacedFloorBlocks() {
+            return replacedFloorBlocks;
         }
 
         public synchronized CivUnitRegistry.UnitKey assignedFarmer() {
