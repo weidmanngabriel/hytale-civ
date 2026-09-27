@@ -36,6 +36,7 @@ public final class CivUnitRegistry {
         UnitState existing = units.get(key);
 
         if (existing != null && existing.ref().isValid()) {
+            applyNativePath(existing.ref(), null);
             units.remove(key);
             return false;
         }
@@ -91,8 +92,6 @@ public final class CivUnitRegistry {
         }
 
         int columns = (int) Math.ceil(Math.sqrt(count));
-        int rows = (int) Math.ceil((double) count / columns);
-
         for (int index = 0; index < count; index++) {
             int column = index % columns;
             int row = index / columns;
@@ -100,8 +99,6 @@ public final class CivUnitRegistry {
             double offsetX = (column - (columns - 1) / 2.0) * FORMATION_SPACING;
             double offsetZ = (row - (rows - 1) / 2.0) * FORMATION_SPACING;
             Ref<EntityStore> ref = valid.get(index);
-            UnitKey key = keyOf(ref);
-
             setMoveTarget(
                 ref,
                 new Vector3d(
