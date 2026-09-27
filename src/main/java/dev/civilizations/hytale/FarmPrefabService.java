@@ -148,11 +148,11 @@ public final class FarmPrefabService {
         BlockSelection preview = new BlockSelection(requireSource());
         preview.relativizeInPlace();
         preview.setPosition(candidate.anchor().x, candidate.anchor().y, candidate.anchor().z);
-        playerRef.getPacketHandler().writePacket(preview.toPacketWithSelection());
+        playerRef.getPacketHandler().write(preview.toPacketWithSelection());
     }
 
     public void clearPreview(PlayerRef playerRef) {
-        playerRef.getPacketHandler().writePacket(new BlockSelection().toPacketWithSelection());
+        playerRef.getPacketHandler().write(new BlockSelection().toPacketWithSelection());
     }
 
     public PlacedFarm placeFarm(
