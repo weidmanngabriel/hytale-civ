@@ -2,6 +2,10 @@ name: CI
 
 on:
   push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
   pull_request:
 
 permissions:
@@ -47,3 +51,87 @@ jobs:
             build/reports/tests/test/
             build/test-results/test/
           if-no-files-found: ignore
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download tested plugin JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: hytale-plugin-jar
+          path: release-artifact
+
+      - name: Prepare release metadata
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          jar_path="$(find release-artifact -maxdepth 1 -type f -name '*.jar' -print -quit)"
+          if [[ -z "$jar_path" ]]; then
+            echo "No plugin JAR found in downloaded artifact." >&2
+            exit 1
+          fi
+
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="$GITHUB_REF_NAME"
+            title="$GITHUB_REF_NAME"
+            prerelease="false"
+            notes="Stable Hytale Civ release built and tested from commit $GITHUB_SHA."
+          else
+            short_sha="${GITHUB_SHA::7}"
+            tag="build-$short_sha"
+            title="Development build $short_sha"
+            prerelease="true"
+            notes="Automated Hytale Civ development build from main commit $GITHUB_SHA."
+          fi
+
+          asset="hytale-civ-$tag.jar"
+          cp "$jar_path" "$asset"
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
+          {
+            echo "notes<<EOF"
+            echo "$notes"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_TITLE: ${{ steps.release.outputs.title }}
+          RELEASE_NOTES: ${{ steps.release.outputs.notes }}
+          RELEASE_ASSET: ${{ steps.release.outputs.asset }}
+          IS_PRERELEASE: ${{ steps.release.outputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$RELEASE_ASSET" --clobber --repo "$GITHUB_REPOSITORY"
+            exit 0
+          fi
+
+          args=(
+            release create "$RELEASE_TAG" "$RELEASE_ASSET"
+            --repo "$GITHUB_REPOSITORY"
+            --target "$GITHUB_SHA"
+            --title "$RELEASE_TITLE"
+            --notes "$RELEASE_NOTES"
+          )
+
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            args+=(--prerelease)
+          fi
+
+          gh "${args[@]}"

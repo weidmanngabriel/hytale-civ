@@ -50,4 +50,27 @@ Normal tests and builds do not require this setting.
 
 Pushes and pull requests run tests and a full Java-25 Gradle build. The plugin JAR is uploaded as an Actions artifact. Failed test reports are uploaded for inspection.
 
-GitHub Releases are intentionally not created for every commit. A later release workflow can attach a tested JAR to explicit version tags.
+Every successful push to `main` additionally creates a GitHub pre-release with a deterministic tag based on the commit SHA:
+
+```text
+build-<short-sha>
+```
+
+The release asset is renamed to:
+
+```text
+hytale-civ-build-<short-sha>.jar
+```
+
+This keeps every successfully built main revision permanently downloadable without treating it as a stable version.
+
+For stable versions, push a SemVer-style tag such as:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+A successful tagged build creates a normal GitHub Release with the tested JAR attached. Tags beginning with `v` are treated as stable releases; ordinary main builds remain pre-releases.
+
+Re-running a release job is idempotent: if the release already exists, the workflow replaces its JAR asset instead of creating a duplicate release.
