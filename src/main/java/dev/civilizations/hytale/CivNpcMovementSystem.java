@@ -5,6 +5,7 @@ import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.query.Query;
+import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
@@ -12,7 +13,6 @@ import com.hypixel.hytale.server.npc.movement.Steering;
 import com.hypixel.hytale.server.npc.movement.controllers.MotionController;
 import com.hypixel.hytale.server.npc.movement.steeringforces.SteeringForcePursue;
 import com.hypixel.hytale.server.npc.role.Role;
-import com.hypixel.hytale.system.EntityTickingSystem;
 import org.joml.Vector3d;
 
 /**
