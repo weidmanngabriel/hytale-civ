@@ -104,6 +104,10 @@ Hytale Plugin / API
 
 See `docs/architecture.md`, `docs/testing.md`, and `docs/development.md`.
 
-## CI
+## CI and releases
 
 GitHub Actions runs on pushes and pull requests with Java 25, executes tests and a full build, uploads the plugin JAR as an Actions artifact, and uploads test reports when tests fail.
+
+Every successful push to `main` also creates a GitHub pre-release tagged `build-<short-sha>`. Its JAR is named `hytale-civ-build-<short-sha>.jar`, so every successfully built main revision remains directly downloadable.
+
+Stable versions use explicit `v*` tags such as `v0.1.0`. A successful tagged build creates a normal GitHub Release with the tested JAR attached.
