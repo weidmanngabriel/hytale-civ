@@ -63,6 +63,9 @@ tasks.withType<Test>().configureEach {
 }
 
 val hytaleReference = tasks.register<JavaExec>("hytaleReference") {
+    notCompatibleWithConfigurationCache(
+        "The task resolves the exact Hytale Server artifact at execution time."
+    )
     group = "documentation"
     description = "Generates a source-free API/asset reference from the exact resolved Hytale Server dependency."
     dependsOn(tasks.named(referenceGenerator.compileJavaTaskName))
