@@ -55,9 +55,9 @@ The visible floor of the Farm is embedded one block into the pointed terrain rat
 
 Each placed Farm retains the original blocks replaced by its embedded floor. A future demolition action can therefore restore the prior ground instead of leaving a building-shaped hole. This snapshot currently has the same runtime-only lifetime as the placed Farm.
 
-Doorways are defined independently by one or more creator-visible entrance markers stored inside the prefab.
+Farm workplace access is defined inside the prefab by one or more native Hytale Trigger Volumes tagged `civ.type=workplace_access` and `civ.building=farm`.
 
-A player can then select one claimed Civ NPC and right click any marked Farm doorway. The NPC is marked as a Farmer and assigned to that Farm. If the prefab contains several entrances, the current prototype uses the entrance nearest to the NPC.
+A player can then select one claimed Civ NPC and right click the Farm workplace area. The NPC is marked as a Farmer and assigned to that Farm. If the prefab contains several workplace access volumes, the current prototype uses the one nearest to the NPC.
 
 The prototype loop is intentionally narrow:
 
