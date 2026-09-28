@@ -433,7 +433,11 @@ public final class RtsInteractionController {
         if (target == null || !target.isValid() || !unitRegistry.isClaimed(target)) {
             return null;
         }
-        return new PersonActionsPage(playerRef, () -> assignWoodcutter(playerRef, target));
+        return new PersonActionsPage(
+            playerRef,
+            () -> assignWoodcutter(playerRef, target),
+            () -> assignConstructionWorker(playerRef, target)
+        );
     }
 
     public boolean openFirstPersonActions(
@@ -470,7 +474,11 @@ public final class RtsInteractionController {
         event.getPlayer().getPageManager().openCustomPage(
             playerEntityRef,
             playerEntityRef.getStore(),
-            new PersonActionsPage(playerRef, () -> assignWoodcutter(playerRef, selected))
+            new PersonActionsPage(
+                playerRef,
+                () -> assignWoodcutter(playerRef, selected),
+                () -> assignConstructionWorker(playerRef, selected)
+            )
         );
     }
 
@@ -527,6 +535,24 @@ public final class RtsInteractionController {
         unitRegistry.assignProfession(selected, Profession.WOODCUTTER);
         playerRef.sendMessage(Message.raw(
             "Woodcutter assigned. The NPC will search nearby for the closest tree and fell it."
+        ));
+    }
+
+    private void assignConstructionWorker(
+        PlayerRef playerRef,
+        Ref<EntityStore> selected
+    ) {
+        if (!unitRegistry.isClaimed(selected)) {
+            playerRef.sendMessage(Message.raw("The selected Civ NPC is no longer available."));
+            return;
+        }
+
+        farmRegistry.unassignFarmer(selected);
+        activityRegistry.cancelManualMove(selected);
+        unitRegistry.cancelMoveTarget(selected);
+        unitRegistry.assignProfession(selected, Profession.CONSTRUCTION_WORKER);
+        playerRef.sendMessage(Message.raw(
+            "Bauarbeiter zugewiesen. Der Bewohner übernimmt automatisch die nächste freie Baustelle."
         ));
     }
 
