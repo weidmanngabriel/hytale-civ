@@ -46,6 +46,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
     private final FarmBuildingRegistry farmRegistry;
+    private final FarmFieldRegistry fieldRegistry;
     private final PrefabPlacementService placementService;
 
     private final Map<CivUnitRegistry.UnitKey, WorkerRuntime> workers =
@@ -57,11 +58,13 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         CivUnitRegistry unitRegistry,
         CivActivityRegistry activityRegistry,
         FarmBuildingRegistry farmRegistry,
+        FarmFieldRegistry fieldRegistry,
         PrefabPlacementService placementService
     ) {
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
         this.farmRegistry = farmRegistry;
+        this.fieldRegistry = fieldRegistry;
         this.placementService = placementService;
     }
 
@@ -262,7 +265,9 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         PrefabPlacementService.PlacedPrefab placed =
             placementService.completeConstruction(owner, world, site);
 
-        if (PrefabPlacementService.FARM.id().equals(site.definition().id())) {
+        if (PrefabPlacementService.WHEAT_FIELD.id().equals(site.definition().id())) {
+            fieldRegistry.registerField(site.worldId(), site.candidate().footprint());
+        } else if (PrefabPlacementService.FARM.id().equals(site.definition().id())) {
             var entrances = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, WORKPLACE_ACCESS))
                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
