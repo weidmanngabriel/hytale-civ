@@ -23,16 +23,23 @@ public final class PersonActionsPage
     extends InteractiveCustomUIPage<PersonActionsPage.ActionData> {
 
     private static final String ACTION_WOODCUTTER = "woodcutter";
+    private static final String ACTION_CONSTRUCTION_WORKER = "construction_worker";
 
     private final Runnable assignWoodcutter;
+    private final Runnable assignConstructionWorker;
 
-    public PersonActionsPage(PlayerRef playerRef, Runnable assignWoodcutter) {
+    public PersonActionsPage(
+        PlayerRef playerRef,
+        Runnable assignWoodcutter,
+        Runnable assignConstructionWorker
+    ) {
         super(
             playerRef,
             CustomPageLifetime.CanDismissOrCloseThroughInteraction,
             ActionData.CODEC
         );
         this.assignWoodcutter = assignWoodcutter;
+        this.assignConstructionWorker = assignConstructionWorker;
     }
 
     @Override
@@ -49,6 +56,12 @@ public final class PersonActionsPage
             EventData.of("Action", ACTION_WOODCUTTER),
             false
         );
+        events.addEventBinding(
+            CustomUIEventBindingType.Activating,
+            "#ConstructionWorkerButton",
+            EventData.of("Action", ACTION_CONSTRUCTION_WORKER),
+            false
+        );
     }
 
     @Override
@@ -59,6 +72,9 @@ public final class PersonActionsPage
     ) {
         if (ACTION_WOODCUTTER.equals(data.action)) {
             assignWoodcutter.run();
+            close();
+        } else if (ACTION_CONSTRUCTION_WORKER.equals(data.action)) {
+            assignConstructionWorker.run();
             close();
         }
     }

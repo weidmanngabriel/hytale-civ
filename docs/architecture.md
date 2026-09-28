@@ -215,3 +215,13 @@ Runtime diagnostics showed that the RTS camera does not emit generic `PlayerMous
 ### Construction blueprint lifecycle
 
 The placed construction blueprint uses Hytale's `PersistentPrefabPreview` only as a whole-prefab pre-construction visualization. JAR inspection confirms that this component supports whole-entity removal and visible-layer-count updates, but not per-block ghost removal. Civ therefore owns the preview entity reference and removes it through `PersistentPrefabPreview.remove(...)` when the site is cancelled, when its owner disconnects, or before progressive real-block construction begins. Trigger volumes remain a completion concern; Hytale's trigger-volume prefab handlers materialize them during real prefab placement rather than as part of the preview entity.
+
+### Progressive Construction
+
+`ConstructionJob` bildet den Hytale-unabhängigen Ablauf eines Bauarbeiters ab: Baustelle suchen, zum Arbeitspunkt laufen, zeitgesteuerte Bauschritte ausführen und die Fertigstellung melden. Die Anzahl der Schritte wird vom Adapter aus den tatsächlich belegten Y-Ebenen des Prefabs geliefert; der Core kennt keine Hytale-Prefab- oder Blocktypen.
+
+`ConstructionWorkSystem` reserviert pro Baustelle höchstens einen geladenen Bauarbeiter, wählt einen freien Arbeitspunkt außerhalb des Footprints und übersetzt die Core-Intents in vorhandene Engine-Funktionen. Bewegung läuft weiterhin über `CivMoveTarget` / `ReadPosition` / `Seek`. Sichtbare Arbeit verwendet Hytales `AnimationUtils` im Action-Slot. Die konkrete Animation ist für v1 ein austauschbarer Platzhalter.
+
+Die projektgebundene `HytaleServer.jar` bestätigt für diesen Slice `PersistentPrefabPreview.updateLayers(...)`, `BlockSelection.forEachBlock(...)`, blockhaltende Teil-`BlockSelection`-Instanzen, `BlockSelection.placeNoReturn(...)` sowie `AnimationUtils.playAnimation(...)` und `stopAnimation(...)`. Es wurde keine native Construction-Site-Queue oder native Prefab-Baureihenfolge gefunden. Deshalb bleibt nur die Civ-spezifische Reservierungs- und Reihenfolgeentscheidung eigener Code.
+
+`PrefabPlacementService` materialisiert während des Baus ausschließlich Block-Ebenen ohne Prefab-Entities. Beim ersten realen Bauschritt wird die `PersistentPrefabPreview` entfernt. Nach der letzten Ebene wird der bestehende vollständige native Prefab-Placement-Pfad einmal ausgeführt, damit enthaltene Entities und Trigger Volumes korrekt von Hytale erzeugt werden. Eine Farm wird erst danach im `FarmBuildingRegistry` registriert.

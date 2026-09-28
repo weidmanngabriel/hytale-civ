@@ -27,6 +27,11 @@ $C.@DecoratedContainer {
       Anchor: (Width: 220, Height: 44);
     }
 
+    $C.@TextButton #ConstructionWorkerButton {
+      @Text = "Bauarbeiter";
+      Anchor: (Width: 220, Height: 44, Top: 8);
+    }
+
     Label {
       Text: "Bewegen nach …  – aktuell per Rechtsklick";
       Style: (FontSize: 15, TextColor: #b8b8b8);

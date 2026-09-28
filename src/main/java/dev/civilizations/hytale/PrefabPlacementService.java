@@ -5,6 +5,7 @@ import com.hypixel.hytale.builtin.buildertools.utils.PasteToolUtil;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.RemoveReason;
 import com.hypixel.hytale.component.Store;
+import com.hypixel.hytale.component.ComponentAccessor;
 import com.hypixel.hytale.math.vector.Rotation3f;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentPrefabPreview;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Shared placement boundary for Civ prefabs.
@@ -158,8 +160,8 @@ public final class PrefabPlacementService {
         ConstructionSite site = new ConstructionSite(
             UUID.randomUUID(),
             playerRef.getUuid(),
-            candidate.definition(),
-            anchor,
+            playerRef.getWorldUuid(),
+            candidate,
             previewRef
         );
         constructionSites.put(site.id(), site);
@@ -243,8 +245,8 @@ public final class PrefabPlacementService {
         ConstructionSite site = new ConstructionSite(
             UUID.randomUUID(),
             playerRef.getUuid(),
-            candidate.definition(),
-            candidate.anchor(),
+            playerRef.getWorldUuid(),
+            candidate,
             active.previewRef()
         );
         constructionSites.put(site.id(), site);
@@ -281,6 +283,83 @@ public final class PrefabPlacementService {
 
     public Collection<ConstructionSite> constructionSites() {
         return List.copyOf(constructionSites.values());
+    }
+
+    public int constructionLayerCount(ConstructionSite site) {
+        BlockSelection source = requireSource(site.definition());
+        TreeSet<Integer> layers = new TreeSet<>();
+        source.forEachBlock((x, y, z, blockHolder) -> layers.add(y));
+        return layers.size();
+    }
+
+    /**
+     * Materializes one occupied prefab Y-layer without spawning prefab entities.
+     */
+    public boolean materializeConstructionLayer(
+        World world,
+        ConstructionSite site,
+        int layerIndex,
+        ComponentAccessor<EntityStore> accessor
+    ) {
+        BlockSelection source = requireSource(site.definition());
+        List<Integer> layers = occupiedLayers(source);
+        if (layerIndex < 0 || layerIndex >= layers.size()) {
+            return false;
+        }
+
+        if (layerIndex == 0) {
+            removeConstructionPreview(site);
+        }
+
+        int sourceY = layers.get(layerIndex);
+        BlockSelection layer = new BlockSelection();
+        layer.copyPropertiesFrom(source);
+        layer.setAnchor(source.getAnchorX(), source.getAnchorY(), source.getAnchorZ());
+        source.forEachBlock((x, y, z, blockHolder) -> {
+            if (y != sourceY) {
+                return;
+            }
+            layer.addBlockAtWorldPos(
+                x,
+                y,
+                z,
+                blockHolder.blockId(),
+                blockHolder.rotation(),
+                blockHolder.filler(),
+                blockHolder.supportValue(),
+                blockHolder.holder()
+            );
+        });
+        layer.placeNoReturn(world, new Vector3i(site.anchor()), accessor);
+        return true;
+    }
+
+    /**
+     * Performs the final native prefab placement so prefab entities and trigger volumes
+     * are created only after all visible construction layers have been built.
+     */
+    public PlacedPrefab completeConstruction(
+        PlayerRef playerRef,
+        World world,
+        ConstructionSite site
+    ) {
+        removeConstructionPreview(site);
+        PlacedPrefab placed = place(playerRef, world, site.candidate());
+        constructionSites.remove(site.id(), site);
+        return placed;
+    }
+
+    private static List<Integer> occupiedLayers(BlockSelection source) {
+        TreeSet<Integer> layers = new TreeSet<>();
+        source.forEachBlock((x, y, z, blockHolder) -> layers.add(y));
+        return List.copyOf(layers);
+    }
+
+    private static void removeConstructionPreview(ConstructionSite site) {
+        Ref<EntityStore> previewRef = site.previewRef();
+        if (previewRef != null && previewRef.isValid()) {
+            PersistentPrefabPreview.remove(previewRef.getStore(), previewRef);
+        }
     }
 
     public PlacedPrefab place(
@@ -427,12 +506,22 @@ public final class PrefabPlacementService {
     public record ConstructionSite(
         UUID id,
         UUID ownerId,
-        PlacementDefinition definition,
-        Vector3i anchor,
+        UUID worldId,
+        PlacementCandidate candidate,
         Ref<EntityStore> previewRef
     ) {
         public ConstructionSite {
-            anchor = new Vector3i(anchor);
+            if (candidate == null) {
+                throw new IllegalArgumentException("candidate cannot be null");
+            }
+        }
+
+        public PlacementDefinition definition() {
+            return candidate.definition();
+        }
+
+        public Vector3i anchor() {
+            return new Vector3i(candidate.anchor());
         }
     }
 

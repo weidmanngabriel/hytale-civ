@@ -15,6 +15,7 @@ import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivInhabitantUseSystem;
 import dev.civilizations.hytale.CivManualMovementSystem;
 import dev.civilizations.hytale.CivUnitRegistry;
+import dev.civilizations.hytale.ConstructionWorkSystem;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
 import dev.civilizations.hytale.FarmBuildingRegistry;
 import dev.civilizations.hytale.FarmNpcWorkSystem;
@@ -69,6 +70,14 @@ public final class CivilizationsPlugin extends JavaPlugin {
         );
         getEntityStoreRegistry().registerSystem(
             new WoodcutterWorkSystem(unitRegistry, activityRegistry)
+        );
+        getEntityStoreRegistry().registerSystem(
+            new ConstructionWorkSystem(
+                unitRegistry,
+                activityRegistry,
+                farmRegistry,
+                prefabPlacementService
+            )
         );
 
         getCommandRegistry().registerCommand(new CivTestCommand());

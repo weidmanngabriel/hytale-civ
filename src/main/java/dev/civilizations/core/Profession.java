@@ -6,5 +6,6 @@ package dev.civilizations.core;
 public enum Profession {
     UNEMPLOYED,
     FARMER,
-    WOODCUTTER
+    WOODCUTTER,
+    CONSTRUCTION_WORKER
 }
