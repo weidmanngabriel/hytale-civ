@@ -61,7 +61,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getCommandRegistry().registerCommand(new CivBuildCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivWikiCommand(rtsInteractionController));
 
-        getEventRegistry().register(PlayerInteractEvent.class, rtsInteractionController::handlePlayerInteract);
+        getEventRegistry().register(PlayerInteractEvent.class, (String) null, rtsInteractionController::handlePlayerInteract);
         getEventRegistry().register(PlayerMouseButtonEvent.class, rtsInteractionController::handleMouseButton);
         getEventRegistry().register(PlayerMouseMotionEvent.class, rtsInteractionController::handleMouseMotion);
         getEventRegistry().register(PlayerDisconnectEvent.class, rtsInteractionController::handleDisconnect);
