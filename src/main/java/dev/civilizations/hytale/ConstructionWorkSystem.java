@@ -121,7 +121,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         } else if (intent instanceof ConstructionJob.MoveToConstructionSiteIntent moveIntent) {
             moveToSite(ref, position, runtime, moveIntent.movement());
         } else if (intent instanceof ConstructionJob.BuildIntent) {
-            build(ref, world, store, runtime, dt);
+            build(ref, world, store, commandBuffer, runtime, dt);
         } else if (intent instanceof ConstructionJob.CompleteConstructionIntent) {
             complete(ref, key, world, store, runtime);
         }
@@ -210,6 +210,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         Ref<EntityStore> ref,
         World world,
         Store<EntityStore> store,
+        CommandBuffer<EntityStore> commandBuffer,
         WorkerRuntime runtime,
         float dt
     ) {
@@ -231,7 +232,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                 world,
                 runtime.site,
                 layerIndex,
-                store
+                commandBuffer
             );
             System.out.println(
                 "[Civ Construction] Site " + runtime.site.id()
