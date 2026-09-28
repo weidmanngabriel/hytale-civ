@@ -30,7 +30,7 @@ While RTS mode is active:
 
 The current Custom camera does not switch the player into Spectator. Hiding only the local player model is not part of this slice because no verified native self-hide mechanism has been established yet.
 
-Movement targets are handed to the claimed NPC's native Hytale `PathManager` instead of being steered by a Civ-owned tick loop. Hytale therefore controls the NPC's normal travel speed and route-following behavior. Claims, selection, profession and work state reset with the plugin/server.
+Direct movement is currently supported by the Civ-owned `Civ_Inhabitant` role. Civ supplies the destination, while that role's native Hytale `ReadPosition`/`Seek` behavior performs pathfinding and walking; Civ does not steer the NPC every tick. Claimed NPCs using unrelated Hytale roles are not given this movement contract. Claims, selection and work state reset with the plugin/server; profession data is stored on the inhabitant entity.
 
 ## Woodcutter vertical slice
 
