@@ -181,7 +181,6 @@ public final class RtsInteractionController {
                 validatePlacement(worldId, world, targetBlock, session.placementDefinition);
             session.previewTarget = new Vector3i(targetBlock);
             session.previewCandidate = candidate;
-            placementService.showPreview(playerRef, candidate);
         } catch (RuntimeException exception) {
             session.previewTarget = new Vector3i(targetBlock);
             session.previewCandidate = null;
@@ -302,7 +301,6 @@ public final class RtsInteractionController {
                 ));
                 session.previewTarget = new Vector3i(targetBlock);
                 session.previewCandidate = candidate;
-                placementService.showPreview(playerRef, candidate);
                 return;
             }
 
@@ -584,13 +582,6 @@ public final class RtsInteractionController {
     }
 
     private void clearPlacement(PlayerRef playerRef, Session session) {
-        if (session.previewTarget != null || session.previewCandidate != null) {
-            try {
-                placementService.clearPreview(playerRef);
-            } catch (RuntimeException ignored) {
-                // Preview cleanup must not block RTS teardown or disconnect handling.
-            }
-        }
         session.placementDefinition = null;
         session.previewTarget = null;
         session.previewCandidate = null;
