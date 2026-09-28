@@ -143,64 +143,8 @@ public final class RtsInteractionController {
     }
 
     public void handleMouseMotion(PlayerMouseMotionEvent event) {
-        Ref<EntityStore> playerEntityRef = event.getPlayerRef();
-        PlayerRef playerRef = playerEntityRef.getStore().getComponent(
-            playerEntityRef,
-            PlayerRef.getComponentType()
-        );
-        if (playerRef == null) {
-            return;
-        }
-
-        Session session = sessions.get(playerRef.getUuid());
-        if (session == null || session.placementDefinition == null) {
-            return;
-        }
-
-        Vector3i targetBlock = event.getTargetBlock();
-        if (targetBlock == null) {
-            if (!session.debugNullMotionReported) {
-                session.debugNullMotionReported = true;
-                playerRef.sendMessage(Message.raw(
-                    "[Civ preview debug] MouseMotion kommt an, aber targetBlock ist null."
-                ));
-            }
-            return;
-        }
-        session.debugNullMotionReported = false;
-        if (session.previewTarget != null && session.previewTarget.equals(targetBlock)) {
-            return;
-        }
-
-        UUID worldId = playerRef.getWorldUuid();
-        World world = worldId == null ? null : Universe.get().getWorld(worldId);
-        if (world == null) {
-            return;
-        }
-
-        try {
-            PrefabPlacementService.PlacementCandidate candidate =
-                validatePlacement(worldId, world, targetBlock, session.placementDefinition);
-            session.previewTarget = new Vector3i(targetBlock);
-            session.previewCandidate = candidate;
-            playerRef.sendMessage(Message.raw(
-                "[Civ preview debug] target="
-                    + targetBlock.x + "," + targetBlock.y + "," + targetBlock.z
-                    + " anchor=" + candidate.anchor().x + ","
-                    + candidate.anchor().y + "," + candidate.anchor().z
-            ));
-            placementService.updateConstructionPreview(playerRef, candidate);
-            playerRef.sendMessage(Message.raw(
-                "[Civ preview debug] Preview-Update wurde ausgeführt."
-            ));
-        } catch (RuntimeException exception) {
-            session.previewTarget = new Vector3i(targetBlock);
-            session.previewCandidate = null;
-            playerRef.sendMessage(Message.raw(
-                "[Civ preview debug] Preview-Fehler: "
-                    + exception.getClass().getSimpleName() + ": " + exception.getMessage()
-            ));
-        }
+        // The native Builder Paste ghost is client/tool-driven. Generic RTS
+        // mouse motion is not the authoritative placement input in this spike.
     }
 
     public void handleDisconnect(PlayerDisconnectEvent event) {
@@ -269,17 +213,16 @@ public final class RtsInteractionController {
     ) {
         clearPlacement(playerRef, session);
         try {
-            if (!placementService.startConstructionPreview(playerRef, definition)) {
+            if (!placementService.startNativeConstructionGhost(playerRef, definition)) {
                 playerRef.sendMessage(Message.raw(
-                    definition.displayName() + " konnte nicht als Civ-Bauvorschau gestartet werden."
+                    definition.displayName() + " konnte nicht an Hytales nativen Ghost übergeben werden."
                 ));
                 return;
             }
             session.placementDefinition = definition;
             playerRef.sendMessage(Message.raw(
                 definition.displayName()
-                    + " ausgewählt. Ghost mit der Maus positionieren, Linksklick bestätigt, "
-                    + "Rechtsklick bricht ab."
+                    + " ausgewählt. Nativer Ghost aktiv; Linksklick wird von Civ als Baustelle übernommen."
             ));
         } catch (RuntimeException exception) {
             playerRef.sendMessage(Message.raw(
@@ -320,7 +263,7 @@ public final class RtsInteractionController {
                 return;
             }
 
-            placementService.commitConstructionPreview(playerRef, candidate);
+            placementService.createConstructionSiteAtClick(playerRef, candidate);
             placementRegistry.register(worldId, candidate.footprint());
 
             session.placementDefinition = null;
