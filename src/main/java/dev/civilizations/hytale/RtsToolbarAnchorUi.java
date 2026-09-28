@@ -65,7 +65,12 @@ public final class RtsToolbarAnchorUi {
 
     public static void clear(@Nonnull PlayerRef playerRef) {
         playerRef.getPacketHandler().writeNoCache(
-            new UpdateAnchorUI(ANCHOR_ID, true, null, null)
+            new UpdateAnchorUI(
+                ANCHOR_ID,
+                true,
+                UICommandBuilder.EMPTY_COMMAND_ARRAY,
+                new UIEventBuilder().getEvents()
+            )
         );
     }
 }
