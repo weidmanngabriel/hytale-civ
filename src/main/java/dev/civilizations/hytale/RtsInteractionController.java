@@ -333,9 +333,12 @@ public final class RtsInteractionController {
         }
 
         CivUnitRegistry.UnitKey key = unitRegistry.keyOf(target);
-        boolean claimed = commandBuffer == null
+        CivUnitRegistry.ClaimResult bufferedResult = commandBuffer == null
+            ? null
+            : unitRegistry.toggleClaimBuffered(target, commandBuffer);
+        boolean claimed = bufferedResult == null
             ? unitRegistry.toggleClaim(target)
-            : unitRegistry.toggleClaim(target, commandBuffer);
+            : bufferedResult.claimed();
         if (!claimed) {
             farmRegistry.unassignFarmer(target);
             sessions.values().forEach(otherSession -> {
@@ -347,9 +350,9 @@ public final class RtsInteractionController {
         }
 
         if (claimed) {
-            CivInhabitantData data = commandBuffer == null
+            CivInhabitantData data = bufferedResult == null
                 ? unitRegistry.getInhabitantData(target)
-                : unitRegistry.getInhabitantData(target);
+                : bufferedResult.inhabitantData();
             String name = data == null || !data.hasIdentity() ? "unknown" : data.fullName();
             playerRef.sendMessage(Message.raw("Civ inhabitant claimed: " + name));
         } else {
@@ -418,6 +421,33 @@ public final class RtsInteractionController {
             "Bewegungsbefehl " + targetBlock.x + ", " + targetBlock.y + ", " + targetBlock.z
                 + " an " + assigned + " Civ-Bewohner."
         ));
+    }
+
+    public boolean openFirstPersonActions(
+        Ref<EntityStore> playerEntityRef,
+        PlayerRef playerRef,
+        Ref<EntityStore> target,
+        Store<EntityStore> store
+    ) {
+        if (playerEntityRef == null || !playerEntityRef.isValid()
+            || target == null || !target.isValid() || !unitRegistry.isClaimed(target)) {
+            return false;
+        }
+
+        Player player = store.getComponent(playerEntityRef, Player.getComponentType());
+        if (player == null) {
+            return false;
+        }
+
+        player.getPageManager().openCustomPage(
+            playerEntityRef,
+            store,
+            new PersonActionsPage(
+                playerRef,
+                () -> assignWoodcutter(playerRef, target)
+            )
+        );
+        return true;
     }
 
     private void openPersonActions(

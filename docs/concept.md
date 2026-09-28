@@ -14,7 +14,9 @@ Der aktuelle Produkt-Meilenstein ist ein RTS-Prototyp mit steuerbaren NPCs zusä
 
 <code>/civrtstest</code> schaltet eine feste, schräge RTS-Kamera mit sichtbarem Mauszeiger ein oder aus. Der Spieler wechselt dabei nicht in den Spectator-Modus.
 
-<code>/civclaim</code> aktiviert den nächsten Linksklick unabhängig vom Kameramodus. Wird anschließend in First Person oder RTS ein vorhandener NPC angeklickt, wird er als Civ-Bewohner initialisiert beziehungsweise für die aktuelle Steuerung beansprucht oder wieder freigegeben. Beim ersten Initialisieren erhält er dauerhaft ein Geschlecht, einen dreiteiligen Wikinger-Namen und den Zustand arbeitslos. Ein erneuter Claim würfelt diese Identität nicht neu aus.
+<code>/civclaim</code> aktiviert den nächsten Linksklick unabhängig vom Kameramodus. Wird anschließend in First Person oder RTS ein vorhandener NPC angeklickt, wird er als Civ-Bewohner initialisiert beziehungsweise für die aktuelle Steuerung beansprucht oder wieder freigegeben. Beim ersten Initialisieren erhält er dauerhaft ein Geschlecht, einen dreiteiligen Wikinger-Namen und den Zustand arbeitslos. Ein erneuter Claim würfelt diese Identität nicht neu aus. Der vollständige Bewohnername wird als sichtbare Namensplakette des NPCs verwendet.
+
+In First Person öffnet Rechtsklick/Benutzen auf einen beanspruchten Civ-Bewohner dessen Aktionsmenü. Darüber kann aktuell wie im RTS der Beruf Holzfäller zugewiesen werden.
 
 Während der RTS-Modus aktiv ist:
 

@@ -11,6 +11,7 @@ import dev.civilizations.core.VikingNameGenerator;
 import dev.civilizations.hytale.CivClaimDamageSystem;
 import dev.civilizations.hytale.CivInhabitantData;
 import dev.civilizations.hytale.CivInhabitantService;
+import dev.civilizations.hytale.CivInhabitantUseSystem;
 import dev.civilizations.hytale.CivUnitRegistry;
 import dev.civilizations.hytale.FarmBuildingRegistry;
 import dev.civilizations.hytale.FarmNpcWorkSystem;
@@ -52,6 +53,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
             );
 
         getEntityStoreRegistry().registerSystem(new CivClaimDamageSystem(rtsInteractionController));
+        getEntityStoreRegistry().registerSystem(new CivInhabitantUseSystem(rtsInteractionController));
         getEntityStoreRegistry().registerSystem(new FarmNpcWorkSystem(unitRegistry, farmRegistry));
         getEntityStoreRegistry().registerSystem(new WoodcutterWorkSystem(unitRegistry));
 

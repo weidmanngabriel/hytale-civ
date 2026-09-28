@@ -57,7 +57,7 @@ public final class CivUnitRegistry {
         return true;
     }
 
-    public boolean toggleClaim(
+    public ClaimResult toggleClaimBuffered(
         Ref<EntityStore> ref,
         CommandBuffer<EntityStore> commandBuffer
     ) {
@@ -67,14 +67,15 @@ public final class CivUnitRegistry {
         if (existing != null && existing.ref().isValid()) {
             applyNativePath(existing.ref(), null);
             units.remove(key);
-            return false;
+            return new ClaimResult(false, inhabitantService.get(ref));
         }
 
-        if (inhabitantService.ensureInhabitant(ref, commandBuffer) == null) {
-            return false;
+        CivInhabitantData data = inhabitantService.ensureInhabitant(ref, commandBuffer);
+        if (data == null) {
+            return new ClaimResult(false, null);
         }
         units.put(key, new UnitState(ref, null));
-        return true;
+        return new ClaimResult(true, data);
     }
 
     public CivInhabitantData getInhabitantData(Ref<EntityStore> ref) {
@@ -208,6 +209,9 @@ public final class CivUnitRegistry {
 
     public Profession getProfession(Ref<EntityStore> ref) {
         return inhabitantService.getProfession(ref);
+    }
+
+    public record ClaimResult(boolean claimed, CivInhabitantData inhabitantData) {
     }
 
     public record UnitKey(Store<EntityStore> store, int entityIndex) {
