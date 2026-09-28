@@ -34,6 +34,7 @@ public final class RtsInteractionController {
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
     private final FarmBuildingRegistry farmRegistry;
+    private final FarmFieldRegistry fieldRegistry;
     private final BuildingPlacementRegistry placementRegistry;
     private final PrefabPlacementService placementService;
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
@@ -44,6 +45,7 @@ public final class RtsInteractionController {
         CivUnitRegistry unitRegistry,
         CivActivityRegistry activityRegistry,
         FarmBuildingRegistry farmRegistry,
+        FarmFieldRegistry fieldRegistry,
         BuildingPlacementRegistry placementRegistry,
         PrefabPlacementService placementService
     ) {
@@ -51,6 +53,7 @@ public final class RtsInteractionController {
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
         this.farmRegistry = farmRegistry;
+        this.fieldRegistry = fieldRegistry;
         this.placementRegistry = placementRegistry;
         this.placementService = placementService;
     }
@@ -502,6 +505,14 @@ public final class RtsInteractionController {
         }
 
         Ref<EntityStore> farmer = session.selected;
+        FarmFieldRegistry.FieldSite field =
+            fieldRegistry.nearestField(farm.worldId(), farm.building().entranceBlock());
+        if (field == null) {
+            playerRef.sendMessage(Message.raw(
+                "Baue zuerst ein fertiges Weizenfeld in der Nähe der Farm."
+            ));
+            return;
+        }
         FarmBuildingRegistry.AssignmentResult result = farmRegistry.assignFarmer(farmer, farm);
         switch (result) {
             case ASSIGNED -> {
@@ -510,8 +521,7 @@ public final class RtsInteractionController {
                 unitRegistry.assignProfession(farmer, Profession.FARMER);
                 unitRegistry.setMoveTarget(farmer, farm.entranceTarget());
                 playerRef.sendMessage(Message.raw(
-                    "Farmer assigned to " + farm.building().id()
-                        + ". Production: 1 wheat per 5 seconds of work, target 10."
+                    "Bauer zugewiesen. Er läuft von der Farm zum nächsten Weizenfeld, arbeitet dort und kehrt zur Farm zurück."
                 ));
             }
             case ALREADY_ASSIGNED ->
