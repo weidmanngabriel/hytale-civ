@@ -110,10 +110,10 @@ Manuelle Abnahme:
 2. <code>/civrtstest</code> ausführen.
 3. <code>/civbuild</code> ausführen und bestätigen, dass ein modaler Katalog **Gebäude** geöffnet wird und normale RTS-Weltinteraktion blockiert.
 4. Bestätigen, dass der aktuelle Katalog **Farm** und **Weizenfeld** enthält und geschlossen werden kann, ohne die Platzierung zu starten.
-5. <code>/civbuild</code> erneut ausführen, **Farm** auswählen, den Mauszeiger über das Gelände bewegen und bestätigen, dass eine Farm-Vorschau dem anvisierten Block folgt.
+5. <code>/civbuild</code> erneut ausführen, **Farm** auswählen, den Mauszeiger über das Gelände bewegen und bestätigen, dass das vollständige Farm-Prefab als native Ghost-/Prefab-Vorschau dem anvisierten Block folgt, ohne echte Weltblöcke zu verändern.
 6. Rechtsklick ausführen und bestätigen, dass die Platzierung abgebrochen wird, ohne die Welt zu verändern.
 7. **Farm** erneut wählen und auf gültigem, flachem und gestütztem Boden links klicken. Bestätigen, dass die Farm mit eingelassenem Boden platziert wird und nicht einen Block über dem Gelände steht.
-8. Dasselbe über einem Loch, einer Flüssigkeit, blockiertem Gebäuderaum und einer bestehenden Farmfläche versuchen. Bestätigen, dass die Platzierung mit einem Grund abgelehnt wird und der Platzierungsmodus aktiv bleibt.
+8. Dasselbe über einem Loch, einer Flüssigkeit, tatsächlich blockiertem Bauvolumen oberhalb des eingelassenen Baugrunds und einer bestehenden Farmfläche versuchen. Bestätigen, dass die Platzierung mit einem Grund abgelehnt wird und der Platzierungsmodus aktiv bleibt.
 9. **Weizenfeld** auswählen und denselben Vorschau-, Abbruch-, Gelände- und Überschneidungsablauf prüfen. Bestätigen, dass das Feld getrennt von der Farm platziert wird und bündig im Gelände liegt.
 10. Bestätigen, dass <code>/civfarm</code> weiterhin denselben Farm-Platzierungsablauf startet wie das Menü.
 11. Mit <code>/civclaim</code> einen NPC beanspruchen, ihn auswählen, im Arbeitsbereich der Farm rechts klicken und bestätigen, dass die Zuweisung als Bauer weiterhin funktioniert.

@@ -3,12 +3,16 @@ package dev.civilizations.hytale;
 import com.hypixel.hytale.builtin.triggervolumes.TriggerVolumesPlugin;
 import com.hypixel.hytale.builtin.triggervolumes.manager.TriggerVolumeManager;
 import com.hypixel.hytale.builtin.triggervolumes.manager.VolumeEntry;
+import com.hypixel.hytale.protocol.packets.interface_.EditorBlocksChange;
+import com.hypixel.hytale.protocol.packets.player.HideTriggerVolumePastePrefabPreview;
+import com.hypixel.hytale.protocol.packets.player.ShowTriggerVolumePastePrefabPreview;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.prefab.PrefabStore;
 import com.hypixel.hytale.server.core.prefab.selection.standard.BlockSelection;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
 import dev.civilizations.core.BlockPosition;
+import org.joml.Vector3f;
 import org.joml.Vector3i;
 
 import java.util.ArrayList;
@@ -46,35 +50,25 @@ public final class PrefabPlacementService {
         PlacementDefinition definition
     ) {
         BlockSelection source = requireSource(definition);
-        Vector3i anchor = new Vector3i(
-            pointedBlock.x,
-            pointedBlock.y - definition.groundSinkBlocks(),
-            pointedBlock.z
-        );
+        Vector3i anchor = placementAnchor(pointedBlock, definition);
 
         List<PrefabCell> cells = readCells(source);
-        int floorY = cells.stream()
-            .mapToInt(PrefabCell::y)
-            .min()
-            .orElseThrow(() -> new IllegalStateException(
-                definition.displayName() + " prefab has no physical blocks."
-            ));
-
-        List<PrefabCell> floorCells = cells.stream()
-            .filter(cell -> cell.y() == floorY)
+        int terrainReplaceMaxY = source.getAnchorY() + definition.groundSinkBlocks();
+        List<PrefabCell> terrainCells = cells.stream()
+            .filter(cell -> cell.y() <= terrainReplaceMaxY)
             .toList();
-        PlacementFootprint footprint = footprintFor(source, anchor, floorCells);
+        PlacementFootprint footprint = footprintFor(source, anchor, terrainCells);
         Map<BlockPosition, Integer> replacedFloorBlocks = new LinkedHashMap<>();
 
-        for (PrefabCell floor : floorCells) {
-            Vector3i worldPosition = worldPosition(source, anchor, floor);
+        for (PrefabCell terrainCell : terrainCells) {
+            Vector3i worldPosition = worldPosition(source, anchor, terrainCell);
             int existingBlock = world.getBlock(worldPosition.x, worldPosition.y, worldPosition.z);
             if (existingBlock == BlockType.EMPTY_ID) {
                 return PlacementCandidate.invalid(
                     definition,
                     anchor,
                     footprint,
-                    "Der Boden würde über einem Loch oder einer Kante liegen."
+                    "Der eingelassene Baugrund würde über einem Loch oder einer Kante liegen."
                 );
             }
             if (world.getFluidId(worldPosition.x, worldPosition.y, worldPosition.z) != 0) {
@@ -82,16 +76,7 @@ public final class PrefabPlacementService {
                     definition,
                     anchor,
                     footprint,
-                    "Der Boden kann nicht in Wasser oder andere Flüssigkeiten gesetzt werden."
-                );
-            }
-            if (world.getBlock(worldPosition.x, worldPosition.y - 1, worldPosition.z)
-                == BlockType.EMPTY_ID) {
-                return PlacementCandidate.invalid(
-                    definition,
-                    anchor,
-                    footprint,
-                    "Unter dem Bauplatz fehlt tragfähiger Boden."
+                    "Der Baugrund kann nicht in Wasser oder andere Flüssigkeiten gesetzt werden."
                 );
             }
             replacedFloorBlocks.put(
@@ -101,7 +86,7 @@ public final class PrefabPlacementService {
         }
 
         for (PrefabCell cell : cells) {
-            if (cell.y() == floorY) {
+            if (cell.y() <= terrainReplaceMaxY) {
                 continue;
             }
             Vector3i worldPosition = worldPosition(source, anchor, cell);
@@ -112,7 +97,7 @@ public final class PrefabPlacementService {
                     definition,
                     anchor,
                     footprint,
-                    "Der Bauplatz ist durch Gelände oder ein Objekt blockiert."
+                    "Der Bauplatz ist oberhalb des Baugrunds durch Gelände oder ein Objekt blockiert."
                 );
             }
         }
@@ -125,15 +110,36 @@ public final class PrefabPlacementService {
         );
     }
 
+    private static Vector3i placementAnchor(
+        Vector3i pointedBlock,
+        PlacementDefinition definition
+    ) {
+        return new Vector3i(
+            pointedBlock.x,
+            pointedBlock.y - definition.groundSinkBlocks(),
+            pointedBlock.z
+        );
+    }
+
     public void showPreview(PlayerRef playerRef, PlacementCandidate candidate) {
-        BlockSelection preview = new BlockSelection(requireSource(candidate.definition()));
-        preview.relativizeInPlace();
-        preview.setPosition(candidate.anchor().x, candidate.anchor().y, candidate.anchor().z);
-        playerRef.getPacketHandler().write(preview.toPacketWithSelection());
+        BlockSelection source = requireSource(candidate.definition());
+        EditorBlocksChange previewData = source.toPacket();
+
+        ShowTriggerVolumePastePrefabPreview preview =
+            new ShowTriggerVolumePastePrefabPreview();
+        preview.position = new Vector3f(
+            candidate.anchor().x,
+            candidate.anchor().y,
+            candidate.anchor().z
+        );
+        preview.blocksChange = previewData.blocksChange;
+        preview.fluidsChange = previewData.fluidsChange;
+        preview.entityChanges = previewData.entityChanges;
+        playerRef.getPacketHandler().write(preview);
     }
 
     public void clearPreview(PlayerRef playerRef) {
-        playerRef.getPacketHandler().write(new BlockSelection().toPacketWithSelection());
+        playerRef.getPacketHandler().write(new HideTriggerVolumePastePrefabPreview());
     }
 
     public PlacedPrefab place(
