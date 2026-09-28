@@ -1,4 +1,3 @@
-import java.util.jar.JarFile
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
@@ -25,15 +24,8 @@ val hytaleServerVersion = providers.gradleProperty("hytaleServerVersion").get()
 val artifactBaseName = providers.gradleProperty("artifactBaseName").getOrElse("hytale-civ")
 val assetPackDir = layout.projectDirectory.dir("asset-pack")
 
-val hytaleInspection by configurations.creating {
-    isCanBeConsumed = false
-    isCanBeResolved = true
-    isTransitive = false
-}
-
 dependencies {
     compileOnly("com.hypixel.hytale:Server:$hytaleServerVersion")
-    hytaleInspection("com.hypixel.hytale:Server:$hytaleServerVersion")
 
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -61,172 +53,6 @@ tasks.withType<Test>().configureEach {
     reports {
         junitXml.required = true
         html.required = true
-    }
-}
-
-val snapshotHytaleApi = tasks.register("snapshotHytaleApi") {
-    group = "verification"
-    description = "Creates an API snapshot from the resolved Hytale Server JAR."
-    notCompatibleWithConfigurationCache("Task inspects the resolved external JAR at execution time.")
-
-    val outputDir = layout.buildDirectory.dir("hytale-api-snapshot")
-    outputs.dir(outputDir)
-
-    doLast {
-        val artifact = hytaleInspection.resolvedConfiguration.resolvedArtifacts.single()
-        val serverJar = artifact.file
-        val snapshotDir = outputDir.get().asFile
-        val signaturesDir = snapshotDir.resolve("signatures")
-
-        snapshotDir.deleteRecursively()
-        signaturesDir.mkdirs()
-
-        val classes = JarFile(serverJar).use { jar ->
-            jar.entries().asSequence()
-                .filter { !it.isDirectory && it.name.endsWith(".class") && !it.name.contains("module-info") }
-                .map { it.name.removeSuffix(".class").replace('/', '.') }
-                .sorted()
-                .toList()
-        }
-
-        snapshotDir.resolve("classes.txt").writeText(classes.joinToString(separator = "\n", postfix = "\n"))
-
-        val module = artifact.moduleVersion.id
-        snapshotDir.resolve("metadata.txt").writeText(
-            buildString {
-                appendLine("module=${module.group}:${module.name}:${module.version}")
-                appendLine("jar=${serverJar.name}")
-                appendLine("classCount=${classes.size}")
-            }
-        )
-
-        val targetSimpleNames = listOf(
-            "CommandBuffer",
-            "CameraManager",
-            "InteractiveCustomUIPage",
-            "PrefabStore",
-            "TriggerVolumeManager",
-            "UnarmedInteractions",
-            "RootInteraction",
-            "OpenCustomUIInteraction",
-            "RunRootInteraction",
-            "TargetUtil"
-        )
-
-        val javaLauncher = javaToolchains.launcherFor {
-            languageVersion.set(JavaLanguageVersion.of(25))
-        }.get()
-        val javapName = if (System.getProperty("os.name").lowercase().contains("win")) "javap.exe" else "javap"
-        val javap = javaLauncher.metadata.installationPath.file("bin/$javapName").asFile
-
-        val findings = mutableListOf<String>()
-
-        for (simpleName in targetSimpleNames) {
-            val matches = classes.filter { it.substringAfterLast('.') == simpleName }
-            if (matches.isEmpty()) {
-                findings += "$simpleName -> MISSING"
-                continue
-            }
-
-            for (className in matches) {
-                val process = ProcessBuilder(
-                    javap.absolutePath,
-                    "-classpath",
-                    serverJar.absolutePath,
-                    "-protected",
-                    className
-                )
-                    .redirectErrorStream(true)
-                    .start()
-
-                val output = process.inputStream.bufferedReader().use { it.readText() }
-                val exitCode = process.waitFor()
-                if (exitCode != 0) {
-                    throw GradleException("javap failed for $className:\n$output")
-                }
-
-                signaturesDir.resolve("${className.replace('.', '_')}.txt").writeText(output)
-                findings += "$simpleName -> $className"
-            }
-        }
-
-        snapshotDir.resolve("findings.txt").writeText(findings.joinToString(separator = "\n", postfix = "\n"))
-
-        logger.lifecycle("Hytale API snapshot written to {}", snapshotDir)
-        findings.forEach { logger.lifecycle(it) }
-    }
-}
-
-val inspectHytaleClass = tasks.register("inspectHytaleClass") {
-    group = "verification"
-    description = "Prints and stores javap signatures for one Hytale Server class selected with -PhytaleClass."
-    notCompatibleWithConfigurationCache("Task inspects the resolved external JAR at execution time.")
-
-    doLast {
-        val requested = providers.gradleProperty("hytaleClass").orNull
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
-            ?: throw GradleException(
-                "Missing -PhytaleClass. Example: ./gradlew inspectHytaleClass -PhytaleClass=CommandBuffer"
-            )
-
-        val artifact = hytaleInspection.resolvedConfiguration.resolvedArtifacts.single()
-        val serverJar = artifact.file
-        val classes = JarFile(serverJar).use { jar ->
-            jar.entries().asSequence()
-                .filter { !it.isDirectory && it.name.endsWith(".class") && !it.name.contains("module-info") }
-                .map { it.name.removeSuffix(".class").replace('/', '.') }
-                .toList()
-        }
-
-        val matches = if (requested.contains('.')) {
-            classes.filter { it == requested }
-        } else {
-            classes.filter { it.substringAfterLast('.') == requested }
-        }
-
-        if (matches.isEmpty()) {
-            throw GradleException("No Hytale class matched '$requested'. Check build/hytale-api-snapshot/classes.txt.")
-        }
-        if (matches.size > 1) {
-            throw GradleException(
-                "Hytale class name '$requested' is ambiguous. Use a fully qualified name. Matches:\n"
-                    + matches.sorted().joinToString("\n")
-            )
-        }
-
-        val className = matches.single()
-        val javaLauncher = javaToolchains.launcherFor {
-            languageVersion.set(JavaLanguageVersion.of(25))
-        }.get()
-        val javapName = if (System.getProperty("os.name").lowercase().contains("win")) "javap.exe" else "javap"
-        val javap = javaLauncher.metadata.installationPath.file("bin/$javapName").asFile
-
-        val process = ProcessBuilder(
-            javap.absolutePath,
-            "-classpath",
-            serverJar.absolutePath,
-            "-protected",
-            className
-        )
-            .redirectErrorStream(true)
-            .start()
-
-        val output = process.inputStream.bufferedReader().use { it.readText() }
-        val exitCode = process.waitFor()
-        if (exitCode != 0) {
-            throw GradleException("javap failed for $className:\n$output")
-        }
-
-        val outputDir = layout.buildDirectory.dir("hytale-api-inspection").get().asFile
-        outputDir.mkdirs()
-        val outputFile = outputDir.resolve("${className.replace('.', '_')}.txt")
-        outputFile.writeText(output)
-
-        logger.lifecycle("Resolved Hytale module: {}", artifact.moduleVersion.id)
-        logger.lifecycle("Inspected Hytale class: {}", className)
-        logger.lifecycle("Signature written to: {}", outputFile)
-        logger.lifecycle("\n{}", output)
     }
 }
 

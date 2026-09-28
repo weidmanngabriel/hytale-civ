@@ -32,25 +32,19 @@ Abhängigkeit: <code>com.hypixel.hytale:Server</code>
 
 ## Hytale-API-Inspektion
 
-Die API-Inspektion ist noch neu und experimentell, wird aber bereits als verpflichtender erster Prüfweg für Hytale-spezifische Entwicklungsarbeit verwendet. Ziel ist, dass auch ein neuer Coding-Agent die tatsächlich festgesetzte Server-API prüft, bevor er Methodennamen, Klassen oder Signaturen annimmt. Der Snapshot belegt dabei nur die vorhandene API-Oberfläche; Laufzeitverhalten wie Event-Dispatch, Lifecycle oder Client-Reaktionen muss weiterhin separat verifiziert werden.
+Für Hytale-spezifische Entwicklungsarbeit ist die im Chat-Projekt hinterlegte `HytaleServer.jar` der bevorzugte erste Prüfweg. Sie entspricht der fest gepinnten Hytale-Version und wird direkt als Binärdatei untersucht; ein vorab erzeugter API-Snapshot ist dafür nicht nötig.
 
-Die tatsächlich von Gradle aufgelöste Hytale-Server-JAR kann analysiert werden:
-
-~~~bash
-./gradlew snapshotHytaleApi
-~~~
-
-Der Task erzeugt unter <code>build/hytale-api-snapshot/</code> einen vollständigen Klassenindex, Metadaten zur aufgelösten Hytale-Abhängigkeit und lesbare <code>javap</code>-Signaturen für einige bekannte Integrationsgrenzen.
-
-Eine beliebige konkrete Hytale-Klasse kann zusätzlich gezielt inspiziert werden:
+Typischer Ablauf in einer Coding-Agent-Sitzung:
 
 ~~~bash
-./gradlew inspectHytaleClass -PhytaleClass=CommandBuffer
+jar tf HytaleServer.jar | grep CommandBuffer
+javap -classpath HytaleServer.jar -public com.hypixel.hytale.component.CommandBuffer
+javap -classpath HytaleServer.jar -c -p com.hypixel.hytale.component.CommandBuffer
 ~~~
 
-Ein vollständig qualifizierter Klassenname kann ebenfalls angegeben werden. Ist ein einfacher Klassenname mehrdeutig, bricht der Task ab und zeigt die passenden vollständigen Namen an. Die Ausgabe wird unter <code>build/hytale-api-inspection/</code> gespeichert.
+Mit der Klassenliste lassen sich einfache Namen auf vollständige Klassennamen abbilden. `javap` liefert Signaturen on demand; `javap -c -p` oder ein gleichwertiges Classfile-/Bytecode-Werkzeug erlaubt bei Bedarf eine tiefere Einzelklassenanalyse. Die JAR selbst wird nicht ins Repository eingecheckt und nicht als CI-Artefakt veröffentlicht.
 
-Die CI erzeugt den Snapshot und führt den freien Inspector zusätzlich an <code>CommandBuffer</code> als Smoke-Check aus. Beide Ausgaben werden im Artefakt <code>hytale-api-snapshot</code> gespeichert. Die Server-JAR selbst und dekompilierter Hytale-Quellcode werden nicht in das Repository oder dieses Artefakt übernommen. Die API-Inspektion ersetzt keine Laufzeittests in Hytale.
+Signaturen und Bytecode belegen nur, welche Klassen, Member und Implementierungsdetails in genau dieser JAR vorhanden sind. Sie beweisen keine Runtime-Semantik. Client-Verhalten, Lifecycle, Event-Dispatch und vergleichbare Engine-Eigenschaften müssen weiterhin gezielt im Spiel beziehungsweise über offizielle Hytale-Dokumentation verifiziert werden.
 
 ## Asset Pack
 
