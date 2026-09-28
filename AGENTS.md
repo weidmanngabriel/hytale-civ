@@ -34,4 +34,4 @@
 21. Run `./gradlew test` and `./gradlew build` before considering a change complete whenever the local environment permits it.
 22. Never commit machine-specific paths, local Hytale installations, credentials or generated server/game files.
 23. Implement changes on a temporary branch. Complete code, tests and documentation there before final integration.
-24. At the end of a completed change, squash-merge it into `main` so one meaningful commit remains for that adjustment. Verify the resulting main build/release status.
+24. At the end of a completed change, squash-merge it into `main` so one meaningful commit remains for that adjustment. After pushing or opening the integration, stay with the run: monitor the required CI/build/release checks until they reach a final state. If a required check fails, investigate and fix it, then rerun validation as needed. Do not consider the task complete or end the run while required checks are still pending or failing. Finish only after the pipeline is green and the change is successfully merged into `main`, then verify the resulting main build/release status.
