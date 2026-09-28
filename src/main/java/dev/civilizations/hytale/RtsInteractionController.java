@@ -120,6 +120,13 @@ public final class RtsInteractionController {
             return;
         }
 
+        if (session.nativePasteActive) {
+            if (button == MouseButtonType.Left || button == MouseButtonType.Right) {
+                session.nativePasteActive = false;
+            }
+            return;
+        }
+
         if (button == MouseButtonType.Left) {
             if (session.placementDefinition != null) {
                 confirmPlacement(playerRef, session, event.getTargetBlock());
@@ -246,11 +253,25 @@ public final class RtsInteractionController {
         PrefabPlacementService.PlacementDefinition definition
     ) {
         clearPlacement(playerRef, session);
-        session.placementDefinition = definition;
-        playerRef.sendMessage(Message.raw(
-            definition.displayName() + " ausgewählt. Vorschau mit der Maus bewegen; "
-                + "Linksklick platziert, Rechtsklick bricht ab."
-        ));
+        try {
+            if (!placementService.startNativePastePlacement(playerRef, definition)) {
+                playerRef.sendMessage(Message.raw(
+                    definition.displayName() + " konnte nicht an Hytales Paste Tool übergeben werden."
+                ));
+                return;
+            }
+            session.nativePasteActive = true;
+            playerRef.sendMessage(Message.raw(
+                definition.displayName()
+                    + " an Hytales natives Paste Tool übergeben. "
+                    + "Die native Ghost-Vorschau und Platzierung übernimmt jetzt Hytale."
+            ));
+        } catch (RuntimeException exception) {
+            playerRef.sendMessage(Message.raw(
+                definition.displayName() + " konnte nicht geladen werden: "
+                    + exception.getMessage()
+            ));
+        }
     }
 
     private void confirmPlacement(
@@ -573,6 +594,7 @@ public final class RtsInteractionController {
         session.placementDefinition = null;
         session.previewTarget = null;
         session.previewCandidate = null;
+        session.nativePasteActive = false;
     }
 
     private void removeInvalidSelection(Session session) {
@@ -590,5 +612,6 @@ public final class RtsInteractionController {
         private PrefabPlacementService.PlacementDefinition placementDefinition;
         private Vector3i previewTarget;
         private PrefabPlacementService.PlacementCandidate previewCandidate;
+        private boolean nativePasteActive;
     }
 }
