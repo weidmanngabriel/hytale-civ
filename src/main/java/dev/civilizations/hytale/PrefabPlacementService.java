@@ -4,6 +4,12 @@ import com.hypixel.hytale.builtin.buildertools.BuilderToolsPlugin;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.builtin.buildertools.utils.PasteToolUtil;
+import com.hypixel.hytale.component.system.CancellableEcsEvent;
+import com.hypixel.hytale.math.vector.Rotation3f;
+import com.hypixel.hytale.protocol.packets.inventory.SetActiveSlot;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
+import com.hypixel.hytale.server.core.modules.entity.component.PersistentPrefabPreview;
+import com.hypixel.hytale.server.core.prefab.event.PrefabPasteEvent;
 import com.hypixel.hytale.builtin.triggervolumes.TriggerVolumesPlugin;
 import com.hypixel.hytale.builtin.triggervolumes.manager.TriggerVolumeManager;
 import com.hypixel.hytale.builtin.triggervolumes.manager.VolumeEntry;
@@ -18,6 +24,9 @@ import dev.civilizations.core.BlockPosition;
 import org.joml.Vector3i;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +41,11 @@ import java.util.Set;
  */
 @SuppressWarnings("deprecation")
 public final class PrefabPlacementService {
+
+    private final Map<UUID, ActiveNativePlacement> activeNativePlacements =
+        new ConcurrentHashMap<>();
+    private final Map<UUID, ConstructionSite> constructionSites =
+        new ConcurrentHashMap<>();
 
     public static final PlacementDefinition FARM = new PlacementDefinition(
         "farm",
@@ -134,10 +148,15 @@ public final class PrefabPlacementService {
 
         Store<EntityStore> store = playerEntityRef.getStore();
         Player player = store.getComponent(playerEntityRef, Player.getComponentType());
-        if (player == null) {
+        InventoryComponent.Hotbar hotbar = store.getComponent(
+            playerEntityRef,
+            InventoryComponent.Hotbar.getComponentType()
+        );
+        if (player == null || hotbar == null) {
             return false;
         }
 
+        byte previousActiveSlot = hotbar.getActiveSlot();
         BlockSelection source = requireSource(definition);
         BuilderToolsPlugin.addToQueue(
             player,
@@ -145,8 +164,96 @@ public final class PrefabPlacementService {
             (ref, queuedState, accessor) ->
                 queuedState.load(definition.displayName(), source, accessor)
         );
+        activeNativePlacements.put(
+            playerRef.getUuid(),
+            new ActiveNativePlacement(playerRef, definition, previousActiveSlot)
+        );
         PasteToolUtil.switchToPasteTool(playerEntityRef, playerRef, store);
         return true;
+    }
+
+    public boolean interceptConstructionPlacement(
+        Store<EntityStore> store,
+        PrefabPasteEvent event
+    ) {
+        if (!event.isPasteStart()) {
+            return false;
+        }
+
+        for (ActiveNativePlacement active : activeNativePlacements.values()) {
+            PlayerRef playerRef = active.playerRef();
+            Ref<EntityStore> playerEntityRef = playerRef.getReference();
+            if (playerEntityRef == null || !playerEntityRef.isValid()
+                || playerEntityRef.getStore() != store) {
+                continue;
+            }
+
+            Player player = store.getComponent(playerEntityRef, Player.getComponentType());
+            if (player == null) {
+                continue;
+            }
+            BuilderToolsPlugin.BuilderState state =
+                BuilderToolsPlugin.getState(player, playerRef);
+            BlockSelection selection = state.getSelection();
+            if (selection == null || selection.getPrefabId() != event.getPrefabId()) {
+                continue;
+            }
+
+            event.setCancelled(true);
+            activeNativePlacements.remove(playerRef.getUuid());
+
+            int x = selection.getX();
+            int y = selection.getY() - 1;
+            int z = selection.getZ();
+            Ref<EntityStore> previewRef = PersistentPrefabPreview.spawn(
+                store,
+                new org.joml.Vector3d(x, y, z),
+                new Rotation3f(),
+                active.definition().prefabPath(),
+                Integer.MAX_VALUE
+            );
+            ConstructionSite site = new ConstructionSite(
+                UUID.randomUUID(),
+                active.definition(),
+                new Vector3i(x, y, z),
+                previewRef
+            );
+            constructionSites.put(site.id(), site);
+            restorePreviousHotbarSlot(store, playerEntityRef, playerRef, active.previousActiveSlot());
+            playerRef.sendMessage(Message.raw(
+                active.definition().displayName()
+                    + " als Civ-Baustelle gesetzt. Das fertige Prefab wurde nicht sofort eingefügt."
+            ));
+            return true;
+        }
+        return false;
+    }
+
+    public Collection<ConstructionSite> constructionSites() {
+        return List.copyOf(constructionSites.values());
+    }
+
+    public void cancelNativePlacement(PlayerRef playerRef) {
+        activeNativePlacements.remove(playerRef.getUuid());
+    }
+
+    private static void restorePreviousHotbarSlot(
+        Store<EntityStore> store,
+        Ref<EntityStore> playerEntityRef,
+        PlayerRef playerRef,
+        byte previousSlot
+    ) {
+        InventoryComponent.Hotbar hotbar = store.getComponent(
+            playerEntityRef,
+            InventoryComponent.Hotbar.getComponentType()
+        );
+        if (hotbar == null) {
+            return;
+        }
+        hotbar.setActiveSlot(previousSlot, playerEntityRef, store);
+        playerRef.getPacketHandler().writeNoCache(
+            new SetActiveSlot(-1, previousSlot)
+        );
     }
 
     public PlacedPrefab place(
@@ -281,6 +388,24 @@ public final class PrefabPlacementService {
                 && maxX >= other.minX
                 && minZ <= other.maxZ
                 && maxZ >= other.minZ;
+        }
+    }
+
+    private record ActiveNativePlacement(
+        PlayerRef playerRef,
+        PlacementDefinition definition,
+        byte previousActiveSlot
+    ) {
+    }
+
+    public record ConstructionSite(
+        UUID id,
+        PlacementDefinition definition,
+        Vector3i anchor,
+        Ref<EntityStore> previewRef
+    ) {
+        public ConstructionSite {
+            anchor = new Vector3i(anchor);
         }
     }
 
