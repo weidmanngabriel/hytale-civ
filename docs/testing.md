@@ -110,9 +110,9 @@ Manuelle Abnahme:
 2. <code>/civrtstest</code> ausführen.
 3. <code>/civbuild</code> ausführen und bestätigen, dass ein modaler Katalog **Gebäude** geöffnet wird und normale RTS-Weltinteraktion blockiert.
 4. Bestätigen, dass der aktuelle Katalog **Farm** und **Weizenfeld** enthält und geschlossen werden kann, ohne die Platzierung zu starten.
-5. <code>/civbuild</code> erneut ausführen, **Farm** auswählen und bestätigen, dass Hytales natives Paste Tool aktiv wird. Den Mauszeiger über das Gelände bewegen und prüfen, dass dieselbe vollständige Ghost-Vorschau wie beim normalen Prefab-Browser direkt am Cursor erscheint, ohne echte Weltblöcke zu verändern.
+5. <code>/civbuild</code> erneut ausführen, **Farm** auswählen und den Mauszeiger über das Gelände bewegen. Prüfen, dass Civ eine native <code>PersistentPrefabPreview</code> als Ghost an der Mausposition erzeugt und verschiebt, ohne echte Weltblöcke zu verändern. Das Editor-Paste-Tool darf dabei nicht aktiviert werden.
 6. Rechtsklick ausführen und bestätigen, dass die Platzierung abgebrochen wird, ohne die Welt zu verändern.
-7. **Farm** erneut wählen und auf flachem Boden mit dem nativen Paste Tool bestätigen. Dieser Regressionstest ist für den aktuellen Slice entscheidend: Es dürfen **keine echten Prefab-Blöcke** durch den Paste entstehen. Stattdessen muss eine <code>PersistentPrefabPreview</code>-Baustelle entstehen. Sie muss gegenüber der nativen Cursor-Pasteposition exakt um einen Block nach unten versetzt sein.
+7. **Farm** erneut wählen und auf flachem Boden mit Linksklick bestätigen. Es dürfen **keine echten Prefab-Blöcke** entstehen. Der bewegte <code>PersistentPrefabPreview</code>-Ghost bleibt als Baustelle stehen. Sein Civ-Anker liegt exakt einen Block unter dem anvisierten Oberflächenblock.
 8. Dasselbe über einem Loch, einer Flüssigkeit, tatsächlich blockiertem Bauvolumen oberhalb des eingelassenen Baugrunds und einer bestehenden Farmfläche versuchen. Bestätigen, dass die Platzierung mit einem Grund abgelehnt wird und der Platzierungsmodus aktiv bleibt.
 9. **Weizenfeld** auswählen und denselben Ablauf prüfen. Auch hier darf beim Bestätigen nicht sofort das echte Feld entstehen; es muss eine getrennte Baustellen-Vorschau an der abgesenkten Civ-Bauposition entstehen.
 10. Bestätigen, dass <code>/civfarm</code> weiterhin denselben Farm-Platzierungsablauf startet wie das Menü.
