@@ -144,10 +144,10 @@ public final class PrefabPlacementService {
             throw new IllegalStateException("Player entity unavailable.");
         }
         Store<EntityStore> store = playerEntityRef.getStore();
-        Vector3i anchor = candidate.anchor();
+        Vector3i placementOrigin = enginePlacementOrigin(candidate);
         Ref<EntityStore> previewRef = PersistentPrefabPreview.spawn(
             store,
-            new org.joml.Vector3d(anchor.x, anchor.y, anchor.z),
+            new org.joml.Vector3d(placementOrigin.x, placementOrigin.y, placementOrigin.z),
             new Rotation3f(),
             candidate.definition().prefabKey(),
             Integer.MAX_VALUE
@@ -330,7 +330,7 @@ public final class PrefabPlacementService {
                 blockHolder.holder()
             );
         });
-        layer.placeNoReturn(world, new Vector3i(site.anchor()), commandBuffer);
+        layer.placeNoReturn(world, enginePlacementOrigin(site.candidate()), commandBuffer);
         return true;
     }
 
@@ -388,7 +388,7 @@ public final class PrefabPlacementService {
         prefab.place(
             playerRef,
             world,
-            new Vector3i(candidate.anchor()),
+            enginePlacementOrigin(candidate),
             null,
             BlockSelection.DEFAULT_ENTITY_CONSUMER,
             false,
@@ -457,6 +457,20 @@ public final class PrefabPlacementService {
             anchor.x + cell.x() - source.getAnchorX(),
             anchor.y + cell.y() - source.getAnchorY(),
             anchor.z + cell.z() - source.getAnchorZ()
+        );
+    }
+
+    /**
+     * Converts Civ's terrain-relative anchor into the origin expected by Hytale's
+     * prefab preview and BlockSelection placement APIs. The sink is part of the
+     * Civ terrain convention; Hytale then applies the prefab's own internal anchor.
+     */
+    private static Vector3i enginePlacementOrigin(PlacementCandidate candidate) {
+        Vector3i anchor = candidate.anchor();
+        return new Vector3i(
+            anchor.x,
+            anchor.y + candidate.definition().groundSinkBlocks(),
+            anchor.z
         );
     }
 
