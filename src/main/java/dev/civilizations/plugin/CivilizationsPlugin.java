@@ -18,6 +18,7 @@ import dev.civilizations.hytale.CivUnitRegistry;
 import dev.civilizations.hytale.ConstructionWorkSystem;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
 import dev.civilizations.hytale.FarmBuildingRegistry;
+import dev.civilizations.hytale.FarmFieldRegistry;
 import dev.civilizations.hytale.FarmNpcWorkSystem;
 import dev.civilizations.hytale.PrefabPlacementService;
 import dev.civilizations.hytale.RtsCameraController;
@@ -49,6 +50,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
         CivUnitRegistry unitRegistry = new CivUnitRegistry(inhabitantService);
         CivActivityRegistry activityRegistry = new CivActivityRegistry(unitRegistry);
         FarmBuildingRegistry farmRegistry = new FarmBuildingRegistry(unitRegistry);
+        FarmFieldRegistry fieldRegistry = new FarmFieldRegistry();
         PrefabPlacementService prefabPlacementService = new PrefabPlacementService();
         RtsInteractionController rtsInteractionController =
             new RtsInteractionController(
@@ -56,6 +58,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 unitRegistry,
                 activityRegistry,
                 farmRegistry,
+                fieldRegistry,
                 new BuildingPlacementRegistry(),
                 prefabPlacementService
             );
@@ -66,7 +69,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
             new CivManualMovementSystem(unitRegistry, activityRegistry)
         );
         getEntityStoreRegistry().registerSystem(
-            new FarmNpcWorkSystem(unitRegistry, activityRegistry, farmRegistry)
+            new FarmNpcWorkSystem(unitRegistry, activityRegistry, farmRegistry, fieldRegistry)
         );
         getEntityStoreRegistry().registerSystem(
             new WoodcutterWorkSystem(unitRegistry, activityRegistry)
@@ -76,6 +79,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 unitRegistry,
                 activityRegistry,
                 farmRegistry,
+                fieldRegistry,
                 prefabPlacementService
             )
         );

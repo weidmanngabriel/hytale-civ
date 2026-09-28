@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FarmBuildingTest {
 
     @Test
-    void farmerProducesTenWheatAndLeavesAfterEveryProductionStep() {
+    void farmerProducesTenWheatByWalkingFarmFieldFarm() {
         FarmBuilding farm = new FarmBuilding(
             "farm-test",
             new BlockPosition(10, 64, 10),
@@ -17,23 +17,26 @@ class FarmBuildingTest {
         );
 
         assertTrue(farm.assignFarmer("farmer-1"));
-        assertEquals(FarmBuilding.WorkState.WALKING_TO_ENTRANCE, farm.workState());
+        assertEquals(FarmBuilding.WorkState.WALKING_TO_FARM, farm.workState());
+
+        assertTrue(farm.arriveAtFarm());
+        assertEquals(FarmBuilding.WorkState.WALKING_TO_FIELD, farm.workState());
 
         for (int expectedWheat = 1; expectedWheat <= FarmBuilding.WHEAT_TARGET; expectedWheat++) {
-            assertTrue(farm.enterBuilding());
-            assertEquals(FarmBuilding.WorkState.WORKING_INSIDE, farm.workState());
+            assertTrue(farm.arriveAtField());
+            assertEquals(FarmBuilding.WorkState.WORKING_FIELD, farm.workState());
 
             assertFalse(farm.advanceWork(4.999));
             assertEquals(expectedWheat - 1, farm.wheat());
 
             assertTrue(farm.advanceWork(0.001));
             assertEquals(expectedWheat, farm.wheat());
-            assertEquals(FarmBuilding.WorkState.LEAVING_BUILDING, farm.workState());
+            assertEquals(FarmBuilding.WorkState.RETURNING_TO_FARM, farm.workState());
 
-            assertTrue(farm.exitBuilding());
+            assertTrue(farm.arriveAtFarm());
             FarmBuilding.WorkState expectedState = expectedWheat == FarmBuilding.WHEAT_TARGET
                 ? FarmBuilding.WorkState.COMPLETE
-                : FarmBuilding.WorkState.WALKING_TO_ENTRANCE;
+                : FarmBuilding.WorkState.WALKING_TO_FIELD;
             assertEquals(expectedState, farm.workState());
         }
 

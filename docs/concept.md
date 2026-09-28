@@ -57,17 +57,17 @@ Die Creator-Prefabs werden ohne zusätzlichen Civ-Höhenoffset an das native Pas
 
 Nach dem Platzieren kann ein beanspruchter Civ-NPC ausgewählt und über den Arbeitsbereich der Farm als Bauer zugewiesen werden. Gibt es mehrere mögliche Zugänge, wird aktuell der zum Bewohner nächstgelegene verwendet.
 
-Der derzeitige Produktionsablauf ist bewusst klein gehalten:
+Der erste zusammenhängende Produktionsablauf verwendet eine fertig gebaute Farm und ein separat fertig gebautes Weizenfeld:
 
-1. Der Bauer läuft zum Eingang der Farm.
-2. Sobald er den Eingang erreicht, gilt er spielerisch als im Gebäude.
-3. Er arbeitet fünf Sekunden in der Farm.
-4. Die Farm erhält eine Einheit Weizen in ihrem lokalen Bestand.
-5. Der Bauer verlässt das Gebäude.
-6. Hat die Farm weniger als zehn Weizen, kehrt er zurück und wiederholt den Ablauf.
-7. Bei zehn Weizen bleibt der Bauer draußen und die Produktion stoppt.
+1. Der Spieler baut Farm und Weizenfeld über `/civbuild`.
+2. Ein Bauer wird über den Arbeitsbereich der Farm zugewiesen. Dafür muss mindestens ein fertiges Weizenfeld vorhanden sein.
+3. Der Bauer läuft zuerst zur Farm und danach zum nächstgelegenen fertigen Weizenfeld.
+4. Auf dem Feld arbeitet er fünf Sekunden.
+5. Danach erhält die Farm eine Einheit Weizen im vorläufigen lokalen Bestand und der Bauer kehrt zur Farm zurück.
+6. Unter zehn Weizen beginnt von dort der nächste Gang zum Feld.
+7. Bei zehn Weizen endet der aktuelle Produktionslauf.
 
-Die Laufzeit kommt zusätzlich zu den fünf Sekunden aktiver Produktionszeit hinzu. Weizen existiert aktuell nur als lokaler Bestand der Farm. Physische Weizengegenstände, Eingangswaren, Träger und Lagerlieferungen sind noch nicht umgesetzt.
+Die Laufwege kommen zusätzlich zu den fünf Sekunden Feldarbeit hinzu. Weizen existiert in diesem ersten Build weiterhin nur als lokaler Bestand der Farm. Physische Weizengegenstände, Eingangswaren, Träger und Lagerlieferungen sind noch nicht umgesetzt.
 
 ## Ingame-Wiki
 
@@ -80,7 +80,7 @@ Wird das Wiki während einer aktiven Farm-Platzierung geöffnet, wird die Platzi
 
 ### Farm und Feld bauen
 
-Der Spieler platziert Farmgebäude und Weizenfeld getrennt über das Gebäudemenü. Beide verwenden denselben Vorschau-, Validierungs- und Platzierungsablauf. Das Feld wird nicht automatisch durch die Farm erzeugt. Die sichtbare Feldarbeit und die physische Produktionslogik folgen in einem späteren Vertical Slice; der aktuelle Schritt stellt zuerst die gemeinsame Baugrundlage her.
+Der Spieler platziert Farmgebäude und Weizenfeld getrennt über das Gebäudemenü. Beide verwenden denselben Vorschau-, Validierungs- und Platzierungsablauf. Das Feld wird nicht automatisch durch die Farm erzeugt. Fertig gebaute Felder werden als Farmfelder registriert. Der erste Farmer-Loop verwendet automatisch das nächstgelegene fertige Feld zur zugewiesenen Farm; eine manuelle Farm-Feld-Verknüpfung gibt es in diesem Build noch nicht.
 \n\n### Baustellen statt Sofortbau\n\nDie funktionierende native Paste-Tool-Vorschau bleibt die Platzierungsoberfläche. Beim Bestätigen einer von Civ gestarteten Farm- oder Feldplatzierung soll das fertige Prefab jedoch nicht sofort in die Welt eingefügt werden. Der aktuelle Baustellen-Slice bricht den nativen Paste vor der Weltmutation ab und setzt an der bestätigten Position eine persistente Hytale-Prefab-Vorschau als Baustelle. Die eigentliche schrittweise Materialisierung durch Bau-NPCs ist der nächste Slice und wird nicht durch einen sofortigen versteckten Paste simuliert.\n
 
 A confirmed Civ building is initially represented as a construction blueprint rather than a finished functional building. The blueprint must be cancellable and must not activate the building's trigger volumes. Trigger volumes become active only when construction is completed. The current construction spike does not yet implement NPC-driven progressive block placement.

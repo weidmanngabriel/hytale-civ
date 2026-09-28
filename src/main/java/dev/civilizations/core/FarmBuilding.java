@@ -3,7 +3,7 @@ package dev.civilizations.core;
 import java.util.Objects;
 
 /**
- * Minimal farm workplace for the first production vertical slice.
+ * Minimal farm workplace for the first visible farm-field production loop.
  */
 public final class FarmBuilding {
 
@@ -27,99 +27,63 @@ public final class FarmBuilding {
 
     public synchronized boolean assignFarmer(String farmerId) {
         Objects.requireNonNull(farmerId, "farmerId");
-
-        if (this.farmerId != null || workState == WorkState.COMPLETE) {
-            return false;
-        }
-
+        if (this.farmerId != null || workState == WorkState.COMPLETE) return false;
         this.farmerId = farmerId;
         workElapsedSeconds = 0.0;
-        workState = WorkState.WALKING_TO_ENTRANCE;
+        workState = WorkState.WALKING_TO_FARM;
         return true;
     }
 
     public synchronized void unassignFarmer() {
         farmerId = null;
         workElapsedSeconds = 0.0;
-        workState = wheat >= WHEAT_TARGET
-            ? WorkState.COMPLETE
-            : WorkState.WAITING_FOR_FARMER;
+        workState = wheat >= WHEAT_TARGET ? WorkState.COMPLETE : WorkState.WAITING_FOR_FARMER;
     }
 
-    public synchronized boolean enterBuilding() {
-        if (workState != WorkState.WALKING_TO_ENTRANCE) {
-            return false;
+    public synchronized boolean arriveAtFarm() {
+        if (workState == WorkState.WALKING_TO_FARM) {
+            workState = WorkState.WALKING_TO_FIELD;
+            return true;
         }
+        if (workState == WorkState.RETURNING_TO_FARM) {
+            workState = wheat >= WHEAT_TARGET ? WorkState.COMPLETE : WorkState.WALKING_TO_FIELD;
+            return true;
+        }
+        return false;
+    }
 
+    public synchronized boolean arriveAtField() {
+        if (workState != WorkState.WALKING_TO_FIELD) return false;
         workElapsedSeconds = 0.0;
-        workState = WorkState.WORKING_INSIDE;
+        workState = WorkState.WORKING_FIELD;
         return true;
     }
 
     public synchronized boolean advanceWork(double deltaSeconds) {
-        if (deltaSeconds < 0.0) {
-            throw new IllegalArgumentException("deltaSeconds must be >= 0");
-        }
-
-        if (workState != WorkState.WORKING_INSIDE) {
-            return false;
-        }
-
+        if (deltaSeconds < 0.0) throw new IllegalArgumentException("deltaSeconds must be >= 0");
+        if (workState != WorkState.WORKING_FIELD) return false;
         workElapsedSeconds += deltaSeconds;
-        if (workElapsedSeconds + 1.0e-9 < PRODUCTION_SECONDS) {
-            return false;
-        }
-
+        if (workElapsedSeconds + 1.0e-9 < PRODUCTION_SECONDS) return false;
         wheat++;
         workElapsedSeconds = 0.0;
-        workState = WorkState.LEAVING_BUILDING;
+        workState = WorkState.RETURNING_TO_FARM;
         return true;
     }
 
-    public synchronized boolean exitBuilding() {
-        if (workState != WorkState.LEAVING_BUILDING) {
-            return false;
-        }
-
-        workState = wheat >= WHEAT_TARGET
-            ? WorkState.COMPLETE
-            : WorkState.WALKING_TO_ENTRANCE;
-        return true;
-    }
-
-    public String id() {
-        return id;
-    }
-
-    public BlockPosition entranceBlock() {
-        return entranceBlock;
-    }
-
-    public BlockPosition exitBlock() {
-        return exitBlock;
-    }
-
-    public synchronized String farmerId() {
-        return farmerId;
-    }
-
-    public synchronized int wheat() {
-        return wheat;
-    }
-
-    public synchronized double workElapsedSeconds() {
-        return workElapsedSeconds;
-    }
-
-    public synchronized WorkState workState() {
-        return workState;
-    }
+    public String id() { return id; }
+    public BlockPosition entranceBlock() { return entranceBlock; }
+    public BlockPosition exitBlock() { return exitBlock; }
+    public synchronized String farmerId() { return farmerId; }
+    public synchronized int wheat() { return wheat; }
+    public synchronized double workElapsedSeconds() { return workElapsedSeconds; }
+    public synchronized WorkState workState() { return workState; }
 
     public enum WorkState {
         WAITING_FOR_FARMER,
-        WALKING_TO_ENTRANCE,
-        WORKING_INSIDE,
-        LEAVING_BUILDING,
+        WALKING_TO_FARM,
+        WALKING_TO_FIELD,
+        WORKING_FIELD,
+        RETURNING_TO_FARM,
         COMPLETE
     }
 }

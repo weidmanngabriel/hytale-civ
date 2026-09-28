@@ -32,6 +32,11 @@ $C.@DecoratedContainer {
       @Text = "Farm";
       Anchor: (Width: 260, Height: 48);
     }
+
+    $C.@TextButton #FieldButton {
+      @Text = "Weizenfeld";
+      Anchor: (Width: 260, Height: 48);
+    }
   }
 
   $C.@TextButton #CloseButton {
