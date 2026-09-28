@@ -16,6 +16,7 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import dev.civilizations.core.Profession;
+import dev.civilizations.core.WorldPosition;
 import org.joml.Vector3i;
 
 import java.util.List;
@@ -31,6 +32,7 @@ public final class RtsInteractionController {
 
     private final RtsCameraController cameraController;
     private final CivUnitRegistry unitRegistry;
+    private final CivActivityRegistry activityRegistry;
     private final FarmBuildingRegistry farmRegistry;
     private final BuildingPlacementRegistry placementRegistry;
     private final PrefabPlacementService placementService;
@@ -40,12 +42,14 @@ public final class RtsInteractionController {
     public RtsInteractionController(
         RtsCameraController cameraController,
         CivUnitRegistry unitRegistry,
+        CivActivityRegistry activityRegistry,
         FarmBuildingRegistry farmRegistry,
         BuildingPlacementRegistry placementRegistry,
         PrefabPlacementService placementService
     ) {
         this.cameraController = cameraController;
         this.unitRegistry = unitRegistry;
+        this.activityRegistry = activityRegistry;
         this.farmRegistry = farmRegistry;
         this.placementRegistry = placementRegistry;
         this.placementService = placementService;
@@ -361,6 +365,7 @@ public final class RtsInteractionController {
             ? unitRegistry.toggleClaim(target)
             : bufferedResult.claimed();
         if (!claimed) {
+            activityRegistry.forget(target);
             farmRegistry.unassignFarmer(target);
             sessions.values().forEach(otherSession -> {
                 if (otherSession.selected != null
@@ -435,10 +440,17 @@ public final class RtsInteractionController {
             return;
         }
 
-        int assigned = unitRegistry.assignMoveTargets(List.of(session.selected), targetBlock);
+        boolean accepted = activityRegistry.orderManualMove(
+            session.selected,
+            new WorldPosition(
+                targetBlock.x + 0.5,
+                targetBlock.y + 1.0,
+                targetBlock.z + 0.5
+            )
+        );
         playerRef.sendMessage(Message.raw(
             "Bewegungsbefehl " + targetBlock.x + ", " + targetBlock.y + ", " + targetBlock.z
-                + " an " + assigned + " Civ-Bewohner."
+                + " an " + (accepted ? 1 : 0) + " Civ-Bewohner."
         ));
     }
 
@@ -517,6 +529,7 @@ public final class RtsInteractionController {
         FarmBuildingRegistry.AssignmentResult result = farmRegistry.assignFarmer(farmer, farm);
         switch (result) {
             case ASSIGNED -> {
+                activityRegistry.cancelManualMove(farmer);
                 unitRegistry.cancelMoveTarget(farmer);
                 unitRegistry.assignProfession(farmer, Profession.FARMER);
                 unitRegistry.setMoveTarget(farmer, farm.entranceTarget());
@@ -541,6 +554,7 @@ public final class RtsInteractionController {
         }
 
         farmRegistry.unassignFarmer(selected);
+        activityRegistry.cancelManualMove(selected);
         unitRegistry.cancelMoveTarget(selected);
         unitRegistry.assignProfession(selected, Profession.WOODCUTTER);
         playerRef.sendMessage(Message.raw(

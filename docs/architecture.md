@@ -9,12 +9,20 @@ Vor Version 1 ist Rückwärtskompatibilität kein Ziel, wenn dafür Migrationen,
 ## Schichten
 
 ~~~text
+Spielerinput / UI
+      ↓ Command
 Core-Simulation
-      ↓
+      ↓ Intent
 Hytale-Adapter
       ↓
 Hytale-Plugin / API
+      ↓ Result / Event
+Core-Simulation
 ~~~
+
+Die Grenze ist verhaltensorientiert: UI und Hytale-Code übersetzen Eingaben und führen Engine-Arbeit aus, besitzen aber keine Civ-Spielregeln. Der Core entscheidet über Zustandswechsel, Prioritäten und Unterbrechungen. Ein Core-Intent beschreibt nur das gewünschte Ergebnis, zum Beispiel „Bewohner soll zu Ziel X laufen“; der Adapter setzt das mit Hytales nativer Navigation um und meldet Ankunft beziehungsweise Fehlschlag zurück.
+
+Bewegung ist deshalb zweigeteilt. **Wer wann wohin und warum läuft** gehört zur Civ-Simulation. **Wie der NPC den Weg findet und physisch zurücklegt** bleibt Hytale überlassen. Civ baut keinen parallelen Wegfindungsalgorithmus, solange Hytales Navigation die Produktanforderung erfüllt.
 
 ### core
 
@@ -32,17 +40,18 @@ Der aktuelle RTS-Validierungsprototyp sowie Farm- und Holzfäller-Slice enthalte
 - Ein Rechtsklick auf den aktuell ausgewählten Civ-NPC öffnet <code>PersonActionsPage</code>. Die veraltete allgemeine Use/F-Interaktion wird nicht für RTS-Steuerung verwendet.
 - <code>CivInhabitantData</code> ist eine serialisierbare Hytale-ECS-Komponente an Civ-Bewohner-Entitäten. Sie speichert Geschlecht, den konkret vergebenen dreiteiligen Namen, aktiven Beruf, getrennte Berufserfahrung und eine optionale zukünftige Arbeitsplatz-ID. Hytales native <code>UUIDComponent</code>-UUID bleibt die technische Entity-Identität.
 - <code>CivInhabitantService</code> initialisiert diese persistenten Bewohnerdaten unabhängig vom RTS-Zustand und setzt den sichtbaren Namen über Hytales native <code>PersistentDisplayName</code>, <code>DisplayNameComponent</code> und <code>Nameplate</code>. Beim ersten Claim entsteht die Wikinger-Identität. Beim expliziten Unclaim wird die Civ-Komponente entfernt und Hytales nativer `DisplayNameSupport` stellt wieder einen Rollen-Namen her.
-- <code>CivUnitRegistry</code> bleibt ein laufzeitgebundener Cache für geladene Civ-Bewohner und Bewegungsziele. Ob eine Entität ein Civ-Bewohner ist, wird ausschließlich durch die persistente <code>CivInhabitantData</code>-Komponente bestimmt. Persistente Berufsdaten werden über <code>CivInhabitantService</code> gelesen und geschrieben. Für die Rolle <code>Civ_Inhabitant</code> wird das Bewegungsziel in den einzelnen nativen Positionsslot <code>CivMoveTarget</code> geschrieben; <code>ReadPosition</code> und <code>Seek</code> delegieren Wegfindung und Bewegung danach an Hytale.
-- <code>WoodcutterWorkSystem</code> sucht natürliche Hytale-Stammblöcke in der Nähe, führt einen HOLZFÄLLER an eine benachbarte Arbeitsposition und verwendet Hytales nativen <code>BlockHarvestUtils.performBlockDamage</code>-Weg zum Fällen des Basisblocks. Normale Drops, Break-Events und Blockphysik bleiben damit bei der Engine.
+- <code>CivUnitRegistry</code> bleibt ein laufzeitgebundener Cache für geladene Civ-Bewohner und den jeweils an Hytale adaptierten Bewegungszielwert. Ob eine Entität ein Civ-Bewohner ist, wird ausschließlich durch die persistente <code>CivInhabitantData</code>-Komponente bestimmt. Persistente Berufsdaten werden über <code>CivInhabitantService</code> gelesen und geschrieben. Für die Rolle <code>Civ_Inhabitant</code> wird das Bewegungsziel in den einzelnen nativen Positionsslot <code>CivMoveTarget</code> geschrieben; <code>ReadPosition</code> und <code>Seek</code> delegieren Wegfindung und Bewegung danach an Hytale.
+- <code>CivActivityRegistry</code> verbindet geladene Hytale-Entitäten mit Hytale-unabhängigem <code>InhabitantActivity</code>-Core-Zustand. <code>CivManualMovementSystem</code> führt dessen <code>MovementIntent</code> über den nativen Bewegungszielslot aus und meldet Ankunft zurück. Der Core-Zustand entscheidet dadurch, dass ein manueller Spielerbefehl autonome Berufsarbeit vorübergehend verdrängt.
+- <code>WoodcutterWorkSystem</code> interpretiert die Intents des Hytale-unabhängigen <code>WoodcutterJob</code>. Weltabhängige Baumsuche und Arbeitsposition, native NPC-Navigation sowie <code>BlockHarvestUtils.performBlockDamage</code> bleiben im Adapter; Zustandsfolge und Arbeitsdauer bleiben im Core. Normale Drops, Break-Events und Blockphysik bleiben damit bei der Engine.
 - <code>PrefabPlacementService</code> ist der gemeinsame Hytale-Adapter für Civ-Prefab-Platzierung. Farm und Weizenfeld werden aus dem Asset Pack geladen, anhand ihrer tatsächlich belegten Blockzellen gegen Gelände und Flüssigkeiten geprüft, mit derselben Transformation als Vorschau gezeigt und gesetzt. Die gemeinsame Creator-Konvention versenkt den Prefab-Anker um einen Block; Trigger-Volumes und andere Prefab-Bestandteile werden nicht separat verschoben.
 - <code>BuildingPlacementRegistry</code> hält laufzeitgebunden die belegten Civ-Bauflächen aller platzierten Prefabs, damit Farm und Feld denselben Überschneidungsschutz verwenden. <code>FarmBuildingRegistry</code> verwaltet weiterhin die farmspezifische Arbeitsplatzzuweisung, den Core-Zustand <code>FarmBuilding</code> und den Schnappschuss der ersetzten Bodenblöcke.
 - <code>FarmNpcWorkSystem</code> übersetzt die Core-Farmzustände in Bewegungsziele für Eingang und Ausgang und treibt die Produktion voran, solange der Bauer innen arbeitet.
 
 <code>CivUnitRegistry</code> identifiziert eine Laufzeitentität über ihren <code>Store</code> plus Entitätsindex und behält gleichzeitig die ursprüngliche <code>Ref</code> zur Validierung. Dadurch wird nicht auf Java-Objektidentität wiederholt erzeugter <code>Ref</code>-Instanzen vertraut und veraltete Entitätsslots werden nicht als gültige Civ-Einheiten behandelt.
 
-Bewohnerzugehörigkeit, Identität, aktiver Beruf und getrennte Berufserfahrung liegen in der serialisierbaren <code>CivInhabitantData</code>-Komponente auf der NPC-Entität und hängen nicht von einer RTS-Session ab. Persistente Änderungen markieren Hytales native <code>Dirty</code>-Komponente, damit die Entity-Saving-Pipeline sie schreibt. Auswahl und Arbeitsziele bleiben bewusst laufzeitgebunden. Manuelle RTS-Bewegungsziele werden im Laufzeit-Cache als Override markiert; Farm- und Holzfällersysteme schreiben während dieses Overrides keine eigenen Bewegungsziele und übernehmen nach der Ankunft wieder. Arbeitsplatzzuweisung bleibt laufzeitgebunden, weil platzierte Gebäude noch keine stabile dauerhafte Identität besitzen. Ein späterer Bewohner-Lifecycle soll den Debug-Anspruchsmechanismus ersetzen.
+Bewohnerzugehörigkeit, Identität, aktiver Beruf und getrennte Berufserfahrung liegen in der serialisierbaren <code>CivInhabitantData</code>-Komponente auf der NPC-Entität und hängen nicht von einer RTS-Session ab. Persistente Änderungen markieren Hytales native <code>Dirty</code>-Komponente, damit die Entity-Saving-Pipeline sie schreibt. Auswahl und Arbeitsziele bleiben bewusst laufzeitgebunden. Manuelle RTS-Bewegungsziele liegen als <code>MovementIntent</code> im Hytale-unabhängigen <code>InhabitantActivity</code>-Zustand. Solange dieser Auftrag aktiv ist, erlaubt der Core keine autonome Berufsarbeit; nach gemeldeter Ankunft wird der Auftrag abgeschlossen und Farm- beziehungsweise Holzfällerarbeit darf mit ihrem unveränderten Zustand fortfahren. Arbeitsplatzzuweisung bleibt laufzeitgebunden, weil platzierte Gebäude noch keine stabile dauerhafte Identität besitzen. Ein späterer Bewohner-Lifecycle soll den Debug-Anspruchsmechanismus ersetzen.
 
-Bewegungsbefehle verwenden keinen Civ-eigenen Steuerloop pro Tick. Die vom Ersteller bearbeitbare Rolle <code>Civ_Inhabitant</code> definiert genau einen Positionsslot namens <code>CivMoveTarget</code>. Dieser liegt bewusst an Slot-Index 0 und bildet einen Java-/Asset-Vertrag, der durch einen automatisierten Asset-Test geschützt wird. <code>CivUnitRegistry</code> schreibt oder löscht diese gespeicherte Position über Hytales <code>MarkedEntitySupport</code>; die Rolle verarbeitet sie über <code>ReadPosition</code> und <code>Seek</code> mit Hytales nativer Wegfindung und Walk-Bewegung. Fremde Hytale-Rollen werden nicht über diesen Vertrag gesteuert. Farm- und Holzfällersysteme behalten dennoch ihre simulationsseitigen Ankunftsprüfungen, damit Job-Zustandswechsel aus Civ-Sicht deterministisch bleiben.
+Civ berechnet Bewegung nicht selbst pro Tick. Die vom Ersteller bearbeitbare Rolle <code>Civ_Inhabitant</code> definiert genau einen Positionsslot namens <code>CivMoveTarget</code>. Dieser liegt bewusst an Slot-Index 0 und bildet einen Java-/Asset-Vertrag, der durch einen automatisierten Asset-Test geschützt wird. <code>CivUnitRegistry</code> schreibt oder löscht diese gespeicherte Position über Hytales <code>MarkedEntitySupport</code>; die Rolle verarbeitet sie über <code>ReadPosition</code> und <code>Seek</code> mit Hytales nativer Wegfindung und Walk-Bewegung. <code>CivManualMovementSystem</code> und die Berufsadapter prüfen lediglich, ob das vom Core angeforderte Ziel erreicht wurde, damit sie den entsprechenden Abschluss an den Core zurückmelden können. Fremde Hytale-Rollen werden nicht über diesen Vertrag gesteuert.
 
 Die feste RTS-Kamera ist eine Hytale-Custom-Kamera und kein Spectator-Modus. Eine verifizierte native API zum Ausblenden nur des eigenen Spielermodells in diesem Kameramodus wurde noch nicht gefunden. Deshalb wird die Spielerentität nicht über einen unbestätigten Workaround despawnt oder versteckt.
 
@@ -62,6 +71,40 @@ Hytale-Bootstrap und Lifecycle. Hier werden Adapter und Services verdrahtet sowi
 Abhängigkeiten zeigen in Richtung Core. <code>core</code> ist Hytale-unabhängig. <code>hytale</code> darf von <code>core</code> und der Hytale-API abhängen. <code>plugin</code> darf von beiden und der Hytale-API abhängen.
 
 Dadurch bleibt der Großteil des Verhaltens in normalen JUnit-Tests ausführbar. Hytale wird nur dort benötigt, wo das Engine-Verhalten selbst geprüft wird.
+
+### Headless Ablaufsteuerung
+
+Mehrstufige Gameplay-Abläufe sollen als Core-Zustand plus kleine Commands, Intents und Ergebnisse modelliert werden, wenn dadurch eine echte Engine-Grenze entsteht. Ein Test darf Engine-Ergebnisse wie „angekommen“ künstlich zurückmelden und dadurch denselben Zustandsautomaten weitertreiben, den der Hytale-Adapter im Spiel bedient.
+
+Der erste konkrete Beweisfall ist die Bewohnerbewegung mit Holzfällerarbeit:
+
+~~~text
+Spielerbefehl: manuelles Ziel
+        ↓
+Core: manueller Bewegungsauftrag hat Vorrang
+        ↓ MovementIntent
+Hytale: CivMoveTarget / ReadPosition / Seek
+        ↓ Ankunft
+Core: manuellen Auftrag abschließen
+        ↓
+vorherige autonome Berufsarbeit darf fortfahren
+
+Holzfäller-Core
+        ↓ SearchTreeIntent
+Hytale: Welt nach geeignetem Baum + Arbeitsposition abfragen
+        ↓ Ziel gefunden
+Core
+        ↓ MovementIntent
+Hytale: native NPC-Navigation
+        ↓ Ankunft
+Core
+        ↓ Chop/Fell-Intent
+Hytale: nativer BlockHarvestUtils-Pfad
+        ↓ Ergebnis
+Core: nächster Arbeitszyklus
+~~~
+
+Die Baum- und Blockabfrage bleibt dabei Hytale-spezifisch, weil sie die reale Weltgeometrie und Blocktypen benötigt. Der Ablauf und seine Zustandsübergänge bleiben Core-Logik. Dasselbe Muster soll später für Bedürfnisse, Produktion, Transport und andere unterbrechbare Tätigkeiten wiederverwendet werden, ohne dafür vorab ein universelles Aktionsframework zu erfinden.
 
 ## Mehrspielerinteraktion und Welthoheit
 

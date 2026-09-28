@@ -8,10 +8,12 @@ import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.VikingNameGenerator;
+import dev.civilizations.hytale.CivActivityRegistry;
 import dev.civilizations.hytale.CivClaimDamageSystem;
 import dev.civilizations.hytale.CivInhabitantData;
 import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivInhabitantUseSystem;
+import dev.civilizations.hytale.CivManualMovementSystem;
 import dev.civilizations.hytale.CivUnitRegistry;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
 import dev.civilizations.hytale.FarmBuildingRegistry;
@@ -44,11 +46,13 @@ public final class CivilizationsPlugin extends JavaPlugin {
             new VikingNameGenerator()
         );
         CivUnitRegistry unitRegistry = new CivUnitRegistry(inhabitantService);
+        CivActivityRegistry activityRegistry = new CivActivityRegistry(unitRegistry);
         FarmBuildingRegistry farmRegistry = new FarmBuildingRegistry(unitRegistry);
         RtsInteractionController rtsInteractionController =
             new RtsInteractionController(
                 new RtsCameraController(),
                 unitRegistry,
+                activityRegistry,
                 farmRegistry,
                 new BuildingPlacementRegistry(),
                 new PrefabPlacementService()
@@ -56,8 +60,15 @@ public final class CivilizationsPlugin extends JavaPlugin {
 
         getEntityStoreRegistry().registerSystem(new CivClaimDamageSystem(rtsInteractionController));
         getEntityStoreRegistry().registerSystem(new CivInhabitantUseSystem(rtsInteractionController));
-        getEntityStoreRegistry().registerSystem(new FarmNpcWorkSystem(unitRegistry, farmRegistry));
-        getEntityStoreRegistry().registerSystem(new WoodcutterWorkSystem(unitRegistry));
+        getEntityStoreRegistry().registerSystem(
+            new CivManualMovementSystem(unitRegistry, activityRegistry)
+        );
+        getEntityStoreRegistry().registerSystem(
+            new FarmNpcWorkSystem(unitRegistry, activityRegistry, farmRegistry)
+        );
+        getEntityStoreRegistry().registerSystem(
+            new WoodcutterWorkSystem(unitRegistry, activityRegistry)
+        );
 
         getCommandRegistry().registerCommand(new CivTestCommand());
         getCommandRegistry().registerCommand(new CivRtsTestCommand(rtsInteractionController));
