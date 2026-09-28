@@ -50,18 +50,11 @@ public final class RtsInteractionController {
 
         if (active != null) {
             clearPlacement(playerRef, active);
-
-            // Second diagnostic isolation for the native client crash seen on
-            // RTS teardown. The previous build left the toolbar installed and
-            // still crashed while resetting the camera. This build therefore
-            // sends no client-side teardown packet at all: it only clears the
-            // server-side RTS session. If the client remains stable, the custom
-            // camera disable packet is isolated as the failing boundary.
+            cameraController.disable(playerRef);
+            removeToolbar(playerRef);
             claimArmed.remove(playerId);
             sessions.remove(playerId, active);
-            playerRef.sendMessage(Message.raw(
-                "Civ RTS diagnostic disabled server-side; camera and toolbar intentionally unchanged."
-            ));
+            playerRef.sendMessage(Message.raw("Civ RTS test disabled."));
             return false;
         }
 
