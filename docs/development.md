@@ -30,6 +30,19 @@ Abhängigkeit: <code>com.hypixel.hytale:Server</code>
 
 <code>hytaleServerVersion</code> wird zentral in <code>gradle.properties</code> verwaltet. Vor Änderungen an der Hytale-API-Nutzung oder am Dependency-Selektor muss die aktuelle offizielle Dokumentation geprüft werden.
 
+
+## Hytale-API-Snapshot (Proof of Concept)
+
+Für die laufende Erprobung kann die tatsächlich von Gradle aufgelöste Hytale-Server-JAR analysiert werden:
+
+~~~bash
+./gradlew snapshotHytaleApi
+~~~
+
+Der Task erzeugt unter <code>build/hytale-api-snapshot/</code> einen Klassenindex, Metadaten zur aufgelösten Hytale-Abhängigkeit und per <code>javap</code> lesbare Signaturen für einige bekannte Problemklassen. Der Snapshot ist ausdrücklich noch kein verpflichtender Entwicklungsworkflow und ersetzt keine Laufzeittests in Hytale.
+
+Die CI lädt denselben Ordner vorläufig als separates Artefakt <code>hytale-api-snapshot-poc</code> hoch. Damit kann geprüft werden, ob die tatsächliche Hytale-API in späteren Entwicklungsruns zuverlässig ausgewertet werden kann, ohne dekompilierten Hytale-Quellcode ins Repository zu übernehmen.
+
 ## Asset Pack
 
 Vom Ersteller bearbeitbare Hytale-Assets liegen unter:
