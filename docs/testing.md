@@ -54,21 +54,21 @@ The controllable-NPC spike has this acceptance sequence:
 4. left-click the claimed NPC and confirm it becomes the selected Civ unit;
 5. claim another NPC and select it; confirm it replaces the previous selection rather than creating a multi-selection;
 6. right-click the selected NPC and confirm the Personenaktionen page opens;
-7. right-click open, reasonably flat ground and confirm the selected NPC travels toward the target using its normal Hytale movement speed rather than the previous slow Civ steering;
+7. spawn/use a `Civ_Inhabitant`, right-click open, reasonably flat ground and confirm it travels toward the target using its native Hytale `Seek`/Walk behavior rather than Civ steering;
 8. right-click behind an obstacle and confirm Hytale's native path/movement stack, rather than Civ code, determines the route behavior;
 9. run `/civclaim` and click a claimed NPC again to release it; confirm it can no longer be selected or commanded;
 10. run `/civrtstest` again and confirm normal camera control returns;
 11. confirm claims are runtime-only and do not survive a plugin/server restart;
 12. assign a profession to a claimed NPC, restart the server/plugin, reclaim the same persisted NPC entity and confirm its profession data is still present. Farm assignment itself is not expected to survive yet.
 
-A compatible NPC role that can follow a Hytale `PathManager` transient path is required for the movement test. Civ no longer applies its own per-tick steering force.
+The direct movement acceptance test uses the committed `Civ_Inhabitant` role. Its single `CivMoveTarget` position slot is the explicit Java/asset contract; `CivInhabitantRoleValidationTest` guards that slot assumption. Civ does not apply its own per-tick steering force.
 
 ## Current automated tests
 
 - `CoreSmokeTest` proves JUnit works.
 - `CoreIndependenceTest` guards against direct Hytale imports in `core`.
 - `WoodcutterJobTest` proves the target → arrival → chopping → ready-to-fell work cycle.
-- `ManifestValidationTest` validates packaged plugin metadata without starting Hytale.
+- `ManifestValidationTest` validates packaged plugin metadata without starting Hytale.\n- `CivInhabitantRoleValidationTest` validates the committed Civ NPC role and guards the single position-slot contract used by Java movement.
 
 ## Woodcutter vertical-slice coverage
 
