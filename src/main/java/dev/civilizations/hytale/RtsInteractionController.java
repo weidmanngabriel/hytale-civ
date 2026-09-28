@@ -514,6 +514,7 @@ public final class RtsInteractionController {
 
         switch (result) {
             case ASSIGNED -> {
+                unitRegistry.cancelMoveTarget(farmer);
                 unitRegistry.assignProfession(farmer, Profession.FARMER);
                 unitRegistry.setMoveTarget(farmer, farm.entranceTarget());
                 playerRef.sendMessage(Message.raw(
@@ -537,7 +538,7 @@ public final class RtsInteractionController {
         }
 
         farmRegistry.unassignFarmer(selected);
-        unitRegistry.clearMoveTarget(selected);
+        unitRegistry.cancelMoveTarget(selected);
         unitRegistry.assignProfession(selected, Profession.WOODCUTTER);
         playerRef.sendMessage(Message.raw(
             "Woodcutter assigned. The NPC will search nearby for the closest tree and fell it."
