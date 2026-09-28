@@ -14,7 +14,6 @@ import dev.civilizations.hytale.FarmNpcWorkSystem;
 import dev.civilizations.hytale.FarmPrefabService;
 import dev.civilizations.hytale.RtsCameraController;
 import dev.civilizations.hytale.RtsInteractionController;
-import dev.civilizations.hytale.RtsToolbarAnchorUi;
 import dev.civilizations.hytale.WoodcutterWorkSystem;
 
 public final class CivilizationsPlugin extends JavaPlugin {
@@ -48,12 +47,12 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getEntityStoreRegistry().registerSystem(new FarmNpcWorkSystem(unitRegistry, farmRegistry));
         getEntityStoreRegistry().registerSystem(new WoodcutterWorkSystem(unitRegistry));
 
-        RtsToolbarAnchorUi.register(rtsInteractionController);
-
         getCommandRegistry().registerCommand(new CivTestCommand());
         getCommandRegistry().registerCommand(new CivRtsTestCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivClaimCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivFarmCommand(rtsInteractionController));
+        getCommandRegistry().registerCommand(new CivBuildCommand(rtsInteractionController));
+        getCommandRegistry().registerCommand(new CivWikiCommand(rtsInteractionController));
 
         getEventRegistry().register(PlayerMouseButtonEvent.class, rtsInteractionController::handleMouseButton);
         getEventRegistry().register(PlayerMouseMotionEvent.class, rtsInteractionController::handleMouseMotion);
