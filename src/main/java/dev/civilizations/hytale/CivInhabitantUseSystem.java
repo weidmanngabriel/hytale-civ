@@ -7,10 +7,10 @@ import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.EntityEventSystem;
 import com.hypixel.hytale.protocol.InteractionType;
-import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.event.events.ecs.UseEntityEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import com.hypixel.hytale.server.npc.entities.NPCEntity;
 
 import javax.annotation.Nonnull;
 
@@ -29,7 +29,7 @@ public final class CivInhabitantUseSystem
 
     @Override
     public Query<EntityStore> getQuery() {
-        return Player.getComponentType();
+        return NPCEntity.getComponentType();
     }
 
     @Override
@@ -44,11 +44,12 @@ public final class CivInhabitantUseSystem
             return;
         }
 
-        Ref<EntityStore> playerEntityRef = chunk.getReferenceTo(index);
-        Player player = commandBuffer.getComponent(playerEntityRef, Player.getComponentType());
-        PlayerRef playerRef = commandBuffer.getComponent(playerEntityRef, PlayerRef.getComponentType());
+        Ref<EntityStore> playerEntityRef = event.getContext().getEntity();
+        PlayerRef playerRef = playerEntityRef == null || !playerEntityRef.isValid()
+            ? null
+            : commandBuffer.getComponent(playerEntityRef, PlayerRef.getComponentType());
         Ref<EntityStore> target = event.getTargetEntity();
-        if (player == null || playerRef == null || target == null || !target.isValid()) {
+        if (playerRef == null || target == null || !target.isValid()) {
             return;
         }
 
