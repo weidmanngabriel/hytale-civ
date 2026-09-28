@@ -51,7 +51,7 @@ Arbeitsbereiche, das Tragen von Holz, Lagerlieferungen und eine vollständige da
 
 > **Status:** Der derzeit spielbare Ablauf mit fünf Sekunden Innenarbeit, abstraktem lokalem Weizen und Stopp bei zehn Einheiten ist ein Engine-Validierungsprototyp, nicht die festgelegte Zielmechanik der Farm. Die nächste Produktiteration soll sichtbare Feldarbeit und Hytales native Trigger-, NPC- und Containermechanismen bevorzugen. Lokale Waren sollen nach Möglichkeit in echten Hytale-Containern liegen statt in parallelen Civ-Zählern.
 
-Im RTS-Modus öffnet <code>/civbuild</code> den Gebäudekatalog. Wird **Farm** ausgewählt, schließt sich der Katalog und die Platzierung beginnt. Eine Vorschau der Farm folgt der Position unter dem Mauszeiger. Linksklick versucht die Farm zu platzieren, Rechtsklick bricht die Platzierung ab. <code>/civfarm</code> bleibt als Debug-Abkürzung für denselben Platzierungsmodus erhalten.
+Im RTS-Modus öffnet <code>/civbuild</code> den Gebäudekatalog. Wird **Farm** ausgewählt, schließt sich der Katalog und die Platzierung beginnt. Eine native clientseitige Prefab-Vorschau der Farm folgt der Position unter dem Mauszeiger. Linksklick versucht die Farm zu platzieren, Rechtsklick bricht die Platzierung ab. <code>/civfarm</code> bleibt als Debug-Abkürzung für denselben Platzierungsmodus erhalten.
 
 Der sichtbare Boden der Farm wird in das Gelände eingelassen und nicht einfach oben darauf gesetzt. Eine Platzierung ist nur möglich, wenn die Fläche ausreichend gestützt ist, keine Löcher oder Flüssigkeiten enthält, der benötigte Raum frei ist, Zugänge nicht blockiert sind und sich die Fläche nicht mit einem anderen Civ-Gebäude überschneidet.
 
