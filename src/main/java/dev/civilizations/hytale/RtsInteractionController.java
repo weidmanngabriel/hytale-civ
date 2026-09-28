@@ -515,6 +515,10 @@ public final class RtsInteractionController {
         }
     }
 
+    public boolean isClaimArmed(PlayerRef playerRef) {
+        return playerRef != null && claimArmed.contains(playerRef.getUuid());
+    }
+
     public boolean consumeArmedClaim(PlayerRef playerRef) {
         return playerRef != null && claimArmed.remove(playerRef.getUuid());
     }
