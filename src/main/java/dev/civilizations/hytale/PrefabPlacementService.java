@@ -12,7 +12,8 @@ import com.hypixel.hytale.server.core.prefab.selection.standard.BlockSelection;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
 import dev.civilizations.core.BlockPosition;
-import org.joml.Vector3f;\nimport org.joml.Vector3i;
+import org.joml.Vector3f;
+import org.joml.Vector3i;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
