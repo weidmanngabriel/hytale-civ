@@ -92,7 +92,7 @@ The prototype intentionally relies on Hytale's native tree asset behavior after 
 Automated coverage now includes:
 
 - FarmBuildingTest, which proves one Farmer slot, five seconds of active work per wheat, mandatory exit after every production step and a hard stop at 10 wheat;
-- FarmPrefabValidationTest, which validates the committed Asset Pack prefab metadata, unique block coordinates, visible entrance opening, roof and crop-bed materials.
+- FarmPrefabValidationTest, which validates the committed Asset Pack prefab metadata, unique block coordinates, roof and crop-bed materials, and the tagged `civ_farm_workplace` Trigger Volume without the obsolete entrance-marker block.
 
 Manual acceptance sequence:
 
@@ -103,9 +103,9 @@ Manual acceptance sequence:
 5. open it again, choose **Farm**, then move the cursor across terrain and confirm a Farm ghost follows the pointed block;
 6. right click and confirm placement is cancelled without changing the world;
 7. choose **Farm** again and left click valid, flat, supported ground; confirm the Farm is placed with its floor embedded into the terrain rather than sitting one block above it;
-8. try again over a hole, liquid, blocked building volume, blocked entrance and an existing Farm footprint; confirm placement is refused with a reason and remains in placement mode;
+8. try again over a hole, liquid, blocked building volume and an existing Farm footprint; confirm placement is refused with a reason and remains in placement mode;
 9. confirm `/civfarm` enters the same Farm placement flow as the menu;
-10. claim an NPC with `/civclaim`, select it, right click the Farm doorway and confirm Farmer assignment still works;
+10. claim an NPC with `/civclaim`, select it, right click the Farm workplace area and confirm Farmer assignment still works;
 11. confirm the NPC walks to the doorway, waits inside for about five seconds, leaves, re-enters for each production step, and remains outside after the tenth wheat;
 12. release the NPC with `/civclaim` during a cycle and confirm the Farm assignment is cleared.
 
