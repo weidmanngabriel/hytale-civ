@@ -41,11 +41,18 @@ public final class CivUnitRegistry {
     }
 
     public boolean toggleClaim(Ref<EntityStore> ref) {
+        if (inhabitantService.get(ref) != null) {
+            cancelMoveTarget(ref);
+            inhabitantService.releaseInhabitant(ref);
+            units.remove(keyOf(ref));
+            return false;
+        }
+
         CivInhabitantData data = inhabitantService.ensureInhabitant(ref);
         if (data == null) {
             return false;
         }
-        units.putIfAbsent(keyOf(ref), new UnitState(ref, null));
+        units.putIfAbsent(keyOf(ref), new UnitState(ref, null, false));
         return true;
     }
 
@@ -53,11 +60,18 @@ public final class CivUnitRegistry {
         Ref<EntityStore> ref,
         CommandBuffer<EntityStore> commandBuffer
     ) {
+        if (commandBuffer.getComponent(ref, inhabitantService.componentType()) != null) {
+            cancelMoveTarget(ref);
+            inhabitantService.releaseInhabitant(ref, commandBuffer);
+            units.remove(keyOf(ref));
+            return new ClaimResult(false, null);
+        }
+
         CivInhabitantData data = inhabitantService.ensureInhabitant(ref, commandBuffer);
         if (data == null) {
             return new ClaimResult(false, null);
         }
-        units.putIfAbsent(keyOf(ref), new UnitState(ref, null));
+        units.putIfAbsent(keyOf(ref), new UnitState(ref, null, false));
         return new ClaimResult(true, data);
     }
 
@@ -85,7 +99,7 @@ public final class CivUnitRegistry {
         }
 
         if (state == null) {
-            units.put(key, new UnitState(ref, null));
+            units.put(key, new UnitState(ref, null, false));
         }
         return true;
     }
@@ -129,7 +143,7 @@ public final class CivUnitRegistry {
             double offsetX = (column - (columns - 1) / 2.0) * FORMATION_SPACING;
             double offsetZ = (row - (rows - 1) / 2.0) * FORMATION_SPACING;
             Ref<EntityStore> ref = valid.get(index);
-            setMoveTarget(
+            setManualMoveTarget(
                 ref,
                 new Vector3d(
                     targetBlock.x + 0.5 + offsetX,
@@ -143,10 +157,48 @@ public final class CivUnitRegistry {
     }
 
     public void clearMoveTarget(Ref<EntityStore> ref) {
-        setMoveTarget(ref, null);
+        setJobMoveTarget(ref, null);
     }
 
     public void setMoveTarget(Ref<EntityStore> ref, Vector3d target) {
+        setJobMoveTarget(ref, target);
+    }
+
+    public boolean continueManualMove(Ref<EntityStore> ref, Vector3d position) {
+        UnitState state = units.get(keyOf(ref));
+        if (state == null || !state.manualMove() || state.moveTarget() == null) {
+            return false;
+        }
+        if (position.distanceSquared(state.moveTarget()) > 0.36) {
+            return true;
+        }
+
+        units.put(keyOf(ref), new UnitState(ref, null, false));
+        applyNativePath(ref, null);
+        return false;
+    }
+
+    public void cancelMoveTarget(Ref<EntityStore> ref) {
+        UnitState state = units.get(keyOf(ref));
+        if (state != null) {
+            units.put(keyOf(ref), new UnitState(ref, null, false));
+        }
+        applyNativePath(ref, null);
+    }
+
+    private void setManualMoveTarget(Ref<EntityStore> ref, Vector3d target) {
+        setMoveTargetInternal(ref, target, true);
+    }
+
+    private void setJobMoveTarget(Ref<EntityStore> ref, Vector3d target) {
+        UnitState current = units.get(keyOf(ref));
+        if (current != null && current.manualMove()) {
+            return;
+        }
+        setMoveTargetInternal(ref, target, false);
+    }
+
+    private void setMoveTargetInternal(Ref<EntityStore> ref, Vector3d target, boolean manualMove) {
         UnitKey key = keyOf(ref);
         UnitState current = units.get(key);
         if (current == null || !current.ref().isValid()) {
@@ -159,7 +211,7 @@ public final class CivUnitRegistry {
             return;
         }
 
-        units.put(key, new UnitState(current.ref(), nextTarget));
+        units.put(key, new UnitState(current.ref(), nextTarget, manualMove && nextTarget != null));
         applyNativePath(ref, nextTarget);
     }
 
@@ -211,7 +263,8 @@ public final class CivUnitRegistry {
 
     private record UnitState(
         Ref<EntityStore> ref,
-        Vector3d moveTarget
+        Vector3d moveTarget,
+        boolean manualMove
     ) {
     }
 }
