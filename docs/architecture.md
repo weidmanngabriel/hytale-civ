@@ -210,3 +210,8 @@ Das Farm-Prefab ist unter <code>asset-pack/Server/Prefabs/Civilizations/Farm/Far
 ### Native ghost / Civ click-cancel spike
 
 Runtime diagnostics showed that the RTS camera does not emit generic `PlayerMouseMotionEvent` updates while the cursor moves, so a server-driven moving `PersistentPrefabPreview` cannot use that event as its position source. The current focused spike therefore delegates only the moving ghost to Hytale's native Paste tool. Civ still owns the normal mouse-button event: on confirmation it cancels that event and creates a `PersistentPrefabPreview` construction site from the click's `targetBlock` instead of intentionally invoking `BlockSelection.place`. The clipboard selection anchor is shifted upward by the configured sink amount so the native ghost itself renders the prefab one block lower. Whether cancelling the normal mouse event also suppresses the Builder tool's separate paste packet remains a runtime contract to verify.
+
+
+### Construction blueprint lifecycle
+
+The placed construction blueprint uses Hytale's `PersistentPrefabPreview` only as a whole-prefab pre-construction visualization. JAR inspection confirms that this component supports whole-entity removal and visible-layer-count updates, but not per-block ghost removal. Civ therefore owns the preview entity reference and removes it through `PersistentPrefabPreview.remove(...)` when the site is cancelled, when its owner disconnects, or before progressive real-block construction begins. Trigger volumes remain a completion concern; Hytale's trigger-volume prefab handlers materialize them during real prefab placement rather than as part of the preview entity.
