@@ -57,9 +57,10 @@ The controllable-NPC spike has this acceptance sequence:
 7. spawn/use a `Civ_Inhabitant`, right-click open, reasonably flat ground and confirm it travels toward the target using its native Hytale `Seek`/Walk behavior rather than Civ steering;
 8. right-click behind an obstacle and confirm Hytale's native path/movement stack, rather than Civ code, determines the route behavior;
 9. run `/civclaim` and click a claimed NPC again to release it; confirm it can no longer be selected or commanded;
-10. run `/civrtstest` again and confirm normal camera control returns;
-11. confirm claims are runtime-only and do not survive a plugin/server restart;
-12. assign a profession to a claimed NPC, restart the server/plugin, reclaim the same persisted NPC entity and confirm its profession data is still present. Farm assignment itself is not expected to survive yet.
+10. run `/civrtstest` again and confirm the RTS toolbar disappears, normal camera control returns and the client remains stable;
+11. run `/civrtstest` twice more and confirm repeated enable/disable cycles remain stable;
+12. confirm claims are runtime-only and do not survive a plugin/server restart;
+13. assign a profession to a claimed NPC, restart the server/plugin, reclaim the same persisted NPC entity and confirm its profession data is still present. Farm assignment itself is not expected to survive yet.
 
 The direct movement acceptance test uses the committed `Civ_Inhabitant` role. Its single `CivMoveTarget` position slot is the explicit Java/asset contract; `CivInhabitantRoleValidationTest` guards that slot assumption. Civ does not apply its own per-tick steering force.
 

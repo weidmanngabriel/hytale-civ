@@ -28,7 +28,7 @@ The current RTS validation spike plus Farm and Woodcutter slices contains these 
 
 - `RtsCameraController` applies and clears the fixed angled cursor camera. RTS mode does not switch the player to Spectator.
 - `RtsInteractionController` owns temporary per-player RTS input state. Selection is deliberately single-select; build-menu and placement state are also isolated per player.
-- `RtsToolbarAnchorUi` injects the persistent left-side RTS menu into Hytale's interactive `ReticleServerEvent` anchor; `BuildingMenuPage` provides the modal building catalog.
+- `RtsToolbarAnchorUi` injects the persistent left-side RTS menu into Hytale's interactive `ReticleServerEvent` anchor and clears it with Hytale's explicit `clear` update plus non-null empty command/event arrays; `BuildingMenuPage` provides the modal building catalog.
 - Right-clicking the currently selected Civ NPC opens `PersonActionsPage`; the deprecated generic `Use`/F interaction is not used by RTS controls.
 - `CivInhabitantData` is a serializable Hytale ECS component attached to claimed NPC entities. It stores persistent per-inhabitant profession, profession XP and an optional future workplace identifier; the workplace field is deliberately not populated until placed buildings have stable persistent identity.
 - `CivUnitRegistry` remains a runtime-only registry for explicitly claimed NPCs and movement targets. Profession reads/writes go through `CivInhabitantData`. For the `Civ_Inhabitant` role, movement writes the target into the role's single native `CivMoveTarget` position slot; `ReadPosition` + `Seek` then delegate pathfinding and motion to Hytale.
