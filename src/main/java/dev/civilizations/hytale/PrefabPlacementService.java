@@ -1,6 +1,6 @@
 package dev.civilizations.hytale;
 
-import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.builtin.triggervolumes.TriggerVolumesPlugin;\nimport com.hypixel.hytale.builtin.triggervolumes.manager.TriggerVolumeManager;\nimport com.hypixel.hytale.builtin.triggervolumes.manager.VolumeEntry;\nimport com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.prefab.PrefabStore;
 import com.hypixel.hytale.server.core.prefab.selection.standard.BlockSelection;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
@@ -11,7 +11,7 @@ import org.joml.Vector3i;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Map;\nimport java.util.HashSet;\nimport java.util.Set;
 
 /**
  * Shared placement boundary for Civ prefabs.
@@ -239,7 +239,7 @@ public final class PrefabPlacementService {
         }
     }
 
-    public record PlacementCandidate(
+    public record PlacedMarker(String id, Vector3i position, Map<String, String> tags) {\n        public PlacedMarker {\n            position = new Vector3i(position);\n            tags = Map.copyOf(tags);\n        }\n\n        public boolean hasTag(String key, String value) {\n            return value.equals(tags.get(key));\n        }\n    }\n\n    public record PlacedPrefab(PlacementCandidate candidate, List<PlacedMarker> markers) {\n        public PlacedPrefab {\n            markers = List.copyOf(markers);\n        }\n    }\n\n    public record PlacementCandidate(
         PlacementDefinition definition,
         Vector3i anchor,
         PlacementFootprint footprint,
