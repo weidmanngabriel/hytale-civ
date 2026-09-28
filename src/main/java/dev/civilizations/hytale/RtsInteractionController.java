@@ -2,11 +2,13 @@ package dev.civilizations.hytale;
 
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
+import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.MouseButtonState;
 import com.hypixel.hytale.protocol.MouseButtonType;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
+import com.hypixel.hytale.server.core.event.events.player.PlayerInteractEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseMotionEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
@@ -98,7 +100,7 @@ public final class RtsInteractionController {
             && claimArmed.contains(playerRef.getUuid())
             && (session == null || !session.placingFarm)) {
             claimArmed.remove(playerRef.getUuid());
-            handleClaim(event, playerRef);
+            handleClaim(event.getTargetEntityRef(), playerRef);
             event.setCancelled(true);
             return;
         }
@@ -121,6 +123,24 @@ public final class RtsInteractionController {
             }
             event.setCancelled(true);
         }
+    }
+
+    public void handlePlayerInteract(PlayerInteractEvent event) {
+        if (event.getActionType() != InteractionType.Primary) {
+            return;
+        }
+
+        Ref<EntityStore> playerEntityRef = event.getPlayerRef();
+        PlayerRef playerRef = playerEntityRef.getStore().getComponent(
+            playerEntityRef,
+            PlayerRef.getComponentType()
+        );
+        if (playerRef == null || !claimArmed.remove(playerRef.getUuid())) {
+            return;
+        }
+
+        handleClaim(event.getTargetRef(), playerRef);
+        event.setCancelled(true);
     }
 
     public void handleMouseMotion(PlayerMouseMotionEvent event) {
@@ -309,8 +329,7 @@ public final class RtsInteractionController {
         return candidate;
     }
 
-    private void handleClaim(PlayerMouseButtonEvent event, PlayerRef playerRef) {
-        Ref<EntityStore> target = event.getTargetEntityRef();
+    private void handleClaim(Ref<EntityStore> target, PlayerRef playerRef) {
         if (target == null || !target.isValid()) {
             playerRef.sendMessage(Message.raw("No NPC under cursor."));
             return;
