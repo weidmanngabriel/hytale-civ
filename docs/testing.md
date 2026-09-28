@@ -99,23 +99,24 @@ Der Prototyp verlässt sich nach dem Brechen des Stammblocks bewusst auf das nat
 Automatisierte Abdeckung umfasst derzeit:
 
 - <code>FarmBuildingTest</code>: prüft einen Bauernplatz, fünf Sekunden aktive Arbeit pro Weizen, verpflichtendes Verlassen nach jedem Produktionsschritt und den harten Stopp bei zehn Weizen.
-- <code>FarmPrefabValidationTest</code>: prüft die Metadaten des eingecheckten Asset-Pack-Prefabs, eindeutige Blockkoordinaten, Dach- und Feldmaterialien sowie das markierte <code>civ_farm_workplace</code>-Trigger-Volume ohne den alten Eingang-Markerblock.
+- <code>FarmPrefabValidationTest</code>: prüft die beiden eingecheckten Creator-Prefabs. Die Farm besitzt eine leere native 18-Slot-Truhe sowie <code>workplace_access</code>- und <code>output_storage</code>-Marker; das separate 6×6-Weizenfeld besteht aus nativem Tilled Soil und besitzt den <code>field</code>-Marker.
 
 Manuelle Abnahme:
 
 1. Sowohl <code>hytale-civ.jar</code> als auch <code>hytale-civ-assets</code> installieren beziehungsweise deployen.
 2. <code>/civrtstest</code> ausführen.
 3. <code>/civbuild</code> ausführen und bestätigen, dass ein modaler Katalog **Gebäude** geöffnet wird und normale RTS-Weltinteraktion blockiert.
-4. Bestätigen, dass der aktuelle Katalog **Farm** enthält und geschlossen werden kann, ohne die Platzierung zu starten.
+4. Bestätigen, dass der aktuelle Katalog **Farm** und **Weizenfeld** enthält und geschlossen werden kann, ohne die Platzierung zu starten.
 5. <code>/civbuild</code> erneut ausführen, **Farm** auswählen, den Mauszeiger über das Gelände bewegen und bestätigen, dass eine Farm-Vorschau dem anvisierten Block folgt.
 6. Rechtsklick ausführen und bestätigen, dass die Platzierung abgebrochen wird, ohne die Welt zu verändern.
 7. **Farm** erneut wählen und auf gültigem, flachem und gestütztem Boden links klicken. Bestätigen, dass die Farm mit eingelassenem Boden platziert wird und nicht einen Block über dem Gelände steht.
 8. Dasselbe über einem Loch, einer Flüssigkeit, blockiertem Gebäuderaum und einer bestehenden Farmfläche versuchen. Bestätigen, dass die Platzierung mit einem Grund abgelehnt wird und der Platzierungsmodus aktiv bleibt.
-9. Bestätigen, dass <code>/civfarm</code> denselben Farm-Platzierungsablauf startet wie das Menü.
-10. Mit <code>/civclaim</code> einen NPC beanspruchen, ihn auswählen, im Arbeitsbereich der Farm rechts klicken und bestätigen, dass die Zuweisung als Bauer weiterhin funktioniert.
-11. Bestätigen, dass der NPC zum Eingang läuft, ungefähr fünf Sekunden innen arbeitet, das Gebäude verlässt, für jeden Produktionsschritt erneut hineingeht und nach dem zehnten Weizen draußen bleibt.
-12. Während der Bauer zu einem Farmziel läuft, ein manuelles Bodenziel geben. Bestätigen, dass er zuerst dorthin läuft und anschließend seinen Farmablauf fortsetzt.
-13. Den Server nach einer Berufszuteilung sauber neu starten und bestätigen, dass der Bewohner weiterhin als Civ-Bewohner mit demselben Namen und Beruf erkannt wird. Die konkrete Farm-Arbeitsplatzzuweisung bleibt derzeit laufzeitgebunden.
+9. **Weizenfeld** auswählen und denselben Vorschau-, Abbruch-, Gelände- und Überschneidungsablauf prüfen. Bestätigen, dass das Feld getrennt von der Farm platziert wird und bündig im Gelände liegt.
+10. Bestätigen, dass <code>/civfarm</code> weiterhin denselben Farm-Platzierungsablauf startet wie das Menü.
+11. Mit <code>/civclaim</code> einen NPC beanspruchen, ihn auswählen, im Arbeitsbereich der Farm rechts klicken und bestätigen, dass die Zuweisung als Bauer weiterhin funktioniert.
+12. Bestätigen, dass der NPC zum Eingang läuft, ungefähr fünf Sekunden innen arbeitet, das Gebäude verlässt, für jeden Produktionsschritt erneut hineingeht und nach dem zehnten Weizen draußen bleibt.
+13. Während der Bauer zu einem Farmziel läuft, ein manuelles Bodenziel geben. Bestätigen, dass er zuerst dorthin läuft und anschließend seinen Farmablauf fortsetzt.
+14. Den Server nach einer Berufszuteilung sauber neu starten und bestätigen, dass der Bewohner weiterhin als Civ-Bewohner mit demselben Namen und Beruf erkannt wird. Die konkrete Farm-Arbeitsplatzzuweisung bleibt derzeit laufzeitgebunden.
 
 Mehrspieler-Abnahme:
 

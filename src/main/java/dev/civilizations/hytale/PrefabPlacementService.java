@@ -13,29 +13,42 @@ import org.joml.Vector3i;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
- * Loads, previews, validates and places the Farm prefab.
+ * Shared placement boundary for Civ prefabs.
+ *
+ * <p>The creator owns the prefab geometry. Civ only applies the common terrain
+ * convention, validates occupied cells, previews the exact prefab and pastes it.
  */
 @SuppressWarnings("deprecation")
-public final class FarmPrefabService {
+public final class PrefabPlacementService {
 
-    public static final String FARM_PREFAB_KEY = "Civilizations/Farm/Farm_01";
-    private static final String WORKPLACE_TYPE_TAG = "civ.type";
-    private static final String WORKPLACE_TYPE_VALUE = "workplace_access";
-    private static final String BUILDING_TAG = "civ.building";
-    private static final String FARM_BUILDING_VALUE = "farm";
-    private static final int GROUND_SINK_BLOCKS = 1;
+    public static final PlacementDefinition FARM = new PlacementDefinition(
+        "farm",
+        "Farm",
+        "Civilizations/Farm/Farm_01",
+        1
+    );
+    public static final PlacementDefinition WHEAT_FIELD = new PlacementDefinition(
+        "wheat_field",
+        "Weizenfeld",
+        "Civilizations/Farm/Field_01",
+        1
+    );
 
-    public PlacementCandidate validatePlacement(World world, Vector3i pointedBlock) {
-        BlockSelection source = requireSource();
+    public PlacementCandidate validatePlacement(
+        World world,
+        Vector3i pointedBlock,
+        PlacementDefinition definition
+    ) {
+        BlockSelection source = requireSource(definition);
         Vector3i anchor = new Vector3i(
             pointedBlock.x,
-            pointedBlock.y - GROUND_SINK_BLOCKS,
+            pointedBlock.y - definition.groundSinkBlocks(),
             pointedBlock.z
         );
 
@@ -43,16 +56,13 @@ public final class FarmPrefabService {
         int floorY = cells.stream()
             .mapToInt(PrefabCell::y)
             .min()
-            .orElseThrow(() -> new IllegalStateException("Farm prefab has no physical blocks."));
+            .orElseThrow(() -> new IllegalStateException(
+                definition.displayName() + " prefab has no physical blocks."
+            ));
 
         List<PrefabCell> floorCells = cells.stream()
             .filter(cell -> cell.y() == floorY)
             .toList();
-
-        if (floorCells.isEmpty()) {
-            return PlacementCandidate.invalid(anchor, "Gebäudeboden konnte nicht bestimmt werden.");
-        }
-
         PlacementFootprint footprint = footprintFor(source, anchor, floorCells);
         Map<BlockPosition, Integer> replacedFloorBlocks = new LinkedHashMap<>();
 
@@ -61,27 +71,29 @@ public final class FarmPrefabService {
             int existingBlock = world.getBlock(worldPosition.x, worldPosition.y, worldPosition.z);
             if (existingBlock == BlockType.EMPTY_ID) {
                 return PlacementCandidate.invalid(
+                    definition,
                     anchor,
                     footprint,
-                    "Der Gebäudeboden würde über einem Loch oder einer Kante liegen."
+                    "Der Boden würde über einem Loch oder einer Kante liegen."
                 );
             }
             if (world.getFluidId(worldPosition.x, worldPosition.y, worldPosition.z) != 0) {
                 return PlacementCandidate.invalid(
+                    definition,
                     anchor,
                     footprint,
-                    "Der Gebäudeboden kann nicht in Wasser oder andere Flüssigkeiten gesetzt werden."
+                    "Der Boden kann nicht in Wasser oder andere Flüssigkeiten gesetzt werden."
                 );
             }
             if (world.getBlock(worldPosition.x, worldPosition.y - 1, worldPosition.z)
                 == BlockType.EMPTY_ID) {
                 return PlacementCandidate.invalid(
+                    definition,
                     anchor,
                     footprint,
-                    "Unter dem Gebäudeboden fehlt tragfähiger Boden."
+                    "Unter dem Bauplatz fehlt tragfähiger Boden."
                 );
             }
-
             replacedFloorBlocks.put(
                 new BlockPosition(worldPosition.x, worldPosition.y, worldPosition.z),
                 existingBlock
@@ -97,18 +109,24 @@ public final class FarmPrefabService {
                 != BlockType.EMPTY_ID
                 || world.getFluidId(worldPosition.x, worldPosition.y, worldPosition.z) != 0) {
                 return PlacementCandidate.invalid(
+                    definition,
                     anchor,
                     footprint,
-                    "Die Fläche ist durch Gelände oder ein Objekt blockiert."
+                    "Der Bauplatz ist durch Gelände oder ein Objekt blockiert."
                 );
             }
         }
 
-        return PlacementCandidate.valid(anchor, footprint, replacedFloorBlocks);
+        return PlacementCandidate.valid(
+            definition,
+            anchor,
+            footprint,
+            replacedFloorBlocks
+        );
     }
 
     public void showPreview(PlayerRef playerRef, PlacementCandidate candidate) {
-        BlockSelection preview = new BlockSelection(requireSource());
+        BlockSelection preview = new BlockSelection(requireSource(candidate.definition()));
         preview.relativizeInPlace();
         preview.setPosition(candidate.anchor().x, candidate.anchor().y, candidate.anchor().z);
         playerRef.getPacketHandler().write(preview.toPacketWithSelection());
@@ -118,25 +136,23 @@ public final class FarmPrefabService {
         playerRef.getPacketHandler().write(new BlockSelection().toPacketWithSelection());
     }
 
-    public PlacedFarm placeFarm(
+    public PlacedPrefab place(
         PlayerRef playerRef,
         World world,
         PlacementCandidate candidate
     ) {
         if (!candidate.valid()) {
-            throw new IllegalArgumentException("Cannot place an invalid Farm candidate.");
+            throw new IllegalArgumentException("Cannot place an invalid Civ prefab candidate.");
         }
 
-        BlockSelection source = requireSource();
-        Vector3i anchor = candidate.anchor();
         TriggerVolumeManager volumeManager = triggerVolumeManager(world);
         Set<String> existingVolumeIds = new HashSet<>(volumeManager.getVolumesMap().keySet());
 
-        BlockSelection prefab = new BlockSelection(source);
+        BlockSelection prefab = new BlockSelection(requireSource(candidate.definition()));
         prefab.place(
             playerRef,
             world,
-            new Vector3i(anchor),
+            new Vector3i(candidate.anchor()),
             null,
             BlockSelection.DEFAULT_ENTITY_CONSUMER,
             false,
@@ -144,21 +160,28 @@ public final class FarmPrefabService {
             false
         );
 
-        List<Vector3i> workplaceBlocks = volumeManager.getVolumes().stream()
+        List<PlacedMarker> markers = volumeManager.getVolumes().stream()
             .filter(volume -> !existingVolumeIds.contains(volume.getId()))
-            .filter(FarmPrefabService::isFarmWorkplace)
-            .map(FarmPrefabService::workplaceFloorBlock)
+            .map(PrefabPlacementService::toMarker)
             .toList();
-        if (workplaceBlocks.isEmpty()) {
-            throw new IllegalStateException(
-                "Farm prefab paste did not register a civ farm workplace trigger volume."
-            );
-        }
+        return new PlacedPrefab(candidate, markers);
+    }
 
-        return new PlacedFarm(
-            workplaceBlocks,
-            candidate.footprint(),
-            candidate.replacedFloorBlocks()
+    private static TriggerVolumeManager triggerVolumeManager(World world) {
+        return world.getEntityStore().getStore().getResource(
+            TriggerVolumesPlugin.get().getManagerResourceType()
+        );
+    }
+
+    private static PlacedMarker toMarker(VolumeEntry volume) {
+        return new PlacedMarker(
+            volume.getId(),
+            new Vector3i(
+                (int) Math.floor(volume.getPosition().x),
+                (int) Math.floor(volume.getPosition().y),
+                (int) Math.floor(volume.getPosition().z)
+            ),
+            volume.getRawTags()
         );
     }
 
@@ -167,6 +190,10 @@ public final class FarmPrefabService {
         Vector3i anchor,
         List<PrefabCell> floorCells
     ) {
+        if (floorCells.isEmpty()) {
+            throw new IllegalStateException("Prefab has no floor cells.");
+        }
+
         int minX = Integer.MAX_VALUE;
         int minZ = Integer.MAX_VALUE;
         int maxX = Integer.MIN_VALUE;
@@ -200,44 +227,33 @@ public final class FarmPrefabService {
     private static List<PrefabCell> readCells(BlockSelection source) {
         List<PrefabCell> cells = new ArrayList<>();
         source.forEachBlock((x, y, z, blockHolder) ->
-            cells.add(new PrefabCell(x, y, z, blockHolder.blockId()))
+            cells.add(new PrefabCell(x, y, z))
         );
         return List.copyOf(cells);
     }
 
-    private static BlockSelection requireSource() {
+    private static BlockSelection requireSource(PlacementDefinition definition) {
         PrefabStore prefabStore = PrefabStore.get();
-        java.nio.file.Path prefabPath = prefabStore.findBrowsablePrefabPath(FARM_PREFAB_KEY);
+        java.nio.file.Path prefabPath =
+            prefabStore.findBrowsablePrefabPath(definition.prefabKey());
         if (prefabPath == null) {
             throw new IllegalStateException(
-                "Farm prefab not found for key '" + FARM_PREFAB_KEY
-                    + "' in Hytale's browsable prefab locations."
+                definition.displayName() + " prefab not found for key '"
+                    + definition.prefabKey() + "'."
             );
         }
         return prefabStore.getPrefab(prefabPath);
     }
 
-    private static TriggerVolumeManager triggerVolumeManager(World world) {
-        return world.getEntityStore().getStore().getResource(
-            TriggerVolumesPlugin.get().getManagerResourceType()
-        );
+    private record PrefabCell(int x, int y, int z) {
     }
 
-    private static boolean isFarmWorkplace(VolumeEntry volume) {
-        Map<String, String> tags = volume.getRawTags();
-        return WORKPLACE_TYPE_VALUE.equals(tags.get(WORKPLACE_TYPE_TAG))
-            && FARM_BUILDING_VALUE.equals(tags.get(BUILDING_TAG));
-    }
-
-    private static Vector3i workplaceFloorBlock(VolumeEntry volume) {
-        return new Vector3i(
-            (int) Math.floor(volume.getPosition().x),
-            (int) Math.floor(volume.getPosition().y) - 1,
-            (int) Math.floor(volume.getPosition().z)
-        );
-    }
-
-    private record PrefabCell(int x, int y, int z, int blockId) {
+    public record PlacementDefinition(
+        String id,
+        String displayName,
+        String prefabKey,
+        int groundSinkBlocks
+    ) {
     }
 
     public record PlacementFootprint(
@@ -255,7 +271,25 @@ public final class FarmPrefabService {
         }
     }
 
+    public record PlacedMarker(String id, Vector3i position, Map<String, String> tags) {
+        public PlacedMarker {
+            position = new Vector3i(position);
+            tags = Map.copyOf(tags);
+        }
+
+        public boolean hasTag(String key, String value) {
+            return value.equals(tags.get(key));
+        }
+    }
+
+    public record PlacedPrefab(PlacementCandidate candidate, List<PlacedMarker> markers) {
+        public PlacedPrefab {
+            markers = List.copyOf(markers);
+        }
+    }
+
     public record PlacementCandidate(
+        PlacementDefinition definition,
         Vector3i anchor,
         PlacementFootprint footprint,
         Map<BlockPosition, Integer> replacedFloorBlocks,
@@ -271,41 +305,43 @@ public final class FarmPrefabService {
         }
 
         public static PlacementCandidate valid(
+            PlacementDefinition definition,
             Vector3i anchor,
             PlacementFootprint footprint,
             Map<BlockPosition, Integer> replacedFloorBlocks
         ) {
-            return new PlacementCandidate(anchor, footprint, replacedFloorBlocks, null);
-        }
-
-        public static PlacementCandidate invalid(Vector3i anchor, String reason) {
-            return new PlacementCandidate(anchor, null, Map.of(), reason);
+            return new PlacementCandidate(
+                definition,
+                anchor,
+                footprint,
+                replacedFloorBlocks,
+                null
+            );
         }
 
         public static PlacementCandidate invalid(
+            PlacementDefinition definition,
             Vector3i anchor,
             PlacementFootprint footprint,
             String reason
         ) {
-            return new PlacementCandidate(anchor, footprint, Map.of(), reason);
+            return new PlacementCandidate(
+                definition,
+                anchor,
+                footprint,
+                Map.of(),
+                reason
+            );
         }
 
         public PlacementCandidate invalidate(String reason) {
-            return new PlacementCandidate(anchor, footprint, replacedFloorBlocks, reason);
-        }
-    }
-
-    public record PlacedFarm(
-        List<Vector3i> entranceBlocks,
-        PlacementFootprint footprint,
-        Map<BlockPosition, Integer> replacedFloorBlocks
-    ) {
-        public PlacedFarm {
-            entranceBlocks = List.copyOf(entranceBlocks);
-            replacedFloorBlocks = Map.copyOf(replacedFloorBlocks);
-            if (entranceBlocks.isEmpty()) {
-                throw new IllegalArgumentException("entranceBlocks must not be empty");
-            }
+            return new PlacementCandidate(
+                definition,
+                anchor,
+                footprint,
+                replacedFloorBlocks,
+                reason
+            );
         }
     }
 }

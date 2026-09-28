@@ -76,3 +76,8 @@ Die Laufzeit kommt zusätzlich zu den fünf Sekunden aktiver Produktionszeit hin
 Das Wiki beschreibt nur bereits umgesetztes Civ-Verhalten und verknüpft verwandte Einträge miteinander. Aktuell gibt es Einträge zu Holzfäller, Bauer, Holz, Weizen und Farm. Der Bereich Tiere weist ausdrücklich darauf hin, dass Tiere derzeit noch keine Civ-spezifische Gameplay-Rolle besitzen.
 
 Wird das Wiki während einer aktiven Farm-Platzierung geöffnet, wird die Platzierung vorher abgebrochen.
+
+
+### Farm und Feld bauen
+
+Der Spieler platziert Farmgebäude und Weizenfeld getrennt über das Gebäudemenü. Beide verwenden denselben Vorschau-, Validierungs- und Platzierungsablauf. Das Feld wird nicht automatisch durch die Farm erzeugt. Die sichtbare Feldarbeit und die physische Produktionslogik folgen in einem späteren Vertical Slice; der aktuelle Schritt stellt zuerst die gemeinsame Baugrundlage her.

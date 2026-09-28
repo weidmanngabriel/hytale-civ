@@ -15,68 +15,97 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FarmPrefabValidationTest {
 
-    private static final Path FARM_PREFAB = Path.of(
-        "asset-pack",
-        "Server",
-        "Prefabs",
-        "Civilizations",
-        "Farm",
-        "Farm_01.prefab.json"
+    private static final Path PREFAB_DIR = Path.of(
+        "asset-pack", "Server", "Prefabs", "Civilizations", "Farm"
     );
-
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    void farmPrefabHasExpectedStructureAndWorkplaceTriggerVolume() throws Exception {
-        assertTrue(Files.isRegularFile(FARM_PREFAB));
+    void farmPrefabHasEmptyNativeStorageAndSemanticMarkers() throws Exception {
+        JsonNode prefab = read("Farm_01.prefab.json");
+        assertCommonPrefabHeader(prefab);
 
-        JsonNode prefab = objectMapper.readTree(Files.readString(FARM_PREFAB));
+        JsonNode blocks = prefab.path("blocks");
+        assertEquals(184, blocks.size());
+
+        boolean foundEmptyChest = false;
+        for (JsonNode block : blocks) {
+            JsonNode container = block.path("components")
+                .path("Components")
+                .path("ItemContainerBlock")
+                .path("ItemContainer");
+            if (!container.isMissingNode()) {
+                assertEquals(18, container.path("Capacity").asInt());
+                assertTrue(container.path("Items").isObject());
+                assertEquals(0, container.path("Items").size());
+                foundEmptyChest = true;
+            }
+        }
+        assertTrue(foundEmptyChest);
+
+        JsonNode entities = prefab.path("entities");
+        assertEquals(2, entities.size());
+        assertMarker(entities, "civ_farm_workplace", "workplace_access");
+        assertMarker(entities, "civ_farm_output_storage", "output_storage");
+    }
+
+    @Test
+    void fieldPrefabIsSeparateTilledFieldWithFieldMarker() throws Exception {
+        JsonNode prefab = read("Field_01.prefab.json");
+        assertCommonPrefabHeader(prefab);
+
+        JsonNode blocks = prefab.path("blocks");
+        assertEquals(36, blocks.size());
+
+        Set<String> coordinates = new HashSet<>();
+        for (JsonNode block : blocks) {
+            assertTrue(coordinates.add(
+                block.path("x").asInt() + ":"
+                    + block.path("y").asInt() + ":"
+                    + block.path("z").asInt()
+            ));
+            assertTrue(block.path("name").asText().contains("Soil_Dirt_Tilled"));
+            assertEquals(0, block.path("y").asInt());
+        }
+
+        JsonNode entities = prefab.path("entities");
+        assertEquals(1, entities.size());
+        assertMarker(entities, "civ_farm_field", "field");
+    }
+
+    private JsonNode read(String fileName) throws Exception {
+        Path path = PREFAB_DIR.resolve(fileName);
+        assertTrue(Files.isRegularFile(path));
+        return objectMapper.readTree(Files.readString(path));
+    }
+
+    private static void assertCommonPrefabHeader(JsonNode prefab) {
         assertEquals(8, prefab.path("version").asInt());
         assertEquals(11, prefab.path("blockIdVersion").asInt());
         assertEquals(0, prefab.path("anchorX").asInt());
         assertEquals(0, prefab.path("anchorY").asInt());
         assertEquals(0, prefab.path("anchorZ").asInt());
+    }
 
-        JsonNode blocks = prefab.path("blocks");
-        assertTrue(blocks.isArray());
-        assertTrue(blocks.size() > 200);
-
-        Set<String> coordinates = new HashSet<>();
-        boolean hasRoof = false;
-        boolean hasCropBed = false;
-
-        for (JsonNode block : blocks) {
-            int x = block.path("x").asInt();
-            int y = block.path("y").asInt();
-            int z = block.path("z").asInt();
-            String name = block.path("name").asText();
-
-            assertTrue(coordinates.add(x + ":" + y + ":" + z));
-            assertFalse(name.equals("Civ_BuildingEntrance"));
-            hasRoof |= name.equals("Rock_Shale") && y >= 4;
-            hasCropBed |= name.equals("Soil_Dirt") && x >= 6;
+    private static void assertMarker(
+        JsonNode entities,
+        String expectedName,
+        String expectedType
+    ) {
+        boolean found = false;
+        for (JsonNode entity : entities) {
+            JsonNode trigger = entity.path("Components").path("TriggerVolume");
+            if (!expectedName.equals(trigger.path("Name").asText())) {
+                continue;
+            }
+            assertEquals("Box", trigger.path("Shape").path("Type").asText());
+            assertTrue(trigger.path("Enabled").asBoolean());
+            assertEquals("Npc", trigger.path("TargetTypes").get(0).asText());
+            assertEquals("farm", trigger.path("Tags").path("civ.building").asText());
+            assertEquals(expectedType, trigger.path("Tags").path("civ.type").asText());
+            assertFalse(trigger.path("Tags").has("civ.access"));
+            found = true;
         }
-
-        assertTrue(hasRoof);
-        assertTrue(hasCropBed);
-
-        JsonNode entities = prefab.path("entities");
-        assertTrue(entities.isArray());
-        assertEquals(1, entities.size());
-
-        JsonNode components = entities.get(0).path("Components");
-        JsonNode position = components.path("Transform").path("Position");
-        assertEquals(0.0, position.path("X").asDouble());
-        assertEquals(1.0, position.path("Y").asDouble());
-        assertEquals(-5.0, position.path("Z").asDouble());
-
-        JsonNode trigger = components.path("TriggerVolume");
-        assertEquals("Box", trigger.path("Shape").path("Type").asText());
-        assertTrue(trigger.path("Enabled").asBoolean());
-        assertEquals("Npc", trigger.path("TargetTypes").get(0).asText());
-        assertEquals("farm", trigger.path("Tags").path("civ.building").asText());
-        assertEquals("workplace_access", trigger.path("Tags").path("civ.type").asText());
-        assertFalse(trigger.path("Tags").has("civ.access"));
-        assertEquals("civ_farm_workplace", trigger.path("Name").asText());
+        assertTrue(found, "Missing trigger marker " + expectedName);
     }
 }

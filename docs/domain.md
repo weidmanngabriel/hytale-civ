@@ -90,3 +90,10 @@ Nur aktueller Prototyp, **keine dauerhafte Domänenregel**:
 - Produktionsstopp bei zehn Einheiten.
 
 Diese Punkte bleiben als Beschreibung des derzeit laufenden Codes relevant, dürfen aber ohne erneute Produktentscheidung nicht als Zielverhalten für die nächste Farm-Iteration verwendet werden. Das in `civilizations-poc` vorhandene Modell mit sichtbarer Feldarbeit, Feldentwicklung, Ernte und Rücktransport ist eine Referenz für die weitere Produktentscheidung, nicht automatisch eine Regel dieses Projekts.
+
+
+## Civ-Prefab-Platzierung
+
+Farmgebäude und Felder sind getrennte, vom Spieler platzierte Civ-Bauobjekte. Ein Feld wird nicht automatisch zusammen mit einer Farm erzeugt. Die Geometrie einschließlich semantischer Trigger-Volumes gehört vollständig zum jeweiligen Hytale-Prefab. Civ verschiebt solche Marker nicht unabhängig vom Prefab.
+
+Für die aktuellen Creator-Prefabs gilt die gemeinsame Geländekonvention: Der Prefab-Anker wird bei der Platzierung um einen Block gegenüber dem anvisierten Gelände abgesenkt, damit die im Prefab definierte Bodenebene im Spiel bündig mit der Geländeoberfläche abschließt. Diese Konvention gilt für Gebäude und Felder gleichermaßen und ist kein farmspezifischer Sonderfall.

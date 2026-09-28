@@ -1,0 +1,979 @@
+{
+  "version": 8,
+  "blockIdVersion": 11,
+  "anchorX": 0,
+  "anchorY": 0,
+  "anchorZ": 0,
+  "blocks": [
+    {
+      "x": -2,
+      "y": 0,
+      "z": -2,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T23:05:25.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": -1,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T23:05:51.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 0,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T19:36:14.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 1,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T23:33:01.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 2,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T17:51:32.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 3,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T21:35:59.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": -2,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T17:25:40.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": -1,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T23:02:01.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 0,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T17:10:46.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 1,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T23:11:00.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 2,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T19:27:36.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 3,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T17:01:49.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": -2,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T16:51:41.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": -1,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T23:03:10.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T23:34:04.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 1,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T23:44:34.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 2,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T21:32:11.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 3,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T21:10:15.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": -2,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T23:36:18.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": -1,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T20:57:36.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 0,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T19:11:04.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 1,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T17:56:02.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 2,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T21:01:56.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 3,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T23:38:07.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": -2,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T22:41:32.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": -1,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T17:33:44.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 0,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T23:02:12.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 1,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T20:00:32.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 2,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T22:21:17.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 3,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T18:51:24.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": -2,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T19:37:27.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": -1,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T18:28:42.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 0,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T20:03:49.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 1,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T20:55:07.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 2,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T22:04:40.001095845Z"
+          }
+        }
+      }
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 3,
+      "name": "*Soil_Dirt_Tilled_State_Definitions_Watered",
+      "components": {
+        "Components": {
+          "PlacedByInteraction": {
+            "WhoPlacedUuid": {
+              "$binary": "9kFA/eTyT+iTSVpjvqXi4w==",
+              "$type": "04"
+            }
+          },
+          "TilledSoil": {
+            "Version": 1,
+            "WateredUntil": "0001-01-04T12:02:14.001095845Z",
+            "DecayTime": "0001-01-04T19:26:32.001095845Z"
+          }
+        }
+      }
+    }
+  ],
+  "fluids": [
+    {
+      "x": -2,
+      "y": 0,
+      "z": -2,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": -1,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 0,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 1,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 2,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 3,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": -2,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": -1,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 0,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 1,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 2,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 3,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": -2,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": -1,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 1,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 2,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 3,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": -2,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": -1,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 0,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 1,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 2,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 3,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": -2,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": -1,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 0,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 1,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 2,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 3,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": -2,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": -1,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 0,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 1,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 2,
+      "name": "Empty",
+      "level": 0
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 3,
+      "name": "Empty",
+      "level": 0
+    }
+  ],
+  "entities": [
+    {
+      "Components": {
+        "Transform": {
+          "Position": {
+            "X": 1.0,
+            "Y": 2.0,
+            "Z": 1.0
+          },
+          "Rotation": {
+            "Pitch": 0.0,
+            "Yaw": 0.0,
+            "Roll": 0.0
+          }
+        },
+        "TriggerVolume": {
+          "Shape": {
+            "Type": "Box",
+            "Min": {
+              "X": -3.0,
+              "Y": -2.0,
+              "Z": -3.0
+            },
+            "Max": {
+              "X": 3.0,
+              "Y": 2.0,
+              "Z": 3.0
+            }
+          },
+          "Enabled": true,
+          "TargetTypes": [
+            "Npc"
+          ],
+          "Tags": {
+            "civ.building": "farm",
+            "civ.type": "field"
+          },
+          "KeepLoaded": false,
+          "PrefabIndex": 0,
+          "Name": "civ_farm_field"
+        }
+      }
+    }
+  ]
+}

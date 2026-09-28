@@ -13,9 +13,10 @@ import dev.civilizations.hytale.CivInhabitantData;
 import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivInhabitantUseSystem;
 import dev.civilizations.hytale.CivUnitRegistry;
+import dev.civilizations.hytale.BuildingPlacementRegistry;
 import dev.civilizations.hytale.FarmBuildingRegistry;
 import dev.civilizations.hytale.FarmNpcWorkSystem;
-import dev.civilizations.hytale.FarmPrefabService;
+import dev.civilizations.hytale.PrefabPlacementService;
 import dev.civilizations.hytale.RtsCameraController;
 import dev.civilizations.hytale.RtsInteractionController;
 import dev.civilizations.hytale.WoodcutterWorkSystem;
@@ -49,7 +50,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 new RtsCameraController(),
                 unitRegistry,
                 farmRegistry,
-                new FarmPrefabService()
+                new BuildingPlacementRegistry(),
+                new PrefabPlacementService()
             );
 
         getEntityStoreRegistry().registerSystem(new CivClaimDamageSystem(rtsInteractionController));
