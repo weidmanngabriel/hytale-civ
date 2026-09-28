@@ -26,7 +26,7 @@ Adapters translating between Hytale concepts and core concepts. Entities, NPCs, 
 
 The current RTS validation spike plus Farm and Woodcutter slices contains these deliberately small Hytale-facing components:
 
-- `RtsCameraController` applies and clears the fixed angled cursor camera. RTS mode does not switch the player to Spectator.
+- `RtsCameraController` applies the fixed angled cursor camera and returns control through Hytale's native `CameraManager.resetCamera` lifecycle. RTS mode does not switch the player to Spectator.
 - `RtsInteractionController` owns temporary per-player RTS input state. Selection is deliberately single-select; build-menu and placement state are also isolated per player.
 - `RtsToolbarAnchorUi` injects the persistent left-side RTS menu into Hytale's interactive `ReticleServerEvent` anchor and clears it with Hytale's explicit `clear` update plus non-null empty command/event arrays; `BuildingMenuPage` provides the modal building catalog.
 - Right-clicking the currently selected Civ NPC opens `PersonActionsPage`; the deprecated generic `Use`/F interaction is not used by RTS controls.
