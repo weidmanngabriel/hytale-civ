@@ -560,7 +560,6 @@ public final class RtsInteractionController {
         session.placementDefinition = null;
         session.previewTarget = null;
         session.previewCandidate = null;
-        session.nativePasteActive = false;
     }
 
     private void removeInvalidSelection(Session session) {
