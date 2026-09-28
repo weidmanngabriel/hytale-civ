@@ -1,5 +1,6 @@
 package dev.civilizations.hytale;
 
+import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.server.core.Message;
@@ -59,6 +60,49 @@ public final class CivInhabitantService {
             new DisplayNameComponent(displayName)
         );
         return data;
+    }
+
+    public CivInhabitantData ensureInhabitant(
+        Ref<EntityStore> ref,
+        CommandBuffer<EntityStore> commandBuffer
+    ) {
+        if (ref == null || !ref.isValid()) {
+            return null;
+        }
+
+        CivInhabitantData data = commandBuffer.getComponent(ref, inhabitantDataType);
+        if (data == null) {
+            data = new CivInhabitantData();
+            initializeIdentity(data);
+            commandBuffer.putComponent(ref, inhabitantDataType, data);
+        } else if (!data.hasIdentity()) {
+            initializeIdentity(data);
+        }
+
+        Message displayName = Message.raw(data.fullName());
+        commandBuffer.putComponent(
+            ref,
+            PersistentDisplayName.getComponentType(),
+            new PersistentDisplayName(displayName)
+        );
+        commandBuffer.putComponent(
+            ref,
+            DisplayNameComponent.getComponentType(),
+            new DisplayNameComponent(displayName)
+        );
+        return data;
+    }
+
+    private void initializeIdentity(CivInhabitantData data) {
+        VikingNameGenerator.GeneratedName generated =
+            nameGenerator.generate(ThreadLocalRandom.current());
+        data.setIdentity(
+            generated.gender(),
+            generated.firstName(),
+            generated.middleName(),
+            generated.lastName()
+        );
+        data.setProfession(Profession.UNEMPLOYED);
     }
 
     public CivInhabitantData get(Ref<EntityStore> ref) {

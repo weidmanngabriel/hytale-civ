@@ -50,6 +50,6 @@ public final class CivClaimDamageSystem extends EntityEventSystem<EntityStore, D
         if (player == null || playerRef == null || !interactionController.consumeArmedClaim(playerRef)) return;
 
         damage.setCancelled(true);
-        interactionController.handleClaim(chunk.getReferenceTo(index), playerRef);
+        interactionController.handleClaim(chunk.getReferenceTo(index), playerRef, commandBuffer);
     }
 }

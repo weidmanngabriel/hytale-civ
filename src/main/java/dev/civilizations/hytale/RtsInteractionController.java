@@ -1,5 +1,6 @@
 package dev.civilizations.hytale;
 
+import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.protocol.MouseButtonState;
@@ -310,22 +311,31 @@ public final class RtsInteractionController {
     }
 
     public void handleClaim(Ref<EntityStore> target, PlayerRef playerRef) {
+        handleClaim(target, playerRef, null);
+    }
+
+    public void handleClaim(
+        Ref<EntityStore> target,
+        PlayerRef playerRef,
+        CommandBuffer<EntityStore> commandBuffer
+    ) {
         if (target == null || !target.isValid()) {
             playerRef.sendMessage(Message.raw("No NPC under cursor."));
             return;
         }
 
-        NPCEntity npc = target.getStore().getComponentConcurrent(
-            target,
-            NPCEntity.getComponentType()
-        );
+        NPCEntity npc = commandBuffer == null
+            ? target.getStore().getComponentConcurrent(target, NPCEntity.getComponentType())
+            : commandBuffer.getComponent(target, NPCEntity.getComponentType());
         if (npc == null) {
             playerRef.sendMessage(Message.raw("Target is not an NPCEntity and cannot be claimed."));
             return;
         }
 
         CivUnitRegistry.UnitKey key = unitRegistry.keyOf(target);
-        boolean claimed = unitRegistry.toggleClaim(target);
+        boolean claimed = commandBuffer == null
+            ? unitRegistry.toggleClaim(target)
+            : unitRegistry.toggleClaim(target, commandBuffer);
         if (!claimed) {
             farmRegistry.unassignFarmer(target);
             sessions.values().forEach(otherSession -> {
@@ -337,7 +347,9 @@ public final class RtsInteractionController {
         }
 
         if (claimed) {
-            CivInhabitantData data = unitRegistry.getInhabitantData(target);
+            CivInhabitantData data = commandBuffer == null
+                ? unitRegistry.getInhabitantData(target)
+                : unitRegistry.getInhabitantData(target);
             String name = data == null || !data.hasIdentity() ? "unknown" : data.fullName();
             playerRef.sendMessage(Message.raw("Civ inhabitant claimed: " + name));
         } else {
