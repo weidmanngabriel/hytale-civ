@@ -32,6 +32,8 @@ Abhängigkeit: <code>com.hypixel.hytale:Server</code>
 
 ## Hytale-API-Inspektion
 
+Die API-Inspektion ist noch neu und experimentell, wird aber bereits als verpflichtender erster Prüfweg für Hytale-spezifische Entwicklungsarbeit verwendet. Ziel ist, dass auch ein neuer Coding-Agent die tatsächlich festgesetzte Server-API prüft, bevor er Methodennamen, Klassen oder Signaturen annimmt. Der Snapshot belegt dabei nur die vorhandene API-Oberfläche; Laufzeitverhalten wie Event-Dispatch, Lifecycle oder Client-Reaktionen muss weiterhin separat verifiziert werden.
+
 Die tatsächlich von Gradle aufgelöste Hytale-Server-JAR kann analysiert werden:
 
 ~~~bash
