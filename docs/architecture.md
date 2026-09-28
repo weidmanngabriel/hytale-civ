@@ -9,12 +9,20 @@ Vor Version 1 ist Rückwärtskompatibilität kein Ziel, wenn dafür Migrationen,
 ## Schichten
 
 ~~~text
+Spielerinput / UI
+      ↓ Command
 Core-Simulation
-      ↓
+      ↓ Intent
 Hytale-Adapter
       ↓
 Hytale-Plugin / API
+      ↓ Result / Event
+Core-Simulation
 ~~~
+
+Die Grenze ist verhaltensorientiert: UI und Hytale-Code übersetzen Eingaben und führen Engine-Arbeit aus, besitzen aber keine Civ-Spielregeln. Der Core entscheidet über Zustandswechsel, Prioritäten und Unterbrechungen. Ein Core-Intent beschreibt nur das gewünschte Ergebnis, zum Beispiel „Bewohner soll zu Ziel X laufen“; der Adapter setzt das mit Hytales nativer Navigation um und meldet Ankunft beziehungsweise Fehlschlag zurück.
+
+Bewegung ist deshalb zweigeteilt. **Wer wann wohin und warum läuft** gehört zur Civ-Simulation. **Wie der NPC den Weg findet und physisch zurücklegt** bleibt Hytale überlassen. Civ baut keinen parallelen Wegfindungsalgorithmus, solange Hytales Navigation die Produktanforderung erfüllt.
 
 ### core
 
@@ -62,6 +70,40 @@ Hytale-Bootstrap und Lifecycle. Hier werden Adapter und Services verdrahtet sowi
 Abhängigkeiten zeigen in Richtung Core. <code>core</code> ist Hytale-unabhängig. <code>hytale</code> darf von <code>core</code> und der Hytale-API abhängen. <code>plugin</code> darf von beiden und der Hytale-API abhängen.
 
 Dadurch bleibt der Großteil des Verhaltens in normalen JUnit-Tests ausführbar. Hytale wird nur dort benötigt, wo das Engine-Verhalten selbst geprüft wird.
+
+### Headless Ablaufsteuerung
+
+Mehrstufige Gameplay-Abläufe sollen als Core-Zustand plus kleine Commands, Intents und Ergebnisse modelliert werden, wenn dadurch eine echte Engine-Grenze entsteht. Ein Test darf Engine-Ergebnisse wie „angekommen“ künstlich zurückmelden und dadurch denselben Zustandsautomaten weitertreiben, den der Hytale-Adapter im Spiel bedient.
+
+Der erste konkrete Beweisfall ist die Bewohnerbewegung mit Holzfällerarbeit:
+
+~~~text
+Spielerbefehl: manuelles Ziel
+        ↓
+Core: manueller Bewegungsauftrag hat Vorrang
+        ↓ MovementIntent
+Hytale: CivMoveTarget / ReadPosition / Seek
+        ↓ Ankunft
+Core: manuellen Auftrag abschließen
+        ↓
+vorherige autonome Berufsarbeit darf fortfahren
+
+Holzfäller-Core
+        ↓ SearchTreeIntent
+Hytale: Welt nach geeignetem Baum + Arbeitsposition abfragen
+        ↓ Ziel gefunden
+Core
+        ↓ MovementIntent
+Hytale: native NPC-Navigation
+        ↓ Ankunft
+Core
+        ↓ Chop/Fell-Intent
+Hytale: nativer BlockHarvestUtils-Pfad
+        ↓ Ergebnis
+Core: nächster Arbeitszyklus
+~~~
+
+Die Baum- und Blockabfrage bleibt dabei Hytale-spezifisch, weil sie die reale Weltgeometrie und Blocktypen benötigt. Der Ablauf und seine Zustandsübergänge bleiben Core-Logik. Dasselbe Muster soll später für Bedürfnisse, Produktion, Transport und andere unterbrechbare Tätigkeiten wiederverwendet werden, ohne dafür vorab ein universelles Aktionsframework zu erfinden.
 
 ## Mehrspielerinteraktion und Welthoheit
 
