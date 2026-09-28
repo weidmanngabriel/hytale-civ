@@ -17,6 +17,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Loads, previews, validates and places the Farm prefab.
@@ -222,10 +223,17 @@ public final class FarmPrefabService {
     }
 
     private static BlockSelection requireSource() {
-        BlockSelection source = PrefabStore.get().getAssetPrefabFromAnyPack(FARM_PREFAB_KEY);
+        PrefabStore prefabStore = PrefabStore.get();
+        BlockSelection source = prefabStore.getAssetPrefabFromAnyPack(FARM_PREFAB_KEY);
         if (source == null) {
+            String assetRoots = prefabStore.getAllAssetPrefabPaths().stream()
+                .map(entry -> entry.prefabsPath().toString())
+                .collect(Collectors.joining(", "));
             throw new IllegalStateException(
-                "Farm prefab not found. Install the hytale-civ-assets Asset Pack next to the plugin."
+                "Farm prefab not found for key '" + FARM_PREFAB_KEY
+                    + "'. findAssetPrefabPath=" + prefabStore.findAssetPrefabPath(FARM_PREFAB_KEY)
+                    + ", findBrowsablePrefabPath=" + prefabStore.findBrowsablePrefabPath(FARM_PREFAB_KEY)
+                    + ", assetPrefabRoots=[" + assetRoots + "]"
             );
         }
         return source;
