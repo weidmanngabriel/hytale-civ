@@ -209,7 +209,7 @@ public final class PrefabPlacementService {
                 store,
                 new org.joml.Vector3d(x, y, z),
                 new Rotation3f(),
-                active.definition().prefabPath(),
+                active.definition().prefabKey(),
                 Integer.MAX_VALUE
             );
             ConstructionSite site = new ConstructionSite(
