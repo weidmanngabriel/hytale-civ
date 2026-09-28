@@ -22,15 +22,18 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
     private final FarmBuildingRegistry farmRegistry;
+    private final FarmFieldRegistry fieldRegistry;
 
     public FarmNpcWorkSystem(
         CivUnitRegistry unitRegistry,
         CivActivityRegistry activityRegistry,
-        FarmBuildingRegistry farmRegistry
+        FarmBuildingRegistry farmRegistry,
+        FarmFieldRegistry fieldRegistry
     ) {
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
         this.farmRegistry = farmRegistry;
+        this.fieldRegistry = fieldRegistry;
     }
 
     @Override
@@ -78,34 +81,37 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
             return;
         }
 
+        FarmFieldRegistry.FieldSite field =
+            fieldRegistry.nearestField(site.worldId(), building.entranceBlock());
+
         switch (building.workState()) {
-            case WAITING_FOR_FARMER -> unitRegistry.clearMoveTarget(ref);
-            case WALKING_TO_ENTRANCE -> {
+            case WAITING_FOR_FARMER, COMPLETE -> unitRegistry.clearMoveTarget(ref);
+            case WALKING_TO_FARM, RETURNING_TO_FARM -> {
                 Vector3d target = site.entranceTarget();
                 unitRegistry.setMoveTarget(ref, target);
                 if (hasArrived(position, target)) {
                     unitRegistry.clearMoveTarget(ref);
-                    building.enterBuilding();
+                    building.arriveAtFarm();
                 }
             }
-            case WORKING_INSIDE -> {
-                unitRegistry.clearMoveTarget(ref);
-                if (building.advanceWork(dt)) {
-                    unitRegistry.setMoveTarget(ref, site.exitTarget());
+            case WALKING_TO_FIELD -> {
+                if (field == null) {
+                    unitRegistry.clearMoveTarget(ref);
+                    return;
                 }
-            }
-            case LEAVING_BUILDING -> {
-                Vector3d target = site.exitTarget();
+                Vector3d target = field.workTarget();
                 unitRegistry.setMoveTarget(ref, target);
                 if (hasArrived(position, target)) {
                     unitRegistry.clearMoveTarget(ref);
-                    building.exitBuilding();
-                    if (building.workState() == FarmBuilding.WorkState.WALKING_TO_ENTRANCE) {
-                        unitRegistry.setMoveTarget(ref, site.entranceTarget());
-                    }
+                    building.arriveAtField();
                 }
             }
-            case COMPLETE -> unitRegistry.clearMoveTarget(ref);
+            case WORKING_FIELD -> {
+                unitRegistry.clearMoveTarget(ref);
+                if (building.advanceWork(dt)) {
+                    unitRegistry.setMoveTarget(ref, site.entranceTarget());
+                }
+            }
         }
     }
 
