@@ -14,9 +14,12 @@ Der aktuelle Anspruchs- und Bewegungszustand von NPCs ist bewusst nur ein vorlä
 
 ## Bewohner
 
-- Ein beanspruchter Civ-NPC kann dauerhafte Bewohnerdaten direkt an seiner Hytale-Entität tragen.
-- Aktueller Beruf und Berufserfahrung gehören zu diesem einzelnen Bewohner und nicht zum vorläufigen RTS-Anspruchsregister.
-- Ein Bewohner darf keinen Beruf besitzen. Berufserfahrung beginnt bei null und darf nicht negativ sein.
+- Ein Civ-Bewohner trägt seine dauerhaften Bewohnerdaten direkt an seiner Hytale-Entität. Die native persistente Hytale-UUID ist seine technische Entity-Identität; Civ führt dafür keine zweite UUID ein.
+- Aktuell existiert genau eine Civ-Fraktion: Wikinger. Solange keine zweite Fraktion existiert, wird keine zusätzliche Fraktions-ID pro Bewohner gespeichert.
+- Jeder neu initialisierte Bewohner erhält genau ein Geschlecht (männlich oder weiblich) sowie genau einen Vor-, Mittel- und Nachnamen aus dem dazugehörigen Wikinger-Namenspool. Diese konkreten Namen werden gespeichert und bei späteren Claims nicht neu ausgewürfelt.
+- Ein Bewohner besitzt immer einen aktiven Berufszustand. Der initiale Zustand ist ARBEITSLOS (<code>UNEMPLOYED</code>).
+- ARBEITSLOS besitzt keine Berufserfahrung. Bauer und Holzfäller behalten ihre jeweilige eigene, nichtnegative Berufserfahrung auch nach einem Berufswechsel.
+- Bewohneridentität und Berufsdaten sind unabhängig davon, ob ein Spieler First Person oder RTS verwendet.
 - Eine dauerhafte Arbeitsplatzidentität ist noch keine Domänenregel, weil platzierte Civ-Gebäude noch keine stabile dauerhafte Identität besitzen.
 
 ## Geplante Domänenbereiche
