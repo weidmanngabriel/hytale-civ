@@ -17,7 +17,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Loads, previews, validates and places the Farm prefab.
@@ -224,19 +223,14 @@ public final class FarmPrefabService {
 
     private static BlockSelection requireSource() {
         PrefabStore prefabStore = PrefabStore.get();
-        BlockSelection source = prefabStore.getAssetPrefabFromAnyPack(FARM_PREFAB_KEY);
-        if (source == null) {
-            String assetRoots = prefabStore.getAllAssetPrefabPaths().stream()
-                .map(entry -> entry.prefabsPath().toString())
-                .collect(Collectors.joining(", "));
+        java.nio.file.Path prefabPath = prefabStore.findBrowsablePrefabPath(FARM_PREFAB_KEY);
+        if (prefabPath == null) {
             throw new IllegalStateException(
                 "Farm prefab not found for key '" + FARM_PREFAB_KEY
-                    + "'. findAssetPrefabPath=" + prefabStore.findAssetPrefabPath(FARM_PREFAB_KEY)
-                    + ", findBrowsablePrefabPath=" + prefabStore.findBrowsablePrefabPath(FARM_PREFAB_KEY)
-                    + ", assetPrefabRoots=[" + assetRoots + "]"
+                    + "' in Hytale's browsable prefab locations."
             );
         }
-        return source;
+        return prefabStore.getPrefab(prefabPath);
     }
 
     private static TriggerVolumeManager triggerVolumeManager(World world) {
