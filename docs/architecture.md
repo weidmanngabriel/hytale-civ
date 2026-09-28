@@ -33,7 +33,7 @@ The current RTS validation spike plus Farm and Woodcutter slices contains these 
 - `CivInhabitantData` is a serializable Hytale ECS component attached to claimed NPC entities. It stores persistent per-inhabitant profession, profession XP and an optional future workplace identifier; the workplace field is deliberately not populated until placed buildings have stable persistent identity.
 - `CivUnitRegistry` remains a runtime-only registry for explicitly claimed NPCs and movement targets. Profession reads/writes go through `CivInhabitantData`. For the `Civ_Inhabitant` role, movement writes the target into the role's single native `CivMoveTarget` position slot; `ReadPosition` + `Seek` then delegate pathfinding and motion to Hytale.
 - `WoodcutterWorkSystem` finds nearby natural-looking Hytale trunk blocks, drives a WOODCUTTER to an adjacent work position, and uses Hytale's native `BlockHarvestUtils.performBlockDamage` path to fell the base block so normal drops, break events and block physics remain engine-owned.
-- `FarmPrefabService` loads the Farm prefab from the standalone Asset Pack through Hytale's `PrefabStore`, validates terrain, renders the per-player placement preview, sinks the prefab floor one block into the terrain, maps `Civ_BuildingEntrance` markers to empty blocks, and records the world blocks replaced by the embedded floor.
+- `FarmPrefabService` loads the Farm prefab from the standalone Asset Pack through Hytale's `PrefabStore`, validates terrain, renders the per-player placement preview, sinks the prefab floor one block into the terrain, and resolves newly pasted farm workplace Trigger Volumes through Hytale's `TriggerVolumeManager`. It also records the world blocks replaced by the embedded floor.
 - `FarmBuildingRegistry` binds placed farm instances and assigned NPC refs to the core `FarmBuilding` state, tracks placement footprints for overlap checks, and retains each instance's replaced-floor snapshot for future demolition restoration.
 - `FarmNpcWorkSystem` translates the core farm states into entrance/exit movement targets and advances production while the Farmer is inside.
 
@@ -133,9 +133,9 @@ entrance → 5 s inside → +1 local wheat → exit → repeat
 stop outside when local wheat reaches 10
 ~~~
 
-Building entrances are authored inside the prefab with the technical `Civ_BuildingEntrance` marker block. The marker uses Hytale's editor-oriented GizmoCube rendering, has no physical collision, and is converted to an empty block when the runtime prefab is placed. Its cell sits one block above the physical threshold; the simulation derives the threshold block directly below it.
+Farm workplace access is authored directly in the prefab with a native Hytale Trigger Volume tagged `civ.type=workplace_access` and `civ.building=farm`. Hytale converts the prefab transport entity into a runtime `VolumeEntry` during paste; Civ resolves the newly registered tagged volume and derives the walk target from its world position. The obsolete `Civ_BuildingEntrance` marker block is no longer used.
 
-A prefab must contain at least one entrance marker. Multiple markers are supported. For the current one-Farmer Farm slice, the registry selects the marker nearest to the assigned NPC by straight-line world distance and then lets the NPC's normal Hytale movement controller travel to that target. This is not yet path-cost-aware entrance selection.
+A Farm prefab must register at least one `workplace_access` Trigger Volume tagged for `farm`. Multiple matching volumes are supported. For the current one-Farmer Farm slice, the registry selects the workplace nearest to the assigned NPC by straight-line world distance and then lets the NPC's normal Hytale movement controller travel to that target. This is not yet path-cost-aware entrance selection.
 
 The NPC remains a normal Hytale entity; "inside" is currently a simulation state reached when its position reaches the selected entrance target. The prototype does not hide, despawn or teleport the NPC while working.
 
