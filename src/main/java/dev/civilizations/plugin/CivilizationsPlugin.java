@@ -8,7 +8,7 @@ import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.VikingNameGenerator;
-import dev.civilizations.hytale.CivClaimDamageDiagnosticSystem;
+import dev.civilizations.hytale.CivClaimDamageSystem;
 import dev.civilizations.hytale.CivInhabitantData;
 import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivUnitRegistry;
@@ -51,7 +51,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 new FarmPrefabService()
             );
 
-        getEntityStoreRegistry().registerSystem(new CivClaimDamageDiagnosticSystem(rtsInteractionController));
+        getEntityStoreRegistry().registerSystem(new CivClaimDamageSystem(rtsInteractionController));
         getEntityStoreRegistry().registerSystem(new FarmNpcWorkSystem(unitRegistry, farmRegistry));
         getEntityStoreRegistry().registerSystem(new WoodcutterWorkSystem(unitRegistry));
 
