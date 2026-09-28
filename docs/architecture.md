@@ -111,11 +111,26 @@ hytale-civ-<release>.zip
 
 Das äußere ZIP ist nur das herunterladbare Release-Bundle. Hytale erhält das Java-Plugin weiterhin als JAR und die Assets als eigenständigen Asset-Pack-Ordner. Dadurch bleiben Asset-Änderungen unabhängig vom Java-Build: Nach der Installation können Dateien in <code>hytale-civ-assets/</code> geändert werden, ohne das Plugin-JAR neu zu bauen.
 
-Gameplay-Daten sollen nur dann ins Asset Pack wandern, wenn ein konkreter Hytale-Asset-Typ dies verlangt. Core-Simulationsregeln und Domänenzustand bleiben in der bestehenden Java-Architektur, solange ein späteres Feature keine andere Grenze festlegt.
+Gameplay-Daten sollen bevorzugt Hytales vorhandene native Asset-, ECS-, Interaktions-, Inventar- und Persistenzmechanismen verwenden, wenn deren Semantik zum Feature passt. Civ soll keinen parallelen Speicher-, Navigations-, Interaktions- oder Inventarmechanismus einführen, nur weil ein Java-Modell einfacher erscheint. Eigener Core-Code bleibt für Civ-spezifische Regeln und für Engine-Lücken zuständig; vor einer solchen Implementierung wird der native Hytale-Pfad anhand der projektgebundenen Server-JAR geprüft.
+
+### Native Gebäudezustände und Inventare
+
+Die direkte Untersuchung der projektgebundenen `HytaleServer.jar` bestätigt für die aktuelle Serverversion folgende Engine-Bausteine:
+
+- Hytale besitzt persistierbare Block-Entitäten im `ChunkStore`. `BlockType` kann einen `BlockEntity`-Holder tragen.
+- `ItemContainerBlock` ist eine serialisierbare `ChunkStore`-Komponente mit eigenem `SimpleItemContainer`, konfigurierbarer `Capacity` und optionaler `Droplist`. Sein Codec serialisiert den Containerinhalt selbst.
+- `ItemContainerSystems` bindet Containeränderungen an den Blockzustand. Das Entfernen wegen `UNLOAD` wird ausdrücklich anders behandelt als ein tatsächliches Entfernen des Blocks. Damit ist ein nativer Containerblock der bevorzugte Kandidat für lokale, physische Gebäudewaren.
+- `OpenContainerInteraction` öffnet Hytales normale Containeroberfläche für einen Containerblock. `BlockType` besitzt native Interaction-Zuordnungen.
+- Hytale stellt darüber hinaus `PersistentRef`, `PersistentMetaKey`, Entity-`UUID`-Auflösung und codec-basierte ECS-Komponenten bereit. Dass diese Infrastruktur existiert, belegt jedoch noch nicht, dass jede beliebige Civ-Gebäudezuweisung ohne zusätzliche Lifecycle-Arbeit korrekt gespeichert wird. Dieser konkrete Pfad muss vor einer dauerhaften Gebäude-/Arbeitsplatzidentität praktisch validiert werden.
+- Trigger Volumes sind native Logikträger und nicht nur Civ-Marker. Die aktuelle Serverversion bietet Volume-Ereignisse wie ENTER, EXIT, TICK und SIGNAL_RECEIVED sowie Conditions, Cooldowns und Effects. Dazu gehören unter anderem Signale, Interactions, Item-/Block-/Prefab-Effekte und NPC-Marker. Civ soll solche nativen Mechanismen bevorzugen, bevor äquivalente Java-Ticklogik gebaut wird.
+
+Konsequenz für Gebäude: räumliche Bedeutung und Engine-Verhalten sollen möglichst im Prefab bzw. in nativen Hytale-Assets liegen; physische Waren sollen möglichst in nativen Hytale-Containern liegen. Civ-Code soll primär die Civ-spezifische Entscheidungsschicht verbinden. Welche konkreten Trigger-, Marker- und Containerkonfigurationen ein Gebäudetyp benötigt, wird pro Vertical Slice verifiziert und nicht vorab als allgemeines Gebäudeframework erfunden.
 
 ## Farm-Produktions-Vertical-Slice
 
 Das erste echte Produktionsfeature bleibt bewusst konkret und führt noch kein spekulatives allgemeines Gebäudeframework ein.
+
+Der derzeit implementierte Farm-Ablauf ist ein Engine-Validierungsprototyp und **kein beschlossenes Zielmodell der Farmproduktion**. Insbesondere die im aktuellen Code enthaltenen Werte und Abläufe „5 Sekunden innen“, „+1 abstrakter Weizen“, „bei 10 stoppen“ und das feste Außenziel zwei Blöcke südlich dürfen nicht allein aus ihrer Implementierung als dauerhafte Produktregel abgeleitet werden. Die nächste Farm-Iteration soll zuerst prüfen, welche räumlichen Arbeitsabläufe, Trigger, NPC-Aktionen und lokalen Warenbestände direkt durch Hytale-Assets, Trigger Volumes und native Container ausgedrückt werden können.
 
 ~~~text
 Farm-Prefab im Asset Pack
