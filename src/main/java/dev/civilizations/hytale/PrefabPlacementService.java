@@ -145,10 +145,9 @@ public final class PrefabPlacementService {
         }
         Store<EntityStore> store = playerEntityRef.getStore();
         Vector3i anchor = candidate.anchor();
-        int previewY = anchor.y + candidate.definition().groundSinkBlocks();
         Ref<EntityStore> previewRef = PersistentPrefabPreview.spawn(
             store,
-            new org.joml.Vector3d(anchor.x, previewY, anchor.z),
+            new org.joml.Vector3d(anchor.x, anchor.y, anchor.z),
             new Rotation3f(),
             candidate.definition().prefabKey(),
             Integer.MAX_VALUE
