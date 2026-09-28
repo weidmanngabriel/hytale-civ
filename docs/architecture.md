@@ -28,7 +28,7 @@ The current RTS validation spike plus Farm and Woodcutter slices contains these 
 
 - `RtsCameraController` applies the fixed angled cursor camera and returns control through Hytale's native `CameraManager.resetCamera` lifecycle. RTS mode does not switch the player to Spectator.
 - `RtsInteractionController` owns temporary per-player RTS input state. Selection is deliberately single-select; build-menu and placement state are also isolated per player.
-- `RtsToolbarAnchorUi` injects the persistent left-side RTS menu into Hytale's interactive `ReticleServerEvent` anchor and clears it with Hytale's explicit `clear` update plus non-null empty command/event arrays; `BuildingMenuPage` provides the modal building catalog.
+- `BuildingMenuPage`, `PersonActionsPage` and `WikiPage` use Hytale's `InteractiveCustomUIPage` flow for interactive Civ menus. The RTS spike deliberately does not depend on an unverified client anchor for persistent buttons.
 - Right-clicking the currently selected Civ NPC opens `PersonActionsPage`; the deprecated generic `Use`/F interaction is not used by RTS controls.
 - `CivInhabitantData` is a serializable Hytale ECS component attached to claimed NPC entities. It stores persistent per-inhabitant profession, profession XP and an optional future workplace identifier; the workplace field is deliberately not populated until placed buildings have stable persistent identity.
 - `CivUnitRegistry` remains a runtime-only registry for explicitly claimed NPCs and movement targets. Profession reads/writes go through `CivInhabitantData`. For the `Civ_Inhabitant` role, movement writes the target into the role's single native `CivMoveTarget` position slot; `ReadPosition` + `Seek` then delegate pathfinding and motion to Hytale.
@@ -53,8 +53,8 @@ Hytale bootstrap and lifecycle. It wires adapters/services and registers Hytale-
 
 - registers the serializable `CivInhabitantData` ECS component before wiring Civ registries and systems;
 - registers the Farm and Woodcutter ticking systems; generic `Civ_Inhabitant` travel is delegated to the role's native `ReadPosition`/`Seek` movement rather than a Civ movement ticking system;
-- exposes `/civtest`, `/civrtstest`, `/civclaim` and `/civfarm`;
-- registers the RTS anchor action used by the clickable **Bauen** button and wires mouse-button, mouse-motion and disconnect events to the RTS interaction controller.
+- exposes `/civtest`, `/civrtstest`, `/civclaim`, `/civfarm`, `/civbuild` and `/civwiki`;
+- wires mouse-button, mouse-motion and disconnect events to the RTS interaction controller. `/civbuild` and `/civwiki` open the existing interactive pages while RTS mode is active.
 
 ## Dependency rule
 
@@ -144,6 +144,6 @@ The Farm prefab is creator-editable at `asset-pack/Server/Prefabs/Civilizations/
 
 ### In-game wiki
 
-The RTS toolbar now exposes a **?** action next to **Bauen**. `RtsToolbarAnchorUi` routes it through the existing Hytale anchor-action mechanism to `RtsInteractionController.openWiki`.
+`/civwiki` opens the in-game wiki while RTS mode is active. The command is the current validated entry point until a native interactive HUD or hotkey mechanism is verified.
 
 `WikiPage` is an Hytale-facing `InteractiveCustomUIPage` and stays outside the core simulation. Its UI layouts live in the editable Asset Pack under `Common/UI/Custom/Pages/CivWiki*.ui`. Navigation replaces the current custom page with another wiki screen through Hytale's native page manager. The content is deliberately limited to implemented behavior so the help system cannot become a speculative second source of domain rules.
