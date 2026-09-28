@@ -48,14 +48,6 @@ public final class CivInhabitantUseSystem
         boolean targetValid = target != null && target.isValid();
         boolean claimed = targetValid && interactionController.isClaimed(target);
 
-        System.out.println(
-            "[CIV-DEBUG] UseEntityEvent.Pre"
-                + " type=" + event.getInteractionType()
-                + " cancelled=" + event.isCancelled()
-                + " player=" + (playerRef == null ? "missing" : "present")
-                + " target=" + (targetValid ? "npc" : "missing-or-invalid")
-                + " claimed=" + claimed
-        );
 
         if (event.isCancelled() || event.getInteractionType() != InteractionType.Use
             || playerRef == null || !targetValid) {
