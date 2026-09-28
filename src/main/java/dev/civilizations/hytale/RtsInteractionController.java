@@ -105,6 +105,15 @@ public final class RtsInteractionController {
         }
 
         if (session == null) {
+            if (button == MouseButtonType.Right
+                && openFirstPersonActions(
+                    event.getPlayerRef(),
+                    playerRef,
+                    event.getTargetEntityRef(),
+                    event.getPlayerRef().getStore()
+                )) {
+                event.setCancelled(true);
+            }
             return;
         }
         if (button == MouseButtonType.Left) {
