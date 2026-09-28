@@ -9,6 +9,7 @@ import com.hypixel.hytale.server.core.entity.nameplate.Nameplate;
 import com.hypixel.hytale.server.core.modules.entity.component.DisplayNameComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentDisplayName;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import com.hypixel.hytale.server.npc.role.support.DisplayNameSupport;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.VikingNameGenerator;
 
@@ -117,6 +118,55 @@ public final class CivInhabitantService {
             generated.lastName()
         );
         data.setProfession(Profession.UNEMPLOYED);
+    }
+
+    public boolean releaseInhabitant(Ref<EntityStore> ref) {
+        if (get(ref) == null) {
+            return false;
+        }
+
+        ref.getStore().removeComponent(ref, inhabitantDataType);
+        restoreNativeDisplayName(ref, ref.getStore());
+        markDirty(ref);
+        return true;
+    }
+
+    public boolean releaseInhabitant(
+        Ref<EntityStore> ref,
+        CommandBuffer<EntityStore> commandBuffer
+    ) {
+        if (commandBuffer.getComponent(ref, inhabitantDataType) == null) {
+            return false;
+        }
+
+        commandBuffer.removeComponent(ref, inhabitantDataType);
+        restoreNativeDisplayName(ref, commandBuffer);
+        markDirty(ref, commandBuffer);
+        return true;
+    }
+
+    private static void restoreNativeDisplayName(
+        Ref<EntityStore> ref,
+        com.hypixel.hytale.component.ComponentAccessor<EntityStore> accessor
+    ) {
+        DisplayNameSupport support = accessor.getComponent(ref, DisplayNameSupport.getComponentType());
+        if (support != null) {
+            support.pickRandomDisplayName(ref, true, accessor);
+            return;
+        }
+
+        accessor.removeComponent(ref, PersistentDisplayName.getComponentType());
+        accessor.removeComponent(ref, DisplayNameComponent.getComponentType());
+        accessor.removeComponent(ref, Nameplate.getComponentType());
+    }
+
+    public boolean isInhabitant(
+        Ref<EntityStore> ref,
+        CommandBuffer<EntityStore> commandBuffer
+    ) {
+        return ref != null
+            && ref.isValid()
+            && commandBuffer.getComponent(ref, inhabitantDataType) != null;
     }
 
     public CivInhabitantData get(Ref<EntityStore> ref) {

@@ -93,6 +93,10 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
 
         World world = store.getExternalData().getWorld();
         Vector3d position = transform.getPosition();
+        if (unitRegistry.continueManualMove(ref, position)) {
+            return;
+        }
+
         WorkerRuntime runtime = workers.computeIfAbsent(key, ignored -> new WorkerRuntime());
 
         BlockPosition target = runtime.job.targetTree();

@@ -70,6 +70,9 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
 
         FarmBuilding building = site.building();
         Vector3d position = transform.getPosition();
+        if (unitRegistry.continueManualMove(ref, position)) {
+            return;
+        }
 
         switch (building.workState()) {
             case WAITING_FOR_FARMER -> unitRegistry.clearMoveTarget(ref);
