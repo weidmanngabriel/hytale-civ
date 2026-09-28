@@ -1,15 +1,15 @@
 # Architecture Decision Records
 
-Architecture Decision Records (ADRs) document the rationale for significant architectural decisions whose history would otherwise be lost from `docs/architecture.md`.
+Architecture Decision Records (ADRs) dokumentieren die Begründung bedeutender Architekturentscheidungen, deren Entstehungsgeschichte sonst aus <code>docs/architecture.md</code> verloren gehen würde.
 
-Use filenames in the form:
+Dateinamen verwenden dieses Schema:
 
-```text
-NNNN-short-title.md
-```
+~~~text
+NNNN-kurzer-titel.md
+~~~
 
-Allowed statuses are `Proposed`, `Accepted`, `Superseded`, `Deprecated` and `Rejected`.
+Erlaubte Statuswerte sind <code>Proposed</code>, <code>Accepted</code>, <code>Superseded</code>, <code>Deprecated</code> und <code>Rejected</code>.
 
-Coding agents may create new ADRs only with status `Proposed`. `Accepted` and all later status changes require an explicit human decision.
+Coding Agents dürfen neue ADRs nur mit dem Status <code>Proposed</code> anlegen. <code>Accepted</code> und alle späteren Statusänderungen erfordern eine ausdrückliche menschliche Entscheidung.
 
-Use an ADR when a decision has meaningful long-term architectural consequences, alternatives were genuinely considered, or future maintainers are likely to ask why the current structure exists. Routine implementation details do not need ADRs.
+Ein ADR ist sinnvoll, wenn eine Entscheidung bedeutende langfristige Auswirkungen auf die Architektur besitzt, echte Alternativen abgewogen wurden oder spätere Maintainer voraussichtlich fragen werden, warum die aktuelle Struktur existiert. Normale Implementierungsdetails benötigen kein ADR.

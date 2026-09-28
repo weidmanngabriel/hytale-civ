@@ -1,120 +1,121 @@
-# Testing strategy
+# Teststrategie
 
-The goal is to keep most game behavior testable without launching Hytale.
+Ziel ist, möglichst viel Spielverhalten testen zu können, ohne Hytale starten zu müssen.
 
-```text
-Unit Tests
+~~~text
+Unit-Tests
     ↓
-Simulation / Scenario Tests
+Simulations-/Szenario-Tests
     ↓
-Hytale Adapter Tests
+Hytale-Adapter-Tests
     ↓
-Hytale Server Integration Tests
+Hytale-Server-Integrationstests
     ↓
-Manual Client / UX Tests
-```
+Manuelle Client-/UX-Tests
+~~~
 
-## General regression rule
+## Allgemeine Regressionsregel
 
-Behavioral changes need coverage at the lowest layer that can prove the behavior without depending on Hytale unnecessarily.
+Verhaltensänderungen benötigen Abdeckung auf der niedrigsten Ebene, die das Verhalten zuverlässig nachweisen kann, ohne unnötig von Hytale abzuhängen.
 
-A successful compile or build is not sufficient coverage for a new domain rule. When a feature introduces a meaningful multi-step flow, add a regression test for the complete relevant path rather than testing only individual helper methods.
+Ein erfolgreicher Compile- oder Build-Lauf reicht als Abdeckung für eine neue Domänenregel nicht aus. Wenn ein Feature einen relevanten mehrstufigen Ablauf einführt, muss ein Regressionstest für den vollständigen betroffenen Ablauf vorhanden sein, statt nur einzelne Hilfsmethoden zu testen.
 
-Domain rules and invariants should normally be expressed through deterministic core tests. Hytale adapter tests should prove translation and engine-boundary behavior, not duplicate core rules with mocks.
+Domänenregeln und Invarianten sollten normalerweise durch deterministische Core-Tests abgebildet werden. Hytale-Adapter-Tests sollen Übersetzungs- und Engine-Grenzverhalten prüfen, nicht dieselben Core-Regeln mit Mocks duplizieren.
 
-## Unit tests
+## Unit-Tests
 
-Fast JUnit 5 tests for pure Java domain rules and utilities.
+Schnelle JUnit-5-Tests für reine Java-Domänenregeln und Hilfsfunktionen.
 
-## Simulation / scenario tests
+## Simulations-/Szenario-Tests
 
-Deterministic multi-step tests are the preferred coverage for inhabitants, needs, jobs, inventories, production, logistics, economy and other coupled simulation behavior.
+Deterministische mehrstufige Tests sind die bevorzugte Abdeckung für Bewohner, Bedürfnisse, Berufe, Inventare, Produktion, Logistik, Wirtschaft und andere gekoppelte Simulationssysteme.
 
-As these systems are introduced, use small golden scenarios with explicit initial state, commands and expected resulting state. Important invariants should be checked directly, for example that inputs are consumed exactly once, inventories never become negative and the same command sequence produces the same result.
+Wenn diese Systeme eingeführt werden, sollen kleine Golden-Szenarien mit klar definiertem Ausgangszustand, Befehlen und erwartetem Ergebnis verwendet werden. Wichtige Invarianten werden direkt geprüft, zum Beispiel dass Inputs exakt einmal verbraucht werden, Inventare nie negativ werden und dieselbe Befehlsfolge dasselbe Ergebnis erzeugt.
 
-Scenario tests should remain Hytale-independent unless the behavior being tested is genuinely an engine contract.
+Szenario-Tests bleiben Hytale-unabhängig, außer das geprüfte Verhalten ist tatsächlich ein Engine-Vertrag.
 
-## Hytale adapter tests
+## Hytale-Adapter-Tests
 
-Tests around translation and adapter behavior where possible without a running server.
+Tests für Übersetzung und Adapterverhalten, soweit dies ohne laufenden Server sinnvoll möglich ist.
 
-The current RTS spike mainly exercises client camera, cursor targeting, interactive custom pages, client-side placement preview, native tree harvesting and Hytale NPC path/movement behavior and therefore does not pretend to cover those engine contracts with mocked unit tests.
+Der aktuelle RTS-Prototyp betrifft vor allem Kamera, Cursor-Zielerfassung, interaktive Custom Pages, Platzierungsvorschau, natives Baumfällen und Hytale-NPC-Bewegung. Diese Engine-Verträge werden deshalb nicht künstlich durch gemockte Unit-Tests vorgetäuscht.
 
-## Hytale server integration tests
+## Hytale-Server-Integrationstests
 
-Future controlled-server tests for lifecycle, registration and engine interaction. Not implemented yet.
+Zukünftige kontrollierte Server-Tests für Lifecycle, Registrierung und Engine-Interaktion. Noch nicht umgesetzt.
 
-## Manual client / UX tests
+## Manuelle Client-/UX-Tests
 
-The controllable-NPC spike has this acceptance sequence:
+Der steuerbare-NPC-Prototyp wird so geprüft:
 
-1. run `/civrtstest` and confirm the view changes to a fixed angled cursor camera without entering Spectator mode;
-2. left-click an unclaimed NPC and confirm it is not added to the Civ selection;
-3. run `/civclaim`, left-click that NPC and confirm it is claimed;
-4. left-click the claimed NPC and confirm it becomes the selected Civ unit;
-5. claim another NPC and select it; confirm it replaces the previous selection rather than creating a multi-selection;
-6. right-click the selected NPC and confirm the Personenaktionen page opens;
-7. spawn/use a `Civ_Inhabitant`, right-click open, reasonably flat ground and confirm it travels toward the target using its native Hytale `Seek`/Walk behavior rather than Civ steering;
-8. right-click behind an obstacle and confirm Hytale's native path/movement stack, rather than Civ code, determines the route behavior;
-9. run `/civclaim` and click a claimed NPC again to release it; confirm it can no longer be selected or commanded;
-10. run `/civrtstest` again and confirm normal camera control returns and the client remains stable;
-11. run `/civrtstest` twice more and confirm repeated enable/disable cycles remain stable;
-12. confirm claims are runtime-only and do not survive a plugin/server restart;
-13. assign a profession to a claimed NPC, restart the server/plugin, reclaim the same persisted NPC entity and confirm its profession data is still present. Farm assignment itself is not expected to survive yet.
+1. <code>/civrtstest</code> ausführen und bestätigen, dass die Ansicht zu einer festen schrägen Cursor-Kamera wechselt, ohne den Spectator-Modus zu aktivieren.
+2. Einen nicht beanspruchten NPC mit Linksklick anklicken und bestätigen, dass er nicht zur Civ-Auswahl wird.
+3. <code>/civclaim</code> ausführen, denselben NPC anklicken und bestätigen, dass er beansprucht wird.
+4. Den beanspruchten NPC mit Linksklick anklicken und bestätigen, dass er zur ausgewählten Civ-Einheit wird.
+5. Einen zweiten NPC beanspruchen und auswählen. Bestätigen, dass er die vorherige Auswahl ersetzt und keine Mehrfachauswahl entsteht.
+6. Den ausgewählten NPC mit Rechtsklick anklicken und bestätigen, dass die Seite für Personenaktionen geöffnet wird.
+7. Einen <code>Civ_Inhabitant</code> verwenden, auf offenen und ausreichend flachen Boden rechtsklicken und bestätigen, dass er selbstständig zum Ziel läuft.
+8. Hinter ein Hindernis rechtsklicken und bestätigen, dass die normale Hytale-Wegfindung das Routenverhalten bestimmt.
+9. <code>/civclaim</code> ausführen und einen bereits beanspruchten NPC erneut anklicken. Bestätigen, dass er freigegeben wird und danach nicht mehr ausgewählt oder befehligt werden kann.
+10. <code>/civrtstest</code> erneut ausführen und bestätigen, dass die normale Kamerasteuerung zurückkehrt und der Client stabil bleibt.
+11. Den RTS-Modus zweimal weiter ein- und ausschalten und bestätigen, dass wiederholte Wechsel stabil bleiben.
+12. Bestätigen, dass Ansprüche nur zur Laufzeit bestehen und einen Plugin- oder Server-Neustart nicht überleben.
+13. Einem beanspruchten NPC einen Beruf zuweisen, Server oder Plugin neu starten, dieselbe persistierte NPC-Entität erneut beanspruchen und bestätigen, dass der Beruf noch vorhanden ist. Die Farm-Zuweisung muss derzeit noch nicht erhalten bleiben.
 
-The direct movement acceptance test uses the committed `Civ_Inhabitant` role. Its single `CivMoveTarget` position slot is the explicit Java/asset contract; `CivInhabitantRoleValidationTest` guards that slot assumption. Civ does not apply its own per-tick steering force.
+Der Test für direkte Bewegung verwendet die eingecheckte Rolle <code>Civ_Inhabitant</code>. Deren einzelner Positionsslot <code>CivMoveTarget</code> ist ein ausdrücklicher Vertrag zwischen Java-Code und Asset. <code>CivInhabitantRoleValidationTest</code> schützt diese Annahme. Civ selbst übt keine eigene Steuerkraft pro Tick aus.
 
-## Current automated tests
+## Aktuelle automatisierte Tests
 
-- `CoreSmokeTest` proves JUnit works.
-- `CoreIndependenceTest` guards against direct Hytale imports in `core`.
-- `WoodcutterJobTest` proves the target → arrival → chopping → ready-to-fell work cycle.
-- `ManifestValidationTest` validates packaged plugin metadata without starting Hytale.\n- `CivInhabitantRoleValidationTest` validates the committed Civ NPC role and guards the single position-slot contract used by Java movement.
+- <code>CoreSmokeTest</code> zeigt, dass JUnit funktioniert.
+- <code>CoreIndependenceTest</code> verhindert direkte Hytale-Imports im Core.
+- <code>WoodcutterJobTest</code> prüft den Ablauf Ziel → Ankunft → Fällen → bereit zum tatsächlichen Baumfällen.
+- <code>ManifestValidationTest</code> prüft die verpackten Plugin-Metadaten ohne Hytale zu starten.
+- <code>CivInhabitantRoleValidationTest</code> prüft die eingecheckte Civ-NPC-Rolle und den einzelnen Positionsslot, auf den die Java-Bewegungsanbindung angewiesen ist.
 
-## Woodcutter vertical-slice coverage
+## Abdeckung des Holzfäller-Vertical-Slice
 
-Manual acceptance sequence:
+Manuelle Abnahme:
 
-1. install/deploy both `hytale-civ.jar` and `hytale-civ-assets`;
-2. run `/civrtstest`;
-3. claim an NPC with `/civclaim`, then select it with a normal left click;
-4. right-click the selected NPC and confirm the Personenaktionen menu opens;
-5. click `Holzfäller` and confirm the page closes and the NPC starts autonomous work;
-6. keep the NPC near a normal Hytale tree and confirm it walks beside the trunk rather than trying to stand inside it;
-7. after the chopping phase, confirm the base trunk is broken through Hytale's normal harvesting path;
-8. verify normal drops appear and the remaining tree reacts according to its native support/falling-block configuration;
-9. confirm the Woodcutter then searches for another nearby tree.
+1. Sowohl <code>hytale-civ.jar</code> als auch <code>hytale-civ-assets</code> installieren beziehungsweise deployen.
+2. <code>/civrtstest</code> ausführen.
+3. Mit <code>/civclaim</code> einen NPC beanspruchen und ihn anschließend mit normalem Linksklick auswählen.
+4. Den ausgewählten NPC mit Rechtsklick anklicken und bestätigen, dass das Menü Personenaktionen geöffnet wird.
+5. <code>Holzfäller</code> auswählen und bestätigen, dass die Seite geschlossen wird und der NPC selbstständig mit der Arbeit beginnt.
+6. Den NPC in der Nähe eines normalen Hytale-Baums halten und bestätigen, dass er neben den Stamm läuft statt in den Stamm hinein.
+7. Nach der Arbeitsphase bestätigen, dass der unterste Stammblock über Hytales normalen Ernteweg gebrochen wird.
+8. Bestätigen, dass normale Drops erscheinen und der restliche Baum entsprechend seiner nativen Support-/Physik-Konfiguration reagiert.
+9. Bestätigen, dass der Holzfäller danach einen weiteren Baum in der Nähe sucht.
 
-The prototype intentionally relies on Hytale's native tree asset behavior after the trunk is broken. If a specific tree asset does not collapse, inspect that asset's support/physics configuration before adding custom Civ collapse logic.
+Der Prototyp verlässt sich nach dem Brechen des Stammblocks bewusst auf das native Verhalten des jeweiligen Hytale-Baum-Assets. Falls ein bestimmter Baum nicht zusammenfällt, muss zuerst dessen Support-/Physik-Konfiguration geprüft werden, bevor eigene Civ-Sonderlogik ergänzt wird.
 
-## Farm vertical-slice coverage
+## Abdeckung des Farm-Vertical-Slice
 
-Automated coverage now includes:
+Automatisierte Abdeckung umfasst derzeit:
 
-- FarmBuildingTest, which proves one Farmer slot, five seconds of active work per wheat, mandatory exit after every production step and a hard stop at 10 wheat;
-- FarmPrefabValidationTest, which validates the committed Asset Pack prefab metadata, unique block coordinates, roof and crop-bed materials, and the tagged `civ_farm_workplace` Trigger Volume without the obsolete entrance-marker block.
+- <code>FarmBuildingTest</code>: prüft einen Bauernplatz, fünf Sekunden aktive Arbeit pro Weizen, verpflichtendes Verlassen nach jedem Produktionsschritt und den harten Stopp bei zehn Weizen.
+- <code>FarmPrefabValidationTest</code>: prüft die Metadaten des eingecheckten Asset-Pack-Prefabs, eindeutige Blockkoordinaten, Dach- und Feldmaterialien sowie das markierte <code>civ_farm_workplace</code>-Trigger-Volume ohne den alten Eingang-Markerblock.
 
-Manual acceptance sequence:
+Manuelle Abnahme:
 
-1. install/deploy both `hytale-civ.jar` and `hytale-civ-assets`;
-2. run `/civrtstest`;
-3. run `/civbuild` and confirm a modal **Gebäude** catalog opens and blocks normal RTS world interaction;
-4. confirm the current catalog contains **Farm** and can be closed without starting placement;
-5. run `/civbuild` again, choose **Farm**, then move the cursor across terrain and confirm a Farm ghost follows the pointed block;
-6. right click and confirm placement is cancelled without changing the world;
-7. choose **Farm** again and left click valid, flat, supported ground; confirm the Farm is placed with its floor embedded into the terrain rather than sitting one block above it;
-8. try again over a hole, liquid, blocked building volume and an existing Farm footprint; confirm placement is refused with a reason and remains in placement mode;
-9. confirm `/civfarm` enters the same Farm placement flow as the menu;
-10. claim an NPC with `/civclaim`, select it, right click the Farm workplace area and confirm Farmer assignment still works;
-11. confirm the NPC walks to the doorway, waits inside for about five seconds, leaves, re-enters for each production step, and remains outside after the tenth wheat;
-12. release the NPC with `/civclaim` during a cycle and confirm the Farm assignment is cleared.
+1. Sowohl <code>hytale-civ.jar</code> als auch <code>hytale-civ-assets</code> installieren beziehungsweise deployen.
+2. <code>/civrtstest</code> ausführen.
+3. <code>/civbuild</code> ausführen und bestätigen, dass ein modaler Katalog **Gebäude** geöffnet wird und normale RTS-Weltinteraktion blockiert.
+4. Bestätigen, dass der aktuelle Katalog **Farm** enthält und geschlossen werden kann, ohne die Platzierung zu starten.
+5. <code>/civbuild</code> erneut ausführen, **Farm** auswählen, den Mauszeiger über das Gelände bewegen und bestätigen, dass eine Farm-Vorschau dem anvisierten Block folgt.
+6. Rechtsklick ausführen und bestätigen, dass die Platzierung abgebrochen wird, ohne die Welt zu verändern.
+7. **Farm** erneut wählen und auf gültigem, flachem und gestütztem Boden links klicken. Bestätigen, dass die Farm mit eingelassenem Boden platziert wird und nicht einen Block über dem Gelände steht.
+8. Dasselbe über einem Loch, einer Flüssigkeit, blockiertem Gebäuderaum und einer bestehenden Farmfläche versuchen. Bestätigen, dass die Platzierung mit einem Grund abgelehnt wird und der Platzierungsmodus aktiv bleibt.
+9. Bestätigen, dass <code>/civfarm</code> denselben Farm-Platzierungsablauf startet wie das Menü.
+10. Mit <code>/civclaim</code> einen NPC beanspruchen, ihn auswählen, im Arbeitsbereich der Farm rechts klicken und bestätigen, dass die Zuweisung als Bauer weiterhin funktioniert.
+11. Bestätigen, dass der NPC zum Eingang läuft, ungefähr fünf Sekunden innen arbeitet, das Gebäude verlässt, für jeden Produktionsschritt erneut hineingeht und nach dem zehnten Weizen draußen bleibt.
+12. Den NPC während eines Zyklus mit <code>/civclaim</code> freigeben und bestätigen, dass die Farm-Zuweisung aufgehoben wird.
 
-Multiplayer acceptance:
+Mehrspieler-Abnahme:
 
-1. connect two players and enter RTS mode with both;
-2. start Farm placement independently and confirm moving or cancelling one preview does not affect the other player's preview/state;
-3. make both previews target overlapping valid footprints;
-4. let player A place first, then let player B confirm without moving the cursor;
-5. confirm player B is rejected by the server-side revalidation instead of overlapping player A's Farm.
+1. Zwei Spieler verbinden und mit beiden in den RTS-Modus wechseln.
+2. Farm-Platzierung unabhängig voneinander starten und bestätigen, dass Bewegung oder Abbruch einer Vorschau die Vorschau beziehungsweise den Zustand des anderen Spielers nicht verändert.
+3. Beide Vorschauen auf überlappende, zunächst gültige Flächen richten.
+4. Spieler A zuerst platzieren lassen, danach Spieler B bestätigen lassen, ohne den Mauszeiger zu bewegen.
+5. Bestätigen, dass Spieler B durch die erneute serverseitige Prüfung abgelehnt wird und keine überlappende Farm entsteht.
 
-The original floor-block snapshot is internal runtime state until demolition UI exists. When demolition is implemented, its acceptance test must verify exact restoration of those recorded blocks. Rotation remains separate future work.
+Der ursprüngliche Schnappschuss der Bodenblöcke bleibt interner Laufzeitzustand, bis eine Abrissoberfläche existiert. Sobald Abriss umgesetzt wird, muss der Abnahmetest die exakte Wiederherstellung dieser gespeicherten Blöcke prüfen. Rotation bleibt ein separates zukünftiges Feature.

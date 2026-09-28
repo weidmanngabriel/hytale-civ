@@ -1,81 +1,74 @@
-# Product concept
+# Produktkonzept
 
-Hytale Civ is planned as a Hytale strategy/simulation plugin where individual inhabitants, local inventories, production and logistics form the simulation core while Hytale supplies the world, entities, input and presentation.
+Hytale Civ ist als Strategie- und Simulations-Plugin für Hytale geplant. Einzelne Bewohner, lokale Warenbestände, Produktion und Logistik bilden den Kern des Spielerlebnisses.
 
-## Future direction
+## Zukünftige Richtung
 
-Later milestones may include persistent Civ inhabitants, full route planning, building placement, inhabitants with jobs and needs, physical goods, local inventories, production chains, logistics and deterministic golden-scenario tests.
+Spätere Meilensteine können dauerhafte Civ-Bewohner, vollständige Routenplanung, Gebäudebau, Bewohner mit Berufen und Bedürfnissen, physische Waren, lokale Lager, Produktionsketten und Logistik umfassen.
 
-## Current scope
+## Aktueller Umfang
 
-The current product milestone is a controllable-NPC RTS validation spike in addition to the original plugin smoke test.
+Der aktuelle Produkt-Meilenstein ist ein RTS-Prototyp mit steuerbaren NPCs zusätzlich zum ursprünglichen Plugin-Smoke-Test.
 
-`/civtest` proves that the plugin is loaded.
+<code>/civtest</code> zeigt, dass das Plugin geladen ist.
 
-`/civrtstest` toggles a fixed angled RTS-style Custom camera with a visible cursor. It is not Spectator mode.
+<code>/civrtstest</code> schaltet eine feste, schräge RTS-Kamera mit sichtbarem Mauszeiger ein oder aus. Der Spieler wechselt dabei nicht in den Spectator-Modus.
 
-`/civclaim` arms the next left click. Clicking an existing `NPCEntity` then toggles whether that NPC is a temporary Civ test unit.
+<code>/civclaim</code> aktiviert den nächsten Linksklick. Wird anschließend ein vorhandener NPC angeklickt, wird er als vorläufige Civ-Testeinheit beansprucht beziehungsweise wieder freigegeben.
 
-While RTS mode is active:
+Während der RTS-Modus aktiv ist:
 
-- left-clicking a claimed Civ unit makes it the only selected person;
-- left-clicking empty world space clears the selection;
-- unclaimed entities cannot become the Civ selection;
-- right-clicking the currently selected Civ NPC opens that person's action menu;
-- the first implemented action is assigning the Woodcutter profession;
-- right-clicking a world block still gives the selected Civ unit a direct movement target;
-- `/civbuild` opens the modal building catalog. The catalog must be closed or a building selected before normal RTS world interaction resumes;
-- `/civwiki` opens the in-game wiki;
-- building entries are ordered alphabetically by display name.
+- Ein Linksklick auf eine beanspruchte Civ-Einheit wählt genau diese Person aus.
+- Ein Linksklick auf freien Boden hebt die Auswahl auf.
+- Nicht beanspruchte Einheiten können nicht ausgewählt werden.
+- Ein Rechtsklick auf den aktuell ausgewählten Civ-Bewohner öffnet dessen Aktionsmenü.
+- Die erste verfügbare Aktion weist den Beruf Holzfäller zu.
+- Ein Rechtsklick auf einen Bodenblock gibt dem ausgewählten Bewohner weiterhin ein direktes Bewegungsziel.
+- <code>/civbuild</code> öffnet den Gebäudekatalog. Solange dieser geöffnet ist, sind normale RTS-Interaktionen mit der Welt pausiert.
+- <code>/civwiki</code> öffnet das Ingame-Wiki.
+- Gebäude im Katalog sind alphabetisch nach ihrem Anzeigenamen sortiert.
 
-The current Custom camera does not switch the player into Spectator. Hiding only the local player model is not part of this slice because no verified native self-hide mechanism has been established yet.
+Ansprüche, Auswahl und aktuelle Arbeitszustände sind noch nicht als vollständiges dauerhaftes Civ-System ausgelegt.
 
-Direct movement is currently supported by the Civ-owned `Civ_Inhabitant` role. Civ supplies the destination, while that role's native Hytale `ReadPosition`/`Seek` behavior performs pathfinding and walking; Civ does not steer the NPC every tick. Claimed NPCs using unrelated Hytale roles are not given this movement contract. Claims, selection and work state reset with the plugin/server; profession data is stored on the inhabitant entity.
+## Holzfäller-Vertical-Slice
 
-## Woodcutter vertical slice
+Einem ausgewählten, beanspruchten Civ-NPC kann über sein Aktionsmenü der Beruf Holzfäller zugewiesen werden.
 
-A selected claimed Civ NPC can be assigned the Woodcutter profession by right-clicking that NPC and choosing the action from its context menu.
+Der erste Arbeitsablauf konzentriert sich bewusst auf die sichtbare Interaktion in der Welt:
 
-The first loop is intentionally focused on the visible world interaction:
+1. Der Holzfäller sucht in der Nähe nach einem geeigneten Baum.
+2. Er läuft zu einer freien Position neben dem Stamm.
+3. Er führt für kurze Zeit eine Fällarbeit aus.
+4. Der unterste Stammblock wird gefällt.
+5. Normale Hytale-Drops sowie das übliche Verhalten des Baums bleiben erhalten.
+6. Danach sucht der Holzfäller den nächsten Baum und wiederholt den Ablauf.
 
-1. The Woodcutter searches nearby for the closest Hytale tree base.
-2. It walks to an open block beside the trunk.
-3. It performs a short chopping work phase.
-4. The trunk base is broken through Hytale's native block-harvest path.
-5. Hytale remains responsible for normal drops, break events, support changes and falling-block behavior.
-6. The Woodcutter searches for the next nearby tree and repeats.
+Arbeitsbereiche, das Tragen von Holz, Lagerlieferungen und eine vollständige dauerhafte Arbeitsplatzzuweisung sind noch nicht Teil dieses Umfangs.
 
-There is no work-area selection, carrying, warehouse delivery or persistent job assignment yet.
+## Farm-Vertical-Slice
 
-## Farm vertical slice
+Im RTS-Modus öffnet <code>/civbuild</code> den Gebäudekatalog. Wird **Farm** ausgewählt, schließt sich der Katalog und die Platzierung beginnt. Eine Vorschau der Farm folgt der Position unter dem Mauszeiger. Linksklick versucht die Farm zu platzieren, Rechtsklick bricht die Platzierung ab. <code>/civfarm</code> bleibt als Debug-Abkürzung für denselben Platzierungsmodus erhalten.
 
-In RTS mode, `/civbuild` opens the building catalog; choosing **Farm** closes it and starts Farm placement. A Farm ghost follows the world position under the cursor. Left click attempts to place it; right click cancels the placement. `/civfarm` remains a debug shortcut into the same placement mode.
+Der sichtbare Boden der Farm wird in das Gelände eingelassen und nicht einfach oben darauf gesetzt. Eine Platzierung ist nur möglich, wenn die Fläche ausreichend gestützt ist, keine Löcher oder Flüssigkeiten enthält, der benötigte Raum frei ist, Zugänge nicht blockiert sind und sich die Fläche nicht mit einem anderen Civ-Gebäude überschneidet.
 
-The visible floor of the Farm is embedded one block into the pointed terrain rather than being placed on top of it. Placement is accepted only when the footprint is supported, contains no holes or liquids, the building volume and entrances are clear, and the footprint does not overlap another Civ building. The server rechecks these conditions when left click confirms the build; the preview is not authoritative.
+Nach dem Platzieren kann ein beanspruchter Civ-NPC ausgewählt und über den Arbeitsbereich der Farm als Bauer zugewiesen werden. Gibt es mehrere mögliche Zugänge, wird aktuell der zum Bewohner nächstgelegene verwendet.
 
-Each placed Farm retains the original blocks replaced by its embedded floor. A future demolition action can therefore restore the prior ground instead of leaving a building-shaped hole. This snapshot currently has the same runtime-only lifetime as the placed Farm.
+Der derzeitige Produktionsablauf ist bewusst klein gehalten:
 
-Farm workplace access is defined inside the prefab by one or more native Hytale Trigger Volumes tagged `civ.type=workplace_access` and `civ.building=farm`.
+1. Der Bauer läuft zum Eingang der Farm.
+2. Sobald er den Eingang erreicht, gilt er spielerisch als im Gebäude.
+3. Er arbeitet fünf Sekunden in der Farm.
+4. Die Farm erhält eine Einheit Weizen in ihrem lokalen Bestand.
+5. Der Bauer verlässt das Gebäude.
+6. Hat die Farm weniger als zehn Weizen, kehrt er zurück und wiederholt den Ablauf.
+7. Bei zehn Weizen bleibt der Bauer draußen und die Produktion stoppt.
 
-A player can then select one claimed Civ NPC and right click the Farm workplace area. The NPC is marked as a Farmer and assigned to that Farm. If the prefab contains several workplace access volumes, the current prototype uses the one nearest to the NPC.
+Die Laufzeit kommt zusätzlich zu den fünf Sekunden aktiver Produktionszeit hinzu. Weizen existiert aktuell nur als lokaler Bestand der Farm. Physische Weizengegenstände, Eingangswaren, Träger und Lagerlieferungen sind noch nicht umgesetzt.
 
-The prototype loop is intentionally narrow:
+## Ingame-Wiki
 
-1. Farmer walks to the Farm entrance.
-2. Reaching the entrance means the Farmer is logically inside.
-3. The Farmer works inside for five seconds.
-4. The Farm gains one local wheat.
-5. The Farmer walks two blocks outside.
-6. If the Farm has fewer than ten wheat, the Farmer returns and repeats.
-7. At ten wheat the Farmer remains outside and production stops.
+<code>/civwiki</code> öffnet ein modales Ingame-Wiki mit vier Bereichen: **Berufe**, **Ressourcen**, **Gebäude** und **Tiere**.
 
-Travel time is additional to the five seconds of active production time. Wheat is currently a local integer inventory on the Farm only; there are no physical wheat items, input crops, carriers or warehouse delivery yet.
+Das Wiki beschreibt nur bereits umgesetztes Civ-Verhalten und verknüpft verwandte Einträge miteinander. Aktuell gibt es Einträge zu Holzfäller, Bauer, Holz, Weizen und Farm. Der Bereich Tiere weist ausdrücklich darauf hin, dass Tiere derzeit noch keine Civ-spezifische Gameplay-Rolle besitzen.
 
-
-## In-game wiki
-
-`/civwiki` opens a modal in-game wiki with four sections: **Berufe**, **Ressourcen**, **Gebäude** and **Tiere**.
-
-The wiki documents implemented Civ behavior only and cross-links related sections. The current entries cover Holzfäller, Bauer, Holz, Weizen and Farm. The animal section explicitly states that no animal has a Civ-specific gameplay role yet; animals are added only when a real Civ system uses them.
-
-Opening the wiki cancels an active Farm placement preview before the page is shown, matching the building catalog's modal interaction model.
+Wird das Wiki während einer aktiven Farm-Platzierung geöffnet, wird die Platzierung vorher abgebrochen.

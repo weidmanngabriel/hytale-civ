@@ -1,15 +1,15 @@
-# Development workflow
+# Entwicklungsablauf
 
-## Prerequisites
+## Voraussetzungen
 
 - JDK 25
 - Git
-- No global Gradle installation; use the wrapper.
+- Keine globale Gradle-Installation; den Wrapper verwenden.
 
-## Local loop
+## Lokaler Ablauf
 
-```text
-Change code/assets
+~~~text
+Code/Assets ändern
     ↓
 ./gradlew test
     ↓
@@ -17,153 +17,155 @@ Change code/assets
     ↓
 optional: ./gradlew deployToHytale
     ↓
-test in Hytale
-```
+in Hytale testen
+~~~
 
-On Windows use `gradlew.bat`.
+Unter Windows <code>gradlew.bat</code> verwenden.
 
-## Hytale dependency
+## Hytale-Abhängigkeit
 
-Release repository: `https://maven.hytale.com/release`
+Release-Repository: <code>https://maven.hytale.com/release</code>
 
-Dependency: `com.hypixel.hytale:Server`
+Abhängigkeit: <code>com.hypixel.hytale:Server</code>
 
-`hytaleServerVersion` is centralized in `gradle.properties`. Before changing Hytale API usage or the dependency selector, verify current official documentation.
+<code>hytaleServerVersion</code> wird zentral in <code>gradle.properties</code> verwaltet. Vor Änderungen an der Hytale-API-Nutzung oder am Dependency-Selektor muss die aktuelle offizielle Dokumentation geprüft werden.
 
 ## Asset Pack
 
-Creator-editable Hytale assets live in:
+Vom Ersteller bearbeitbare Hytale-Assets liegen unter:
 
-```text
+~~~text
 asset-pack/
-```
+~~~
 
-The directory is a standalone Hytale Asset Pack and therefore contains its own `manifest.json`. Keep Java/plugin resources in `src/main/resources`; do not move the plugin manifest out of the JAR.
+Das Verzeichnis ist ein eigenständiges Hytale Asset Pack und enthält deshalb eine eigene <code>manifest.json</code>. Java-/Plugin-Ressourcen bleiben in <code>src/main/resources</code>; das Plugin-Manifest darf nicht aus dem JAR verschoben werden.
 
-`./gradlew build` creates a distribution ZIP under:
+<code>./gradlew build</code> erzeugt ein Distributions-ZIP unter:
 
-```text
+~~~text
 build/distributions/hytale-civ-<version>-bundle.zip
-```
+~~~
 
-The ZIP contains:
+Das ZIP enthält:
 
-```text
+~~~text
 hytale-civ.jar
 hytale-civ-assets/
-```
+~~~
 
-The outer ZIP is only a release/download container. The asset directory stays separate from the JAR so installed assets can be edited or replaced without recompiling Java.
+Das äußere ZIP dient nur als Release- beziehungsweise Download-Container. Das Asset-Verzeichnis bleibt vom JAR getrennt, damit installierte Assets bearbeitet oder ersetzt werden können, ohne Java neu zu kompilieren.
 
-## In-game prefab authoring
+Gameplay-Daten sollen nur dann ins Asset Pack verschoben werden, wenn dafür ein konkreter Hytale-Asset-Typ benötigt wird. Core-Simulationsregeln und Domänenzustand bleiben in der bestehenden Java-Architektur, solange ein späteres Feature keine andere Grenze begründet.
 
-Hytale's prefab editor can load prefabs from Asset Packs and save them back into a selected Asset Pack. During development, the repository's `asset-pack/` directory should therefore be the authoritative editable copy rather than a separately deployed copy.
+## Prefabs im Spiel bearbeiten
 
-Recommended local setup:
+Hytales Prefab-Editor kann Prefabs aus Asset Packs laden und wieder in ein ausgewähltes Asset Pack speichern. Während der Entwicklung soll deshalb das Repository-Verzeichnis <code>asset-pack/</code> die maßgebliche bearbeitbare Quelle sein und nicht eine separat deployte Kopie.
 
-```text
-Git repository
-└── asset-pack/                    ← authoritative editable files
+Empfohlenes lokales Setup:
 
-Hytale Mods directory
-└── hytale-civ-assets              ← directory link/junction to repo asset-pack/
-```
+~~~text
+Git-Repository
+└── asset-pack/                    ← maßgebliche bearbeitbare Dateien
 
-With that setup the authoring loop is:
+Hytale-Mods-Verzeichnis
+└── hytale-civ-assets              ← Verzeichnislink/Junction auf repo asset-pack/
+~~~
 
-```text
-open Hytale prefab editor
+Damit sieht der Bearbeitungsablauf so aus:
+
+~~~text
+Hytale-Prefab-Editor öffnen
     ↓
-load Civilizations/Farm/Farm_01
+Civilizations/Farm/Farm_01 laden
     ↓
-edit blocks and creator markers
+Blöcke und Creator-Marker bearbeiten
     ↓
-save to HytaleCivAssets
+in HytaleCivAssets speichern
     ↓
-asset-pack/ in the Git working tree changes directly
+asset-pack/ im Git-Working-Tree ändert sich direkt
     ↓
-review diff, test, commit
-```
+Diff prüfen, testen, committen
+~~~
 
-Do not use `deployToHytale` as the authoring source when editing prefabs in-game. That task intentionally copies the Asset Pack into the Mods directory, so subsequent in-game edits would modify the copied installation instead of the repository. Use deployment copies for runtime testing; use a directory link/junction for round-trip prefab authoring.
+<code>deployToHytale</code> darf beim Bearbeiten von Prefabs im Spiel nicht als maßgebliche Quelle verwendet werden. Dieser Task kopiert das Asset Pack absichtlich in das Mods-Verzeichnis. Spätere Änderungen im Spiel würden dann die installierte Kopie statt das Repository verändern. Deployment-Kopien sind für Laufzeittests gedacht; für Round-Trip-Prefab-Bearbeitung soll ein Verzeichnislink beziehungsweise eine Junction verwendet werden.
 
-Example development links (paths are placeholders and must not be committed):
+Beispielhafte Entwicklungslinks; die Pfade sind Platzhalter und dürfen nicht committed werden.
 
-Windows Command Prompt, using a directory junction:
+Windows Command Prompt mit einer Directory Junction:
 
-```bat
-mklink /J "%APPDATA%\\Hytale\\UserData\\Mods\\hytale-civ-assets" "C:\\path\\to\\hytale-civ\\asset-pack"
-```
+~~~bat
+mklink /J "%APPDATA%\Hytale\UserData\Mods\hytale-civ-assets" "C:\path\to\hytale-civ\asset-pack"
+~~~
 
 macOS/Linux:
 
-```bash
+~~~bash
 ln -s /path/to/hytale-civ/asset-pack /path/to/Hytale/UserData/Mods/hytale-civ-assets
-```
+~~~
 
-If a normal deployed `hytale-civ-assets` directory already exists, remove or rename that deployed copy before creating the link. Never commit machine-specific Hytale paths or links into the repository.
+Falls bereits ein normales deploytes Verzeichnis <code>hytale-civ-assets</code> existiert, muss diese Kopie vor dem Erstellen des Links entfernt oder umbenannt werden. Maschinenspezifische Hytale-Pfade oder Links dürfen niemals committed werden.
 
-## Local deployment
+## Lokales Deployment
 
-Set `HYTALE_MODS_DIR` and run:
+<code>HYTALE_MODS_DIR</code> setzen und ausführen:
 
-```bash
+~~~bash
 ./gradlew deployToHytale
-```
+~~~
 
-Or pass:
+Alternativ:
 
-```bash
+~~~bash
 ./gradlew deployToHytale -PhytaleModsDir=/path/to/mods
-```
+~~~
 
-The task copies both the plugin JAR and `hytale-civ-assets/` into the configured Mods directory. Normal tests and builds do not require this setting.
+Der Task kopiert sowohl das Plugin-JAR als auch <code>hytale-civ-assets/</code> in das konfigurierte Mods-Verzeichnis. Normale Tests und Builds benötigen diese Einstellung nicht.
 
-## Change integration
+## Integration von Änderungen
 
-Implement each adjustment on a temporary branch. Intermediate commits are allowed while the change is in progress.
+Jede Änderung wird auf einem temporären Branch umgesetzt. Zwischen-Commits sind während der Arbeit erlaubt.
 
-Before integration:
+Vor der Integration:
 
-1. complete the intended code, tests and affected documentation on the temporary branch;
-2. run `./gradlew test` and `./gradlew build` whenever the local environment permits it;
-3. open a pull request against `main` for final GitHub Actions validation;
-4. if validation requires fixes, push them to the same temporary branch and revalidate;
-5. squash-merge only the final validated branch so exactly one meaningful commit remains on `main` for the adjustment;
-6. verify the resulting `main` workflow and generated pre-release.
+1. Vorgesehenen Code, Tests und betroffene Dokumentation auf dem temporären Branch fertigstellen.
+2. <code>./gradlew test</code> und <code>./gradlew build</code> ausführen, sofern die lokale Umgebung dies erlaubt.
+3. Einen Pull Request gegen <code>main</code> öffnen, damit GitHub Actions die finale Version prüft.
+4. Wenn die Validierung Änderungen verlangt, diese auf denselben temporären Branch pushen und erneut validieren.
+5. Nur den final validierten Branch per Squash-Merge integrieren, damit genau ein sinnvoller Commit für die Änderung auf <code>main</code> verbleibt.
+6. Danach den Workflow auf <code>main</code> sowie das erzeugte Pre-Release prüfen.
 
-Do not add follow-up commits to a branch after its final validated state and then merge the unvalidated head. A post-merge fix starts from a new temporary branch and becomes a separate squash commit.
+Nach dem final validierten Zustand dürfen keine zusätzlichen Änderungen auf denselben Branch gepusht und anschließend ungeprüft gemerged werden. Ein Fix nach dem Merge beginnt auf einem neuen temporären Branch und wird ein eigener Squash-Commit.
 
-## GitHub workflow
+## GitHub-Workflow
 
-Pull requests run tests and a full Java-25 Gradle build for feature branches. Ordinary pushes to non-main branches do not start a second duplicate workflow. Pushes to `main` and `v*` tags still run CI because they drive development and stable releases. When a newer commit updates the same pull request or branch/ref, GitHub Actions cancels the older in-progress workflow so only the newest revision continues. The release bundle ZIP is uploaded as an Actions artifact. Failed test reports are uploaded for inspection.
+Pull Requests führen Tests und einen vollständigen Java-25-Gradle-Build für Feature-Branches aus. Normale Pushes auf Nicht-Main-Branches starten keinen zweiten, doppelten Workflow. Pushes auf <code>main</code> und Tags mit Präfix <code>v</code> führen weiterhin CI aus, weil sie Development- und Stable-Releases erzeugen. Wird derselbe Pull Request beziehungsweise Branch mit einem neueren Commit aktualisiert, bricht GitHub Actions den älteren laufenden Workflow ab, sodass nur die neueste Revision weiterläuft. Das Release-Bundle-ZIP wird als Actions-Artefakt hochgeladen. Fehlgeschlagene Testberichte werden zur Analyse ebenfalls hochgeladen.
 
-Every successful push to `main` creates a SemVer-compatible development pre-release. The base version comes from `projectVersion` in `gradle.properties`; the workflow removes `-SNAPSHOT` and appends the GitHub Actions run number:
+Jeder erfolgreiche Push auf <code>main</code> erzeugt ein SemVer-kompatibles Development-Pre-Release. Die Basisversion stammt aus <code>projectVersion</code> in <code>gradle.properties</code>. Der Workflow entfernt <code>-SNAPSHOT</code> und hängt die GitHub-Actions-Run-Nummer an:
 
-```text
+~~~text
 projectVersion=0.1.0-SNAPSHOT
 → v0.1.0-dev.42
-```
+~~~
 
-The same resolved version is passed into Gradle, so the built JAR/distribution metadata and GitHub release use the same project version. The downloadable release asset is named:
+Dieselbe aufgelöste Version wird an Gradle übergeben, damit Build-Metadaten von JAR/Distribution und GitHub Release dieselbe Projektversion verwenden. Das herunterladbare Release-Asset heißt dann:
 
-```text
+~~~text
 hytale-civ-0.1.0-dev.42.zip
-```
+~~~
 
-The commit SHA is kept in the release notes for traceability, but is no longer used as the release version. This keeps development releases naturally sortable and leaves stable versions such as `v0.1.0` as the final version in that SemVer line.
+Der Commit-SHA bleibt zur Nachverfolgbarkeit in den Release Notes, wird aber nicht mehr als Release-Version verwendet. Dadurch bleiben Development-Releases natürlich sortierbar und stabile Versionen wie <code>v0.1.0</code> bilden das Ende der jeweiligen SemVer-Linie.
 
-Before starting development for the next stable line, bump `projectVersion` accordingly, for example from `0.1.0-SNAPSHOT` to `0.2.0-SNAPSHOT`.
+Vor Beginn der Entwicklung für die nächste stabile Versionslinie muss <code>projectVersion</code> entsprechend erhöht werden, zum Beispiel von <code>0.1.0-SNAPSHOT</code> auf <code>0.2.0-SNAPSHOT</code>.
 
-The GitHub Release description includes the subject of the commit being released. Because completed project changes are squash-merged, this gives each main release a one-line summary of that adjustment.
+Die GitHub-Release-Beschreibung enthält den Betreff des veröffentlichten Commits. Da abgeschlossene Projektänderungen per Squash-Merge integriert werden, erhält jedes Main-Release damit eine einzeilige Zusammenfassung der jeweiligen Änderung.
 
-For stable versions, push a SemVer-style tag such as:
+Für stabile Versionen ein SemVer-Tag pushen, zum Beispiel:
 
-```bash
+~~~bash
 git tag v0.1.0
 git push origin v0.1.0
-```
+~~~
 
-A successful tagged build creates a normal GitHub Release with the same ZIP bundle attached. Tags beginning with `v` are treated as stable releases; ordinary main builds remain pre-releases.
+Ein erfolgreicher Tag-Build erzeugt ein normales GitHub Release mit demselben ZIP-Bundle als Anhang. Tags mit Präfix <code>v</code> gelten als stabile Releases; normale Builds auf <code>main</code> bleiben Pre-Releases.
 
-Re-running a release job is idempotent: if the release already exists, the workflow updates its short release note and replaces its ZIP asset instead of creating a duplicate release.
+Ein erneuter Lauf eines Release-Jobs ist idempotent: Existiert das Release bereits, aktualisiert der Workflow die kurze Release-Notiz und ersetzt das ZIP-Asset, statt ein Duplikat anzulegen.

@@ -1,149 +1,148 @@
-# Architecture
+# Architektur
 
-## Goal
+## Ziel
 
-Keep the simulation testable without starting Hytale. Hytale is an integration boundary, not the domain model.
+Die Simulation soll testbar bleiben, ohne Hytale starten zu müssen. Hytale ist eine Integrationsgrenze und nicht das Domänenmodell.
 
-Before version 1, backward compatibility is not a goal when it would require migrations, parallel legacy paths, compatibility defaults or feature-specific exceptions. The current documented architecture and data model are authoritative. This policy must be revisited before persistent player worlds or public stable releases make compatibility a product requirement.
+Vor Version 1 ist Rückwärtskompatibilität kein Ziel, wenn dafür Migrationen, parallele Altpfade, Kompatibilitäts-Defaults oder featurespezifische Ausnahmen nötig wären. Die aktuell dokumentierte Architektur und das Datenmodell sind maßgeblich. Diese Regel muss neu bewertet werden, bevor persistente Spielerwelten oder öffentliche stabile Releases Kompatibilität zu einer Produktanforderung machen.
 
-## Layers
+## Schichten
 
-```text
-Core Simulation
+~~~text
+Core-Simulation
       ↓
-Hytale Adapter
+Hytale-Adapter
       ↓
-Hytale Plugin / API
-```
+Hytale-Plugin / API
+~~~
 
 ### core
 
-Pure Java simulation and domain rules. It must not import `com.hypixel.hytale.*`. People, jobs, needs, inventories, goods, production, building state, commands, economy and simulation ticks belong here. Implemented job state now includes the Hytale-independent `FarmBuilding`, `WoodcutterJob`, `BlockPosition` and `Profession` types.
+Reine Java-Simulation und Domänenregeln. Dieser Bereich darf <code>com.hypixel.hytale.*</code> nicht importieren. Bewohner, Berufe, Bedürfnisse, Inventare, Waren, Produktion, Gebäudestatus, Befehle, Wirtschaft und Simulations-Ticks gehören hierher. Der aktuell umgesetzte Berufszustand umfasst die Hytale-unabhängigen Typen <code>FarmBuilding</code>, <code>WoodcutterJob</code>, <code>BlockPosition</code> und <code>Profession</code>.
 
 ### hytale
 
-Adapters translating between Hytale concepts and core concepts. Entities, NPCs, world access, navigation, camera, input, UI and rendering belong here.
+Adapter zwischen Hytale-Konzepten und Core-Konzepten. Entitäten, NPCs, Weltzugriff, Navigation, Kamera, Eingabe, UI und Rendering gehören hierher.
 
-The current RTS validation spike plus Farm and Woodcutter slices contains these deliberately small Hytale-facing components:
+Der aktuelle RTS-Validierungsprototyp sowie Farm- und Holzfäller-Slice enthalten bewusst kleine Hytale-nahe Komponenten:
 
-- `RtsCameraController` applies the fixed angled cursor camera and returns control through Hytale's native `CameraManager.resetCamera` lifecycle. RTS mode does not switch the player to Spectator.
-- `RtsInteractionController` owns temporary per-player RTS input state. Selection is deliberately single-select; build-menu and placement state are also isolated per player.
-- `BuildingMenuPage`, `PersonActionsPage` and `WikiPage` use Hytale's `InteractiveCustomUIPage` flow for interactive Civ menus. The RTS spike deliberately does not depend on an unverified client anchor for persistent buttons.
-- Right-clicking the currently selected Civ NPC opens `PersonActionsPage`; the deprecated generic `Use`/F interaction is not used by RTS controls.
-- `CivInhabitantData` is a serializable Hytale ECS component attached to claimed NPC entities. It stores persistent per-inhabitant profession, profession XP and an optional future workplace identifier; the workplace field is deliberately not populated until placed buildings have stable persistent identity.
-- `CivUnitRegistry` remains a runtime-only registry for explicitly claimed NPCs and movement targets. Profession reads/writes go through `CivInhabitantData`. For the `Civ_Inhabitant` role, movement writes the target into the role's single native `CivMoveTarget` position slot; `ReadPosition` + `Seek` then delegate pathfinding and motion to Hytale.
-- `WoodcutterWorkSystem` finds nearby natural-looking Hytale trunk blocks, drives a WOODCUTTER to an adjacent work position, and uses Hytale's native `BlockHarvestUtils.performBlockDamage` path to fell the base block so normal drops, break events and block physics remain engine-owned.
-- `FarmPrefabService` resolves the Farm prefab through Hytale's browsable prefab locations and loads the resolved path through `PrefabStore`, validates terrain and collisions against the prefab's actual occupied block cells, renders the per-player placement preview, sinks the prefab floor one block into the terrain, and resolves newly pasted farm workplace Trigger Volumes through Hytale's `TriggerVolumeManager`. It also records the world blocks replaced by the embedded floor.
-- `FarmBuildingRegistry` binds placed farm instances and assigned NPC refs to the core `FarmBuilding` state, tracks placement footprints for overlap checks, and retains each instance's replaced-floor snapshot for future demolition restoration.
-- `FarmNpcWorkSystem` translates the core farm states into entrance/exit movement targets and advances production while the Farmer is inside.
+- <code>RtsCameraController</code> setzt die feste schräge Cursor-Kamera und gibt die Kontrolle über Hytales nativen <code>CameraManager.resetCamera</code>-Lifecycle zurück. RTS-Modus schaltet nicht in den Spectator-Modus.
+- <code>RtsInteractionController</code> verwaltet vorläufigen RTS-Eingabezustand pro Spieler. Die Auswahl ist bewusst auf eine Einheit begrenzt; auch Bau-Menü- und Platzierungszustand sind pro Spieler isoliert.
+- <code>BuildingMenuPage</code>, <code>PersonActionsPage</code> und <code>WikiPage</code> verwenden Hytales <code>InteractiveCustomUIPage</code>-Ablauf für interaktive Civ-Menüs. Der RTS-Prototyp hängt bewusst nicht von einem nicht verifizierten Client-Anker für dauerhafte Buttons ab.
+- Ein Rechtsklick auf den aktuell ausgewählten Civ-NPC öffnet <code>PersonActionsPage</code>. Die veraltete allgemeine Use/F-Interaktion wird nicht für RTS-Steuerung verwendet.
+- <code>CivInhabitantData</code> ist eine serialisierbare Hytale-ECS-Komponente an beanspruchten NPC-Entitäten. Sie speichert den dauerhaften Beruf, Berufserfahrung und eine optionale zukünftige Arbeitsplatz-ID. Das Arbeitsplatzfeld bleibt leer, bis platzierte Gebäude eine stabile dauerhafte Identität besitzen.
+- <code>CivUnitRegistry</code> bleibt ein laufzeitgebundenes Register für ausdrücklich beanspruchte NPCs und Bewegungsziele. Berufsdaten werden über <code>CivInhabitantData</code> gelesen und geschrieben. Für die Rolle <code>Civ_Inhabitant</code> wird das Bewegungsziel in den einzelnen nativen Positionsslot <code>CivMoveTarget</code> geschrieben; <code>ReadPosition</code> und <code>Seek</code> delegieren Wegfindung und Bewegung danach an Hytale.
+- <code>WoodcutterWorkSystem</code> sucht natürliche Hytale-Stammblöcke in der Nähe, führt einen HOLZFÄLLER an eine benachbarte Arbeitsposition und verwendet Hytales nativen <code>BlockHarvestUtils.performBlockDamage</code>-Weg zum Fällen des Basisblocks. Normale Drops, Break-Events und Blockphysik bleiben damit bei der Engine.
+- <code>FarmPrefabService</code> löst das Farm-Prefab über Hytales durchsuchbare Prefab-Orte auf, lädt es über <code>PrefabStore</code>, validiert Gelände und Kollisionen anhand der tatsächlich belegten Prefab-Blockzellen, rendert die Platzierungsvorschau pro Spieler, versenkt den Prefab-Boden einen Block im Gelände und löst neu eingefügte Farm-Arbeitsbereiche über Hytales <code>TriggerVolumeManager</code> auf. Zusätzlich werden die durch den eingelassenen Boden ersetzten Weltblöcke gespeichert.
+- <code>FarmBuildingRegistry</code> verbindet platzierte Farm-Instanzen und zugewiesene NPC-Referenzen mit dem Core-Zustand <code>FarmBuilding</code>, merkt Platzierungsflächen für Überschneidungsprüfungen und behält pro Instanz den Schnappschuss der ersetzten Bodenblöcke.
+- <code>FarmNpcWorkSystem</code> übersetzt die Core-Farmzustände in Bewegungsziele für Eingang und Ausgang und treibt die Produktion voran, solange der Bauer innen arbeitet.
 
-`CivUnitRegistry` identifies a runtime entity by its `Store` plus entity index while retaining and validating the original `Ref`. This avoids relying on Java object identity for repeated `Ref` instances and prevents stale entity slots from being treated as valid Civ units.
+<code>CivUnitRegistry</code> identifiziert eine Laufzeitentität über ihren <code>Store</code> plus Entitätsindex und behält gleichzeitig die ursprüngliche <code>Ref</code> zur Validierung. Dadurch wird nicht auf Java-Objektidentität wiederholt erzeugter <code>Ref</code>-Instanzen vertraut und veraltete Entitätsslots werden nicht als gültige Civ-Einheiten behandelt.
 
-Claims and work targets remain intentionally runtime-only. Profession state now lives in the serializable `CivInhabitantData` component on the NPC entity, while profession XP is reserved there for the next inhabitant iterations. Workplace assignment remains runtime-only because placed buildings do not yet have stable persistent identity. A future inhabitant lifecycle should replace the debug claim mechanism.
+Ansprüche und Arbeitsziele bleiben bewusst laufzeitgebunden. Berufszustand liegt inzwischen in der serialisierbaren <code>CivInhabitantData</code>-Komponente auf der NPC-Entität. Berufserfahrung ist dort für spätere Bewohneriterationen vorgesehen. Arbeitsplatzzuweisung bleibt laufzeitgebunden, weil platzierte Gebäude noch keine stabile dauerhafte Identität besitzen. Ein späterer Bewohner-Lifecycle soll den Debug-Anspruchsmechanismus ersetzen.
 
-Movement commands do not run a Civ-owned per-tick steering loop. The creator-editable `Civ_Inhabitant` role declares exactly one position slot, `CivMoveTarget`; this is intentionally slot index 0 and is the Java/asset contract guarded by an automated asset test. `CivUnitRegistry` writes or clears that stored position through Hytale's `MarkedEntitySupport`, while the role consumes it with `ReadPosition` and `Seek` using Hytale's native pathfinder and Walk motion controller. Foreign Hytale roles are deliberately not driven through this contract. Farm and Woodcutter systems still own their simulation-level arrival checks so job state changes remain deterministic from Civ's point of view.
+Bewegungsbefehle verwenden keinen Civ-eigenen Steuerloop pro Tick. Die vom Ersteller bearbeitbare Rolle <code>Civ_Inhabitant</code> definiert genau einen Positionsslot namens <code>CivMoveTarget</code>. Dieser liegt bewusst an Slot-Index 0 und bildet einen Java-/Asset-Vertrag, der durch einen automatisierten Asset-Test geschützt wird. <code>CivUnitRegistry</code> schreibt oder löscht diese gespeicherte Position über Hytales <code>MarkedEntitySupport</code>; die Rolle verarbeitet sie über <code>ReadPosition</code> und <code>Seek</code> mit Hytales nativer Wegfindung und Walk-Bewegung. Fremde Hytale-Rollen werden nicht über diesen Vertrag gesteuert. Farm- und Holzfällersysteme behalten dennoch ihre simulationsseitigen Ankunftsprüfungen, damit Job-Zustandswechsel aus Civ-Sicht deterministisch bleiben.
 
-The fixed RTS camera is a Hytale Custom camera, not Spectator mode. No verified native API for hiding only the local player's own model in this camera mode has been established yet, so the player entity is not despawned or hidden through an unverified workaround.
+Die feste RTS-Kamera ist eine Hytale-Custom-Kamera und kein Spectator-Modus. Eine verifizierte native API zum Ausblenden nur des eigenen Spielermodells in diesem Kameramodus wurde noch nicht gefunden. Deshalb wird die Spielerentität nicht über einen unbestätigten Workaround despawnt oder versteckt.
 
 ### plugin
 
-Hytale bootstrap and lifecycle. It wires adapters/services and registers Hytale-facing commands and systems. It should contain as little game logic as possible.
+Hytale-Bootstrap und Lifecycle. Hier werden Adapter und Services verdrahtet sowie Hytale-nahe Befehle und Systeme registriert. Spiellogik soll hier so wenig wie möglich liegen.
 
-`CivilizationsPlugin` currently:
+<code>CivilizationsPlugin</code> erledigt aktuell:
 
-- registers the serializable `CivInhabitantData` ECS component before wiring Civ registries and systems;
-- registers the Farm and Woodcutter ticking systems; generic `Civ_Inhabitant` travel is delegated to the role's native `ReadPosition`/`Seek` movement rather than a Civ movement ticking system;
-- exposes `/civtest`, `/civrtstest`, `/civclaim`, `/civfarm`, `/civbuild` and `/civwiki`;
-- wires mouse-button, mouse-motion and disconnect events to the RTS interaction controller. `/civbuild` and `/civwiki` open the existing interactive pages while RTS mode is active.
+- Registrierung der serialisierbaren ECS-Komponente <code>CivInhabitantData</code>, bevor Civ-Register und Systeme verdrahtet werden.
+- Registrierung der Tick-Systeme für Farm und Holzfäller. Allgemeine Bewegung eines <code>Civ_Inhabitant</code> wird über natives <code>ReadPosition</code>/<code>Seek</code> erledigt und nicht durch ein eigenes Civ-Bewegungssystem.
+- Bereitstellung der Befehle <code>/civtest</code>, <code>/civrtstest</code>, <code>/civclaim</code>, <code>/civfarm</code>, <code>/civbuild</code> und <code>/civwiki</code>.
+- Verdrahtung von Mausbutton-, Mausbewegungs- und Disconnect-Events mit dem RTS-Interaction-Controller. <code>/civbuild</code> und <code>/civwiki</code> öffnen im aktiven RTS-Modus die vorhandenen interaktiven Seiten.
 
-## Dependency rule
+## Abhängigkeitsregel
 
-Dependencies point toward the core. `core` is Hytale-independent. `hytale` may depend on `core` and the Hytale API. `plugin` may depend on both and on the Hytale API.
+Abhängigkeiten zeigen in Richtung Core. <code>core</code> ist Hytale-unabhängig. <code>hytale</code> darf von <code>core</code> und der Hytale-API abhängen. <code>plugin</code> darf von beiden und der Hytale-API abhängen.
 
-This keeps most behavior executable in ordinary JUnit tests. Hytale is required only where engine behavior itself is under test.
+Dadurch bleibt der Großteil des Verhaltens in normalen JUnit-Tests ausführbar. Hytale wird nur dort benötigt, wo das Engine-Verhalten selbst geprüft wird.
 
-## Multiplayer interaction and world authority
+## Mehrspielerinteraktion und Welthoheit
 
-Player-facing transient state is isolated by player UUID. Selection, modal/build interaction and active placement previews must never be stored as one global RTS state shared by all players.
+Spielerbezogener vorläufiger Zustand wird nach Spieler-UUID getrennt. Auswahl, modale Bauinteraktion und aktive Platzierungsvorschauen dürfen niemals als ein globaler RTS-Zustand für alle Spieler gespeichert werden.
 
-The preview is advisory client UX only. Any action that mutates shared world state must be validated again on the server at commit time against the current world and building registry. This prevents two players from successfully committing overlapping placements after both previously saw a valid preview.
+Die Vorschau ist nur beratende Client-UX. Jede Aktion, die gemeinsamen Weltzustand verändert, muss beim tatsächlichen Commit serverseitig erneut gegen die aktuelle Welt und das Gebäuderegister geprüft werden. Dadurch können nicht zwei Spieler erfolgreich überlappende Gebäude setzen, nur weil beide vorher eine gültige Vorschau gesehen haben.
 
-Placed building instances retain the original world block IDs replaced by their embedded floor. That snapshot is runtime-only while buildings themselves are runtime-only. When placed buildings become persistent, the terrain snapshot must be persisted with the same building instance so future demolition can restore the previous ground.
+Platzierte Gebäudeinstanzen behalten die ursprünglichen Weltblock-IDs, die durch ihren eingelassenen Boden ersetzt wurden. Dieser Schnappschuss ist laufzeitgebunden, solange die Gebäude selbst laufzeitgebunden sind. Werden platzierte Gebäude später persistent, muss der Geländeschnappschuss gemeinsam mit derselben Gebäudeinstanz gespeichert werden, damit ein späterer Abriss das vorherige Gelände wiederherstellen kann.
 
-## Current milestone
+## Aktueller Meilenstein
 
-The bootstrap smoke test remains available through `/civtest`.
+Der Bootstrap-Smoke-Test bleibt über <code>/civtest</code> verfügbar.
 
-The current engine-validation milestone tests the first controllable Civ NPC loop:
+Der aktuelle Engine-Validierungs-Meilenstein prüft den ersten steuerbaren Civ-NPC-Ablauf:
 
-1. switch into and out of a fixed angled cursor camera;
-2. explicitly claim an existing `NPCEntity` as a temporary Civ test unit;
-3. left-click one claimed Civ unit to make it the single selection;
-4. right-click the selected NPC to open that person's action menu;
-5. assign the Woodcutter profession from the menu;
-6. let the NPC find a nearby tree, travel through its native Hytale path/movement stack, walk beside the base and fell it through Hytale's native block-harvest/physics path;
-7. right-clicking ground gives the selected unit a native movement target.
+1. In eine feste schräge Cursor-Kamera hinein- und wieder herauswechseln.
+2. Einen vorhandenen <code>NPCEntity</code> ausdrücklich als vorläufige Civ-Testeinheit beanspruchen.
+3. Eine beanspruchte Civ-Einheit per Linksklick als einzige Einheit auswählen.
+4. Den ausgewählten NPC per Rechtsklick anklicken und dessen Aktionsmenü öffnen.
+5. Den Beruf Holzfäller aus dem Menü zuweisen.
+6. Den NPC einen Baum in der Nähe finden lassen, mit Hytales nativer Wegfindung und Bewegung daneben laufen lassen und ihn über Hytales nativen Block-Ernte-/Physik-Weg fällen lassen.
+7. Per Rechtsklick auf den Boden der ausgewählten Einheit ein natives Bewegungsziel geben.
 
-Unclaimed animals, monsters or other NPCs are not controllable merely because they are `NPCEntity` instances. The debug claim command can deliberately claim any compatible NPC for testing.
+Nicht beanspruchte Tiere, Monster oder andere NPCs werden nicht allein deshalb steuerbar, weil sie <code>NPCEntity</code>-Instanzen sind. Der Debug-Befehl kann absichtlich jeden kompatiblen NPC zum Testen beanspruchen.
 
-NPC spawning, persistent Civ ownership, obstacle route planning, visual selection markers, drag-box selection, zoom and camera panning are not part of this milestone.
+NPC-Spawning, dauerhafter Civ-Besitz, eigene Hindernis-Routenplanung, visuelle Auswahlmarkierungen, Drag-Auswahl, Zoom und Kamera-Panning gehören nicht zu diesem Meilenstein.
 
-## Distribution boundary
+## Distributionsgrenze
 
-Runtime Java code and creator-editable Hytale assets are distributed separately inside one convenience archive.
+Java-Laufzeitcode und vom Ersteller bearbeitbare Hytale-Assets werden getrennt innerhalb eines gemeinsamen Download-Archivs verteilt.
 
-Repository layout:
+Repository-Struktur:
 
-```text
-src/main/...           Java plugin code and plugin manifest
-asset-pack/            standalone editable Hytale Asset Pack
-```
+~~~text
+src/main/...           Java-Plugin-Code und Plugin-Manifest
+asset-pack/            eigenständiges bearbeitbares Hytale Asset Pack
+~~~
 
-Release layout:
+Release-Struktur:
 
-```text
+~~~text
 hytale-civ-<release>.zip
 ├── hytale-civ.jar
 └── hytale-civ-assets/
     └── manifest.json
-```
-
-The outer ZIP is only the downloadable release bundle. Hytale still receives the Java plugin as a JAR and the assets as a standalone Asset Pack folder. This keeps asset changes independent from Java compilation: after installation, files inside `hytale-civ-assets/` can be changed without rebuilding the plugin JAR.
-
-Gameplay data should only move into the Asset Pack when a concrete Hytale asset type is required. Core simulation rules and domain state remain in the existing Java architecture unless a later feature establishes a different boundary.
-
-## Farm production vertical slice
-
-The first real production feature intentionally stays concrete rather than introducing a speculative generic building framework.
-
-~~~text
-Farm prefab in Asset Pack
-        ↓
-RTS menu → modal catalog → per-player ghost placement
-        ↓
-FarmPrefabService validates terrain, sinks the floor by one block and places it in Hytale
-        ↓
-FarmBuildingRegistry creates a core FarmBuilding
-        ↓
-one claimed NPC is assigned Profession.FARMER
-        ↓
-FarmNpcWorkSystem drives:
-entrance → 5 s inside → +1 local wheat → exit → repeat
-        ↓
-stop outside when local wheat reaches 10
 ~~~
 
-Farm workplace access is authored directly in the prefab with a native Hytale Trigger Volume tagged `civ.type=workplace_access` and `civ.building=farm`. Hytale converts the prefab transport entity into a runtime `VolumeEntry` during paste; Civ resolves the newly registered tagged volume and derives the walk target from its world position. The obsolete `Civ_BuildingEntrance` marker block is no longer used.
+Das äußere ZIP ist nur das herunterladbare Release-Bundle. Hytale erhält das Java-Plugin weiterhin als JAR und die Assets als eigenständigen Asset-Pack-Ordner. Dadurch bleiben Asset-Änderungen unabhängig vom Java-Build: Nach der Installation können Dateien in <code>hytale-civ-assets/</code> geändert werden, ohne das Plugin-JAR neu zu bauen.
 
-A Farm prefab must register at least one `workplace_access` Trigger Volume tagged for `farm`. Multiple matching volumes are supported. For the current one-Farmer Farm slice, the registry selects the workplace nearest to the assigned NPC by straight-line world distance and then lets the NPC's normal Hytale movement controller travel to that target. This is not yet path-cost-aware entrance selection.
+Gameplay-Daten sollen nur dann ins Asset Pack wandern, wenn ein konkreter Hytale-Asset-Typ dies verlangt. Core-Simulationsregeln und Domänenzustand bleiben in der bestehenden Java-Architektur, solange ein späteres Feature keine andere Grenze festlegt.
 
-The NPC remains a normal Hytale entity; "inside" is currently a simulation state reached when its position reaches the selected entrance target. The prototype does not hide, despawn or teleport the NPC while working.
+## Farm-Produktions-Vertical-Slice
 
-The Farm prefab is creator-editable at `asset-pack/Server/Prefabs/Civilizations/Farm/Farm_01.prefab.json`. The prefab anchor is placement metadata only and no longer defines the entrance. During RTS placement the clicked terrain surface is treated as the finished floor height, so the prefab anchor is shifted down by one block and the prefab's floor replaces that terrain layer. The replaced block IDs are retained on the placed Farm instance for future demolition restoration. The current exterior exit target remains two blocks south of the selected entrance because Farm rotation is still fixed. Rotation-aware entrance direction metadata is deferred until rotated building placement is introduced.
+Das erste echte Produktionsfeature bleibt bewusst konkret und führt noch kein spekulatives allgemeines Gebäudeframework ein.
 
+~~~text
+Farm-Prefab im Asset Pack
+        ↓
+RTS-Menü → modaler Katalog → Platzierungsvorschau pro Spieler
+        ↓
+FarmPrefabService validiert Gelände, versenkt den Boden um einen Block und platziert die Farm in Hytale
+        ↓
+FarmBuildingRegistry erzeugt ein Core-FarmBuilding
+        ↓
+ein beanspruchter NPC erhält Profession.FARMER
+        ↓
+FarmNpcWorkSystem steuert:
+Eingang → 5 s innen → +1 lokaler Weizen → Ausgang → Wiederholung
+        ↓
+bei 10 lokalem Weizen draußen stoppen
+~~~
 
-### In-game wiki
+Der Arbeitszugang der Farm wird direkt im Prefab über mindestens ein natives Hytale Trigger Volume mit den Tags <code>civ.type=workplace_access</code> und <code>civ.building=farm</code> definiert. Hytale wandelt die Prefab-Transportentität beim Einfügen in einen Laufzeit-<code>VolumeEntry</code> um. Civ löst das neu registrierte markierte Volume auf und leitet daraus das Laufziel ab. Der veraltete Markerblock <code>Civ_BuildingEntrance</code> wird nicht mehr verwendet.
 
-`/civwiki` opens the in-game wiki while RTS mode is active. The command is the current validated entry point until a native interactive HUD or hotkey mechanism is verified.
+Ein Farm-Prefab muss mindestens ein <code>workplace_access</code>-Trigger-Volume für <code>farm</code> registrieren. Mehrere passende Volumes werden unterstützt. Für die aktuelle Farm mit genau einem Bauern wählt das Register den Arbeitsplatz mit der geringsten Luftlinienentfernung zum zugewiesenen NPC. Danach übernimmt dessen normaler Hytale-Bewegungscontroller den Weg. Die Auswahl berücksichtigt noch keine tatsächlichen Pfadkosten.
 
-`WikiPage` is an Hytale-facing `InteractiveCustomUIPage` and stays outside the core simulation. Its UI layouts live in the editable Asset Pack under `Common/UI/Custom/Pages/CivWiki*.ui`. Navigation replaces the current custom page with another wiki screen through Hytale's native page manager. The content is deliberately limited to implemented behavior so the help system cannot become a speculative second source of domain rules.
+Der NPC bleibt eine normale Hytale-Entität. „Innen“ ist aktuell ein Simulationszustand, der erreicht wird, wenn seine Position das ausgewählte Eingangsziel erreicht. Der Prototyp versteckt, despawnt oder teleportiert den NPC während der Arbeit nicht.
+
+Das Farm-Prefab ist unter <code>asset-pack/Server/Prefabs/Civilizations/Farm/Farm_01.prefab.json</code> bearbeitbar. Der Prefab-Anker dient nur der Platzierungsmetadaten und bestimmt nicht länger den Eingang. Während der RTS-Platzierung gilt die angeklickte Geländeoberfläche als fertige Bodenhöhe. Deshalb wird der Prefab-Anker einen Block nach unten verschoben und der Prefab-Boden ersetzt diese Geländeschicht. Die ersetzten Block-IDs bleiben an der platzierten Farm gespeichert, damit sie bei einem späteren Abriss wiederhergestellt werden können. Das aktuelle Außenziel liegt weiterhin zwei Blöcke südlich des gewählten Eingangs, da die Farm-Ausrichtung noch fest ist. Rotationsabhängige Richtungsmetadaten werden erst mit drehbarer Gebäudeplatzierung eingeführt.
+
+### Ingame-Wiki
+
+<code>/civwiki</code> öffnet das Ingame-Wiki im aktiven RTS-Modus. Der Befehl bleibt der aktuell verifizierte Einstiegspunkt, bis ein natives interaktives HUD- oder Hotkey-Verfahren bestätigt ist.
+
+<code>WikiPage</code> ist eine Hytale-nahe <code>InteractiveCustomUIPage</code> und bleibt außerhalb der Core-Simulation. Die UI-Layouts liegen im bearbeitbaren Asset Pack unter <code>Common/UI/Custom/Pages/CivWiki*.ui</code>. Navigation ersetzt die aktuelle Custom Page über Hytales nativen Page Manager durch eine andere Wiki-Seite. Der Inhalt ist bewusst auf bereits umgesetztes Verhalten begrenzt, damit das Hilfesystem keine spekulative zweite Quelle für Domänenregeln wird.
