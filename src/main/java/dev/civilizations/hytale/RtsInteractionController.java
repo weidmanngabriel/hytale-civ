@@ -51,7 +51,6 @@ public final class RtsInteractionController {
         if (active != null) {
             clearPlacement(playerRef, active);
             cameraController.disable(playerRef);
-            removeToolbar(playerRef);
             claimArmed.remove(playerId);
             sessions.remove(playerId, active);
             playerRef.sendMessage(Message.raw("Civ RTS test disabled."));
@@ -60,10 +59,9 @@ public final class RtsInteractionController {
 
         sessions.put(playerId, new Session());
         cameraController.enable(playerRef);
-        showToolbar(playerRef);
         playerRef.sendMessage(Message.raw(
-            "Civ RTS test enabled. Bauen ist links im RTS-Menü; "
-                + "Linksklick platziert einen ausgewählten Bau, Rechtsklick bricht ihn ab."
+            "Civ RTS test enabled. /civbuild öffnet das Baumenü; "
+                + "/civwiki öffnet die Civ-Hilfe."
         ));
         return true;
     }
@@ -487,14 +485,6 @@ public final class RtsInteractionController {
         session.placingFarm = false;
         session.previewTarget = null;
         session.previewCandidate = null;
-    }
-
-    private void showToolbar(PlayerRef playerRef) {
-        RtsToolbarAnchorUi.send(playerRef);
-    }
-
-    private void removeToolbar(PlayerRef playerRef) {
-        RtsToolbarAnchorUi.clear(playerRef);
     }
 
     private void removeInvalidSelection(Session session) {
