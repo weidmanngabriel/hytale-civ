@@ -30,7 +30,7 @@ final class FirstPersonInteractionAssetValidationTest {
             "asset-pack/Server/Item/Interactions/Civ_OpenPersonActions.json"
         );
         assertEquals("OpenCustomUI", interaction.path("Type").asText());
-        assertEquals("CivPersonActions", interaction.path("Page").path("Type").asText());
+        assertEquals("CivPersonActions", interaction.path("Page").path("Id").asText());
     }
 
     private static JsonNode read(String path) throws Exception {

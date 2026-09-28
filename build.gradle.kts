@@ -105,7 +105,12 @@ val snapshotHytaleApi = tasks.register("snapshotHytaleApi") {
             "CameraManager",
             "InteractiveCustomUIPage",
             "PrefabStore",
-            "TriggerVolumeManager"
+            "TriggerVolumeManager",
+            "UnarmedInteractions",
+            "RootInteraction",
+            "OpenCustomUIInteraction",
+            "RunRootInteraction",
+            "TargetUtil"
         )
 
         val javaLauncher = javaToolchains.launcherFor {
