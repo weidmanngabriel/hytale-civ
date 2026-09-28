@@ -120,16 +120,6 @@ public final class RtsInteractionController {
             return;
         }
 
-        if (session.nativePasteActive) {
-            if (button == MouseButtonType.Right) {
-                placementService.cancelNativePlacement(playerRef);
-                session.nativePasteActive = false;
-            } else if (button == MouseButtonType.Left) {
-                session.nativePasteActive = false;
-            }
-            return;
-        }
-
         if (button == MouseButtonType.Left) {
             if (session.placementDefinition != null) {
                 confirmPlacement(playerRef, session, event.getTargetBlock());
@@ -184,6 +174,7 @@ public final class RtsInteractionController {
                 validatePlacement(worldId, world, targetBlock, session.placementDefinition);
             session.previewTarget = new Vector3i(targetBlock);
             session.previewCandidate = candidate;
+            placementService.updateConstructionPreview(playerRef, candidate);
         } catch (RuntimeException exception) {
             session.previewTarget = new Vector3i(targetBlock);
             session.previewCandidate = null;
@@ -256,17 +247,17 @@ public final class RtsInteractionController {
     ) {
         clearPlacement(playerRef, session);
         try {
-            if (!placementService.startNativePastePlacement(playerRef, definition)) {
+            if (!placementService.startConstructionPreview(playerRef, definition)) {
                 playerRef.sendMessage(Message.raw(
-                    definition.displayName() + " konnte nicht an Hytales Paste Tool übergeben werden."
+                    definition.displayName() + " konnte nicht als Civ-Bauvorschau gestartet werden."
                 ));
                 return;
             }
-            session.nativePasteActive = true;
+            session.placementDefinition = definition;
             playerRef.sendMessage(Message.raw(
                 definition.displayName()
-                    + " an Hytales natives Paste Tool übergeben. "
-                    + "Die native Ghost-Vorschau und Platzierung übernimmt jetzt Hytale."
+                    + " ausgewählt. Ghost mit der Maus positionieren, Linksklick bestätigt, "
+                    + "Rechtsklick bricht ab."
             ));
         } catch (RuntimeException exception) {
             playerRef.sendMessage(Message.raw(
@@ -307,35 +298,15 @@ public final class RtsInteractionController {
                 return;
             }
 
-            PrefabPlacementService.PlacedPrefab placed =
-                placementService.place(playerRef, world, candidate);
+            placementService.commitConstructionPreview(playerRef, candidate);
             placementRegistry.register(worldId, candidate.footprint());
 
-            if (definition == PrefabPlacementService.FARM) {
-                List<Vector3i> entrances = placed.markers().stream()
-                    .filter(marker -> marker.hasTag(BUILDING_TAG, "farm"))
-                    .filter(marker -> marker.hasTag(TYPE_TAG, "workplace_access"))
-                    .map(marker -> new Vector3i(
-                        marker.position().x,
-                        marker.position().y - 1,
-                        marker.position().z
-                    ))
-                    .toList();
-                if (entrances.isEmpty()) {
-                    throw new IllegalStateException(
-                        "Farm prefab did not register a civ farm workplace marker."
-                    );
-                }
-                farmRegistry.registerFarm(
-                    worldId,
-                    entrances,
-                    candidate.footprint(),
-                    candidate.replacedFloorBlocks()
-                );
-            }
-
-            clearPlacement(playerRef, session);
-            playerRef.sendMessage(Message.raw(definition.displayName() + " gebaut."));
+            session.placementDefinition = null;
+            session.previewTarget = null;
+            session.previewCandidate = null;
+            playerRef.sendMessage(Message.raw(
+                definition.displayName() + " als Baustelle gesetzt."
+            ));
         } catch (RuntimeException exception) {
             playerRef.sendMessage(Message.raw(
                 definition.displayName() + " placement failed: " + exception.getMessage()
@@ -585,7 +556,7 @@ public final class RtsInteractionController {
     }
 
     private void clearPlacement(PlayerRef playerRef, Session session) {
-        placementService.cancelNativePlacement(playerRef);
+        placementService.cancelConstructionPreview(playerRef);
         session.placementDefinition = null;
         session.previewTarget = null;
         session.previewCandidate = null;
@@ -607,6 +578,5 @@ public final class RtsInteractionController {
         private PrefabPlacementService.PlacementDefinition placementDefinition;
         private Vector3i previewTarget;
         private PrefabPlacementService.PlacementCandidate previewCandidate;
-        private boolean nativePasteActive;
     }
 }
