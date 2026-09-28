@@ -2,13 +2,13 @@ package dev.civilizations.plugin;
 
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
-import com.hypixel.hytale.server.core.event.events.player.PlayerInteractEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseMotionEvent;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.VikingNameGenerator;
+import dev.civilizations.hytale.CivClaimInteractionSystem;
 import dev.civilizations.hytale.CivInhabitantData;
 import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivUnitRegistry;
@@ -51,6 +51,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 new FarmPrefabService()
             );
 
+        getEntityStoreRegistry().registerSystem(new CivClaimInteractionSystem(rtsInteractionController));
         getEntityStoreRegistry().registerSystem(new FarmNpcWorkSystem(unitRegistry, farmRegistry));
         getEntityStoreRegistry().registerSystem(new WoodcutterWorkSystem(unitRegistry));
 
@@ -61,7 +62,6 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getCommandRegistry().registerCommand(new CivBuildCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivWikiCommand(rtsInteractionController));
 
-        getEventRegistry().register(PlayerInteractEvent.class, (String) null, rtsInteractionController::handlePlayerInteract);
         getEventRegistry().register(PlayerMouseButtonEvent.class, rtsInteractionController::handleMouseButton);
         getEventRegistry().register(PlayerMouseMotionEvent.class, rtsInteractionController::handleMouseMotion);
         getEventRegistry().register(PlayerDisconnectEvent.class, rtsInteractionController::handleDisconnect);
