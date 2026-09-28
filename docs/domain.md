@@ -20,6 +20,8 @@ Der aktuelle Anspruchs- und Bewegungszustand von NPCs ist bewusst nur ein vorlä
 - Ein Bewohner besitzt immer einen aktiven Berufszustand. Der initiale Zustand ist ARBEITSLOS (<code>UNEMPLOYED</code>).
 - ARBEITSLOS besitzt keine Berufserfahrung. Bauer und Holzfäller behalten ihre jeweilige eigene, nichtnegative Berufserfahrung auch nach einem Berufswechsel.
 - Bewohneridentität und Berufsdaten sind unabhängig davon, ob ein Spieler First Person oder RTS verwendet.
+- Ein bewusstes Freigeben entfernt die Civ-Bewohnerzugehörigkeit wieder; der NPC kehrt in seinen nativen NPC-Zustand zurück.
+- Ein manueller RTS-Bewegungsbefehl hat Vorrang vor automatischer Berufsbewegung. Nach Erreichen des manuellen Ziels darf die Berufsautomatik wieder übernehmen.
 - Eine dauerhafte Arbeitsplatzidentität ist noch keine Domänenregel, weil platzierte Civ-Gebäude noch keine stabile dauerhafte Identität besitzen.
 
 ## Geplante Domänenbereiche
