@@ -166,10 +166,18 @@ jobs:
             exit 0
           fi
 
+          # gh release create normally creates the tag itself. A previous failed release
+          # attempt can leave that tag behind without a GitHub Release, so explicitly
+          # target the existing tag when it is already present.
+          release_target="$GITHUB_SHA"
+          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            release_target="$RELEASE_TAG"
+          fi
+
           args=(
             release create "$RELEASE_TAG" "$RELEASE_ASSET"
             --repo "$GITHUB_REPOSITORY"
-            --target "$GITHUB_SHA"
+            --target "$release_target"
             --title "$RELEASE_TITLE"
             --notes "$RELEASE_NOTES"
           )
