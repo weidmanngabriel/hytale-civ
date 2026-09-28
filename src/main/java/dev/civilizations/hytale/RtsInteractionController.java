@@ -439,7 +439,8 @@ public final class RtsInteractionController {
         return new PersonActionsPage(
             playerRef,
             () -> assignWoodcutter(playerRef, target),
-            () -> assignConstructionWorker(playerRef, target)
+            () -> assignConstructionWorker(playerRef, target),
+            () -> assignFarmerProfession(playerRef, target)
         );
     }
 
@@ -480,7 +481,8 @@ public final class RtsInteractionController {
             new PersonActionsPage(
                 playerRef,
                 () -> assignWoodcutter(playerRef, selected),
-                () -> assignConstructionWorker(playerRef, selected)
+                () -> assignConstructionWorker(playerRef, selected),
+                () -> assignFarmerProfession(playerRef, selected)
             )
         );
     }
@@ -531,6 +533,24 @@ public final class RtsInteractionController {
             case COMPLETE ->
                 playerRef.sendMessage(Message.raw("That farm already contains 10 wheat."));
         }
+    }
+
+    private void assignFarmerProfession(
+        PlayerRef playerRef,
+        Ref<EntityStore> selected
+    ) {
+        if (!unitRegistry.isClaimed(selected)) {
+            playerRef.sendMessage(Message.raw("Der ausgewählte Civ-Bewohner ist nicht mehr verfügbar."));
+            return;
+        }
+
+        farmRegistry.unassignFarmer(selected);
+        activityRegistry.cancelManualMove(selected);
+        unitRegistry.cancelMoveTarget(selected);
+        unitRegistry.assignProfession(selected, Profession.FARMER);
+        playerRef.sendMessage(Message.raw(
+            "Bauer zugewiesen. Weise ihm jetzt per Rechtsklick den Arbeitsbereich einer fertigen Farm zu."
+        ));
     }
 
     private void assignWoodcutter(PlayerRef playerRef, Ref<EntityStore> selected) {
