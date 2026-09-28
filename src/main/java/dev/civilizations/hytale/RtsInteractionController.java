@@ -121,7 +121,10 @@ public final class RtsInteractionController {
         }
 
         if (session.nativePasteActive) {
-            if (button == MouseButtonType.Left || button == MouseButtonType.Right) {
+            if (button == MouseButtonType.Right) {
+                placementService.cancelNativePlacement(playerRef);
+                session.nativePasteActive = false;
+            } else if (button == MouseButtonType.Left) {
                 session.nativePasteActive = false;
             }
             return;
@@ -582,6 +585,7 @@ public final class RtsInteractionController {
     }
 
     private void clearPlacement(PlayerRef playerRef, Session session) {
+        placementService.cancelNativePlacement(playerRef);
         session.placementDefinition = null;
         session.previewTarget = null;
         session.previewCandidate = null;
