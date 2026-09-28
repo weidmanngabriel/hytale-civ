@@ -14,7 +14,7 @@ Der aktuelle Produkt-Meilenstein ist ein RTS-Prototyp mit steuerbaren NPCs zusä
 
 <code>/civrtstest</code> schaltet eine feste, schräge RTS-Kamera mit sichtbarem Mauszeiger ein oder aus. Der Spieler wechselt dabei nicht in den Spectator-Modus.
 
-<code>/civclaim</code> aktiviert den nächsten Linksklick. Wird anschließend ein vorhandener NPC angeklickt, wird er als vorläufige Civ-Testeinheit beansprucht beziehungsweise wieder freigegeben.
+<code>/civclaim</code> aktiviert den nächsten Linksklick unabhängig vom Kameramodus. Wird anschließend in First Person oder RTS ein vorhandener NPC angeklickt, wird er als Civ-Bewohner initialisiert beziehungsweise für die aktuelle Steuerung beansprucht oder wieder freigegeben. Beim ersten Initialisieren erhält er dauerhaft ein Geschlecht, einen dreiteiligen Wikinger-Namen und den Zustand arbeitslos. Ein erneuter Claim würfelt diese Identität nicht neu aus.
 
 Während der RTS-Modus aktiv ist:
 
@@ -28,7 +28,7 @@ Während der RTS-Modus aktiv ist:
 - <code>/civwiki</code> öffnet das Ingame-Wiki.
 - Gebäude im Katalog sind alphabetisch nach ihrem Anzeigenamen sortiert.
 
-Ansprüche, Auswahl und aktuelle Arbeitszustände sind noch nicht als vollständiges dauerhaftes Civ-System ausgelegt.
+RTS ist eine Bedienungsart und keine Voraussetzung für die Civ-Simulation. Bewohneridentität und Berufsdaten sind unabhängig von einer RTS-Session persistent; Auswahl, aktuelle Steuerungsansprüche und Arbeitsausführung bleiben vorläufige Laufzeitzustände.
 
 ## Holzfäller-Vertical-Slice
 
