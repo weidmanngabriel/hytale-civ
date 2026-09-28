@@ -46,13 +46,14 @@ public final class RtsInteractionController {
 
     public boolean toggle(PlayerRef playerRef) {
         UUID playerId = playerRef.getUuid();
-        Session removed = sessions.remove(playerId);
+        Session active = sessions.get(playerId);
 
-        if (removed != null) {
-            claimArmed.remove(playerId);
-            clearPlacement(playerRef, removed);
+        if (active != null) {
+            clearPlacement(playerRef, active);
             removeToolbar(playerRef);
             cameraController.disable(playerRef);
+            claimArmed.remove(playerId);
+            sessions.remove(playerId, active);
             playerRef.sendMessage(Message.raw("Civ RTS test disabled."));
             return false;
         }
