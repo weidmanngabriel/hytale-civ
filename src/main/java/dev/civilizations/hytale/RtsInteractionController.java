@@ -349,7 +349,7 @@ public final class RtsInteractionController {
         if (claimed) {
             CivInhabitantData data = commandBuffer == null
                 ? unitRegistry.getInhabitantData(target)
-                : commandBuffer.getComponent(target, CivInhabitantData.getComponentType());
+                : unitRegistry.getInhabitantData(target);
             String name = data == null || !data.hasIdentity() ? "unknown" : data.fullName();
             playerRef.sendMessage(Message.raw("Civ inhabitant claimed: " + name));
         } else {
