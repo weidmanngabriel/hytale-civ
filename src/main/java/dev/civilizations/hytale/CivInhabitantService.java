@@ -4,6 +4,7 @@ import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.server.core.Message;
+import com.hypixel.hytale.server.core.entity.nameplate.Nameplate;
 import com.hypixel.hytale.server.core.modules.entity.component.DisplayNameComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentDisplayName;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
@@ -59,6 +60,11 @@ public final class CivInhabitantService {
             DisplayNameComponent.getComponentType(),
             new DisplayNameComponent(displayName)
         );
+        ref.getStore().putComponent(
+            ref,
+            Nameplate.getComponentType(),
+            new Nameplate(data.fullName())
+        );
         return data;
     }
 
@@ -89,6 +95,11 @@ public final class CivInhabitantService {
             ref,
             DisplayNameComponent.getComponentType(),
             new DisplayNameComponent(displayName)
+        );
+        commandBuffer.putComponent(
+            ref,
+            Nameplate.getComponentType(),
+            new Nameplate(data.fullName())
         );
         return data;
     }
