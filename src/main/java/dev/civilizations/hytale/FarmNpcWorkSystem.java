@@ -20,13 +20,16 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
     private static final double ARRIVAL_DISTANCE = 0.45;
 
     private final CivUnitRegistry unitRegistry;
+    private final CivActivityRegistry activityRegistry;
     private final FarmBuildingRegistry farmRegistry;
 
     public FarmNpcWorkSystem(
         CivUnitRegistry unitRegistry,
+        CivActivityRegistry activityRegistry,
         FarmBuildingRegistry farmRegistry
     ) {
         this.unitRegistry = unitRegistry;
+        this.activityRegistry = activityRegistry;
         this.farmRegistry = farmRegistry;
     }
 
@@ -57,6 +60,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
 
         if (!ref.isValid()) {
             farmRegistry.unassignFarmer(ref);
+            activityRegistry.forget(ref);
             unitRegistry.forget(ref);
             return;
         }
@@ -70,7 +74,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
 
         FarmBuilding building = site.building();
         Vector3d position = transform.getPosition();
-        if (unitRegistry.continueManualMove(ref, position)) {
+        if (!activityRegistry.autonomousWorkAllowed(ref)) {
             return;
         }
 
