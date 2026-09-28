@@ -2,13 +2,11 @@ package dev.civilizations.hytale;
 
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
-import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.MouseButtonState;
 import com.hypixel.hytale.protocol.MouseButtonType;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
-import com.hypixel.hytale.server.core.event.events.player.PlayerInteractEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseMotionEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
@@ -123,24 +121,6 @@ public final class RtsInteractionController {
             }
             event.setCancelled(true);
         }
-    }
-
-    public void handlePlayerInteract(PlayerInteractEvent event) {
-        if (event.getActionType() != InteractionType.Primary) {
-            return;
-        }
-
-        Ref<EntityStore> playerEntityRef = event.getPlayerRef();
-        PlayerRef playerRef = playerEntityRef.getStore().getComponent(
-            playerEntityRef,
-            PlayerRef.getComponentType()
-        );
-        if (playerRef == null || !claimArmed.remove(playerRef.getUuid())) {
-            return;
-        }
-
-        handleClaim(event.getTargetRef(), playerRef);
-        event.setCancelled(true);
     }
 
     public void handleMouseMotion(PlayerMouseMotionEvent event) {
@@ -329,7 +309,7 @@ public final class RtsInteractionController {
         return candidate;
     }
 
-    private void handleClaim(Ref<EntityStore> target, PlayerRef playerRef) {
+    public void handleClaim(Ref<EntityStore> target, PlayerRef playerRef) {
         if (target == null || !target.isValid()) {
             playerRef.sendMessage(Message.raw("No NPC under cursor."));
             return;
@@ -356,9 +336,13 @@ public final class RtsInteractionController {
             });
         }
 
-        playerRef.sendMessage(Message.raw(
-            claimed ? "NPC claimed as Civ test unit." : "NPC released from Civ control."
-        ));
+        if (claimed) {
+            CivInhabitantData data = unitRegistry.getInhabitantData(target);
+            String name = data == null || !data.hasIdentity() ? "unknown" : data.fullName();
+            playerRef.sendMessage(Message.raw("Civ inhabitant claimed: " + name));
+        } else {
+            playerRef.sendMessage(Message.raw("NPC released from Civ control."));
+        }
     }
 
     private void handleSelection(
@@ -512,6 +496,10 @@ public final class RtsInteractionController {
         if (session.selected != null && !unitRegistry.isClaimed(session.selected)) {
             session.selected = null;
         }
+    }
+
+    public boolean consumeArmedClaim(PlayerRef playerRef) {
+        return playerRef != null && claimArmed.remove(playerRef.getUuid());
     }
 
     private static final class Session {

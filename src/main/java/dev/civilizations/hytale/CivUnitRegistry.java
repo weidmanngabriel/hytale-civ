@@ -56,6 +56,10 @@ public final class CivUnitRegistry {
         return true;
     }
 
+    public CivInhabitantData getInhabitantData(Ref<EntityStore> ref) {
+        return inhabitantService.get(ref);
+    }
+
     public boolean isClaimed(Ref<EntityStore> ref) {
         UnitKey key = keyOf(ref);
         UnitState state = units.get(key);
