@@ -24,8 +24,8 @@ While RTS mode is active:
 - right-clicking the currently selected Civ NPC opens that person's action menu;
 - the first implemented action is assigning the Woodcutter profession;
 - right-clicking a world block still gives the selected Civ unit a direct movement target;
-- a persistent menu bar appears on the left with a **Bauen** entry;
-- clicking **Bauen** opens a modal building catalog to the right of the bar. The catalog must be closed or a building selected before normal RTS world interaction resumes;
+- `/civbuild` opens the modal building catalog. The catalog must be closed or a building selected before normal RTS world interaction resumes;
+- `/civwiki` opens the in-game wiki;
 - building entries are ordered alphabetically by display name.
 
 The current Custom camera does not switch the player into Spectator. Hiding only the local player model is not part of this slice because no verified native self-hide mechanism has been established yet.
@@ -49,7 +49,7 @@ There is no work-area selection, carrying, warehouse delivery or persistent job 
 
 ## Farm vertical slice
 
-In RTS mode, **Bauen → Farm** closes the building catalog and starts Farm placement. A Farm ghost follows the world position under the cursor. Left click attempts to place it; right click cancels the placement. `/civfarm` remains a debug shortcut into the same placement mode.
+In RTS mode, `/civbuild` opens the building catalog; choosing **Farm** closes it and starts Farm placement. A Farm ghost follows the world position under the cursor. Left click attempts to place it; right click cancels the placement. `/civfarm` remains a debug shortcut into the same placement mode.
 
 The visible floor of the Farm is embedded one block into the pointed terrain rather than being placed on top of it. Placement is accepted only when the footprint is supported, contains no holes or liquids, the building volume and entrances are clear, and the footprint does not overlap another Civ building. The server rechecks these conditions when left click confirms the build; the preview is not authoritative.
 
@@ -74,7 +74,7 @@ Travel time is additional to the five seconds of active production time. Wheat i
 
 ## In-game wiki
 
-The persistent left RTS menu includes a **?** button below **Bauen**. It opens a modal in-game wiki with four sections: **Berufe**, **Ressourcen**, **Gebäude** and **Tiere**.
+`/civwiki` opens a modal in-game wiki with four sections: **Berufe**, **Ressourcen**, **Gebäude** and **Tiere**.
 
 The wiki documents implemented Civ behavior only and cross-links related sections. The current entries cover Holzfäller, Bauer, Holz, Weizen and Farm. The animal section explicitly states that no animal has a Civ-specific gameplay role yet; animals are added only when a real Civ system uses them.
 
