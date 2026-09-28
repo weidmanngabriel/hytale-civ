@@ -15,7 +15,7 @@ import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import javax.annotation.Nonnull;
 
 /**
- * Opens the existing Civ person-actions page when a claimed inhabitant is used in First Person.
+ * Traces and handles the entity-use path for claimed inhabitants in First Person.
  */
 public final class CivInhabitantUseSystem
     extends EntityEventSystem<EntityStore, UseEntityEvent.Pre> {
@@ -40,16 +40,25 @@ public final class CivInhabitantUseSystem
         @Nonnull CommandBuffer<EntityStore> commandBuffer,
         @Nonnull UseEntityEvent.Pre event
     ) {
-        if (event.isCancelled() || event.getInteractionType() != InteractionType.Use) {
-            return;
-        }
-
         Ref<EntityStore> playerEntityRef = event.getContext().getEntity();
         PlayerRef playerRef = playerEntityRef == null || !playerEntityRef.isValid()
             ? null
             : commandBuffer.getComponent(playerEntityRef, PlayerRef.getComponentType());
         Ref<EntityStore> target = event.getTargetEntity();
-        if (playerRef == null || target == null || !target.isValid()) {
+        boolean targetValid = target != null && target.isValid();
+        boolean claimed = targetValid && interactionController.isClaimed(target);
+
+        System.out.println(
+            "[CIV-DEBUG] UseEntityEvent.Pre"
+                + " type=" + event.getInteractionType()
+                + " cancelled=" + event.isCancelled()
+                + " player=" + (playerRef == null ? "missing" : "present")
+                + " target=" + (targetValid ? "npc" : "missing-or-invalid")
+                + " claimed=" + claimed
+        );
+
+        if (event.isCancelled() || event.getInteractionType() != InteractionType.Use
+            || playerRef == null || !targetValid) {
             return;
         }
 
