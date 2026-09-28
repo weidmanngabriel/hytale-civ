@@ -110,7 +110,7 @@ Manuelle Abnahme:
 2. <code>/civrtstest</code> ausführen.
 3. <code>/civbuild</code> ausführen und bestätigen, dass ein modaler Katalog **Gebäude** geöffnet wird und normale RTS-Weltinteraktion blockiert.
 4. Bestätigen, dass der aktuelle Katalog **Farm** und **Weizenfeld** enthält und geschlossen werden kann, ohne die Platzierung zu starten.
-5. <code>/civbuild</code> erneut ausführen, **Farm** auswählen und den Mauszeiger über das Gelände bewegen. Prüfen, dass Civ eine native <code>PersistentPrefabPreview</code> als Ghost an der Mausposition erzeugt und verschiebt, ohne echte Weltblöcke zu verändern. Das Editor-Paste-Tool darf dabei nicht aktiviert werden.
+5. <code>/civbuild</code> erneut ausführen, **Farm** auswählen und den Mauszeiger über flaches Gras bewegen. Prüfen, dass die Validierung trotz des Y−1-Ankers einen gültigen Candidate erzeugt und Civ eine native <code>PersistentPrefabPreview</code> als Ghost erzeugt. Das Editor-Paste-Tool darf dabei nicht aktiviert werden.
 6. Rechtsklick ausführen und bestätigen, dass die Platzierung abgebrochen wird, ohne die Welt zu verändern.
 7. **Farm** erneut wählen und auf flachem Boden mit Linksklick bestätigen. Es dürfen **keine echten Prefab-Blöcke** entstehen. Der bewegte <code>PersistentPrefabPreview</code>-Ghost bleibt als Baustelle stehen. Sein Civ-Anker liegt exakt einen Block unter dem anvisierten Oberflächenblock.
 8. Dasselbe über einem Loch, einer Flüssigkeit, tatsächlich blockiertem Bauvolumen oberhalb des eingelassenen Baugrunds und einer bestehenden Farmfläche versuchen. Bestätigen, dass die Platzierung mit einem Grund abgelehnt wird und der Platzierungsmodus aktiv bleibt.
