@@ -4,6 +4,7 @@ import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.server.core.Message;
+import com.hypixel.hytale.server.core.entity.Dirty;
 import com.hypixel.hytale.server.core.entity.nameplate.Nameplate;
 import com.hypixel.hytale.server.core.modules.entity.component.DisplayNameComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentDisplayName;
@@ -65,6 +66,7 @@ public final class CivInhabitantService {
             Nameplate.getComponentType(),
             new Nameplate(data.fullName())
         );
+        markDirty(ref);
         return data;
     }
 
@@ -101,6 +103,7 @@ public final class CivInhabitantService {
             Nameplate.getComponentType(),
             new Nameplate(data.fullName())
         );
+        markDirty(ref, commandBuffer);
         return data;
     }
 
@@ -127,6 +130,24 @@ public final class CivInhabitantService {
         CivInhabitantData data = get(ref);
         if (data != null) {
             data.setProfession(profession);
+            markDirty(ref);
+        }
+    }
+
+    private static void markDirty(Ref<EntityStore> ref) {
+        Dirty dirty = ref.getStore().getComponentConcurrent(ref, Dirty.getComponentType());
+        if (dirty != null) {
+            dirty.markDirty();
+        }
+    }
+
+    private static void markDirty(
+        Ref<EntityStore> ref,
+        CommandBuffer<EntityStore> commandBuffer
+    ) {
+        Dirty dirty = commandBuffer.getComponent(ref, Dirty.getComponentType());
+        if (dirty != null) {
+            dirty.markDirty();
         }
     }
 
