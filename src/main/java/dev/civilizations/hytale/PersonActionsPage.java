@@ -24,14 +24,17 @@ public final class PersonActionsPage
 
     private static final String ACTION_WOODCUTTER = "woodcutter";
     private static final String ACTION_CONSTRUCTION_WORKER = "construction_worker";
+    private static final String ACTION_FARMER = "farmer";
 
     private final Runnable assignWoodcutter;
     private final Runnable assignConstructionWorker;
+    private final Runnable assignFarmer;
 
     public PersonActionsPage(
         PlayerRef playerRef,
         Runnable assignWoodcutter,
-        Runnable assignConstructionWorker
+        Runnable assignConstructionWorker,
+        Runnable assignFarmer
     ) {
         super(
             playerRef,
@@ -40,6 +43,7 @@ public final class PersonActionsPage
         );
         this.assignWoodcutter = assignWoodcutter;
         this.assignConstructionWorker = assignConstructionWorker;
+        this.assignFarmer = assignFarmer;
     }
 
     @Override
@@ -54,6 +58,12 @@ public final class PersonActionsPage
             CustomUIEventBindingType.Activating,
             "#WoodcutterButton",
             EventData.of("Action", ACTION_WOODCUTTER),
+            false
+        );
+        events.addEventBinding(
+            CustomUIEventBindingType.Activating,
+            "#FarmerButton",
+            EventData.of("Action", ACTION_FARMER),
             false
         );
         events.addEventBinding(
@@ -75,6 +85,9 @@ public final class PersonActionsPage
             close();
         } else if (ACTION_CONSTRUCTION_WORKER.equals(data.action)) {
             assignConstructionWorker.run();
+            close();
+        } else if (ACTION_FARMER.equals(data.action)) {
+            assignFarmer.run();
             close();
         }
     }
