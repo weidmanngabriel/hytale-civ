@@ -104,16 +104,6 @@ public final class RtsInteractionController {
             return;
         }
 
-        if (button == MouseButtonType.Right) {
-            Ref<EntityStore> target = event.getTargetEntityRef();
-            System.out.println(
-                "[CIV-DEBUG] PlayerMouseButtonEvent RIGHT"
-                    + " rts=" + (session != null)
-                    + " target=" + describeTarget(target)
-                    + " claimed=" + (target != null && target.isValid() && unitRegistry.isClaimed(target))
-            );
-        }
-
         if (session == null) {
             return;
         }
@@ -437,6 +427,20 @@ public final class RtsInteractionController {
         return target != null && target.isValid() && unitRegistry.isClaimed(target);
     }
 
+    public PersonActionsPage createFirstPersonActionsPage(
+        PlayerRef playerRef,
+        Ref<EntityStore> target
+    ) {
+        if (target == null || !target.isValid() || !unitRegistry.isClaimed(target)) {
+            return null;
+        }
+
+        return new PersonActionsPage(
+            playerRef,
+            () -> assignWoodcutter(playerRef, target)
+        );
+    }
+
     public boolean openFirstPersonActions(
         Ref<EntityStore> playerEntityRef,
         PlayerRef playerRef,
@@ -453,14 +457,12 @@ public final class RtsInteractionController {
             return false;
         }
 
-        player.getPageManager().openCustomPage(
-            playerEntityRef,
-            store,
-            new PersonActionsPage(
-                playerRef,
-                () -> assignWoodcutter(playerRef, target)
-            )
-        );
+        PersonActionsPage page = createFirstPersonActionsPage(playerRef, target);
+        if (page == null) {
+            return false;
+        }
+
+        player.getPageManager().openCustomPage(playerEntityRef, store, page);
         return true;
     }
 
@@ -478,20 +480,6 @@ public final class RtsInteractionController {
                 () -> assignWoodcutter(playerRef, selected)
             )
         );
-    }
-
-    private String describeTarget(Ref<EntityStore> target) {
-        if (target == null) {
-            return "null";
-        }
-        if (!target.isValid()) {
-            return "invalid";
-        }
-        NPCEntity npc = target.getStore().getComponentConcurrent(
-            target,
-            NPCEntity.getComponentType()
-        );
-        return npc == null ? "non-npc" : "npc";
     }
 
     private boolean isSelected(Session session, Ref<EntityStore> target) {

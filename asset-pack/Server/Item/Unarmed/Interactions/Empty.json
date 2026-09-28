@@ -1,0 +1,7 @@
+{
+  "Interactions": {
+    "Primary": "Root_Unarmed_Primary",
+    "Secondary": "Root_Civ_Unarmed_Secondary",
+    "Use": "Root_Use_Block"
+  }
+}
