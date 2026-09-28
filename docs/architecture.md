@@ -31,7 +31,7 @@ The current RTS validation spike plus Farm and Woodcutter slices contains these 
 - `RtsToolbarAnchorUi` injects the persistent left-side RTS menu into Hytale's interactive `ReticleServerEvent` anchor; `BuildingMenuPage` provides the modal building catalog.
 - Right-clicking the currently selected Civ NPC opens `PersonActionsPage`; the deprecated generic `Use`/F interaction is not used by RTS controls.
 - `CivInhabitantData` is a serializable Hytale ECS component attached to claimed NPC entities. It stores persistent per-inhabitant profession, profession XP and an optional future workplace identifier; the workplace field is deliberately not populated until placed buildings have stable persistent identity.
-- `CivUnitRegistry` remains a runtime-only registry for explicitly claimed NPCs and movement targets. Profession reads/writes go through `CivInhabitantData`, while movement still delegates to the NPC's native Hytale `PathManager` using a transient path.
+- `CivUnitRegistry` remains a runtime-only registry for explicitly claimed NPCs and movement targets. Profession reads/writes go through `CivInhabitantData`. For the `Civ_Inhabitant` role, movement writes the target into the role's single native `CivMoveTarget` position slot; `ReadPosition` + `Seek` then delegate pathfinding and motion to Hytale.
 - `WoodcutterWorkSystem` finds nearby natural-looking Hytale trunk blocks, drives a WOODCUTTER to an adjacent work position, and uses Hytale's native `BlockHarvestUtils.performBlockDamage` path to fell the base block so normal drops, break events and block physics remain engine-owned.
 - `FarmPrefabService` loads the Farm prefab from the standalone Asset Pack through Hytale's `PrefabStore`, validates terrain, renders the per-player placement preview, sinks the prefab floor one block into the terrain, maps `Civ_BuildingEntrance` markers to empty blocks, and records the world blocks replaced by the embedded floor.
 - `FarmBuildingRegistry` binds placed farm instances and assigned NPC refs to the core `FarmBuilding` state, tracks placement footprints for overlap checks, and retains each instance's replaced-floor snapshot for future demolition restoration.
@@ -41,7 +41,7 @@ The current RTS validation spike plus Farm and Woodcutter slices contains these 
 
 Claims and work targets remain intentionally runtime-only. Profession state now lives in the serializable `CivInhabitantData` component on the NPC entity, while profession XP is reserved there for the next inhabitant iterations. Workplace assignment remains runtime-only because placed buildings do not yet have stable persistent identity. A future inhabitant lifecycle should replace the debug claim mechanism.
 
-Movement commands no longer run a Civ-owned per-tick steering loop. `CivUnitRegistry` assigns a one-waypoint `TransientPath` to the NPC's native `PathManager`; the NPC's own Hytale role/movement stack remains responsible for following that path, including its normal movement speed and navigation behavior. Farm and Woodcutter systems still own their simulation-level arrival checks so job state changes remain deterministic from Civ's point of view.
+Movement commands do not run a Civ-owned per-tick steering loop. The creator-editable `Civ_Inhabitant` role declares exactly one position slot, `CivMoveTarget`; this is intentionally slot index 0 and is the Java/asset contract guarded by an automated asset test. `CivUnitRegistry` writes or clears that stored position through Hytale's `MarkedEntitySupport`, while the role consumes it with `ReadPosition` and `Seek` using Hytale's native pathfinder and Walk motion controller. Foreign Hytale roles are deliberately not driven through this contract. Farm and Woodcutter systems still own their simulation-level arrival checks so job state changes remain deterministic from Civ's point of view.
 
 The fixed RTS camera is a Hytale Custom camera, not Spectator mode. No verified native API for hiding only the local player's own model in this camera mode has been established yet, so the player entity is not despawned or hidden through an unverified workaround.
 
@@ -52,7 +52,7 @@ Hytale bootstrap and lifecycle. It wires adapters/services and registers Hytale-
 `CivilizationsPlugin` currently:
 
 - registers the serializable `CivInhabitantData` ECS component before wiring Civ registries and systems;
-- registers the Farm and Woodcutter ticking systems; generic NPC travel is delegated to Hytale's native `PathManager` rather than a Civ movement ticking system;
+- registers the Farm and Woodcutter ticking systems; generic `Civ_Inhabitant` travel is delegated to the role's native `ReadPosition`/`Seek` movement rather than a Civ movement ticking system;
 - exposes `/civtest`, `/civrtstest`, `/civclaim` and `/civfarm`;
 - registers the RTS anchor action used by the clickable **Bauen** button and wires mouse-button, mouse-motion and disconnect events to the RTS interaction controller.
 

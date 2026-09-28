@@ -1,0 +1,61 @@
+{
+  "Type": "Generic",
+  "StartState": "Idle",
+  "DisplayNames": [
+    "Bewohner"
+  ],
+  "DefaultNPCAttitude": "Ignore",
+  "DefaultPlayerAttitude": "Neutral",
+  "Appearance": "Klops_Merchant",
+  "MaxHealth": 74,
+  "DisableDamageGroups": [
+    "Self"
+  ],
+  "KnockbackScale": 0.5,
+  "MotionControllerList": [
+    {
+      "Type": "Walk",
+      "MaxWalkSpeed": 7,
+      "Gravity": 10,
+      "RunThreshold": 0.3,
+      "MaxFallSpeed": 15,
+      "MaxRotationSpeed": 360,
+      "Acceleration": 10
+    }
+  ],
+  "Instructions": [
+    {
+      "Sensor": {
+        "Type": "State",
+        "State": "Idle"
+      },
+      "Instructions": [
+        {
+          "$Comment": "Civ movement target: position slot 0 is the Java/Role contract for direct movement commands.",
+          "Sensor": {
+            "Type": "ReadPosition",
+            "Slot": "CivMoveTarget",
+            "MinRange": 0.8,
+            "Range": 256
+          },
+          "BodyMotion": {
+            "Type": "Seek",
+            "StopDistance": 0.8,
+            "SlowDownDistance": 2.0,
+            "RelativeSpeed": 0.8,
+            "UsePathfinder": true
+          }
+        },
+        {
+          "Sensor": {
+            "Type": "Any"
+          },
+          "BodyMotion": {
+            "Type": "Nothing"
+          }
+        }
+      ]
+    }
+  ],
+  "NameTranslationKey": "server.npcRoles.Klops_Merchant.name"
+}
