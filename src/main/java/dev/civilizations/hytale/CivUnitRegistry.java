@@ -1,5 +1,6 @@
 package dev.civilizations.hytale;
 
+import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
@@ -50,6 +51,26 @@ public final class CivUnitRegistry {
         }
 
         if (inhabitantService.ensureInhabitant(ref) == null) {
+            return false;
+        }
+        units.put(key, new UnitState(ref, null));
+        return true;
+    }
+
+    public boolean toggleClaim(
+        Ref<EntityStore> ref,
+        CommandBuffer<EntityStore> commandBuffer
+    ) {
+        UnitKey key = keyOf(ref);
+        UnitState existing = units.get(key);
+
+        if (existing != null && existing.ref().isValid()) {
+            applyNativePath(existing.ref(), null);
+            units.remove(key);
+            return false;
+        }
+
+        if (inhabitantService.ensureInhabitant(ref, commandBuffer) == null) {
             return false;
         }
         units.put(key, new UnitState(ref, null));
