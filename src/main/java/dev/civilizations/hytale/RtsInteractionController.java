@@ -2,11 +2,13 @@ package dev.civilizations.hytale;
 
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
+import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.protocol.MouseButtonState;
 import com.hypixel.hytale.protocol.MouseButtonType;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
+import com.hypixel.hytale.server.core.event.events.player.PlayerInteractEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseMotionEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
@@ -84,6 +86,21 @@ public final class RtsInteractionController {
         }
 
         startFarmPlacement(playerRef, session);
+    }
+
+    public void handlePrimaryDiagnostic(PlayerInteractEvent event) {
+        if (event.getActionType() != InteractionType.Primary) {
+            return;
+        }
+
+        PlayerRef playerRef = event.getPlayer().getPlayerRef();
+        Ref<EntityStore> target = event.getTargetRef();
+        String targetStatus = target == null
+            ? "no target"
+            : (target.isValid() ? "valid target" : "invalid target");
+        playerRef.sendMessage(Message.raw(
+            "Civ DEBUG: Primary interaction detected; " + targetStatus + "."
+        ));
     }
 
     public void handleMouseButton(PlayerMouseButtonEvent event) {
