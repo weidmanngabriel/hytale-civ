@@ -31,7 +31,7 @@ public final class FarmBuildingRegistry {
     public FarmSite registerFarm(
         UUID worldId,
         List<Vector3i> entranceBlocks,
-        FarmPrefabService.PlacementFootprint footprint,
+        PrefabPlacementService.PlacementFootprint footprint,
         Map<BlockPosition, Integer> replacedFloorBlocks
     ) {
         if (entranceBlocks == null || entranceBlocks.isEmpty()) {
@@ -60,7 +60,7 @@ public final class FarmBuildingRegistry {
         return site;
     }
 
-    public boolean overlaps(UUID worldId, FarmPrefabService.PlacementFootprint footprint) {
+    public boolean overlaps(UUID worldId, PrefabPlacementService.PlacementFootprint footprint) {
         if (worldId == null || footprint == null) {
             return false;
         }
@@ -164,7 +164,7 @@ public final class FarmBuildingRegistry {
         private final UUID worldId;
         private final FarmBuilding building;
         private final List<BlockPosition> entrances;
-        private final FarmPrefabService.PlacementFootprint footprint;
+        private final PrefabPlacementService.PlacementFootprint footprint;
         private final Map<BlockPosition, Integer> replacedFloorBlocks;
         private CivUnitRegistry.UnitKey assignedFarmer;
         private BlockPosition activeEntrance;
@@ -173,7 +173,7 @@ public final class FarmBuildingRegistry {
             UUID worldId,
             FarmBuilding building,
             List<BlockPosition> entrances,
-            FarmPrefabService.PlacementFootprint footprint,
+            PrefabPlacementService.PlacementFootprint footprint,
             Map<BlockPosition, Integer> replacedFloorBlocks
         ) {
             this.worldId = worldId;
@@ -196,7 +196,7 @@ public final class FarmBuildingRegistry {
             return entrances.size();
         }
 
-        public FarmPrefabService.PlacementFootprint footprint() {
+        public PrefabPlacementService.PlacementFootprint footprint() {
             return footprint;
         }
 
