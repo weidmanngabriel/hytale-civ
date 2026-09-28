@@ -1,6 +1,6 @@
 {
   "Type": "OpenCustomUI",
   "Page": {
-    "Type": "CivPersonActions"
+    "Id": "CivPersonActions"
   }
 }
