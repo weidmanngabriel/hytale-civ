@@ -32,6 +32,11 @@ $C.@DecoratedContainer {
       Anchor: (Width: 220, Height: 44, Top: 8);
     }
 
+    $C.@TextButton #FarmerButton {
+      @Text = "Bauer";
+      Anchor: (Width: 220, Height: 44, Top: 8);
+    }
+
     Label {
       Text: "Bewegen nach …  – aktuell per Rechtsklick";
       Style: (FontSize: 15, TextColor: #b8b8b8);
@@ -39,7 +44,7 @@ $C.@DecoratedContainer {
     }
 
     Label {
-      Text: "Arbeitsstätte zuweisen – folgt später";
+      Text: "Bauer: anschließend Farm per Rechtsklick zuweisen";
       Style: (FontSize: 15, TextColor: #b8b8b8);
       Anchor: (Top: 10);
     }
