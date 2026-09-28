@@ -130,3 +130,8 @@ Mehrspieler-Abnahme:
 5. Bestätigen, dass Spieler B durch die erneute serverseitige Prüfung abgelehnt wird und keine überlappende Farm entsteht.
 
 Der ursprüngliche Schnappschuss der Bodenblöcke bleibt interner Laufzeitzustand, bis eine Abrissoberfläche existiert. Sobald Abriss umgesetzt wird, muss der Abnahmetest die exakte Wiederherstellung dieser gespeicherten Blöcke prüfen. Rotation bleibt ein separates zukünftiges Feature.
+
+
+### Construction preview input diagnostic
+
+For the current focused runtime diagnostic, select **Farm** and move the mouse across terrain before clicking. The chat should identify the first boundary reached: either `MouseMotion` with a null target, a concrete `target=x,y,z anchor=x,y,z`, a preview-spawn exception, or a successful preview update. This diagnostic is temporary evidence for the engine input/preview contract and is not intended as final player-facing UX.

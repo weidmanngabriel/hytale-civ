@@ -158,8 +158,17 @@ public final class RtsInteractionController {
         }
 
         Vector3i targetBlock = event.getTargetBlock();
-        if (targetBlock == null
-            || (session.previewTarget != null && session.previewTarget.equals(targetBlock))) {
+        if (targetBlock == null) {
+            if (!session.debugNullMotionReported) {
+                session.debugNullMotionReported = true;
+                playerRef.sendMessage(Message.raw(
+                    "[Civ preview debug] MouseMotion kommt an, aber targetBlock ist null."
+                ));
+            }
+            return;
+        }
+        session.debugNullMotionReported = false;
+        if (session.previewTarget != null && session.previewTarget.equals(targetBlock)) {
             return;
         }
 
@@ -174,10 +183,23 @@ public final class RtsInteractionController {
                 validatePlacement(worldId, world, targetBlock, session.placementDefinition);
             session.previewTarget = new Vector3i(targetBlock);
             session.previewCandidate = candidate;
+            playerRef.sendMessage(Message.raw(
+                "[Civ preview debug] target="
+                    + targetBlock.x + "," + targetBlock.y + "," + targetBlock.z
+                    + " anchor=" + candidate.anchor().x + ","
+                    + candidate.anchor().y + "," + candidate.anchor().z
+            ));
             placementService.updateConstructionPreview(playerRef, candidate);
+            playerRef.sendMessage(Message.raw(
+                "[Civ preview debug] Preview-Update wurde ausgeführt."
+            ));
         } catch (RuntimeException exception) {
             session.previewTarget = new Vector3i(targetBlock);
             session.previewCandidate = null;
+            playerRef.sendMessage(Message.raw(
+                "[Civ preview debug] Preview-Fehler: "
+                    + exception.getClass().getSimpleName() + ": " + exception.getMessage()
+            ));
         }
     }
 
@@ -577,5 +599,6 @@ public final class RtsInteractionController {
         private PrefabPlacementService.PlacementDefinition placementDefinition;
         private Vector3i previewTarget;
         private PrefabPlacementService.PlacementCandidate previewCandidate;
+        private boolean debugNullMotionReported;
     }
 }
