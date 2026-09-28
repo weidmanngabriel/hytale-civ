@@ -38,7 +38,7 @@ Scenario tests should remain Hytale-independent unless the behavior being tested
 
 Tests around translation and adapter behavior where possible without a running server.
 
-The current RTS spike mainly exercises client camera, cursor targeting, anchor UI actions, custom pages, client-side placement preview, native tree harvesting and Hytale NPC path/movement behavior and therefore does not pretend to cover those engine contracts with mocked unit tests.
+The current RTS spike mainly exercises client camera, cursor targeting, interactive custom pages, client-side placement preview, native tree harvesting and Hytale NPC path/movement behavior and therefore does not pretend to cover those engine contracts with mocked unit tests.
 
 ## Hytale server integration tests
 
@@ -57,7 +57,7 @@ The controllable-NPC spike has this acceptance sequence:
 7. spawn/use a `Civ_Inhabitant`, right-click open, reasonably flat ground and confirm it travels toward the target using its native Hytale `Seek`/Walk behavior rather than Civ steering;
 8. right-click behind an obstacle and confirm Hytale's native path/movement stack, rather than Civ code, determines the route behavior;
 9. run `/civclaim` and click a claimed NPC again to release it; confirm it can no longer be selected or commanded;
-10. run `/civrtstest` again and confirm the RTS toolbar disappears, normal camera control returns and the client remains stable;
+10. run `/civrtstest` again and confirm normal camera control returns and the client remains stable;
 11. run `/civrtstest` twice more and confirm repeated enable/disable cycles remain stable;
 12. confirm claims are runtime-only and do not survive a plugin/server restart;
 13. assign a profession to a claimed NPC, restart the server/plugin, reclaim the same persisted NPC entity and confirm its profession data is still present. Farm assignment itself is not expected to survive yet.
@@ -97,10 +97,10 @@ Automated coverage now includes:
 Manual acceptance sequence:
 
 1. install/deploy both `hytale-civ.jar` and `hytale-civ-assets`;
-2. run `/civrtstest` and confirm an interactive **Bauen** button appears on the left;
-3. click **Bauen** and confirm the click is handled by Hytale's anchor UI event system and a modal **Gebäude** catalog opens to its right, blocking normal RTS world interaction;
+2. run `/civrtstest`;
+3. run `/civbuild` and confirm a modal **Gebäude** catalog opens and blocks normal RTS world interaction;
 4. confirm the current catalog contains **Farm** and can be closed without starting placement;
-5. open it again, choose **Farm**, then move the cursor across terrain and confirm a Farm ghost follows the pointed block;
+5. run `/civbuild` again, choose **Farm**, then move the cursor across terrain and confirm a Farm ghost follows the pointed block;
 6. right click and confirm placement is cancelled without changing the world;
 7. choose **Farm** again and left click valid, flat, supported ground; confirm the Farm is placed with its floor embedded into the terrain rather than sitting one block above it;
 8. try again over a hole, liquid, blocked building volume and an existing Farm footprint; confirm placement is refused with a reason and remains in placement mode;
