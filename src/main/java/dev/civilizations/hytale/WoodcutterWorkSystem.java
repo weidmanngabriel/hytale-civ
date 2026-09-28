@@ -18,8 +18,10 @@ import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import dev.civilizations.core.BlockPosition;
+import dev.civilizations.core.MovementIntent;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.WoodcutterJob;
+import dev.civilizations.core.WorldPosition;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
@@ -27,7 +29,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Adapts the core woodcutter work cycle to Hytale's world, movement and native block harvesting.
+ * Executes headless woodcutter intents against Hytale's world, navigation and native harvesting.
  */
 public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore> {
 
@@ -46,11 +48,16 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     };
 
     private final CivUnitRegistry unitRegistry;
+    private final CivActivityRegistry activityRegistry;
     private final Map<CivUnitRegistry.UnitKey, WorkerRuntime> workers =
         new ConcurrentHashMap<>();
 
-    public WoodcutterWorkSystem(CivUnitRegistry unitRegistry) {
+    public WoodcutterWorkSystem(
+        CivUnitRegistry unitRegistry,
+        CivActivityRegistry activityRegistry
+    ) {
         this.unitRegistry = unitRegistry;
+        this.activityRegistry = activityRegistry;
     }
 
     @Override
@@ -76,6 +83,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
 
         if (!ref.isValid()) {
             workers.remove(key);
+            activityRegistry.forget(ref);
             unitRegistry.forget(ref);
             return;
         }
@@ -91,39 +99,34 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             return;
         }
 
-        World world = store.getExternalData().getWorld();
-        Vector3d position = transform.getPosition();
-        if (unitRegistry.continueManualMove(ref, position)) {
+        if (!activityRegistry.autonomousWorkAllowed(ref)) {
             return;
         }
 
+        World world = store.getExternalData().getWorld();
+        Vector3d position = transform.getPosition();
         WorkerRuntime runtime = workers.computeIfAbsent(key, ignored -> new WorkerRuntime());
 
         BlockPosition target = runtime.job.targetTree();
         if (target != null && !isTreeBase(world, target.x(), target.y(), target.z())) {
             unitRegistry.clearMoveTarget(ref);
             runtime.job.abandonTarget();
-            runtime.workTarget = null;
             runtime.retrySeconds = 0.0;
         }
 
-        switch (runtime.job.state()) {
-            case SEARCHING -> searchForTree(ref, world, position, runtime, dt);
-            case WALKING_TO_TREE -> walkToTree(ref, world, position, runtime);
-            case CHOPPING -> {
-                unitRegistry.clearMoveTarget(ref);
-                runtime.job.advanceWork(dt);
-            }
-            case READY_TO_FELL -> {
-                unitRegistry.clearMoveTarget(ref);
-                BlockPosition tree = runtime.job.targetTree();
-                if (tree != null) {
-                    fellTree(world, store, tree);
-                }
-                runtime.job.completeFelling();
-                runtime.workTarget = null;
-                runtime.retrySeconds = 0.25;
-            }
+        WoodcutterJob.Intent intent = runtime.job.intent();
+        if (intent instanceof WoodcutterJob.FindTreeIntent) {
+            searchForTree(ref, world, position, runtime, dt);
+        } else if (intent instanceof WoodcutterJob.MoveToTreeIntent moveIntent) {
+            executeMovement(ref, position, runtime, moveIntent.movement());
+        } else if (intent instanceof WoodcutterJob.ChopTreeIntent) {
+            unitRegistry.clearMoveTarget(ref);
+            runtime.job.advanceWork(dt);
+        } else if (intent instanceof WoodcutterJob.FellTreeIntent fellIntent) {
+            unitRegistry.clearMoveTarget(ref);
+            fellTree(world, store, fellIntent.tree());
+            runtime.job.fellingCompleted();
+            runtime.retrySeconds = 0.25;
         }
     }
 
@@ -139,45 +142,43 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             return;
         }
 
-        BlockPosition tree = findNearestTree(world, position);
-        if (tree == null) {
+        WoodcutterJob.WorkTarget target = findNearestTarget(world, position);
+        if (target == null) {
             unitRegistry.clearMoveTarget(ref);
             runtime.retrySeconds = RETRY_SECONDS;
             return;
         }
 
-        runtime.job.assignTarget(tree);
-        runtime.workTarget = findWorkTarget(world, position, tree);
-        unitRegistry.setMoveTarget(ref, runtime.workTarget);
-    }
-
-    private void walkToTree(
-        Ref<EntityStore> ref,
-        World world,
-        Vector3d position,
-        WorkerRuntime runtime
-    ) {
-        BlockPosition tree = runtime.job.targetTree();
-        if (tree == null) {
-            runtime.job.abandonTarget();
-            runtime.workTarget = null;
+        if (!runtime.job.assignTarget(target)) {
             return;
         }
 
-        if (runtime.workTarget == null) {
-            runtime.workTarget = findWorkTarget(world, position, tree);
+        WoodcutterJob.Intent nextIntent = runtime.job.intent();
+        if (nextIntent instanceof WoodcutterJob.MoveToTreeIntent moveIntent) {
+            unitRegistry.setMoveTarget(ref, toVector(moveIntent.movement().destination()));
         }
+    }
 
-        if (!hasArrived(position, runtime.workTarget)) {
-            unitRegistry.setMoveTarget(ref, runtime.workTarget);
+    private void executeMovement(
+        Ref<EntityStore> ref,
+        Vector3d position,
+        WorkerRuntime runtime,
+        MovementIntent movement
+    ) {
+        Vector3d target = toVector(movement.destination());
+        if (!hasArrived(position, target)) {
+            unitRegistry.setMoveTarget(ref, target);
             return;
         }
 
         unitRegistry.clearMoveTarget(ref);
-        runtime.job.arriveAtTree();
+        runtime.job.movementArrived();
     }
 
-    private static BlockPosition findNearestTree(World world, Vector3d position) {
+    private static WoodcutterJob.WorkTarget findNearestTarget(
+        World world,
+        Vector3d position
+    ) {
         int centerX = (int) Math.floor(position.x);
         int centerY = (int) Math.floor(position.y);
         int centerZ = (int) Math.floor(position.z);
@@ -213,7 +214,15 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             }
         }
 
-        return nearest;
+        if (nearest == null) {
+            return null;
+        }
+
+        Vector3d interaction = findWorkTarget(world, position, nearest);
+        return new WoodcutterJob.WorkTarget(
+            nearest,
+            new WorldPosition(interaction.x, interaction.y, interaction.z)
+        );
     }
 
     private static boolean isTreeBase(World world, int x, int y, int z) {
@@ -309,6 +318,10 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         );
     }
 
+    private static Vector3d toVector(WorldPosition position) {
+        return new Vector3d(position.x(), position.y(), position.z());
+    }
+
     private static boolean hasArrived(Vector3d position, Vector3d target) {
         double dx = position.x - target.x;
         double dz = position.z - target.z;
@@ -321,7 +334,6 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
 
     private static final class WorkerRuntime {
         private final WoodcutterJob job = new WoodcutterJob();
-        private Vector3d workTarget;
         private double retrySeconds;
     }
 }
