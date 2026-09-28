@@ -8,7 +8,10 @@ import com.hypixel.hytale.protocol.PositionDistanceOffsetType;
 import com.hypixel.hytale.protocol.RotationType;
 import com.hypixel.hytale.protocol.ServerCameraSettings;
 import com.hypixel.hytale.protocol.packets.camera.SetServerCamera;
+import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.server.core.entity.entities.player.CameraManager;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
+import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import org.joml.Vector3f;
 
 /**
@@ -42,8 +45,17 @@ public final class RtsCameraController {
     }
 
     public void disable(PlayerRef playerRef) {
-        playerRef.getPacketHandler().writeNoCache(
-            new SetServerCamera(ClientCameraView.Custom, false, null)
+        Ref<EntityStore> playerEntityRef = playerRef.getReference();
+        if (playerEntityRef == null || !playerEntityRef.isValid()) {
+            return;
+        }
+
+        CameraManager cameraManager = playerEntityRef.getStore().getComponent(
+            playerEntityRef,
+            CameraManager.getComponentType()
         );
+        if (cameraManager != null) {
+            cameraManager.resetCamera(playerRef);
+        }
     }
 }
