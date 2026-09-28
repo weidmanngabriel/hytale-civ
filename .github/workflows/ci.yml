@@ -67,21 +67,6 @@ jobs:
       - name: Build plugin and release bundle
         run: ./gradlew build --stacktrace -PprojectVersion=${{ steps.version.outputs.project_version }}
 
-      - name: Snapshot Hytale API
-        run: ./gradlew snapshotHytaleApi --stacktrace -PprojectVersion=${{ steps.version.outputs.project_version }}
-
-      - name: Inspect representative Hytale API class
-        run: ./gradlew inspectHytaleClass --stacktrace -PhytaleClass=CommandBuffer -PprojectVersion=${{ steps.version.outputs.project_version }}
-
-      - name: Upload Hytale API snapshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: hytale-api-snapshot
-          path: |
-            build/hytale-api-snapshot/
-            build/hytale-api-inspection/
-          if-no-files-found: error
-          retention-days: 14
 
       - name: Upload release bundle
         uses: actions/upload-artifact@v4
