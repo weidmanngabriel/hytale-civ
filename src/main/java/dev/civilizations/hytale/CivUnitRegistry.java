@@ -3,28 +3,26 @@ package dev.civilizations.hytale;
 import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
-import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.math.vector.Vector3dUtil;
+import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import com.hypixel.hytale.server.npc.role.support.MarkedEntitySupport;
 import dev.civilizations.core.Profession;
 import org.joml.Vector3d;
-import org.joml.Vector3i;
 
-import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Runtime cache for persistent Civ inhabitants and transient movement targets.
+ * Runtime cache for persistent Civ inhabitants and transient native movement targets.
  *
- * <p>{@link CivInhabitantData} is the authoritative marker that an NPC belongs to the Civ;
- * this registry only caches live references and movement targets.</p>
+ * <p>{@link CivInhabitantData} is the authoritative marker that an NPC belongs to the Civ.
+ * Gameplay priority such as manual movement overrides lives in Core state via
+ * {@link CivActivityRegistry}; this registry only adapts the currently requested movement target
+ * to Hytale's native NPC position slot.</p>
  */
 public final class CivUnitRegistry {
 
-    private static final double FORMATION_SPACING = 1.4;
     private static final String CIV_INHABITANT_ROLE = "Civ_Inhabitant";
     // Civ_Inhabitant declares exactly one ReadPosition slot: CivMoveTarget.
     private static final int CIV_MOVE_POSITION_SLOT = 0;
@@ -52,7 +50,7 @@ public final class CivUnitRegistry {
         if (data == null) {
             return false;
         }
-        units.putIfAbsent(keyOf(ref), new UnitState(ref, null, false));
+        units.putIfAbsent(keyOf(ref), new UnitState(ref, null));
         return true;
     }
 
@@ -71,7 +69,7 @@ public final class CivUnitRegistry {
         if (data == null) {
             return new ClaimResult(false, null);
         }
-        units.putIfAbsent(keyOf(ref), new UnitState(ref, null, false));
+        units.putIfAbsent(keyOf(ref), new UnitState(ref, null));
         return new ClaimResult(true, data);
     }
 
@@ -99,7 +97,7 @@ public final class CivUnitRegistry {
         }
 
         if (state == null) {
-            units.put(key, new UnitState(ref, null, false));
+            units.put(key, new UnitState(ref, null));
         }
         return true;
     }
@@ -124,81 +122,19 @@ public final class CivUnitRegistry {
         return state.moveTarget();
     }
 
-    public int assignMoveTargets(Collection<Ref<EntityStore>> refs, Vector3i targetBlock) {
-        List<Ref<EntityStore>> valid = refs.stream()
-            .filter(this::isClaimed)
-            .toList();
-
-        int count = valid.size();
-        if (count == 0) {
-            return 0;
-        }
-
-        int columns = (int) Math.ceil(Math.sqrt(count));
-        int rows = (int) Math.ceil((double) count / columns);
-        for (int index = 0; index < count; index++) {
-            int column = index % columns;
-            int row = index / columns;
-
-            double offsetX = (column - (columns - 1) / 2.0) * FORMATION_SPACING;
-            double offsetZ = (row - (rows - 1) / 2.0) * FORMATION_SPACING;
-            Ref<EntityStore> ref = valid.get(index);
-            setManualMoveTarget(
-                ref,
-                new Vector3d(
-                    targetBlock.x + 0.5 + offsetX,
-                    targetBlock.y + 1.0,
-                    targetBlock.z + 0.5 + offsetZ
-                )
-            );
-        }
-
-        return count;
-    }
-
     public void clearMoveTarget(Ref<EntityStore> ref) {
-        setJobMoveTarget(ref, null);
+        setMoveTargetInternal(ref, null);
     }
 
     public void setMoveTarget(Ref<EntityStore> ref, Vector3d target) {
-        setJobMoveTarget(ref, target);
-    }
-
-    public boolean continueManualMove(Ref<EntityStore> ref, Vector3d position) {
-        UnitState state = units.get(keyOf(ref));
-        if (state == null || !state.manualMove() || state.moveTarget() == null) {
-            return false;
-        }
-        if (position.distanceSquared(state.moveTarget()) > 0.36) {
-            return true;
-        }
-
-        units.put(keyOf(ref), new UnitState(ref, null, false));
-        applyNativePath(ref, null);
-        return false;
+        setMoveTargetInternal(ref, target);
     }
 
     public void cancelMoveTarget(Ref<EntityStore> ref) {
-        UnitState state = units.get(keyOf(ref));
-        if (state != null) {
-            units.put(keyOf(ref), new UnitState(ref, null, false));
-        }
-        applyNativePath(ref, null);
+        setMoveTargetInternal(ref, null);
     }
 
-    private void setManualMoveTarget(Ref<EntityStore> ref, Vector3d target) {
-        setMoveTargetInternal(ref, target, true);
-    }
-
-    private void setJobMoveTarget(Ref<EntityStore> ref, Vector3d target) {
-        UnitState current = units.get(keyOf(ref));
-        if (current != null && current.manualMove()) {
-            return;
-        }
-        setMoveTargetInternal(ref, target, false);
-    }
-
-    private void setMoveTargetInternal(Ref<EntityStore> ref, Vector3d target, boolean manualMove) {
+    private void setMoveTargetInternal(Ref<EntityStore> ref, Vector3d target) {
         UnitKey key = keyOf(ref);
         UnitState current = units.get(key);
         if (current == null || !current.ref().isValid()) {
@@ -211,7 +147,7 @@ public final class CivUnitRegistry {
             return;
         }
 
-        units.put(key, new UnitState(current.ref(), nextTarget, manualMove && nextTarget != null));
+        units.put(key, new UnitState(current.ref(), nextTarget));
         applyNativePath(ref, nextTarget);
     }
 
@@ -263,8 +199,7 @@ public final class CivUnitRegistry {
 
     private record UnitState(
         Ref<EntityStore> ref,
-        Vector3d moveTarget,
-        boolean manualMove
+        Vector3d moveTarget
     ) {
     }
 }
