@@ -1,3 +1,4 @@
+import java.util.jar.JarFile
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
@@ -24,8 +25,15 @@ val hytaleServerVersion = providers.gradleProperty("hytaleServerVersion").getOrE
 val artifactBaseName = providers.gradleProperty("artifactBaseName").getOrElse("hytale-civ")
 val assetPackDir = layout.projectDirectory.dir("asset-pack")
 
+val hytaleInspection by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    isTransitive = false
+}
+
 dependencies {
     compileOnly("com.hypixel.hytale:Server:$hytaleServerVersion")
+    hytaleInspection("com.hypixel.hytale:Server:$hytaleServerVersion")
 
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -53,6 +61,94 @@ tasks.withType<Test>().configureEach {
     reports {
         junitXml.required = true
         html.required = true
+    }
+}
+
+val snapshotHytaleApi = tasks.register("snapshotHytaleApi") {
+    group = "verification"
+    description = "Creates a proof-of-concept API snapshot from the resolved Hytale Server JAR."
+    notCompatibleWithConfigurationCache("Proof-of-concept task inspects the resolved external JAR at execution time.")
+
+    val outputDir = layout.buildDirectory.dir("hytale-api-snapshot")
+    outputs.dir(outputDir)
+
+    doLast {
+        val artifact = hytaleInspection.resolvedConfiguration.resolvedArtifacts.single()
+        val serverJar = artifact.file
+        val snapshotDir = outputDir.get().asFile
+        val signaturesDir = snapshotDir.resolve("signatures")
+
+        snapshotDir.deleteRecursively()
+        signaturesDir.mkdirs()
+
+        val classes = JarFile(serverJar).use { jar ->
+            jar.entries().asSequence()
+                .filter { !it.isDirectory && it.name.endsWith(".class") && !it.name.contains("module-info") }
+                .map { it.name.removeSuffix(".class").replace('/', '.') }
+                .sorted()
+                .toList()
+        }
+
+        snapshotDir.resolve("classes.txt").writeText(classes.joinToString(separator = "\n", postfix = "\n"))
+
+        val module = artifact.moduleVersion.id
+        snapshotDir.resolve("metadata.txt").writeText(
+            buildString {
+                appendLine("module=${module.group}:${module.name}:${module.version}")
+                appendLine("jar=${serverJar.name}")
+                appendLine("classCount=${classes.size}")
+            }
+        )
+
+        val targetSimpleNames = listOf(
+            "CommandBuffer",
+            "CameraManager",
+            "InteractiveCustomUIPage",
+            "PrefabStore",
+            "TriggerVolumeManager"
+        )
+
+        val javaLauncher = javaToolchains.launcherFor {
+            languageVersion.set(JavaLanguageVersion.of(25))
+        }.get()
+        val javapName = if (System.getProperty("os.name").lowercase().contains("win")) "javap.exe" else "javap"
+        val javap = javaLauncher.metadata.installationPath.file("bin/$javapName").asFile
+
+        val findings = mutableListOf<String>()
+
+        for (simpleName in targetSimpleNames) {
+            val matches = classes.filter { it.substringAfterLast('.') == simpleName }
+            if (matches.isEmpty()) {
+                findings += "$simpleName -> MISSING"
+                continue
+            }
+
+            for (className in matches) {
+                val process = ProcessBuilder(
+                    javap.absolutePath,
+                    "-classpath",
+                    serverJar.absolutePath,
+                    "-protected",
+                    className
+                )
+                    .redirectErrorStream(true)
+                    .start()
+
+                val output = process.inputStream.bufferedReader().use { it.readText() }
+                val exitCode = process.waitFor()
+                if (exitCode != 0) {
+                    throw GradleException("javap failed for $className:\n$output")
+                }
+
+                signaturesDir.resolve("${className.replace('.', '_')}.txt").writeText(output)
+                findings += "$simpleName -> $className"
+            }
+        }
+
+        snapshotDir.resolve("findings.txt").writeText(findings.joinToString(separator = "\n", postfix = "\n"))
+
+        logger.lifecycle("Hytale API snapshot written to {}", snapshotDir)
+        findings.forEach { logger.lifecycle(it) }
     }
 }
 

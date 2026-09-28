@@ -67,6 +67,17 @@ jobs:
       - name: Build plugin and release bundle
         run: ./gradlew build --stacktrace -PprojectVersion=${{ steps.version.outputs.project_version }}
 
+      - name: Snapshot Hytale API proof of concept
+        run: ./gradlew snapshotHytaleApi --stacktrace -PprojectVersion=${{ steps.version.outputs.project_version }}
+
+      - name: Upload Hytale API snapshot proof of concept
+        uses: actions/upload-artifact@v4
+        with:
+          name: hytale-api-snapshot-poc
+          path: build/hytale-api-snapshot/
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload release bundle
         uses: actions/upload-artifact@v4
         with:
