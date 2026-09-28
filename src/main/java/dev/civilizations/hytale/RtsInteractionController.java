@@ -104,16 +104,17 @@ public final class RtsInteractionController {
             return;
         }
 
+        if (button == MouseButtonType.Right) {
+            Ref<EntityStore> target = event.getTargetEntityRef();
+            System.out.println(
+                "[CIV-DEBUG] PlayerMouseButtonEvent RIGHT"
+                    + " rts=" + (session != null)
+                    + " target=" + describeTarget(target)
+                    + " claimed=" + (target != null && target.isValid() && unitRegistry.isClaimed(target))
+            );
+        }
+
         if (session == null) {
-            if (button == MouseButtonType.Right
-                && openFirstPersonActions(
-                    event.getPlayerRef(),
-                    playerRef,
-                    event.getTargetEntityRef(),
-                    event.getPlayerRef().getStore()
-                )) {
-                event.setCancelled(true);
-            }
             return;
         }
         if (button == MouseButtonType.Left) {
@@ -473,6 +474,20 @@ public final class RtsInteractionController {
                 () -> assignWoodcutter(playerRef, selected)
             )
         );
+    }
+
+    private String describeTarget(Ref<EntityStore> target) {
+        if (target == null) {
+            return "null";
+        }
+        if (!target.isValid()) {
+            return "invalid";
+        }
+        NPCEntity npc = target.getStore().getComponentConcurrent(
+            target,
+            NPCEntity.getComponentType()
+        );
+        return npc == null ? "non-npc" : "npc";
     }
 
     private boolean isSelected(Session session, Ref<EntityStore> target) {
