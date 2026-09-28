@@ -88,22 +88,6 @@ public final class FarmPrefabService {
             );
         }
 
-        int clearanceTop = source.getSelectionMax().y - source.getAnchorY() + anchor.y;
-        for (int x = footprint.minX(); x <= footprint.maxX(); x++) {
-            for (int z = footprint.minZ(); z <= footprint.maxZ(); z++) {
-                for (int y = footprint.floorY() + 1; y <= clearanceTop; y++) {
-                    if (world.getBlock(x, y, z) != BlockType.EMPTY_ID
-                        || world.getFluidId(x, y, z) != 0) {
-                        return PlacementCandidate.invalid(
-                            anchor,
-                            footprint,
-                            "Die Fläche ist durch Gelände oder ein Objekt blockiert."
-                        );
-                    }
-                }
-            }
-        }
-
         for (PrefabCell cell : cells) {
             if (cell.y() == floorY) {
                 continue;
