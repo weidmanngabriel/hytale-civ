@@ -41,6 +41,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
     private static final String TYPE_TAG = "civ.type";
     private static final String BUILDING_TAG = "civ.building";
     private static final String WORKPLACE_ACCESS = "workplace_access";
+    private static final String FIELD = "field";
     private static final String FARM = "farm";
 
     private final CivUnitRegistry unitRegistry;
@@ -266,7 +267,18 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
             placementService.completeConstruction(owner, world, site);
 
         if (PrefabPlacementService.WHEAT_FIELD.id().equals(site.definition().id())) {
-            fieldRegistry.registerField(site.worldId(), site.candidate().footprint());
+            var fieldMarkers = placed.markers().stream()
+                .filter(marker -> marker.hasTag(TYPE_TAG, FIELD))
+                .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
+                .map(PrefabPlacementService.PlacedMarker::position)
+                .toList();
+            if (!fieldMarkers.isEmpty()) {
+                fieldRegistry.registerField(
+                    site.worldId(),
+                    fieldMarkers.getFirst(),
+                    site.candidate().footprint()
+                );
+            }
         } else if (PrefabPlacementService.FARM.id().equals(site.definition().id())) {
             var entrances = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, WORKPLACE_ACCESS))
