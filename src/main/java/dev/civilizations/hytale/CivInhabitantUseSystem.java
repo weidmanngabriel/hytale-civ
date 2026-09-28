@@ -4,7 +4,6 @@ import com.hypixel.hytale.component.ArchetypeChunk;
 import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
-import com.hypixel.hytale.component.query.Archetype;
 import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.EntityEventSystem;
 import com.hypixel.hytale.protocol.InteractionType;
@@ -30,7 +29,7 @@ public final class CivInhabitantUseSystem
 
     @Override
     public Query<EntityStore> getQuery() {
-        return Archetype.empty();
+        return Player.getComponentType();
     }
 
     @Override
