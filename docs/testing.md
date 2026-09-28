@@ -38,7 +38,7 @@ Szenario-Tests bleiben Hytale-unabhängig, außer das geprüfte Verhalten ist ta
 
 Tests für Übersetzung und Adapterverhalten, soweit dies ohne laufenden Server sinnvoll möglich ist.
 
-Der aktuelle RTS-Prototyp betrifft vor allem Kamera, Cursor-Zielerfassung, interaktive Custom Pages, Platzierungsvorschau, natives Baumfällen und Hytale-NPC-Bewegung. Diese Engine-Verträge werden deshalb nicht künstlich durch gemockte Unit-Tests vorgetäuscht.
+Der aktuelle RTS-Prototyp betrifft vor allem Kamera, Cursor-Zielerfassung, interaktive Custom Pages, Platzierungsvorschau, natives Baumfällen und Hytale-NPC-Bewegung. First-Person-Personenaktionen hängen zusätzlich vom Runtime-Dispatch von <code>UseEntityEvent.Pre</code> auf dem handelnden Spieler ab. Diese Engine-Verträge werden deshalb nicht künstlich durch gemockte Unit-Tests vorgetäuscht.
 
 ## Hytale-Server-Integrationstests
 
@@ -75,7 +75,6 @@ Der Test für direkte Bewegung verwendet die eingecheckte Rolle <code>Civ_Inhabi
 - <code>WoodcutterJobTest</code> prüft den Ablauf Ziel → Ankunft → Fällen → bereit zum tatsächlichen Baumfällen.
 - <code>ManifestValidationTest</code> prüft die verpackten Plugin-Metadaten ohne Hytale zu starten.
 - <code>CivInhabitantRoleValidationTest</code> prüft die eingecheckte Civ-NPC-Rolle und den einzelnen Positionsslot, auf den die Java-Bewegungsanbindung angewiesen ist.
-- <code>FirstPersonInteractionAssetValidationTest</code> prüft, dass unbewaffnetes <code>Secondary</code> über den Civ-Root auf den registrierten Personenaktionen-Supplier zeigt.
 
 ## Abdeckung des Holzfäller-Vertical-Slice
 
