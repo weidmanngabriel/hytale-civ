@@ -50,7 +50,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 new RtsCameraController(),
                 unitRegistry,
                 farmRegistry,
-                new FarmPrefabService()
+                new BuildingPlacementRegistry(),
+                new PrefabPlacementService()
             );
 
         getEntityStoreRegistry().registerSystem(new CivClaimDamageSystem(rtsInteractionController));
