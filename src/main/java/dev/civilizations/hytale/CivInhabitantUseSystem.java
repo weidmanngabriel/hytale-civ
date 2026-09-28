@@ -1,5 +1,6 @@
 package dev.civilizations.hytale;
 
+import com.hypixel.hytale.component.Archetype;
 import com.hypixel.hytale.component.ArchetypeChunk;
 import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Ref;
@@ -10,12 +11,15 @@ import com.hypixel.hytale.protocol.InteractionType;
 import com.hypixel.hytale.server.core.event.events.ecs.UseEntityEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import com.hypixel.hytale.server.npc.entities.NPCEntity;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
- * Traces and handles the entity-use path for claimed inhabitants in First Person.
+ * Handles the native entity-use path for claimed inhabitants in First Person.
+ *
+ * <p>Hytale dispatches UseEntityEvent on the acting player. The target entity is carried by
+ * the event, so this system deliberately uses an empty query and validates the target itself.</p>
  */
 public final class CivInhabitantUseSystem
     extends EntityEventSystem<EntityStore, UseEntityEvent.Pre> {
@@ -27,9 +31,10 @@ public final class CivInhabitantUseSystem
         this.interactionController = interactionController;
     }
 
+    @Nullable
     @Override
     public Query<EntityStore> getQuery() {
-        return NPCEntity.getComponentType();
+        return Archetype.empty();
     }
 
     @Override
@@ -40,17 +45,14 @@ public final class CivInhabitantUseSystem
         @Nonnull CommandBuffer<EntityStore> commandBuffer,
         @Nonnull UseEntityEvent.Pre event
     ) {
-        Ref<EntityStore> playerEntityRef = event.getContext().getEntity();
-        PlayerRef playerRef = playerEntityRef == null || !playerEntityRef.isValid()
-            ? null
-            : commandBuffer.getComponent(playerEntityRef, PlayerRef.getComponentType());
+        if (event.isCancelled() || event.getInteractionType() != InteractionType.Use) {
+            return;
+        }
+
+        Ref<EntityStore> playerEntityRef = chunk.getReferenceTo(index);
+        PlayerRef playerRef = store.getComponent(playerEntityRef, PlayerRef.getComponentType());
         Ref<EntityStore> target = event.getTargetEntity();
-        boolean targetValid = target != null && target.isValid();
-        boolean claimed = targetValid && interactionController.isClaimed(target);
-
-
-        if (event.isCancelled() || event.getInteractionType() != InteractionType.Use
-            || playerRef == null || !targetValid) {
+        if (playerRef == null || target == null || !target.isValid()) {
             return;
         }
 
