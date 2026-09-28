@@ -26,10 +26,14 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class RtsInteractionController {
 
+    private static final String TYPE_TAG = "civ.type";
+    private static final String BUILDING_TAG = "civ.building";
+
     private final RtsCameraController cameraController;
     private final CivUnitRegistry unitRegistry;
     private final FarmBuildingRegistry farmRegistry;
-    private final FarmPrefabService farmPrefabService;
+    private final BuildingPlacementRegistry placementRegistry;
+    private final PrefabPlacementService placementService;
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
     private final Set<UUID> claimArmed = ConcurrentHashMap.newKeySet();
 
@@ -37,18 +41,19 @@ public final class RtsInteractionController {
         RtsCameraController cameraController,
         CivUnitRegistry unitRegistry,
         FarmBuildingRegistry farmRegistry,
-        FarmPrefabService farmPrefabService
+        BuildingPlacementRegistry placementRegistry,
+        PrefabPlacementService placementService
     ) {
         this.cameraController = cameraController;
         this.unitRegistry = unitRegistry;
         this.farmRegistry = farmRegistry;
-        this.farmPrefabService = farmPrefabService;
+        this.placementRegistry = placementRegistry;
+        this.placementService = placementService;
     }
 
     public boolean toggle(PlayerRef playerRef) {
         UUID playerId = playerRef.getUuid();
         Session active = sessions.get(playerId);
-
         if (active != null) {
             clearPlacement(playerRef, active);
             cameraController.disable(playerRef);
@@ -67,24 +72,19 @@ public final class RtsInteractionController {
     }
 
     public void armClaim(PlayerRef playerRef) {
-        UUID playerId = playerRef.getUuid();
-        claimArmed.add(playerId);
+        claimArmed.add(playerRef.getUuid());
         playerRef.sendMessage(Message.raw(
             "Civ claim armed. Left click an NPC in First Person or RTS mode."
         ));
     }
 
-    /**
-     * Debug shortcut retained while the RTS building menu is still being validated.
-     */
     public void armFarmPlacement(PlayerRef playerRef) {
         Session session = sessions.get(playerRef.getUuid());
         if (session == null) {
             playerRef.sendMessage(Message.raw("Enable /civrtstest before placing a farm."));
             return;
         }
-
-        startFarmPlacement(playerRef, session);
+        startPlacement(playerRef, session, PrefabPlacementService.FARM);
     }
 
     public void handleMouseButton(PlayerMouseButtonEvent event) {
@@ -102,9 +102,10 @@ public final class RtsInteractionController {
                     + (target == null ? "none" : (target.isValid() ? "valid" : "invalid"))
             ));
         }
+
         if (button == MouseButtonType.Left
             && claimArmed.contains(playerRef.getUuid())
-            && (session == null || !session.placingFarm)) {
+            && (session == null || session.placementDefinition == null)) {
             claimArmed.remove(playerRef.getUuid());
             handleClaim(event.getTargetEntityRef(), playerRef);
             event.setCancelled(true);
@@ -114,16 +115,22 @@ public final class RtsInteractionController {
         if (session == null) {
             return;
         }
+
         if (button == MouseButtonType.Left) {
-            handleLeftClick(event, playerRef, session);
+            if (session.placementDefinition != null) {
+                confirmPlacement(playerRef, session, event.getTargetBlock());
+            } else {
+                handleSelection(event, playerRef, session);
+            }
             event.setCancelled(true);
             return;
         }
 
         if (button == MouseButtonType.Right) {
-            if (session.placingFarm) {
+            if (session.placementDefinition != null) {
+                String name = session.placementDefinition.displayName();
                 clearPlacement(playerRef, session);
-                playerRef.sendMessage(Message.raw("Farm-Platzierung abgebrochen."));
+                playerRef.sendMessage(Message.raw(name + "-Platzierung abgebrochen."));
             } else {
                 handleRightClick(event, playerRef, session);
             }
@@ -142,16 +149,13 @@ public final class RtsInteractionController {
         }
 
         Session session = sessions.get(playerRef.getUuid());
-        if (session == null || !session.placingFarm) {
+        if (session == null || session.placementDefinition == null) {
             return;
         }
 
         Vector3i targetBlock = event.getTargetBlock();
-        if (targetBlock == null) {
-            return;
-        }
-
-        if (session.previewTarget != null && session.previewTarget.equals(targetBlock)) {
+        if (targetBlock == null
+            || (session.previewTarget != null && session.previewTarget.equals(targetBlock))) {
             return;
         }
 
@@ -162,11 +166,11 @@ public final class RtsInteractionController {
         }
 
         try {
-            FarmPrefabService.PlacementCandidate candidate =
-                validateFarmPlacement(worldId, world, targetBlock);
+            PrefabPlacementService.PlacementCandidate candidate =
+                validatePlacement(worldId, world, targetBlock, session.placementDefinition);
             session.previewTarget = new Vector3i(targetBlock);
             session.previewCandidate = candidate;
-            farmPrefabService.showPreview(playerRef, candidate);
+            placementService.showPreview(playerRef, candidate);
         } catch (RuntimeException exception) {
             session.previewTarget = new Vector3i(targetBlock);
             session.previewCandidate = null;
@@ -180,19 +184,6 @@ public final class RtsInteractionController {
         if (session != null) {
             clearPlacement(playerRef, session);
         }
-    }
-
-    private void handleLeftClick(
-        PlayerMouseButtonEvent event,
-        PlayerRef playerRef,
-        Session session
-    ) {
-        if (session.placingFarm) {
-            confirmFarmPlacement(playerRef, session, event.getTargetBlock());
-            return;
-        }
-
-        handleSelection(event, playerRef, session);
     }
 
     public void openBuildingMenu(
@@ -216,7 +207,8 @@ public final class RtsInteractionController {
             store,
             new BuildingMenuPage(
                 playerRef,
-                () -> startFarmPlacement(playerRef, session)
+                () -> startPlacement(playerRef, session, PrefabPlacementService.FARM),
+                () -> startPlacement(playerRef, session, PrefabPlacementService.WHEAT_FIELD)
             )
         );
     }
@@ -244,16 +236,20 @@ public final class RtsInteractionController {
         );
     }
 
-    private void startFarmPlacement(PlayerRef playerRef, Session session) {
+    private void startPlacement(
+        PlayerRef playerRef,
+        Session session,
+        PrefabPlacementService.PlacementDefinition definition
+    ) {
         clearPlacement(playerRef, session);
-        session.placingFarm = true;
+        session.placementDefinition = definition;
         playerRef.sendMessage(Message.raw(
-            "Farm ausgewählt. Vorschau mit der Maus bewegen; "
+            definition.displayName() + " ausgewählt. Vorschau mit der Maus bewegen; "
                 + "Linksklick platziert, Rechtsklick bricht ab."
         ));
     }
 
-    private void confirmFarmPlacement(
+    private void confirmPlacement(
         PlayerRef playerRef,
         Session session,
         Vector3i targetBlock
@@ -270,49 +266,67 @@ public final class RtsInteractionController {
             return;
         }
 
+        PrefabPlacementService.PlacementDefinition definition = session.placementDefinition;
         try {
-            // The preview is advisory only. Recompute from current shared world state
-            // so simultaneous multiplayer placements cannot both commit.
-            FarmPrefabService.PlacementCandidate candidate =
-                validateFarmPlacement(worldId, world, targetBlock);
+            PrefabPlacementService.PlacementCandidate candidate =
+                validatePlacement(worldId, world, targetBlock, definition);
             if (!candidate.valid()) {
                 playerRef.sendMessage(Message.raw(
-                    "Farm kann hier nicht gebaut werden: " + candidate.invalidReason()
+                    definition.displayName() + " kann hier nicht gebaut werden: "
+                        + candidate.invalidReason()
                 ));
                 session.previewTarget = new Vector3i(targetBlock);
                 session.previewCandidate = candidate;
-                farmPrefabService.showPreview(playerRef, candidate);
+                placementService.showPreview(playerRef, candidate);
                 return;
             }
 
-            FarmPrefabService.PlacedFarm placedFarm =
-                farmPrefabService.placeFarm(playerRef, world, candidate);
-            FarmBuildingRegistry.FarmSite site = farmRegistry.registerFarm(
-                worldId,
-                placedFarm.entranceBlocks(),
-                placedFarm.footprint(),
-                placedFarm.replacedFloorBlocks()
-            );
+            PrefabPlacementService.PlacedPrefab placed =
+                placementService.place(playerRef, world, candidate);
+            placementRegistry.register(worldId, candidate.footprint());
+
+            if (definition == PrefabPlacementService.FARM) {
+                List<Vector3i> entrances = placed.markers().stream()
+                    .filter(marker -> marker.hasTag(BUILDING_TAG, "farm"))
+                    .filter(marker -> marker.hasTag(TYPE_TAG, "workplace_access"))
+                    .map(marker -> new Vector3i(
+                        marker.position().x,
+                        marker.position().y - 1,
+                        marker.position().z
+                    ))
+                    .toList();
+                if (entrances.isEmpty()) {
+                    throw new IllegalStateException(
+                        "Farm prefab did not register a civ farm workplace marker."
+                    );
+                }
+                farmRegistry.registerFarm(
+                    worldId,
+                    entrances,
+                    candidate.footprint(),
+                    candidate.replacedFloorBlocks()
+                );
+            }
 
             clearPlacement(playerRef, session);
-            playerRef.sendMessage(Message.raw(
-                "Farm " + site.building().id() + " gebaut. "
-                    + "Der ursprüngliche Boden wurde für einen späteren Abriss gespeichert."
-            ));
+            playerRef.sendMessage(Message.raw(definition.displayName() + " gebaut."));
         } catch (RuntimeException exception) {
-            playerRef.sendMessage(Message.raw("Farm placement failed: " + exception.getMessage()));
+            playerRef.sendMessage(Message.raw(
+                definition.displayName() + " placement failed: " + exception.getMessage()
+            ));
         }
     }
 
-    private FarmPrefabService.PlacementCandidate validateFarmPlacement(
+    private PrefabPlacementService.PlacementCandidate validatePlacement(
         UUID worldId,
         World world,
-        Vector3i targetBlock
+        Vector3i targetBlock,
+        PrefabPlacementService.PlacementDefinition definition
     ) {
-        FarmPrefabService.PlacementCandidate candidate =
-            farmPrefabService.validatePlacement(world, targetBlock);
-        if (candidate.valid() && farmRegistry.overlaps(worldId, candidate.footprint())) {
-            return candidate.invalidate("Die Fläche überschneidet sich mit einem Civ-Gebäude.");
+        PrefabPlacementService.PlacementCandidate candidate =
+            placementService.validatePlacement(world, targetBlock, definition);
+        if (candidate.valid() && placementRegistry.overlaps(worldId, candidate.footprint())) {
+            return candidate.invalidate("Die Fläche überschneidet sich mit einem Civ-Bauwerk.");
         }
         return candidate;
     }
@@ -417,9 +431,7 @@ public final class RtsInteractionController {
         }
 
         if (session.selected == null) {
-            playerRef.sendMessage(Message.raw(
-                "Wähle zuerst einen Civ-Bewohner aus."
-            ));
+            playerRef.sendMessage(Message.raw("Wähle zuerst einen Civ-Bewohner aus."));
             return;
         }
 
@@ -441,11 +453,7 @@ public final class RtsInteractionController {
         if (target == null || !target.isValid() || !unitRegistry.isClaimed(target)) {
             return null;
         }
-
-        return new PersonActionsPage(
-            playerRef,
-            () -> assignWoodcutter(playerRef, target)
-        );
+        return new PersonActionsPage(playerRef, () -> assignWoodcutter(playerRef, target));
     }
 
     public boolean openFirstPersonActions(
@@ -482,10 +490,7 @@ public final class RtsInteractionController {
         event.getPlayer().getPageManager().openCustomPage(
             playerEntityRef,
             playerEntityRef.getStore(),
-            new PersonActionsPage(
-                playerRef,
-                () -> assignWoodcutter(playerRef, selected)
-            )
+            new PersonActionsPage(playerRef, () -> assignWoodcutter(playerRef, selected))
         );
     }
 
@@ -501,7 +506,6 @@ public final class RtsInteractionController {
         FarmBuildingRegistry.FarmSite farm
     ) {
         removeInvalidSelection(session);
-
         if (session.selected == null) {
             playerRef.sendMessage(Message.raw(
                 "Select one claimed Civ NPC before right clicking the farm entrance."
@@ -511,7 +515,6 @@ public final class RtsInteractionController {
 
         Ref<EntityStore> farmer = session.selected;
         FarmBuildingRegistry.AssignmentResult result = farmRegistry.assignFarmer(farmer, farm);
-
         switch (result) {
             case ASSIGNED -> {
                 unitRegistry.cancelMoveTarget(farmer);
@@ -548,12 +551,12 @@ public final class RtsInteractionController {
     private void clearPlacement(PlayerRef playerRef, Session session) {
         if (session.previewTarget != null || session.previewCandidate != null) {
             try {
-                farmPrefabService.clearPreview(playerRef);
+                placementService.clearPreview(playerRef);
             } catch (RuntimeException ignored) {
                 // Preview cleanup must not block RTS teardown or disconnect handling.
             }
         }
-        session.placingFarm = false;
+        session.placementDefinition = null;
         session.previewTarget = null;
         session.previewCandidate = null;
     }
@@ -564,15 +567,14 @@ public final class RtsInteractionController {
         }
     }
 
-
     public boolean consumeArmedClaim(PlayerRef playerRef) {
         return playerRef != null && claimArmed.remove(playerRef.getUuid());
     }
 
     private static final class Session {
         private Ref<EntityStore> selected;
-        private boolean placingFarm;
+        private PrefabPlacementService.PlacementDefinition placementDefinition;
         private Vector3i previewTarget;
-        private FarmPrefabService.PlacementCandidate previewCandidate;
+        private PrefabPlacementService.PlacementCandidate previewCandidate;
     }
 }
