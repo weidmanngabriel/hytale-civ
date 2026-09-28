@@ -59,6 +59,12 @@ public final class BuildingMenuPage
         );
         events.addEventBinding(
             CustomUIEventBindingType.Activating,
+            "#FieldButton",
+            EventData.of("Action", ACTION_FIELD),
+            false
+        );
+        events.addEventBinding(
+            CustomUIEventBindingType.Activating,
             "#CloseButton",
             EventData.of("Action", ACTION_CLOSE),
             false
