@@ -6,6 +6,7 @@ import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.RemoveReason;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.ComponentAccessor;
+import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.math.vector.Rotation3f;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentPrefabPreview;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
@@ -299,7 +300,7 @@ public final class PrefabPlacementService {
         World world,
         ConstructionSite site,
         int layerIndex,
-        ComponentAccessor<EntityStore> accessor
+        CommandBuffer<EntityStore> commandBuffer
     ) {
         BlockSelection source = requireSource(site.definition());
         List<Integer> layers = occupiedLayers(source);
@@ -308,7 +309,7 @@ public final class PrefabPlacementService {
         }
 
         if (layerIndex == 0) {
-            removeConstructionPreview(site);
+            removeConstructionPreview(site, commandBuffer);
         }
 
         int sourceY = layers.get(layerIndex);
@@ -330,7 +331,7 @@ public final class PrefabPlacementService {
                 blockHolder.holder()
             );
         });
-        layer.placeNoReturn(world, new Vector3i(site.anchor()), accessor);
+        layer.placeNoReturn(world, new Vector3i(site.anchor()), commandBuffer);
         return true;
     }
 
@@ -353,6 +354,16 @@ public final class PrefabPlacementService {
         TreeSet<Integer> layers = new TreeSet<>();
         source.forEachBlock((x, y, z, blockHolder) -> layers.add(y));
         return List.copyOf(layers);
+    }
+
+    private static void removeConstructionPreview(
+        ConstructionSite site,
+        CommandBuffer<EntityStore> commandBuffer
+    ) {
+        Ref<EntityStore> previewRef = site.previewRef();
+        if (previewRef != null && previewRef.isValid()) {
+            commandBuffer.tryRemoveEntity(previewRef, RemoveReason.REMOVE);
+        }
     }
 
     private static void removeConstructionPreview(ConstructionSite site) {
