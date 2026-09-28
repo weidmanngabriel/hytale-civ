@@ -433,6 +433,10 @@ public final class RtsInteractionController {
         ));
     }
 
+    public boolean isClaimed(Ref<EntityStore> target) {
+        return target != null && target.isValid() && unitRegistry.isClaimed(target);
+    }
+
     public boolean openFirstPersonActions(
         Ref<EntityStore> playerEntityRef,
         PlayerRef playerRef,
