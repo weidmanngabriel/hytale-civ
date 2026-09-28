@@ -28,20 +28,27 @@ Release-Repository: <code>https://maven.hytale.com/release</code>
 
 Abhängigkeit: <code>com.hypixel.hytale:Server</code>
 
-<code>hytaleServerVersion</code> wird zentral in <code>gradle.properties</code> verwaltet. Vor Änderungen an der Hytale-API-Nutzung oder am Dependency-Selektor muss die aktuelle offizielle Dokumentation geprüft werden.
+<code>hytaleServerVersion</code> wird zentral und bewusst auf eine konkrete Version in <code>gradle.properties</code> festgesetzt. Aktuell ist das <code>0.6.8</code>. Dadurch kann ein neuer Hytale-Release den Build nicht unbemerkt verändern. Ein Upgrade erfolgt durch eine ausdrückliche Änderung dieser Eigenschaft und anschließende Build-/API-Prüfung. Vor Änderungen an der Hytale-API-Nutzung oder am Dependency-Selektor muss die aktuelle offizielle Dokumentation geprüft werden.
 
+## Hytale-API-Inspektion
 
-## Hytale-API-Snapshot (Proof of Concept)
-
-Für die laufende Erprobung kann die tatsächlich von Gradle aufgelöste Hytale-Server-JAR analysiert werden:
+Die tatsächlich von Gradle aufgelöste Hytale-Server-JAR kann analysiert werden:
 
 ~~~bash
 ./gradlew snapshotHytaleApi
 ~~~
 
-Der Task erzeugt unter <code>build/hytale-api-snapshot/</code> einen Klassenindex, Metadaten zur aufgelösten Hytale-Abhängigkeit und per <code>javap</code> lesbare Signaturen für einige bekannte Problemklassen. Der Snapshot ist ausdrücklich noch kein verpflichtender Entwicklungsworkflow und ersetzt keine Laufzeittests in Hytale.
+Der Task erzeugt unter <code>build/hytale-api-snapshot/</code> einen vollständigen Klassenindex, Metadaten zur aufgelösten Hytale-Abhängigkeit und lesbare <code>javap</code>-Signaturen für einige bekannte Integrationsgrenzen.
 
-Die CI lädt denselben Ordner vorläufig als separates Artefakt <code>hytale-api-snapshot-poc</code> hoch. Damit kann geprüft werden, ob die tatsächliche Hytale-API in späteren Entwicklungsruns zuverlässig ausgewertet werden kann, ohne dekompilierten Hytale-Quellcode ins Repository zu übernehmen.
+Eine beliebige konkrete Hytale-Klasse kann zusätzlich gezielt inspiziert werden:
+
+~~~bash
+./gradlew inspectHytaleClass -PhytaleClass=CommandBuffer
+~~~
+
+Ein vollständig qualifizierter Klassenname kann ebenfalls angegeben werden. Ist ein einfacher Klassenname mehrdeutig, bricht der Task ab und zeigt die passenden vollständigen Namen an. Die Ausgabe wird unter <code>build/hytale-api-inspection/</code> gespeichert.
+
+Die CI erzeugt den Snapshot und führt den freien Inspector zusätzlich an <code>CommandBuffer</code> als Smoke-Check aus. Beide Ausgaben werden im Artefakt <code>hytale-api-snapshot</code> gespeichert. Die Server-JAR selbst und dekompilierter Hytale-Quellcode werden nicht in das Repository oder dieses Artefakt übernommen. Die API-Inspektion ersetzt keine Laufzeittests in Hytale.
 
 ## Asset Pack
 
