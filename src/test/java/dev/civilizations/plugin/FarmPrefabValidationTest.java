@@ -10,11 +10,11 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FarmPrefabValidationTest {
 
-    private static final String ENTRANCE_MARKER = "Civ_BuildingEntrance";
     private static final Path FARM_PREFAB = Path.of(
         "asset-pack",
         "Server",
@@ -23,19 +23,11 @@ class FarmPrefabValidationTest {
         "Farm",
         "Farm_01.prefab.json"
     );
-    private static final Path ENTRANCE_MARKER_ASSET = Path.of(
-        "asset-pack",
-        "Server",
-        "Item",
-        "Block",
-        "Blocks",
-        ENTRANCE_MARKER + ".json"
-    );
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    void farmPrefabHasExpectedStructureAndEntranceMarker() throws Exception {
+    void farmPrefabHasExpectedStructureAndWorkplaceTriggerVolume() throws Exception {
         assertTrue(Files.isRegularFile(FARM_PREFAB));
 
         JsonNode prefab = objectMapper.readTree(Files.readString(FARM_PREFAB));
@@ -50,9 +42,6 @@ class FarmPrefabValidationTest {
         assertTrue(blocks.size() > 200);
 
         Set<String> coordinates = new HashSet<>();
-        boolean hasEntranceThreshold = false;
-        boolean hasEntranceMarker = false;
-        boolean upperDoorwayIsOpen = true;
         boolean hasRoof = false;
         boolean hasCropBed = false;
 
@@ -63,34 +52,31 @@ class FarmPrefabValidationTest {
             String name = block.path("name").asText();
 
             assertTrue(coordinates.add(x + ":" + y + ":" + z));
-
-            hasEntranceThreshold |= x == 0 && y == 0 && z == 0
-                && name.equals("Rock_Stone");
-            hasEntranceMarker |= x == 0 && y == 1 && z == 0
-                && name.equals(ENTRANCE_MARKER);
-            if (x == 0 && y == 2 && z == 0) {
-                upperDoorwayIsOpen = false;
-            }
+            assertFalse(name.equals("Civ_BuildingEntrance"));
             hasRoof |= name.equals("Rock_Shale") && y >= 4;
             hasCropBed |= name.equals("Soil_Dirt") && x >= 6;
         }
 
-        assertTrue(hasEntranceThreshold);
-        assertTrue(hasEntranceMarker);
-        assertTrue(upperDoorwayIsOpen);
         assertTrue(hasRoof);
         assertTrue(hasCropBed);
-    }
 
-    @Test
-    void entranceMarkerIsEditorVisibleButNonPhysical() throws Exception {
-        assertTrue(Files.isRegularFile(ENTRANCE_MARKER_ASSET));
+        JsonNode entities = prefab.path("entities");
+        assertTrue(entities.isArray());
+        assertEquals(1, entities.size());
 
-        JsonNode marker = objectMapper.readTree(Files.readString(ENTRANCE_MARKER_ASSET));
-        assertEquals("@Tech", marker.path("Group").asText());
-        assertEquals("GizmoCube", marker.path("DrawType").asText());
-        assertEquals("Empty", marker.path("Material").asText());
-        assertEquals("Empty", marker.path("HitboxType").asText());
-        assertEquals("Full", marker.path("InteractionHitboxType").asText());
+        JsonNode components = entities.get(0).path("Components");
+        JsonNode position = components.path("Transform").path("Position");
+        assertEquals(0.0, position.path("X").asDouble());
+        assertEquals(1.0, position.path("Y").asDouble());
+        assertEquals(-5.0, position.path("Z").asDouble());
+
+        JsonNode trigger = components.path("TriggerVolume");
+        assertEquals("Box", trigger.path("Shape").path("Type").asText());
+        assertTrue(trigger.path("Enabled").asBoolean());
+        assertEquals("Npc", trigger.path("TargetTypes").get(0).asText());
+        assertEquals("farm", trigger.path("Tags").path("civ.building").asText());
+        assertEquals("workplace_access", trigger.path("Tags").path("civ.type").asText());
+        assertFalse(trigger.path("Tags").has("civ.access"));
+        assertEquals("civ_farm_workplace", trigger.path("Name").asText());
     }
 }

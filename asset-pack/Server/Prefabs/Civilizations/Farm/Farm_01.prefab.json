@@ -205,12 +205,6 @@
     },
     {
       "x": 0,
-      "y": 1,
-      "z": 0,
-      "name": "Civ_BuildingEntrance"
-    },
-    {
-      "x": 0,
       "y": 0,
       "z": 1,
       "name": "Rock_Stone"
@@ -2026,6 +2020,50 @@
       "y": 2,
       "z": 7,
       "name": "Wood_Ash_Trunk"
+    }
+  ],
+  "entities": [
+    {
+      "Components": {
+        "Transform": {
+          "Position": {
+            "X": 0,
+            "Y": 1,
+            "Z": -5
+          },
+          "Rotation": {
+            "Pitch": 0,
+            "Yaw": 0,
+            "Roll": 0
+          }
+        },
+        "TriggerVolume": {
+          "Shape": {
+            "Type": "Box",
+            "Min": {
+              "X": -1,
+              "Y": 0,
+              "Z": -1
+            },
+            "Max": {
+              "X": 1,
+              "Y": 2,
+              "Z": 1
+            }
+          },
+          "Enabled": true,
+          "TargetTypes": [
+            "Npc"
+          ],
+          "Tags": {
+            "civ.building": "farm",
+            "civ.type": "workplace_access"
+          },
+          "KeepLoaded": false,
+          "PrefabIndex": 0,
+          "Name": "civ_farm_workplace"
+        }
+      }
     }
   ]
 }
