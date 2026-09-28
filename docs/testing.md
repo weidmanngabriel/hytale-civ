@@ -44,9 +44,11 @@ Der aktuelle RTS-Prototyp betrifft vor allem Kamera, Cursor-Zielerfassung, inter
 
 Zukünftige kontrollierte Server-Tests für Lifecycle, Registrierung und Engine-Interaktion. Noch nicht umgesetzt.
 
-## Hytale-API-Inspektionscheck
+## Hytale-API-Inspektion
 
-Die CI führt zusätzlich zur normalen Kompilierung <code>snapshotHytaleApi</code> und einen repräsentativen Aufruf von <code>inspectHytaleClass</code> für <code>CommandBuffer</code> aus. Dieser Check beweist nur, dass die festgesetzte Hytale-Abhängigkeit auflösbar und ihre API maschinell inspizierbar ist; er ist kein Ersatz für Hytale-Server- oder Client-Laufzeittests.
+Die Hytale-API wird bei Bedarf direkt aus der im Projekt bereitgestellten `HytaleServer.jar` untersucht. Ein CI-Snapshot oder Inspector-Smoke-Test ist dafür nicht mehr Teil der Teststrategie. Klassenauflistung, Signaturen und Bytecode sind Entwicklungswerkzeuge und keine Laufzeittests.
+
+Ein erfolgreicher Binär- oder Signaturbefund beweist insbesondere nicht Event-Dispatch, Lifecycle, Client-Reaktionen oder andere Runtime-Semantik. Solche Verträge bleiben Aufgabe gezielter Hytale-Server-/Client-Tests beziehungsweise offizieller Dokumentation.
 
 ## Manuelle Client-/UX-Tests
 
