@@ -33,10 +33,10 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStore> {
 
-    private static final double ARRIVAL_DISTANCE = 0.75;
+    private static final double ARRIVAL_DISTANCE = 1.25;
     private static final double RETRY_SECONDS = 1.0;
     // Temporary verified generic action id. Replace with a dedicated hammer animation asset later.
-    private static final String BUILD_ANIMATION = "Attack";
+    private static final String BUILD_ANIMATION = "Alerted";
 
     private static final String TYPE_TAG = "civ.type";
     private static final String BUILDING_TAG = "civ.building";
@@ -197,7 +197,13 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         }
 
         unitRegistry.clearMoveTarget(ref);
-        runtime.job.movementArrived();
+        if (runtime.job.movementArrived()) {
+            runtime.animationStarted = false;
+            System.out.println(
+                "[Civ Construction] Worker arrived at site " + runtime.site.id()
+                    + " distance=" + Math.sqrt(horizontalDistanceSquared(position, target))
+            );
+        }
     }
 
     private void build(
@@ -208,16 +214,29 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         float dt
     ) {
         unitRegistry.clearMoveTarget(ref);
+        if (!runtime.animationStarted) {
+            AnimationUtils.playAnimation(ref, AnimationSlot.Action, BUILD_ANIMATION, store);
+            runtime.animationStarted = true;
+            System.out.println(
+                "[Civ Construction] BUILDING started for site " + runtime.site.id()
+                    + " using animation set " + BUILD_ANIMATION
+            );
+        }
+
         int before = runtime.job.completedSteps();
         int completed = runtime.job.advanceWork(dt);
         for (int offset = 0; offset < completed; offset++) {
             int layerIndex = before + offset;
-            AnimationUtils.playAnimation(ref, AnimationSlot.Action, BUILD_ANIMATION, store);
-            placementService.materializeConstructionLayer(
+            boolean placed = placementService.materializeConstructionLayer(
                 world,
                 runtime.site,
                 layerIndex,
                 store
+            );
+            System.out.println(
+                "[Civ Construction] Site " + runtime.site.id()
+                    + " materialized layer " + layerIndex
+                    + " success=" + placed
             );
         }
     }
@@ -359,14 +378,20 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
     }
 
     private static boolean hasArrived(Vector3d position, Vector3d target) {
+        return horizontalDistanceSquared(position, target)
+            <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
+    }
+
+    private static double horizontalDistanceSquared(Vector3d position, Vector3d target) {
         double dx = position.x - target.x;
         double dz = position.z - target.z;
-        return dx * dx + dz * dz <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
+        return dx * dx + dz * dz;
     }
 
     private static final class WorkerRuntime {
         private final ConstructionJob job = new ConstructionJob();
         private PrefabPlacementService.ConstructionSite site;
         private double retrySeconds;
+        private boolean animationStarted;
     }
 }
