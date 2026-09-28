@@ -7,7 +7,9 @@ import com.hypixel.hytale.server.core.event.events.player.PlayerMouseMotionEvent
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import dev.civilizations.core.VikingNameGenerator;
 import dev.civilizations.hytale.CivInhabitantData;
+import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivUnitRegistry;
 import dev.civilizations.hytale.FarmBuildingRegistry;
 import dev.civilizations.hytale.FarmNpcWorkSystem;
@@ -34,7 +36,11 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 CivInhabitantData.CODEC
             );
 
-        CivUnitRegistry unitRegistry = new CivUnitRegistry(inhabitantDataType);
+        CivInhabitantService inhabitantService = new CivInhabitantService(
+            inhabitantDataType,
+            new VikingNameGenerator()
+        );
+        CivUnitRegistry unitRegistry = new CivUnitRegistry(inhabitantService);
         FarmBuildingRegistry farmRegistry = new FarmBuildingRegistry(unitRegistry);
         RtsInteractionController rtsInteractionController =
             new RtsInteractionController(

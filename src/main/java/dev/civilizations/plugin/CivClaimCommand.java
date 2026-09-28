@@ -14,7 +14,7 @@ final class CivClaimCommand extends AbstractPlayerCommand {
     private final RtsInteractionController interactionController;
 
     CivClaimCommand(RtsInteractionController interactionController) {
-        super("civclaim", "Marks the next clicked NPC as a Civ test unit.");
+        super("civclaim", "Converts or toggles the next clicked NPC as a Civ inhabitant.");
         this.interactionController = interactionController;
         requireNoPermission();
     }

@@ -51,7 +51,6 @@ public final class RtsInteractionController {
         if (active != null) {
             clearPlacement(playerRef, active);
             cameraController.disable(playerRef);
-            claimArmed.remove(playerId);
             sessions.remove(playerId, active);
             playerRef.sendMessage(Message.raw("Civ RTS test disabled."));
             return false;
@@ -68,13 +67,10 @@ public final class RtsInteractionController {
 
     public void armClaim(PlayerRef playerRef) {
         UUID playerId = playerRef.getUuid();
-        if (!sessions.containsKey(playerId)) {
-            playerRef.sendMessage(Message.raw("Enable /civrtstest before claiming an NPC."));
-            return;
-        }
-
         claimArmed.add(playerId);
-        playerRef.sendMessage(Message.raw("Civ claim armed. Left click an NPC to toggle Civ control."));
+        playerRef.sendMessage(Message.raw(
+            "Civ claim armed. Left click an NPC in First Person or RTS mode."
+        ));
     }
 
     /**
@@ -92,13 +88,24 @@ public final class RtsInteractionController {
 
     public void handleMouseButton(PlayerMouseButtonEvent event) {
         PlayerRef playerRef = event.getPlayerRefComponent();
-        Session session = sessions.get(playerRef.getUuid());
-
-        if (session == null || event.getMouseButton().state != MouseButtonState.Pressed) {
+        if (event.getMouseButton().state != MouseButtonState.Pressed) {
             return;
         }
 
+        Session session = sessions.get(playerRef.getUuid());
         MouseButtonType button = event.getMouseButton().mouseButtonType;
+        if (button == MouseButtonType.Left
+            && claimArmed.contains(playerRef.getUuid())
+            && (session == null || !session.placingFarm)) {
+            claimArmed.remove(playerRef.getUuid());
+            handleClaim(event, playerRef);
+            event.setCancelled(true);
+            return;
+        }
+
+        if (session == null) {
+            return;
+        }
         if (button == MouseButtonType.Left) {
             handleLeftClick(event, playerRef, session);
             event.setCancelled(true);
@@ -174,11 +181,6 @@ public final class RtsInteractionController {
     ) {
         if (session.placingFarm) {
             confirmFarmPlacement(playerRef, session, event.getTargetBlock());
-            return;
-        }
-
-        if (claimArmed.remove(playerRef.getUuid())) {
-            handleClaim(event, playerRef);
             return;
         }
 

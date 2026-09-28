@@ -1,6 +1,5 @@
 package dev.civilizations.hytale;
 
-import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
@@ -29,11 +28,11 @@ public final class CivUnitRegistry {
     // Civ_Inhabitant declares exactly one ReadPosition slot: CivMoveTarget.
     private static final int CIV_MOVE_POSITION_SLOT = 0;
 
-    private final ComponentType<EntityStore, CivInhabitantData> inhabitantDataType;
+    private final CivInhabitantService inhabitantService;
     private final Map<UnitKey, UnitState> units = new ConcurrentHashMap<>();
 
-    public CivUnitRegistry(ComponentType<EntityStore, CivInhabitantData> inhabitantDataType) {
-        this.inhabitantDataType = inhabitantDataType;
+    public CivUnitRegistry(CivInhabitantService inhabitantService) {
+        this.inhabitantService = inhabitantService;
     }
 
     public UnitKey keyOf(Ref<EntityStore> ref) {
@@ -50,7 +49,9 @@ public final class CivUnitRegistry {
             return false;
         }
 
-        ref.getStore().ensureAndGetComponent(ref, inhabitantDataType);
+        if (inhabitantService.ensureInhabitant(ref) == null) {
+            return false;
+        }
         units.put(key, new UnitState(ref, null));
         return true;
     }
@@ -177,15 +178,11 @@ public final class CivUnitRegistry {
             return;
         }
 
-        CivInhabitantData data =
-            ref.getStore().ensureAndGetComponent(ref, inhabitantDataType);
-        data.setProfession(profession);
+        inhabitantService.assignProfession(ref, profession);
     }
 
     public Profession getProfession(Ref<EntityStore> ref) {
-        CivInhabitantData data =
-            ref.getStore().getComponentConcurrent(ref, inhabitantDataType);
-        return data == null ? null : data.profession();
+        return inhabitantService.getProfession(ref);
     }
 
     public record UnitKey(Store<EntityStore> store, int entityIndex) {
