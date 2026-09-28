@@ -75,7 +75,8 @@ Der Test für direkte Bewegung verwendet die eingecheckte Rolle <code>Civ_Inhabi
 
 - <code>CoreSmokeTest</code> zeigt, dass JUnit funktioniert.
 - <code>CoreIndependenceTest</code> verhindert direkte Hytale-Imports im Core.
-- <code>WoodcutterJobTest</code> prüft den Ablauf Ziel → Ankunft → Fällen → bereit zum tatsächlichen Baumfällen.
+- <code>WoodcutterJobTest</code> prüft den headless Ablauf Such-Intent → Bewegungs-Intent → Ankunft → Arbeit → Fäll-Intent → neuer Zyklus.
+- <code>InhabitantActivityTest</code> prüft, dass ein manueller Bewegungsauftrag autonome Arbeit verdrängt, nach Abschluss wieder freigibt und den pausierten Holzfällerzustand nicht verändert.
 - <code>ManifestValidationTest</code> prüft die verpackten Plugin-Metadaten ohne Hytale zu starten.
 - <code>CivInhabitantRoleValidationTest</code> prüft die eingecheckte Civ-NPC-Rolle und den einzelnen Positionsslot, auf den die Java-Bewegungsanbindung angewiesen ist.
 
