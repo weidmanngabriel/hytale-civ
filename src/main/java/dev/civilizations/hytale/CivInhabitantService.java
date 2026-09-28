@@ -160,6 +160,15 @@ public final class CivInhabitantService {
         accessor.removeComponent(ref, Nameplate.getComponentType());
     }
 
+    public boolean isInhabitant(
+        Ref<EntityStore> ref,
+        CommandBuffer<EntityStore> commandBuffer
+    ) {
+        return ref != null
+            && ref.isValid()
+            && commandBuffer.getComponent(ref, inhabitantDataType) != null;
+    }
+
     public CivInhabitantData get(Ref<EntityStore> ref) {
         if (ref == null || !ref.isValid()) {
             return null;
