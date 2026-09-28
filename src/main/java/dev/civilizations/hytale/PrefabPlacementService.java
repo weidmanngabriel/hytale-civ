@@ -136,7 +136,7 @@ public final class PrefabPlacementService {
         playerRef.getPacketHandler().write(new BlockSelection().toPacketWithSelection());
     }
 
-    public void place(
+    public PlacedPrefab place(
         PlayerRef playerRef,
         World world,
         PlacementCandidate candidate
@@ -144,6 +144,9 @@ public final class PrefabPlacementService {
         if (!candidate.valid()) {
             throw new IllegalArgumentException("Cannot place an invalid Civ prefab candidate.");
         }
+
+        TriggerVolumeManager volumeManager = triggerVolumeManager(world);
+        Set<String> existingVolumeIds = new HashSet<>(volumeManager.getVolumesMap().keySet());
 
         BlockSelection prefab = new BlockSelection(requireSource(candidate.definition()));
         prefab.place(
@@ -155,6 +158,30 @@ public final class PrefabPlacementService {
             false,
             null,
             false
+        );
+
+        List<PlacedMarker> markers = volumeManager.getVolumes().stream()
+            .filter(volume -> !existingVolumeIds.contains(volume.getId()))
+            .map(PrefabPlacementService::toMarker)
+            .toList();
+        return new PlacedPrefab(candidate, markers);
+    }
+
+    private static TriggerVolumeManager triggerVolumeManager(World world) {
+        return world.getEntityStore().getStore().getResource(
+            TriggerVolumesPlugin.get().getManagerResourceType()
+        );
+    }
+
+    private static PlacedMarker toMarker(VolumeEntry volume) {
+        return new PlacedMarker(
+            volume.getId(),
+            new Vector3i(
+                (int) Math.floor(volume.getPosition().x),
+                (int) Math.floor(volume.getPosition().y),
+                (int) Math.floor(volume.getPosition().z)
+            ),
+            volume.getRawTags()
         );
     }
 
