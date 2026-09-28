@@ -95,6 +95,13 @@ public final class RtsInteractionController {
 
         Session session = sessions.get(playerRef.getUuid());
         MouseButtonType button = event.getMouseButton().mouseButtonType;
+        if (session == null && button == MouseButtonType.Right) {
+            Ref<EntityStore> target = event.getTargetEntityRef();
+            playerRef.sendMessage(Message.raw(
+                "[Civ debug] FP right-click event received; target="
+                    + (target == null ? "none" : (target.isValid() ? "valid" : "invalid"))
+            ));
+        }
         if (button == MouseButtonType.Left
             && claimArmed.contains(playerRef.getUuid())
             && (session == null || !session.placingFarm)) {
