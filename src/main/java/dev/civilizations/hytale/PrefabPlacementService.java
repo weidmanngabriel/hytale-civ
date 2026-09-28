@@ -1,5 +1,7 @@
 package dev.civilizations.hytale;
 
+import com.hypixel.hytale.builtin.buildertools.BuilderToolsPlugin;
+import com.hypixel.hytale.builtin.buildertools.utils.PasteToolUtil;
 import com.hypixel.hytale.builtin.triggervolumes.TriggerVolumesPlugin;
 import com.hypixel.hytale.builtin.triggervolumes.manager.TriggerVolumeManager;
 import com.hypixel.hytale.builtin.triggervolumes.manager.VolumeEntry;
@@ -7,6 +9,7 @@ import com.hypixel.hytale.protocol.packets.interface_.EditorBlocksChange;
 import com.hypixel.hytale.protocol.packets.player.HideTriggerVolumePastePrefabPreview;
 import com.hypixel.hytale.protocol.packets.player.ShowTriggerVolumePastePrefabPreview;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.prefab.PrefabStore;
 import com.hypixel.hytale.server.core.prefab.selection.standard.BlockSelection;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
@@ -121,25 +124,32 @@ public final class PrefabPlacementService {
         );
     }
 
-    public void showPreview(PlayerRef playerRef, PlacementCandidate candidate) {
-        BlockSelection source = requireSource(candidate.definition());
-        EditorBlocksChange previewData = source.toPacket();
+    public boolean startNativePastePlacement(
+        PlayerRef playerRef,
+        PlacementDefinition definition
+    ) {
+        Ref<EntityStore> playerEntityRef = playerRef.getReference();
+        if (playerEntityRef == null || !playerEntityRef.isValid()) {
+            return false;
+        }
 
-        ShowTriggerVolumePastePrefabPreview preview =
-            new ShowTriggerVolumePastePrefabPreview();
-        preview.position = new Vector3f(
-            candidate.anchor().x,
-            candidate.anchor().y,
-            candidate.anchor().z
+        Store<EntityStore> store = playerEntityRef.getStore();
+        Player player = store.getComponent(playerEntityRef, Player.getComponentType());
+        if (player == null) {
+            return false;
+        }
+
+        BlockSelection source = requireSource(definition);
+        BuilderToolsPlugin.BuilderState state =
+            BuilderToolsPlugin.getState(player, playerRef);
+        BuilderToolsPlugin.addToQueue(
+            player,
+            playerRef,
+            (ref, queuedState, accessor) ->
+                queuedState.load(definition.displayName(), source, accessor)
         );
-        preview.blocksChange = previewData.blocksChange;
-        preview.fluidsChange = previewData.fluidsChange;
-        preview.entityChanges = previewData.entityChanges;
-        playerRef.getPacketHandler().write(preview);
-    }
-
-    public void clearPreview(PlayerRef playerRef) {
-        playerRef.getPacketHandler().write(new HideTriggerVolumePastePrefabPreview());
+        PasteToolUtil.switchToPasteTool(playerEntityRef, playerRef, store);
+        return true;
     }
 
     public PlacedPrefab place(
