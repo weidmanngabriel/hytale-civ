@@ -23,17 +23,24 @@ public final class BuildingMenuPage
     extends InteractiveCustomUIPage<BuildingMenuPage.ActionData> {
 
     private static final String ACTION_FARM = "farm";
-    private static final String ACTION_FIELD = "field";\n    private static final String ACTION_CLOSE = "close";
+    private static final String ACTION_FIELD = "field";
+    private static final String ACTION_CLOSE = "close";
 
-    private final Runnable selectFarm;\n    private final Runnable selectField;
+    private final Runnable selectFarm;
+    private final Runnable selectField;
 
-    public BuildingMenuPage(\n        PlayerRef playerRef,\n        Runnable selectFarm,\n        Runnable selectField\n    ) {
+    public BuildingMenuPage(
+        PlayerRef playerRef,
+        Runnable selectFarm,
+        Runnable selectField
+    ) {
         super(
             playerRef,
             CustomPageLifetime.CanDismissOrCloseThroughInteraction,
             ActionData.CODEC
         );
-        this.selectFarm = selectFarm;\n        this.selectField = selectField;
+        this.selectFarm = selectFarm;
+        this.selectField = selectField;
     }
 
     @Override
@@ -69,7 +76,12 @@ public final class BuildingMenuPage
             close();
             return;
         }
-        if (ACTION_FIELD.equals(data.action)) {\n            selectField.run();\n            close();\n            return;\n        }\n        if (ACTION_CLOSE.equals(data.action)) {
+        if (ACTION_FIELD.equals(data.action)) {
+            selectField.run();
+            close();
+            return;
+        }
+        if (ACTION_CLOSE.equals(data.action)) {
             close();
         }
     }
