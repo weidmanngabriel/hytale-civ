@@ -54,7 +54,7 @@ Hytale-Bootstrap und Lifecycle. Hier werden Adapter und Services verdrahtet sowi
 - Registrierung der serialisierbaren ECS-Komponente <code>CivInhabitantData</code>, bevor Civ-Register und Systeme verdrahtet werden.
 - Registrierung der Tick-Systeme für Farm und Holzfäller. Allgemeine Bewegung eines <code>Civ_Inhabitant</code> wird über natives <code>ReadPosition</code>/<code>Seek</code> erledigt und nicht durch ein eigenes Civ-Bewegungssystem.
 - Bereitstellung der Befehle <code>/civtest</code>, <code>/civrtstest</code>, <code>/civclaim</code>, <code>/civfarm</code>, <code>/civbuild</code> und <code>/civwiki</code>.
-- Verdrahtung von Mausbutton-, Mausbewegungs- und Disconnect-Events mit dem RTS-Interaction-Controller. <code>/civbuild</code> und <code>/civwiki</code> öffnen im aktiven RTS-Modus die vorhandenen interaktiven Seiten.
+- Verdrahtung von Mausbutton-, Mausbewegungs- und Disconnect-Events mit dem Interaction-Controller. Der von <code>/civclaim</code> scharf geschaltete NPC-Klick wird unabhängig von einer RTS-Session verarbeitet; RTS-Auswahl, Bewegung, Bau und Wiki bleiben RTS-spezifische Bedienpfade.
 
 ## Abhängigkeitsregel
 
