@@ -112,9 +112,9 @@ Manuelle Abnahme:
 4. Bestätigen, dass der aktuelle Katalog **Farm** und **Weizenfeld** enthält und geschlossen werden kann, ohne die Platzierung zu starten.
 5. <code>/civbuild</code> erneut ausführen, **Farm** auswählen und bestätigen, dass Hytales natives Paste Tool aktiv wird. Den Mauszeiger über das Gelände bewegen und prüfen, dass dieselbe vollständige Ghost-Vorschau wie beim normalen Prefab-Browser direkt am Cursor erscheint, ohne echte Weltblöcke zu verändern.
 6. Rechtsklick ausführen und bestätigen, dass die Platzierung abgebrochen wird, ohne die Welt zu verändern.
-7. **Farm** erneut wählen und auf flachem Boden mit dem nativen Paste Tool platzieren. Bestätigen, dass die Farm gegenüber dem zuletzt gemeldeten Fehler genau einen Block höher sitzt und der sichtbare Boden bündig mit dem Gelände liegt.
+7. **Farm** erneut wählen und auf flachem Boden mit dem nativen Paste Tool bestätigen. Bestätigen, dass das fertige Farm-Prefab **nicht** sofort in die Welt gepastet wird. Stattdessen muss eine persistente Prefab-Vorschau als Baustelle entstehen. Ihre geplante Bodenebene liegt einen Block unter der vom Paste Tool gemeldeten Cursorposition.
 8. Dasselbe über einem Loch, einer Flüssigkeit, tatsächlich blockiertem Bauvolumen oberhalb des eingelassenen Baugrunds und einer bestehenden Farmfläche versuchen. Bestätigen, dass die Platzierung mit einem Grund abgelehnt wird und der Platzierungsmodus aktiv bleibt.
-9. **Weizenfeld** auswählen und denselben Vorschau-, Abbruch-, Gelände- und Überschneidungsablauf prüfen. Bestätigen, dass das Feld getrennt von der Farm platziert wird und bündig im Gelände liegt.
+9. **Weizenfeld** auswählen und denselben Ablauf prüfen. Auch hier darf beim Bestätigen nicht sofort das echte Feld entstehen; es muss eine getrennte Baustellen-Vorschau an der abgesenkten Civ-Bauposition entstehen.
 10. Bestätigen, dass <code>/civfarm</code> weiterhin denselben Farm-Platzierungsablauf startet wie das Menü.
 11. Mit <code>/civclaim</code> einen NPC beanspruchen, ihn auswählen, im Arbeitsbereich der Farm rechts klicken und bestätigen, dass die Zuweisung als Bauer weiterhin funktioniert.
 12. Bestätigen, dass der NPC zum Eingang läuft, ungefähr fünf Sekunden innen arbeitet, das Gebäude verlässt, für jeden Produktionsschritt erneut hineingeht und nach dem zehnten Weizen draußen bleibt.
