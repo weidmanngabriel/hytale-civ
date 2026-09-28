@@ -44,11 +44,9 @@ Der aktuelle RTS-Prototyp betrifft vor allem Kamera, Cursor-Zielerfassung, inter
 
 Zukünftige kontrollierte Server-Tests für Lifecycle, Registrierung und Engine-Interaktion. Noch nicht umgesetzt.
 
-## Hytale-API-Inspektion
+## Hytale-API-Inspektionscheck
 
-Die Hytale-API wird bei Bedarf direkt aus der im Projekt bereitgestellten `HytaleServer.jar` untersucht. Ein CI-Snapshot oder Inspector-Smoke-Test ist dafür nicht mehr Teil der Teststrategie. Klassenauflistung, Signaturen und Bytecode sind Entwicklungswerkzeuge und keine Laufzeittests.
-
-Ein erfolgreicher Binär- oder Signaturbefund beweist insbesondere nicht Event-Dispatch, Lifecycle, Client-Reaktionen oder andere Runtime-Semantik. Solche Verträge bleiben Aufgabe gezielter Hytale-Server-/Client-Tests beziehungsweise offizieller Dokumentation.
+Die CI führt zusätzlich zur normalen Kompilierung <code>snapshotHytaleApi</code> und einen repräsentativen Aufruf von <code>inspectHytaleClass</code> für <code>CommandBuffer</code> aus. Dieser Check beweist nur, dass die festgesetzte Hytale-Abhängigkeit auflösbar und ihre API maschinell inspizierbar ist; er ist kein Ersatz für Hytale-Server- oder Client-Laufzeittests.
 
 ## Manuelle Client-/UX-Tests
 
@@ -62,11 +60,12 @@ Der steuerbare-NPC-Prototyp wird so geprüft:
 6. Den ausgewählten NPC mit Rechtsklick anklicken und bestätigen, dass die Seite für Personenaktionen geöffnet wird.
 7. Einen <code>Civ_Inhabitant</code> verwenden, auf offenen und ausreichend flachen Boden rechtsklicken und bestätigen, dass er selbstständig zum Ziel läuft.
 8. Hinter ein Hindernis rechtsklicken und bestätigen, dass die normale Hytale-Wegfindung das Routenverhalten bestimmt.
-9. <code>/civclaim</code> ausführen und einen bereits beanspruchten NPC erneut anklicken. Bestätigen, dass er freigegeben wird und danach nicht mehr ausgewählt oder befehligt werden kann.
+9. <code>/civclaim</code> auf einen bereits initialisierten Civ-Bewohner erneut anwenden. Bestätigen, dass Name und Identität unverändert bleiben.
 10. <code>/civrtstest</code> erneut ausführen und bestätigen, dass die normale Kamerasteuerung zurückkehrt und der Client stabil bleibt.
 11. Den RTS-Modus zweimal weiter ein- und ausschalten und bestätigen, dass wiederholte Wechsel stabil bleiben.
-12. Bestätigen, dass Ansprüche nur zur Laufzeit bestehen und einen Plugin- oder Server-Neustart nicht überleben.
-13. Einem beanspruchten NPC einen Beruf zuweisen, Server oder Plugin neu starten, dieselbe persistierte NPC-Entität erneut beanspruchen und bestätigen, dass der Beruf noch vorhanden ist. Die Farm-Zuweisung muss derzeit noch nicht erhalten bleiben.
+12. Einen Civ-Bewohner initialisieren, seinen vollständigen Namen notieren, die Welt normal verlassen beziehungsweise den Server sauber neu starten und dieselbe NPC-Entität erneut laden. Bestätigen, dass sie ohne erneuten Claim als Civ-Bewohner erkannt wird und denselben Namen trägt.
+13. Dem Bewohner einen Beruf zuweisen, sauber neu starten und bestätigen, dass derselbe Beruf erhalten bleibt. Die Farm-Zuweisung muss derzeit noch nicht erhalten bleiben.
+14. Den Persistenztest zusätzlich nach einem normalen Autosave wiederholen. Ein harter Prozessabbruch ist kein verlässlicher Ersatz für den sauberen Save-/Reload-Test.
 
 Der Test für direkte Bewegung verwendet die eingecheckte Rolle <code>Civ_Inhabitant</code>. Deren einzelner Positionsslot <code>CivMoveTarget</code> ist ein ausdrücklicher Vertrag zwischen Java-Code und Asset. <code>CivInhabitantRoleValidationTest</code> schützt diese Annahme. Civ selbst übt keine eigene Steuerkraft pro Tick aus.
 
@@ -114,7 +113,7 @@ Manuelle Abnahme:
 9. Bestätigen, dass <code>/civfarm</code> denselben Farm-Platzierungsablauf startet wie das Menü.
 10. Mit <code>/civclaim</code> einen NPC beanspruchen, ihn auswählen, im Arbeitsbereich der Farm rechts klicken und bestätigen, dass die Zuweisung als Bauer weiterhin funktioniert.
 11. Bestätigen, dass der NPC zum Eingang läuft, ungefähr fünf Sekunden innen arbeitet, das Gebäude verlässt, für jeden Produktionsschritt erneut hineingeht und nach dem zehnten Weizen draußen bleibt.
-12. Den NPC während eines Zyklus mit <code>/civclaim</code> freigeben und bestätigen, dass die Farm-Zuweisung aufgehoben wird.
+12. Den Server nach einer Berufszuteilung sauber neu starten und bestätigen, dass der Bewohner weiterhin als Civ-Bewohner mit demselben Namen und Beruf erkannt wird. Die konkrete Farm-Arbeitsplatzzuweisung bleibt derzeit laufzeitgebunden.
 
 Mehrspieler-Abnahme:
 

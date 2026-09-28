@@ -17,10 +17,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Runtime registry for temporary RTS claims and movement targets.
+ * Runtime cache for persistent Civ inhabitants and transient movement targets.
  *
- * <p>Persistent inhabitant identity such as profession data lives on the NPC in
- * {@link CivInhabitantData}; debug claims and transient movement remain runtime-only.</p>
+ * <p>{@link CivInhabitantData} is the authoritative marker that an NPC belongs to the Civ;
+ * this registry only caches live references and movement targets.</p>
  */
 public final class CivUnitRegistry {
 
@@ -41,19 +41,11 @@ public final class CivUnitRegistry {
     }
 
     public boolean toggleClaim(Ref<EntityStore> ref) {
-        UnitKey key = keyOf(ref);
-        UnitState existing = units.get(key);
-
-        if (existing != null && existing.ref().isValid()) {
-            applyNativePath(existing.ref(), null);
-            units.remove(key);
+        CivInhabitantData data = inhabitantService.ensureInhabitant(ref);
+        if (data == null) {
             return false;
         }
-
-        if (inhabitantService.ensureInhabitant(ref) == null) {
-            return false;
-        }
-        units.put(key, new UnitState(ref, null));
+        units.putIfAbsent(keyOf(ref), new UnitState(ref, null));
         return true;
     }
 
@@ -61,20 +53,11 @@ public final class CivUnitRegistry {
         Ref<EntityStore> ref,
         CommandBuffer<EntityStore> commandBuffer
     ) {
-        UnitKey key = keyOf(ref);
-        UnitState existing = units.get(key);
-
-        if (existing != null && existing.ref().isValid()) {
-            applyNativePath(existing.ref(), null);
-            units.remove(key);
-            return new ClaimResult(false, inhabitantService.get(ref));
-        }
-
         CivInhabitantData data = inhabitantService.ensureInhabitant(ref, commandBuffer);
         if (data == null) {
             return new ClaimResult(false, null);
         }
-        units.put(key, new UnitState(ref, null));
+        units.putIfAbsent(keyOf(ref), new UnitState(ref, null));
         return new ClaimResult(true, data);
     }
 
@@ -83,18 +66,27 @@ public final class CivUnitRegistry {
     }
 
     public boolean isClaimed(Ref<EntityStore> ref) {
+        if (ref == null || !ref.isValid()) {
+            return false;
+        }
+
         UnitKey key = keyOf(ref);
         UnitState state = units.get(key);
+        if (state != null && !state.ref().isValid()) {
+            units.remove(key, state);
+            state = null;
+        }
+
+        if (inhabitantService.get(ref) == null) {
+            if (state != null) {
+                units.remove(key, state);
+            }
+            return false;
+        }
 
         if (state == null) {
-            return false;
+            units.put(key, new UnitState(ref, null));
         }
-
-        if (!state.ref().isValid()) {
-            units.remove(key, state);
-            return false;
-        }
-
         return true;
     }
 

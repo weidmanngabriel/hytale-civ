@@ -14,7 +14,7 @@ Der aktuelle Produkt-Meilenstein ist ein RTS-Prototyp mit steuerbaren NPCs zusä
 
 <code>/civrtstest</code> schaltet eine feste, schräge RTS-Kamera mit sichtbarem Mauszeiger ein oder aus. Der Spieler wechselt dabei nicht in den Spectator-Modus.
 
-<code>/civclaim</code> aktiviert den nächsten Linksklick unabhängig vom Kameramodus. Wird anschließend in First Person oder RTS ein vorhandener NPC angeklickt, wird er als Civ-Bewohner initialisiert beziehungsweise für die aktuelle Steuerung beansprucht oder wieder freigegeben. Beim ersten Initialisieren erhält er dauerhaft ein Geschlecht, einen dreiteiligen Wikinger-Namen und den Zustand arbeitslos. Ein erneuter Claim würfelt diese Identität nicht neu aus. Der vollständige Bewohnername wird als sichtbare Namensplakette des NPCs verwendet.
+<code>/civclaim</code> aktiviert den nächsten Linksklick unabhängig vom Kameramodus. Wird anschließend in First Person oder RTS ein vorhandener NPC angeklickt, wird er dauerhaft als Civ-Bewohner initialisiert. Beim ersten Initialisieren erhält er ein Geschlecht, einen dreiteiligen Wikinger-Namen und den Zustand arbeitslos. Diese Bewohnerzugehörigkeit, Identität und der Beruf werden mit der Hytale-Entität gespeichert; ein erneuter Claim würfelt die Identität nicht neu aus. Der vollständige Bewohnername wird als sichtbare Namensplakette des NPCs verwendet.
 
 In First Person öffnet Rechtsklick/Benutzen auf einen beanspruchten Civ-Bewohner dessen Aktionsmenü. Darüber kann aktuell wie im RTS der Beruf Holzfäller zugewiesen werden.
 
@@ -30,7 +30,7 @@ Während der RTS-Modus aktiv ist:
 - <code>/civwiki</code> öffnet das Ingame-Wiki.
 - Gebäude im Katalog sind alphabetisch nach ihrem Anzeigenamen sortiert.
 
-RTS ist eine Bedienungsart und keine Voraussetzung für die Civ-Simulation. Bewohneridentität und Berufsdaten sind unabhängig von einer RTS-Session persistent; Auswahl, aktuelle Steuerungsansprüche und Arbeitsausführung bleiben vorläufige Laufzeitzustände.
+RTS ist eine Bedienungsart und keine Voraussetzung für die Civ-Simulation. Bewohnerzugehörigkeit, Identität und Berufsdaten sind unabhängig von einer RTS-Session persistent. Auswahl, Bewegungsziele und laufende Arbeitsausführung bleiben vorläufige Laufzeitzustände.
 
 ## Holzfäller-Vertical-Slice
 
