@@ -1,19 +1,19 @@
-# NNNN: Title
+# NNNN: Titel
 
 Status: Proposed
 
-## Context
+## Kontext
 
-Describe the problem, constraints and forces that make a decision necessary.
+Beschreibe das Problem, die Einschränkungen und die Rahmenbedingungen, die eine Entscheidung notwendig machen.
 
-## Decision
+## Entscheidung
 
-Describe the proposed architectural decision.
+Beschreibe die vorgeschlagene Architekturentscheidung.
 
-## Consequences
+## Konsequenzen
 
-Describe important benefits, costs, risks and follow-up work.
+Beschreibe wichtige Vorteile, Kosten, Risiken und notwendige Folgearbeiten.
 
-## Alternatives considered
+## Betrachtete Alternativen
 
-Record realistic alternatives and why they were not selected.
+Dokumentiere realistische Alternativen und warum sie nicht gewählt wurden.
