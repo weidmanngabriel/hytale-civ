@@ -3,6 +3,7 @@ package dev.civilizations.hytale;
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.server.core.Message;
+import com.hypixel.hytale.server.core.modules.entity.component.DisplayNameComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentDisplayName;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.Profession;
@@ -44,10 +45,18 @@ public final class CivInhabitantService {
             data.setProfession(Profession.UNEMPLOYED);
         }
 
+        Message displayName = Message.raw(data.fullName());
         ref.getStore().putComponent(
             ref,
             PersistentDisplayName.getComponentType(),
-            new PersistentDisplayName(Message.raw(data.fullName()))
+            new PersistentDisplayName(displayName)
+        );
+        // HydrateDisplayName only creates the runtime component when an entity is added.
+        // Claims happen on an already loaded NPC, so update the runtime component now too.
+        ref.getStore().putComponent(
+            ref,
+            DisplayNameComponent.getComponentType(),
+            new DisplayNameComponent(displayName)
         );
         return data;
     }
