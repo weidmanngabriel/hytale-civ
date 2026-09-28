@@ -67,6 +67,7 @@ tasks.withType<Test>().configureEach {
 val snapshotHytaleApi = tasks.register("snapshotHytaleApi") {
     group = "verification"
     description = "Creates a proof-of-concept API snapshot from the resolved Hytale Server JAR."
+    notCompatibleWithConfigurationCache("Proof-of-concept task inspects the resolved external JAR at execution time.")
 
     val outputDir = layout.buildDirectory.dir("hytale-api-snapshot")
     outputs.dir(outputDir)
