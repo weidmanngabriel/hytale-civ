@@ -62,64 +62,30 @@ public final class PrefabPlacementService {
         Vector3i pointedBlock,
         PlacementDefinition definition
     ) {
+        /*
+         * Construction-preview spike: deliberately do not run the legacy
+         * immediate-paste collision rules here. Those rules were designed for
+         * BlockSelection.place and reject the intentionally sunk Y - 1
+         * construction anchor before PersistentPrefabPreview can even spawn.
+         *
+         * Keep only the transform/footprint calculation so we can verify the
+         * engine preview lifecycle independently. Terrain/overlap validation
+         * will be reintroduced against the construction-site semantics after
+         * this preview boundary is proven in-game.
+         */
         BlockSelection source = requireSource(definition);
         Vector3i anchor = placementAnchor(pointedBlock, definition);
-
         List<PrefabCell> cells = readCells(source);
-        int terrainReplaceMaxY = source.getAnchorY();
-        List<PrefabCell> terrainCells = cells.stream()
-            .filter(cell -> cell.y() <= terrainReplaceMaxY)
+        List<PrefabCell> floorCells = cells.stream()
+            .filter(cell -> cell.y() <= source.getAnchorY())
             .toList();
-        PlacementFootprint footprint = footprintFor(source, anchor, terrainCells);
-        Map<BlockPosition, Integer> replacedFloorBlocks = new LinkedHashMap<>();
-
-        for (PrefabCell terrainCell : terrainCells) {
-            Vector3i worldPosition = worldPosition(source, anchor, terrainCell);
-            int existingBlock = world.getBlock(worldPosition.x, worldPosition.y, worldPosition.z);
-            if (existingBlock == BlockType.EMPTY_ID) {
-                return PlacementCandidate.invalid(
-                    definition,
-                    anchor,
-                    footprint,
-                    "Der eingelassene Baugrund würde über einem Loch oder einer Kante liegen."
-                );
-            }
-            if (world.getFluidId(worldPosition.x, worldPosition.y, worldPosition.z) != 0) {
-                return PlacementCandidate.invalid(
-                    definition,
-                    anchor,
-                    footprint,
-                    "Der Baugrund kann nicht in Wasser oder andere Flüssigkeiten gesetzt werden."
-                );
-            }
-            replacedFloorBlocks.put(
-                new BlockPosition(worldPosition.x, worldPosition.y, worldPosition.z),
-                existingBlock
-            );
-        }
-
-        for (PrefabCell cell : cells) {
-            if (cell.y() <= terrainReplaceMaxY) {
-                continue;
-            }
-            Vector3i worldPosition = worldPosition(source, anchor, cell);
-            if (world.getBlock(worldPosition.x, worldPosition.y, worldPosition.z)
-                != BlockType.EMPTY_ID
-                || world.getFluidId(worldPosition.x, worldPosition.y, worldPosition.z) != 0) {
-                return PlacementCandidate.invalid(
-                    definition,
-                    anchor,
-                    footprint,
-                    "Der Bauplatz ist oberhalb des Baugrunds durch Gelände oder ein Objekt blockiert."
-                );
-            }
-        }
+        PlacementFootprint footprint = footprintFor(source, anchor, floorCells);
 
         return PlacementCandidate.valid(
             definition,
             anchor,
             footprint,
-            replacedFloorBlocks
+            Map.of()
         );
     }
 
