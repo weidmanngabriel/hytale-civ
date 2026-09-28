@@ -183,18 +183,31 @@ public final class PrefabPlacementService {
         for (ActiveNativePlacement active : activeNativePlacements.values()) {
             PlayerRef playerRef = active.playerRef();
             Ref<EntityStore> playerEntityRef = playerRef.getReference();
-            if (playerEntityRef == null || !playerEntityRef.isValid()
-                || playerEntityRef.getStore() != store) {
+            if (playerEntityRef == null || !playerEntityRef.isValid()) {
                 continue;
             }
 
-            Player player = store.getComponent(playerEntityRef, Player.getComponentType());
+            Store<EntityStore> playerStore = playerEntityRef.getStore();
+            Player player = playerStore.getComponent(
+                playerEntityRef,
+                Player.getComponentType()
+            );
             if (player == null) {
                 continue;
             }
+
             BuilderToolsPlugin.BuilderState state =
                 BuilderToolsPlugin.getState(player, playerRef);
             BlockSelection selection = state.getSelection();
+
+            /*
+             * BuilderState.paste(...) assigns a fresh PrefabUtil prefab id to
+             * this exact selection and moves it to the cursor coordinates
+             * immediately before BuilderToolsPlugin.onPasteStart(...) invokes
+             * PrefabPasteEvent. Hytale restores both values after the event.
+             * Matching this temporary id therefore identifies the player whose
+             * native paste is currently being committed.
+             */
             if (selection == null || selection.getPrefabId() != event.getPrefabId()) {
                 continue;
             }
@@ -206,7 +219,7 @@ public final class PrefabPlacementService {
             int y = selection.getY() - 1;
             int z = selection.getZ();
             Ref<EntityStore> previewRef = PersistentPrefabPreview.spawn(
-                store,
+                playerStore,
                 new org.joml.Vector3d(x, y, z),
                 new Rotation3f(),
                 active.definition().prefabKey(),
@@ -219,7 +232,7 @@ public final class PrefabPlacementService {
                 previewRef
             );
             constructionSites.put(site.id(), site);
-            restorePreviousHotbarSlot(store, playerEntityRef, playerRef, active.previousActiveSlot());
+            restorePreviousHotbarSlot(playerStore, playerEntityRef, playerRef, active.previousActiveSlot());
             playerRef.sendMessage(Message.raw(
                 active.definition().displayName()
                     + " als Civ-Baustelle gesetzt. Das fertige Prefab wurde nicht sofort eingefügt."
