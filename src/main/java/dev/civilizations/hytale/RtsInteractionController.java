@@ -154,6 +154,16 @@ public final class RtsInteractionController {
         if (session != null) {
             clearPlacement(playerRef, session);
         }
+        placementService.cancelConstructionSites(playerRef);
+    }
+
+    public void cancelConstructionSites(PlayerRef playerRef) {
+        int removed = placementService.cancelConstructionSites(playerRef);
+        playerRef.sendMessage(Message.raw(
+            removed == 0
+                ? "Keine Civ-Baustellenvorschau zum Entfernen."
+                : removed + " Civ-Baustellenvorschau(en) entfernt."
+        ));
     }
 
     public void openBuildingMenu(

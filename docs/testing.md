@@ -140,3 +140,8 @@ For the current focused runtime diagnostic, select **Farm** and move the mouse a
 ### Native ghost click-cancel spike
 
 Select **Farm** and verify that Hytale's native moving Paste ghost appears. It should render one block lower than the earlier native Paste ghost because the loaded selection anchor is offset. Left-click once on flat terrain. Verify separately whether (a) the real prefab is suppressed and only a stationary construction preview remains, or (b) Hytale still performs a real paste despite the cancelled `PlayerMouseButtonEvent`. Outcome (b) proves the Builder paste commit is independent of the cancellable normal mouse event.
+
+
+### Construction blueprint lifecycle regression
+
+After selecting a Farm through `/civbuild`, confirm it with left click. The stationary blueprint should align vertically with the correctly positioned moving native ghost. Run `/civbuildcancel`; the stationary blueprint must disappear immediately without rejoining the world. Also verify that disconnecting removes the player's runtime blueprint previews. Progressive NPC block replacement is not part of this regression yet because `PersistentPrefabPreview` cannot hide individual prefab blocks.
