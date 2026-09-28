@@ -160,6 +160,7 @@ public final class PrefabPlacementService {
         ConstructionSite site = new ConstructionSite(
             UUID.randomUUID(),
             playerRef.getUuid(),
+            playerRef.getWorldUuid(),
             candidate,
             previewRef
         );
@@ -244,6 +245,7 @@ public final class PrefabPlacementService {
         ConstructionSite site = new ConstructionSite(
             UUID.randomUUID(),
             playerRef.getUuid(),
+            playerRef.getWorldUuid(),
             candidate,
             active.previewRef()
         );
@@ -504,6 +506,7 @@ public final class PrefabPlacementService {
     public record ConstructionSite(
         UUID id,
         UUID ownerId,
+        UUID worldId,
         PlacementCandidate candidate,
         Ref<EntityStore> previewRef
     ) {
