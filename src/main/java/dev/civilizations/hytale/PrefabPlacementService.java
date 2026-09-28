@@ -143,6 +143,11 @@ public final class PrefabPlacementService {
                 active.definition().prefabKey(),
                 Integer.MAX_VALUE
             );
+            if (previewRef == null || !previewRef.isValid()) {
+                throw new IllegalStateException(
+                    "PersistentPrefabPreview.spawn returned no valid entity"
+                );
+            }
             activeConstructionPreviews.put(
                 playerRef.getUuid(),
                 new ActiveConstructionPreview(active.definition(), previewRef)
