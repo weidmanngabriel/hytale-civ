@@ -242,6 +242,7 @@ public final class PrefabPlacementService {
 
         ConstructionSite site = new ConstructionSite(
             UUID.randomUUID(),
+            playerRef.getUuid(),
             candidate.definition(),
             candidate.anchor(),
             active.previewRef()
