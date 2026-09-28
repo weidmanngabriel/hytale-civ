@@ -60,17 +60,33 @@ Die Detailregeln dieser Bereiche werden nicht vorab festgelegt, bevor das zugeh�
 - Jede platzierte Gebäudeinstanz muss die ursprünglichen Weltblöcke behalten, die durch ihren eingelassenen Boden ersetzt wurden, damit ein späterer Abriss das vorherige Gelände wiederherstellen kann.
 - Dieser Geländeschnappschuss besitzt dieselbe Lebensdauer wie das platzierte Gebäude. Solange Gebäude nicht dauerhaft gespeichert werden, ist auch der Schnappschuss nur laufzeitgebunden.
 
+## Gebäude und lokale Waren
+
+- Für physische Warenbestände eines Gebäudes soll Hytales natives Container-/Inventarsystem verwendet werden, sofern der jeweilige Gebäudetyp einen geeigneten Containerblock besitzt. Ein paralleler Civ-Zähler oder eine eigene Text-/JSON-Datei ist dafür nicht das bevorzugte Modell.
+- Die aktuelle Serverversion besitzt serialisierbare Block-Container im ChunkStore. Damit ist ein echter Hytale-Container der bevorzugte Kandidat für beispielsweise lokal bei einer Farm gelagerten Weizen.
+- Räumliche Gebäudefunktionen sollen nach Möglichkeit im Prefab mit nativen Hytale-Mechanismen beschrieben werden. Trigger Volumes dürfen dafür Civ-Tags tragen, können aber zusätzlich native Volume-Logik nutzen.
+- Eine dauerhafte allgemeine Gebäudeidentität und eine persistente Bewohner-zu-Gebäude-Zuweisung sind noch nicht als Domänenmodell entschieden. Hytale stellt persistente Referenz-, Meta- und ECS-Infrastruktur bereit; der konkrete Lifecycle für Civ-Gebäude muss jedoch noch praktisch validiert werden.
+
 ## Farm
 
-Die erste umgesetzte Gebäudedomäne ist bewusst konkret und noch kein spekulatives allgemeines Gebäudesystem.
+Die erste umgesetzte Gebäudedomäne bleibt ein Engine-Validierungs-Slice. Die bestehende Implementierung ist nicht automatisch die Produktdefinition der späteren Farm.
 
-- Ein Gebäude-Prefab muss mindestens einen Eingang beziehungsweise Arbeitszugang definieren. Eine Farm darf mehrere besitzen.
-- Eine Farm hat genau einen Bauernplatz.
-- Wird ein beanspruchter Civ-NPC einer Farm zugewiesen, erhält dieser Bewohner den Beruf Bauer.
-- Die aktuelle Farm-Zuweisung verwendet den Zugang mit der geringsten Luftlinienentfernung zum zugewiesenen Bewohner. Erreicht der Bewohner diesen Zugang, wechselt er in den logischen Zustand ARBEITET_INNEN.
-- Nach fünf Sekunden aktiver Arbeit in der Farm wird eine Einheit Weizen produziert.
-- Nach jeder produzierten Einheit Weizen muss der Bauer das Gebäude verlassen, bevor der nächste Produktionsschritt beginnen kann.
-- Das aktuelle Außenziel liegt bei der fest ausgerichteten Farm zwei Blöcke südlich des gewählten Zugangs.
-- Die Produktion stoppt exakt bei zehn Einheiten lokalem Weizen.
-- Laufzeit zählt nicht zu den fünf Sekunden Arbeitszeit.
-- Farm-Platzierung, Farm-Zuweisung und Weizenbestand bleiben aktuell nur zur Laufzeit erhalten und werden nach einem Server- oder Plugin-Neustart nicht wiederhergestellt. Der Beruf des NPCs wird dauerhaft gespeichert, aber noch keine dauerhafte Farm-Referenz.
+Verifiziert bzw. aktuell gewollt:
+
+- Das Farm-Prefab definiert mindestens einen räumlichen Arbeitszugang über ein natives Hytale Trigger Volume. Mehrere Zugänge sollen möglich bleiben.
+- Ein zugewiesener Bewohner erhält den Beruf Bauer.
+- Farmarbeit soll möglichst sichtbar und physisch in der Hytale-Welt stattfinden und native Hytale-Systeme für Bewegung, Trigger, Interaktionen und Waren verwenden, bevor Civ äquivalente eigene Mechanismen einführt.
+- Lokaler Weizen soll, sobald die Farmproduktion entsprechend umgebaut wird, bevorzugt als physischer Bestand in einem geeigneten nativen Hytale-Container der Farm liegen statt nur als Integer im Java-`FarmBuilding`.
+
+Nur aktueller Prototyp, **keine dauerhafte Domänenregel**:
+
+- genau ein Bauernplatz;
+- Auswahl des Zugangs nur nach Luftlinienentfernung;
+- logischer Zustand ARBEITET_INNEN als eigentlicher Produktionsort;
+- fünf Sekunden Arbeitszeit pro Weizen;
+- eine Einheit Weizen pro Zyklus;
+- Verlassen des Gebäudes nach jeder Einheit;
+- festes Außenziel zwei Blöcke südlich des Zugangs;
+- Produktionsstopp bei zehn Einheiten.
+
+Diese Punkte bleiben als Beschreibung des derzeit laufenden Codes relevant, dürfen aber ohne erneute Produktentscheidung nicht als Zielverhalten für die nächste Farm-Iteration verwendet werden. Das in `civilizations-poc` vorhandene Modell mit sichtbarer Feldarbeit, Feldentwicklung, Ernte und Rücktransport ist eine Referenz für die weitere Produktentscheidung, nicht automatisch eine Regel dieses Projekts.
