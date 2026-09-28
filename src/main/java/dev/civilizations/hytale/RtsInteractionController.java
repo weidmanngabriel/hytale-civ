@@ -120,6 +120,13 @@ public final class RtsInteractionController {
             return;
         }
 
+        if (session.nativePasteActive) {
+            if (button == MouseButtonType.Left || button == MouseButtonType.Right) {
+                session.nativePasteActive = false;
+            }
+            return;
+        }
+
         if (button == MouseButtonType.Left) {
             if (session.placementDefinition != null) {
                 confirmPlacement(playerRef, session, event.getTargetBlock());
@@ -174,7 +181,6 @@ public final class RtsInteractionController {
                 validatePlacement(worldId, world, targetBlock, session.placementDefinition);
             session.previewTarget = new Vector3i(targetBlock);
             session.previewCandidate = candidate;
-            placementService.showPreview(playerRef, candidate);
         } catch (RuntimeException exception) {
             session.previewTarget = new Vector3i(targetBlock);
             session.previewCandidate = null;
@@ -246,11 +252,25 @@ public final class RtsInteractionController {
         PrefabPlacementService.PlacementDefinition definition
     ) {
         clearPlacement(playerRef, session);
-        session.placementDefinition = definition;
-        playerRef.sendMessage(Message.raw(
-            definition.displayName() + " ausgewählt. Vorschau mit der Maus bewegen; "
-                + "Linksklick platziert, Rechtsklick bricht ab."
-        ));
+        try {
+            if (!placementService.startNativePastePlacement(playerRef, definition)) {
+                playerRef.sendMessage(Message.raw(
+                    definition.displayName() + " konnte nicht an Hytales Paste Tool übergeben werden."
+                ));
+                return;
+            }
+            session.nativePasteActive = true;
+            playerRef.sendMessage(Message.raw(
+                definition.displayName()
+                    + " an Hytales natives Paste Tool übergeben. "
+                    + "Die native Ghost-Vorschau und Platzierung übernimmt jetzt Hytale."
+            ));
+        } catch (RuntimeException exception) {
+            playerRef.sendMessage(Message.raw(
+                definition.displayName() + " konnte nicht geladen werden: "
+                    + exception.getMessage()
+            ));
+        }
     }
 
     private void confirmPlacement(
@@ -281,7 +301,6 @@ public final class RtsInteractionController {
                 ));
                 session.previewTarget = new Vector3i(targetBlock);
                 session.previewCandidate = candidate;
-                placementService.showPreview(playerRef, candidate);
                 return;
             }
 
@@ -563,16 +582,10 @@ public final class RtsInteractionController {
     }
 
     private void clearPlacement(PlayerRef playerRef, Session session) {
-        if (session.previewTarget != null || session.previewCandidate != null) {
-            try {
-                placementService.clearPreview(playerRef);
-            } catch (RuntimeException ignored) {
-                // Preview cleanup must not block RTS teardown or disconnect handling.
-            }
-        }
         session.placementDefinition = null;
         session.previewTarget = null;
         session.previewCandidate = null;
+        session.nativePasteActive = false;
     }
 
     private void removeInvalidSelection(Session session) {
@@ -590,5 +603,6 @@ public final class RtsInteractionController {
         private PrefabPlacementService.PlacementDefinition placementDefinition;
         private Vector3i previewTarget;
         private PrefabPlacementService.PlacementCandidate previewCandidate;
+        private boolean nativePasteActive;
     }
 }
