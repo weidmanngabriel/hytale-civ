@@ -60,7 +60,7 @@ public final class CivUnitRegistry {
         Ref<EntityStore> ref,
         CommandBuffer<EntityStore> commandBuffer
     ) {
-        if (commandBuffer.getComponent(ref, inhabitantService.componentType()) != null) {
+        if (inhabitantService.isInhabitant(ref, commandBuffer)) {
             cancelMoveTarget(ref);
             inhabitantService.releaseInhabitant(ref, commandBuffer);
             units.remove(keyOf(ref));
