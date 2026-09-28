@@ -135,3 +135,8 @@ Der ursprüngliche Schnappschuss der Bodenblöcke bleibt interner Laufzeitzustan
 ### Construction preview input diagnostic
 
 For the current focused runtime diagnostic, select **Farm** and move the mouse across terrain before clicking. The chat should identify the first boundary reached: either `MouseMotion` with a null target, a concrete `target=x,y,z anchor=x,y,z`, a preview-spawn exception, or a successful preview update. This diagnostic is temporary evidence for the engine input/preview contract and is not intended as final player-facing UX.
+
+
+### Native ghost click-cancel spike
+
+Select **Farm** and verify that Hytale's native moving Paste ghost appears. It should render one block lower than the earlier native Paste ghost because the loaded selection anchor is offset. Left-click once on flat terrain. Verify separately whether (a) the real prefab is suppressed and only a stationary construction preview remains, or (b) Hytale still performs a real paste despite the cancelled `PlayerMouseButtonEvent`. Outcome (b) proves the Builder paste commit is independent of the cancellable normal mouse event.
