@@ -98,3 +98,15 @@ Farmgebäude und Felder sind getrennte, vom Spieler platzierte Civ-Bauobjekte. E
 
 Für die aktuellen Creator-Prefabs gilt die gemeinsame Geländekonvention: Der Prefab-Anker wird bei der Platzierung um einen Block gegenüber dem anvisierten Gelände abgesenkt, damit die im Prefab definierte Bodenebene im Spiel bündig mit der Geländeoberfläche abschließt. Diese Konvention gilt für Gebäude und Felder gleichermaßen und ist kein farmspezifischer Sonderfall.
 \n\n## Baustellen\n\n- Das Bestätigen einer Civ-Gebäudeplatzierung soll nicht unmittelbar das fertige Gebäude erzeugen. Es entsteht zunächst eine Baustelle an der bestätigten Position.\n- Die Baustelle darf Hytales native Prefab-Preview als visuelle Darstellung der geplanten Struktur verwenden; diese Vorschau ist noch kein gebautes Gebäude.\n- Baufortschritt durch Bewohner, benötigte Materialien, Baugeschwindigkeit und Auswahl beziehungsweise Zuweisung von Bauarbeitern sind noch nicht als Domänenregeln festgelegt und werden im nächsten Vertical Slice entschieden.\n
+
+## Bau / Construction v1
+
+- Bauarbeiter ist ein aktiver Beruf eines Civ-Bewohners.
+- Ein Bauarbeiter sucht selbstständig nach einer freien Civ-Baustelle in derselben Welt.
+- Eine Baustelle wird in Construction v1 gleichzeitig höchstens von einem Bauarbeiter bearbeitet.
+- Der Bauarbeiter läuft zu einem freien Arbeitspunkt außerhalb des Gebäudegrundrisses und bleibt dort während der eigentlichen Bauarbeit.
+- Das Gebäude entsteht schrittweise von unten nach oben. Der aktuelle Prototyp verwendet eine belegte Prefab-Y-Ebene pro Bauschritt.
+- Das Platzieren einer realen Prefab-Ebene darf vorhandene Weltblöcke an den vom Prefab belegten Positionen ersetzen; dadurch kann insbesondere der eingelassene Gebäudeboden die dortigen Bodenblöcke ersetzen.
+- Prefab-Entities und Trigger Volumes gelten erst nach Abschluss aller Bauschritte als fertig und werden erst beim finalen vollständigen Prefab-Placement aktiviert.
+- Die derzeitige Dauer von einer Sekunde pro Ebene und die generische Action-Animation sind Prototypwerte bzw. Platzhalter und keine dauerhaften Balancing-Regeln.
+- Baumaterialien, mehrere Bauarbeiter pro Baustelle, Bauarbeiter-Erfahrung und persistente Baustellenzuweisungen sind noch keine Domänenregeln.
