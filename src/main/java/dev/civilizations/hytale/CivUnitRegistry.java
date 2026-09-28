@@ -1,12 +1,12 @@
 package dev.civilizations.hytale;
 
-import com.hypixel.hytale.builtin.path.path.TransientPath;
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
-import com.hypixel.hytale.math.vector.Rotation3f;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import com.hypixel.hytale.math.vector.Vector3dUtil;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
+import com.hypixel.hytale.server.npc.role.support.MarkedEntitySupport;
 import dev.civilizations.core.Profession;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
@@ -25,6 +25,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class CivUnitRegistry {
 
     private static final double FORMATION_SPACING = 1.4;
+    private static final String CIV_INHABITANT_ROLE = "Civ_Inhabitant";
+    // Civ_Inhabitant declares exactly one ReadPosition slot: CivMoveTarget.
+    private static final int CIV_MOVE_POSITION_SLOT = 0;
 
     private final ComponentType<EntityStore, CivInhabitantData> inhabitantDataType;
     private final Map<UnitKey, UnitState> units = new ConcurrentHashMap<>();
@@ -143,18 +146,23 @@ public final class CivUnitRegistry {
 
     private static void applyNativePath(Ref<EntityStore> ref, Vector3d target) {
         NPCEntity npc = ref.getStore().getComponent(ref, NPCEntity.getComponentType());
-        if (npc == null) {
+        if (npc == null || !CIV_INHABITANT_ROLE.equals(npc.getRoleName())) {
             return;
         }
 
+        MarkedEntitySupport markedEntitySupport =
+            ref.getStore().getComponent(ref, MarkedEntitySupport.getComponentType());
+        if (markedEntitySupport == null) {
+            return;
+        }
+
+        Vector3d moveTarget = markedEntitySupport.getStoredPosition(CIV_MOVE_POSITION_SLOT);
         if (target == null) {
-            npc.getPathManager().setTransientPath(null);
+            moveTarget.set(Vector3dUtil.MIN);
             return;
         }
 
-        TransientPath path = new TransientPath();
-        path.addWaypoint(new Vector3d(target), new Rotation3f(0.0f, 0.0f, 0.0f));
-        npc.getPathManager().setTransientPath(path);
+        moveTarget.set(target);
     }
 
     private static boolean sameTarget(Vector3d current, Vector3d next) {
