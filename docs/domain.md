@@ -1,71 +1,71 @@
-# Domain
+# Domäne
 
-This file is the authoritative location for verified Hytale Civ domain terms, rules, invariants, value ranges and state transitions.
+Diese Datei ist der maßgebliche Ort für verifizierte Begriffe, Regeln, Invarianten, Wertebereiche und Zustandsübergänge der Hytale-Civ-Domäne.
 
-A rule belongs here only when it is intentionally part of the game model and supported by a current product decision, reliable observation or explicit user instruction. Existing code alone is not sufficient evidence that a behavior is a domain rule.
+Eine Regel gehört nur dann hierher, wenn sie bewusst Teil des Spielmodells ist und durch eine aktuelle Produktentscheidung, eine verlässliche Beobachtung oder eine ausdrückliche Benutzeranweisung gestützt wird. Bestehender Code allein reicht nicht als Beleg dafür aus, dass ein Verhalten eine Domänenregel ist.
 
-Unknown behavior stays unknown until it is decided or verified. Do not turn implementation accidents, temporary debug behavior or Hytale engine constraints into permanent domain rules without an explicit reason.
+Unbekanntes Verhalten bleibt unbekannt, bis es entschieden oder verifiziert wurde. Implementierungsdetails, vorläufiges Debug-Verhalten oder Einschränkungen der Hytale-Engine dürfen nicht ohne ausdrücklichen Grund zu dauerhaften Domänenregeln werden.
 
-## Current domain status
+## Aktueller Domänenstatus
 
-The project is still in an engine-validation milestone. Most planned simulation domains such as persistent inhabitants, needs, general inventories, logistics, families and economy do not yet have implemented domain rules. Farm and Woodcutter are the first implemented job slices.
+Das Projekt befindet sich noch in einem Engine-Validierungs-Meilenstein. Viele geplante Simulationsbereiche wie dauerhafte Bewohner, Bedürfnisse, allgemeine Inventare, Logistik, Familien und Wirtschaft besitzen noch keine vollständig umgesetzten Domänenregeln. Farm und Holzfäller sind die ersten umgesetzten Berufsausschnitte.
 
-The current NPC claim and movement state is deliberately temporary integration-test state, not persistent Civ ownership or a complete inhabitant lifecycle. Profession data is the first inhabitant state moved onto a serializable per-entity component.
+Der aktuelle Anspruchs- und Bewegungszustand von NPCs ist bewusst nur ein vorläufiger Integrationstest und noch kein dauerhaftes Civ-Besitzsystem oder vollständiger Bewohner-Lebenszyklus. Berufsdaten sind der erste Bewohnerzustand, der direkt an einer einzelnen Einheit dauerhaft gespeichert wird.
 
-## Inhabitants
+## Bewohner
 
-- A claimed Civ NPC can carry persistent inhabitant data directly on its Hytale entity.
-- Current profession and profession experience belong to that individual inhabitant rather than to the temporary RTS claim registry.
-- An inhabitant may have no profession; profession experience starts at zero and cannot be negative.
-- Workplace identity is not yet a persistent domain rule because placed Civ buildings do not yet have stable persistent identity.
+- Ein beanspruchter Civ-NPC kann dauerhafte Bewohnerdaten direkt an seiner Hytale-Entität tragen.
+- Aktueller Beruf und Berufserfahrung gehören zu diesem einzelnen Bewohner und nicht zum vorläufigen RTS-Anspruchsregister.
+- Ein Bewohner darf keinen Beruf besitzen. Berufserfahrung beginnt bei null und darf nicht negativ sein.
+- Eine dauerhafte Arbeitsplatzidentität ist noch keine Domänenregel, weil platzierte Civ-Gebäude noch keine stabile dauerhafte Identität besitzen.
 
-## Planned domain areas
+## Geplante Domänenbereiche
 
-As concrete features are implemented, keep their verified rules here under focused sections. Expected areas include:
+Sobald konkrete Features umgesetzt werden, werden ihre verifizierten Regeln hier in eigenen Abschnitten festgehalten. Erwartete Bereiche sind:
 
-- inhabitants and identity;
-- professions, qualification and experience;
-- needs and autonomous behavior;
-- households and families;
-- buildings and construction;
-- local inventories and physical goods;
-- production and recipes;
-- logistics and transport;
-- technology and unlock progression;
-- diplomacy and combat;
-- missions and scenario state.
+- Bewohner und Identität
+- Berufe, Qualifikation und Erfahrung
+- Bedürfnisse und autonomes Verhalten
+- Haushalte und Familien
+- Gebäude und Bau
+- lokale Inventare und physische Waren
+- Produktion und Rezepte
+- Logistik und Transport
+- Technologie und Freischaltungen
+- Diplomatie und Kampf
+- Missionen und Szenariozustand
 
-Do not predefine their detailed rules before the corresponding product behavior is decided.
+Die Detailregeln dieser Bereiche werden nicht vorab festgelegt, bevor das zugehörige Produktverhalten entschieden ist.
 
-## Woodcutter
+## Holzfäller
 
-- Woodcutter is a profession that can currently be assigned to one selected claimed Civ NPC.
-- After assignment, the Woodcutter autonomously seeks a nearby tree rather than waiting for a building assignment.
-- The Woodcutter walks beside the tree before working on it.
-- Felling must use Hytale's native block harvesting and physics behavior rather than deleting a tree through Civ-only simulation state.
-- After a tree is felled, the Woodcutter searches for another nearby tree.
-- Work areas, carrying wood, storage delivery, tools, experience and persistence are not domain rules yet.
+- Holzfäller ist ein Beruf, der aktuell einem ausgewählten und beanspruchten Civ-NPC zugewiesen werden kann.
+- Nach der Zuweisung sucht der Holzfäller selbstständig nach einem Baum in der Nähe, statt auf eine Gebäudezuweisung zu warten.
+- Der Holzfäller läuft neben den Baum, bevor er mit der Arbeit beginnt.
+- Das Fällen muss Hytales normales Ernte- und Physikverhalten verwenden, statt den Baum nur in Civ-eigenem Simulationszustand zu löschen.
+- Nach dem Fällen sucht der Holzfäller einen weiteren Baum in der Nähe.
+- Arbeitsbereiche, Holztransport, Lagerlieferung, Werkzeuge, Erfahrung und dauerhafte Arbeitsplatzspeicherung sind noch keine Domänenregeln.
 
-## Building placement
+## Gebäudeplatzierung
 
-- RTS building placement state belongs to the individual player; one player's preview or cancellation must not change another player's placement state.
-- A building placement preview is advisory. Shared-world placement is validated again when the player confirms it.
-- A building floor is embedded one block into the pointed terrain so its finished floor surface does not sit one full block above the surrounding ground.
-- The current placement rules require supported ground across the floor footprint, no liquid or holes in the replaced floor layer, clear required building volume, clear entrances and no overlap with an existing Civ building footprint.
-- Every placed building instance must retain the original world blocks replaced by its embedded floor so demolition can restore the prior terrain.
-- The retained terrain snapshot follows the lifetime of the placed building. It is runtime-only until building persistence is implemented.
+- Der Zustand einer RTS-Gebäudeplatzierung gehört immer zum einzelnen Spieler. Vorschau oder Abbruch eines Spielers dürfen den Platzierungszustand eines anderen Spielers nicht verändern.
+- Eine Platzierungsvorschau ist nur eine visuelle Hilfe. Die tatsächliche Veränderung der gemeinsamen Welt wird beim Bestätigen erneut geprüft.
+- Der Gebäudeboden wird einen Block in das anvisierte Gelände eingelassen, damit seine fertige Oberfläche nicht einen vollen Block über dem umliegenden Gelände liegt.
+- Die aktuellen Platzierungsregeln verlangen durchgehend gestützten Boden, keine Flüssigkeiten oder Löcher in der ersetzten Bodenschicht, freien benötigten Gebäuderaum, freie Zugänge und keine Überschneidung mit einem vorhandenen Civ-Gebäude.
+- Jede platzierte Gebäudeinstanz muss die ursprünglichen Weltblöcke behalten, die durch ihren eingelassenen Boden ersetzt wurden, damit ein späterer Abriss das vorherige Gelände wiederherstellen kann.
+- Dieser Geländeschnappschuss besitzt dieselbe Lebensdauer wie das platzierte Gebäude. Solange Gebäude nicht dauerhaft gespeichert werden, ist auch der Schnappschuss nur laufzeitgebunden.
 
 ## Farm
 
-The first implemented building domain is intentionally specific rather than a speculative generic building framework.
+Die erste umgesetzte Gebäudedomäne ist bewusst konkret und noch kein spekulatives allgemeines Gebäudesystem.
 
-- A building prefab must define at least one entrance marker; a Farm may define multiple entrances.
-- A Farm has one Farmer slot.
-- Assigning a claimed Civ NPC to a Farm marks that NPC with the FARMER profession on its persistent inhabitant data.
-- The current Farm assignment selects the entrance nearest to the assigned Farmer by straight-line world distance. Reaching that entrance transitions the Farmer into the logical WORKING_INSIDE state.
-- One wheat is produced after five seconds of active work inside the Farm.
-- After every wheat production, the Farmer must leave the building before another production step can begin.
-- The exterior exit target is two blocks south of the selected entrance for the current fixed-orientation Farm prefab.
-- A Farm stops production at exactly 10 local wheat.
-- Travel time is not part of the five-second work timer.
-- Farm placement, Farm assignment and wheat inventory remain runtime-only and are not persisted across a server/plugin restart yet. The NPC's profession is stored persistently, but no persistent Farm reference is written until buildings have stable persistent identity.
+- Ein Gebäude-Prefab muss mindestens einen Eingang beziehungsweise Arbeitszugang definieren. Eine Farm darf mehrere besitzen.
+- Eine Farm hat genau einen Bauernplatz.
+- Wird ein beanspruchter Civ-NPC einer Farm zugewiesen, erhält dieser Bewohner den Beruf Bauer.
+- Die aktuelle Farm-Zuweisung verwendet den Zugang mit der geringsten Luftlinienentfernung zum zugewiesenen Bewohner. Erreicht der Bewohner diesen Zugang, wechselt er in den logischen Zustand ARBEITET_INNEN.
+- Nach fünf Sekunden aktiver Arbeit in der Farm wird eine Einheit Weizen produziert.
+- Nach jeder produzierten Einheit Weizen muss der Bauer das Gebäude verlassen, bevor der nächste Produktionsschritt beginnen kann.
+- Das aktuelle Außenziel liegt bei der fest ausgerichteten Farm zwei Blöcke südlich des gewählten Zugangs.
+- Die Produktion stoppt exakt bei zehn Einheiten lokalem Weizen.
+- Laufzeit zählt nicht zu den fünf Sekunden Arbeitszeit.
+- Farm-Platzierung, Farm-Zuweisung und Weizenbestand bleiben aktuell nur zur Laufzeit erhalten und werden nach einem Server- oder Plugin-Neustart nicht wiederhergestellt. Der Beruf des NPCs wird dauerhaft gespeichert, aber noch keine dauerhafte Farm-Referenz.
