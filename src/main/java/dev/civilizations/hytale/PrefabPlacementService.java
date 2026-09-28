@@ -142,9 +142,10 @@ public final class PrefabPlacementService {
         }
         Store<EntityStore> store = playerEntityRef.getStore();
         Vector3i anchor = candidate.anchor();
+        int previewY = anchor.y + candidate.definition().groundSinkBlocks();
         Ref<EntityStore> previewRef = PersistentPrefabPreview.spawn(
             store,
-            new org.joml.Vector3d(anchor.x, anchor.y, anchor.z),
+            new org.joml.Vector3d(anchor.x, previewY, anchor.z),
             new Rotation3f(),
             candidate.definition().prefabKey(),
             Integer.MAX_VALUE
@@ -156,6 +157,7 @@ public final class PrefabPlacementService {
         }
         ConstructionSite site = new ConstructionSite(
             UUID.randomUUID(),
+            playerRef.getUuid(),
             candidate.definition(),
             anchor,
             previewRef
@@ -255,6 +257,25 @@ public final class PrefabPlacementService {
             return;
         }
         active.previewRef().getStore().removeEntity(active.previewRef(), RemoveReason.REMOVE);
+    }
+
+    public int cancelConstructionSites(PlayerRef playerRef) {
+        UUID ownerId = playerRef.getUuid();
+        List<ConstructionSite> ownedSites = constructionSites.values().stream()
+            .filter(site -> site.ownerId().equals(ownerId))
+            .toList();
+        for (ConstructionSite site : ownedSites) {
+            removeConstructionSite(site);
+        }
+        return ownedSites.size();
+    }
+
+    public void removeConstructionSite(ConstructionSite site) {
+        constructionSites.remove(site.id(), site);
+        Ref<EntityStore> previewRef = site.previewRef();
+        if (previewRef != null && previewRef.isValid()) {
+            PersistentPrefabPreview.remove(previewRef.getStore(), previewRef);
+        }
     }
 
     public Collection<ConstructionSite> constructionSites() {
@@ -404,6 +425,7 @@ public final class PrefabPlacementService {
 
     public record ConstructionSite(
         UUID id,
+        UUID ownerId,
         PlacementDefinition definition,
         Vector3i anchor,
         Ref<EntityStore> previewRef
