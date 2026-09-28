@@ -1,5 +1,7 @@
 package dev.civilizations.hytale;
 
+import com.hypixel.hytale.builtin.buildertools.BuilderToolsPlugin;
+import com.hypixel.hytale.builtin.buildertools.utils.PasteToolUtil;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.RemoveReason;
 import com.hypixel.hytale.component.Store;
@@ -98,6 +100,68 @@ public final class PrefabPlacementService {
             pointedBlock.y - definition.groundSinkBlocks(),
             pointedBlock.z
         );
+    }
+
+    public boolean startNativeConstructionGhost(
+        PlayerRef playerRef,
+        PlacementDefinition definition
+    ) {
+        Ref<EntityStore> playerEntityRef = playerRef.getReference();
+        if (playerEntityRef == null || !playerEntityRef.isValid()) {
+            return false;
+        }
+        Store<EntityStore> store = playerEntityRef.getStore();
+        Player player = store.getComponent(playerEntityRef, Player.getComponentType());
+        if (player == null) {
+            return false;
+        }
+
+        BlockSelection source = new BlockSelection(requireSource(definition));
+        source.setAnchor(
+            source.getAnchorX(),
+            source.getAnchorY() + definition.groundSinkBlocks(),
+            source.getAnchorZ()
+        );
+        BuilderToolsPlugin.addToQueue(
+            player,
+            playerRef,
+            (ref, state, accessor) ->
+                state.load(definition.displayName(), source, accessor)
+        );
+        PasteToolUtil.switchToPasteTool(playerEntityRef, playerRef, store);
+        return true;
+    }
+
+    public ConstructionSite createConstructionSiteAtClick(
+        PlayerRef playerRef,
+        PlacementCandidate candidate
+    ) {
+        Ref<EntityStore> playerEntityRef = playerRef.getReference();
+        if (playerEntityRef == null || !playerEntityRef.isValid()) {
+            throw new IllegalStateException("Player entity unavailable.");
+        }
+        Store<EntityStore> store = playerEntityRef.getStore();
+        Vector3i anchor = candidate.anchor();
+        Ref<EntityStore> previewRef = PersistentPrefabPreview.spawn(
+            store,
+            new org.joml.Vector3d(anchor.x, anchor.y, anchor.z),
+            new Rotation3f(),
+            candidate.definition().prefabKey(),
+            Integer.MAX_VALUE
+        );
+        if (previewRef == null || !previewRef.isValid()) {
+            throw new IllegalStateException(
+                "PersistentPrefabPreview.spawn returned no valid entity"
+            );
+        }
+        ConstructionSite site = new ConstructionSite(
+            UUID.randomUUID(),
+            candidate.definition(),
+            anchor,
+            previewRef
+        );
+        constructionSites.put(site.id(), site);
+        return site;
     }
 
     public boolean startConstructionPreview(

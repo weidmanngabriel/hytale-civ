@@ -205,3 +205,8 @@ Das Farm-Prefab ist unter <code>asset-pack/Server/Prefabs/Civilizations/Farm/Far
 <code>/civwiki</code> öffnet das Ingame-Wiki im aktiven RTS-Modus. Der Befehl bleibt der aktuell verifizierte Einstiegspunkt, bis ein natives interaktives HUD- oder Hotkey-Verfahren bestätigt ist.
 
 <code>WikiPage</code> ist eine Hytale-nahe <code>InteractiveCustomUIPage</code> und bleibt außerhalb der Core-Simulation. Die UI-Layouts liegen im bearbeitbaren Asset Pack unter <code>Common/UI/Custom/Pages/CivWiki*.ui</code>. Navigation ersetzt die aktuelle Custom Page über Hytales nativen Page Manager durch eine andere Wiki-Seite. Der Inhalt ist bewusst auf bereits umgesetztes Verhalten begrenzt, damit das Hilfesystem keine spekulative zweite Quelle für Domänenregeln wird.
+
+
+### Native ghost / Civ click-cancel spike
+
+Runtime diagnostics showed that the RTS camera does not emit generic `PlayerMouseMotionEvent` updates while the cursor moves, so a server-driven moving `PersistentPrefabPreview` cannot use that event as its position source. The current focused spike therefore delegates only the moving ghost to Hytale's native Paste tool. Civ still owns the normal mouse-button event: on confirmation it cancels that event and creates a `PersistentPrefabPreview` construction site from the click's `targetBlock` instead of intentionally invoking `BlockSelection.place`. The clipboard selection anchor is shifted upward by the configured sink amount so the native ghost itself renders the prefab one block lower. Whether cancelling the normal mouse event also suppresses the Builder tool's separate paste packet remains a runtime contract to verify.
