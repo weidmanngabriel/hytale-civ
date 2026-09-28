@@ -6,14 +6,12 @@ import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseMotionEvent;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
-import com.hypixel.hytale.server.core.modules.interaction.interaction.config.server.OpenCustomUIInteraction;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.VikingNameGenerator;
 import dev.civilizations.hytale.CivClaimDamageSystem;
 import dev.civilizations.hytale.CivInhabitantData;
 import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivInhabitantUseSystem;
-import dev.civilizations.hytale.CivPersonActionsPageSupplier;
 import dev.civilizations.hytale.CivUnitRegistry;
 import dev.civilizations.hytale.FarmBuildingRegistry;
 import dev.civilizations.hytale.FarmNpcWorkSystem;
@@ -58,13 +56,6 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getEntityStoreRegistry().registerSystem(new CivInhabitantUseSystem(rtsInteractionController));
         getEntityStoreRegistry().registerSystem(new FarmNpcWorkSystem(unitRegistry, farmRegistry));
         getEntityStoreRegistry().registerSystem(new WoodcutterWorkSystem(unitRegistry));
-
-        OpenCustomUIInteraction.registerCustomPageSupplier(
-            this,
-            CivPersonActionsPageSupplier.class,
-            "CivPersonActions",
-            new CivPersonActionsPageSupplier(rtsInteractionController)
-        );
 
         getCommandRegistry().registerCommand(new CivTestCommand());
         getCommandRegistry().registerCommand(new CivRtsTestCommand(rtsInteractionController));
