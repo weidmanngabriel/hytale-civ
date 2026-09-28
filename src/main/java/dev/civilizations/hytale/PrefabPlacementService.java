@@ -66,7 +66,7 @@ public final class PrefabPlacementService {
         Vector3i anchor = placementAnchor(pointedBlock, definition);
 
         List<PrefabCell> cells = readCells(source);
-        int terrainReplaceMaxY = source.getAnchorY() + definition.groundSinkBlocks();
+        int terrainReplaceMaxY = source.getAnchorY();
         List<PrefabCell> terrainCells = cells.stream()
             .filter(cell -> cell.y() <= terrainReplaceMaxY)
             .toList();
