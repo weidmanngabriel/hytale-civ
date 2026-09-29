@@ -2,6 +2,7 @@ package dev.civilizations.simulation.viewer;
 
 import dev.civilizations.core.Profession;
 import dev.civilizations.simulation.SimulationRuntime;
+import dev.civilizations.simulation.SimulationScenarios;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -12,7 +13,7 @@ class SimulationViewerAppTest {
 
     @Test
     void demoScenarioExposesAllCurrentVerticalSlices() {
-        SimulationRuntime runtime = SimulationViewerApp.createDemoRuntime();
+        SimulationRuntime runtime = SimulationScenarios.DEMO_SETTLEMENT.createRuntime();
         SimulationRuntime.WorldSnapshot snapshot = runtime.worldSnapshot();
 
         assertEquals(3, snapshot.residents().size());
@@ -30,7 +31,7 @@ class SimulationViewerAppTest {
 
     @Test
     void viewerSnapshotsRemainStableWhileRuntimeAdvances() {
-        SimulationRuntime runtime = SimulationViewerApp.createDemoRuntime();
+        SimulationRuntime runtime = SimulationScenarios.DEMO_SETTLEMENT.createRuntime();
         SimulationRuntime.WorldSnapshot before = runtime.worldSnapshot();
 
         runtime.runForSeconds(1.0);
