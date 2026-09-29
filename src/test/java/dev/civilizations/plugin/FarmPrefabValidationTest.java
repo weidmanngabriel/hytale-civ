@@ -45,9 +45,9 @@ class FarmPrefabValidationTest {
 
         JsonNode entities = prefab.path("entities");
         assertEquals(3, entities.size());
-        assertMarker(entities, "civ_farm_building", "building_bounds");
-        assertMarker(entities, "civ_farm_workplace", "workplace_access");
-        assertMarker(entities, "civ_farm_output_storage", "output_storage");
+        assertMarker(entities, "civ_farm_building", "farm", "building_bounds");
+        assertMarker(entities, "civ_farm_workplace", "farm", "workplace_access");
+        assertMarker(entities, "civ_farm_output_storage", "farm", "output_storage");
     }
 
     @Test
@@ -70,8 +70,9 @@ class FarmPrefabValidationTest {
         }
 
         JsonNode entities = prefab.path("entities");
-        assertEquals(1, entities.size());
-        assertMarker(entities, "civ_farm_field", "field");
+        assertEquals(2, entities.size());
+        assertMarker(entities, "civ_wheat_field_building", "wheat_field", "building_bounds");
+        assertMarker(entities, "civ_farm_field", "wheat_field", "field");
     }
 
     private JsonNode read(String fileName) throws Exception {
@@ -91,6 +92,7 @@ class FarmPrefabValidationTest {
     private static void assertMarker(
         JsonNode entities,
         String expectedName,
+        String expectedBuilding,
         String expectedType
     ) {
         boolean found = false;
@@ -102,7 +104,7 @@ class FarmPrefabValidationTest {
             assertEquals("Box", trigger.path("Shape").path("Type").asText());
             assertTrue(trigger.path("Enabled").asBoolean());
             assertEquals("Npc", trigger.path("TargetTypes").get(0).asText());
-            assertEquals("farm", trigger.path("Tags").path("civ.building").asText());
+            assertEquals(expectedBuilding, trigger.path("Tags").path("civ.building").asText());
             assertEquals(expectedType, trigger.path("Tags").path("civ.type").asText());
             assertFalse(trigger.path("Tags").has("civ.access"));
             found = true;
