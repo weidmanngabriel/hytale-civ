@@ -79,7 +79,8 @@ public final class BuildingPlacementRegistry {
         UUID siteId,
         String buildingType,
         PrefabPlacementService.PlacedMarker boundsMarker,
-        List<PrefabPlacementService.PlacedMarker> semanticVolumes
+        List<PrefabPlacementService.PlacedMarker> semanticVolumes,
+        PrefabPlacementService.PlacementCandidate placement
     ) {
         if (worldId == null || siteId == null || boundsMarker == null
             || boundsMarker.bounds() == null) {
@@ -93,7 +94,8 @@ public final class BuildingPlacementRegistry {
             buildingType,
             boundsMarker.id(),
             boundsMarker.bounds(),
-            semanticVolumes
+            semanticVolumes,
+            null
         );
         List<BuildingInstance> updated =
             new ArrayList<>(buildings.getOrDefault(worldId, List.of()));
@@ -101,6 +103,22 @@ public final class BuildingPlacementRegistry {
         updated.add(instance);
         buildings.put(worldId, List.copyOf(updated));
         return instance;
+    }
+
+    public synchronized BuildingInstance remove(UUID worldId, UUID buildingId) {
+        BuildingInstance existing = find(worldId, buildingId);
+        if (existing == null) {
+            return null;
+        }
+        List<BuildingInstance> updated =
+            new ArrayList<>(buildings.getOrDefault(worldId, List.of()));
+        updated.removeIf(building -> building.id().equals(buildingId));
+        if (updated.isEmpty()) {
+            buildings.remove(worldId);
+        } else {
+            buildings.put(worldId, List.copyOf(updated));
+        }
+        return existing;
     }
 
     public BuildingInstance findAt(UUID worldId, Vector3i block) {
@@ -130,7 +148,8 @@ public final class BuildingPlacementRegistry {
         String buildingType,
         String boundsVolumeId,
         BuildingBounds bounds,
-        List<PrefabPlacementService.PlacedMarker> semanticVolumes
+        List<PrefabPlacementService.PlacedMarker> semanticVolumes,
+        PrefabPlacementService.PlacementCandidate placement
     ) {
         public BuildingInstance {
             semanticVolumes = List.copyOf(semanticVolumes);
