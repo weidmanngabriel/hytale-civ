@@ -44,7 +44,8 @@ class FarmPrefabValidationTest {
         assertTrue(foundEmptyChest);
 
         JsonNode entities = prefab.path("entities");
-        assertEquals(2, entities.size());
+        assertEquals(3, entities.size());
+        assertMarker(entities, "civ_farm_building", "building_bounds");
         assertMarker(entities, "civ_farm_workplace", "workplace_access");
         assertMarker(entities, "civ_farm_output_storage", "output_storage");
     }

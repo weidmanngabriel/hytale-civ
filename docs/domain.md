@@ -65,6 +65,7 @@ Die Detailregeln dieser Bereiche werden nicht vorab festgelegt, bevor das zugeh�
 - Für physische Warenbestände eines Gebäudes soll Hytales natives Container-/Inventarsystem verwendet werden, sofern der jeweilige Gebäudetyp einen geeigneten Containerblock besitzt. Ein paralleler Civ-Zähler oder eine eigene Text-/JSON-Datei ist dafür nicht das bevorzugte Modell.
 - Die aktuelle Serverversion besitzt serialisierbare Block-Container im ChunkStore. Damit ist ein echter Hytale-Container der bevorzugte Kandidat für beispielsweise lokal bei einer Farm gelagerten Weizen.
 - Räumliche Gebäudefunktionen sollen nach Möglichkeit im Prefab mit nativen Hytale-Mechanismen beschrieben werden. Trigger Volumes dürfen dafür Civ-Tags tragen, können aber zusätzlich native Volume-Logik nutzen.
+- Die allgemeine räumliche Grenze eines fertigen Civ-Gebäudes wird vom Creator als natives Trigger Volume mit `civ.type=building_bounds` und `civ.building=<Gebäudetyp>` im Prefab festgelegt. Diese Zone ist nach Fertigstellung die maßgebliche Runtime-Fläche für Gebäude-Picking und Schutz; semantische Volumes wie `workplace_access` bleiben davon getrennte Funktionsbereiche.
 - Eine dauerhafte allgemeine Gebäudeidentität und eine persistente Bewohner-zu-Gebäude-Zuweisung sind noch nicht als Domänenmodell entschieden. Hytale stellt persistente Referenz-, Meta- und ECS-Infrastruktur bereit; der konkrete Lifecycle für Civ-Gebäude muss jedoch noch praktisch validiert werden.
 
 ## Farm

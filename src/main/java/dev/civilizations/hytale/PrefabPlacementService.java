@@ -22,6 +22,8 @@ import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.BlockPosition;
+import dev.civilizations.core.BuildingBounds;
+import org.joml.Vector3d;
 import org.joml.Vector3i;
 
 import java.util.ArrayList;
@@ -410,6 +412,9 @@ public final class PrefabPlacementService {
     }
 
     private static PlacedMarker toMarker(VolumeEntry volume) {
+        Vector3d min = new Vector3d();
+        Vector3d max = new Vector3d();
+        volume.getShape().getWorldAABB(volume.getPosition(), min, max);
         return new PlacedMarker(
             volume.getId(),
             new Vector3i(
@@ -417,7 +422,8 @@ public final class PrefabPlacementService {
                 (int) Math.floor(volume.getPosition().y),
                 (int) Math.floor(volume.getPosition().z)
             ),
-            volume.getRawTags()
+            volume.getRawTags(),
+            new BuildingBounds(min.x, min.y, min.z, max.x, max.y, max.z)
         );
     }
 
@@ -549,7 +555,12 @@ public final class PrefabPlacementService {
         }
     }
 
-    public record PlacedMarker(String id, Vector3i position, Map<String, String> tags) {
+    public record PlacedMarker(
+        String id,
+        Vector3i position,
+        Map<String, String> tags,
+        BuildingBounds bounds
+    ) {
         public PlacedMarker {
             position = new Vector3i(position);
             tags = Map.copyOf(tags);

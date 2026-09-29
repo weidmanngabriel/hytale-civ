@@ -30,6 +30,7 @@ public final class FarmBuildingRegistry {
 
     public FarmSite registerFarm(
         UUID worldId,
+        UUID buildingInstanceId,
         List<Vector3i> entranceBlocks,
         PrefabPlacementService.PlacementFootprint footprint,
         Map<BlockPosition, Integer> replacedFloorBlocks
@@ -51,6 +52,7 @@ public final class FarmBuildingRegistry {
         );
         FarmSite site = new FarmSite(
             worldId,
+            buildingInstanceId,
             building,
             entrances,
             footprint,
@@ -70,6 +72,17 @@ public final class FarmBuildingRegistry {
             .map(FarmSite::footprint)
             .filter(existing -> existing != null)
             .anyMatch(footprint::overlaps);
+    }
+
+    public FarmSite findByBuildingInstance(UUID worldId, UUID buildingInstanceId) {
+        if (worldId == null || buildingInstanceId == null) {
+            return null;
+        }
+        return farms.values().stream()
+            .filter(site -> site.worldId().equals(worldId))
+            .filter(site -> buildingInstanceId.equals(site.buildingInstanceId()))
+            .findFirst()
+            .orElse(null);
     }
 
     public FarmSite findByEntranceHit(UUID worldId, Vector3i clickedBlock) {
@@ -162,6 +175,7 @@ public final class FarmBuildingRegistry {
     public static final class FarmSite {
 
         private final UUID worldId;
+        private final UUID buildingInstanceId;
         private final FarmBuilding building;
         private final List<BlockPosition> entrances;
         private final PrefabPlacementService.PlacementFootprint footprint;
@@ -171,12 +185,14 @@ public final class FarmBuildingRegistry {
 
         private FarmSite(
             UUID worldId,
+            UUID buildingInstanceId,
             FarmBuilding building,
             List<BlockPosition> entrances,
             PrefabPlacementService.PlacementFootprint footprint,
             Map<BlockPosition, Integer> replacedFloorBlocks
         ) {
             this.worldId = worldId;
+            this.buildingInstanceId = buildingInstanceId;
             this.building = building;
             this.entrances = List.copyOf(entrances);
             this.footprint = footprint;
@@ -186,6 +202,10 @@ public final class FarmBuildingRegistry {
 
         public UUID worldId() {
             return worldId;
+        }
+
+        public UUID buildingInstanceId() {
+            return buildingInstanceId;
         }
 
         public FarmBuilding building() {

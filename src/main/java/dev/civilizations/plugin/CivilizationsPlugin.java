@@ -10,6 +10,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.VikingNameGenerator;
 import dev.civilizations.hytale.CivActivityRegistry;
 import dev.civilizations.hytale.CivClaimDamageSystem;
+import dev.civilizations.hytale.CivBuildingBlockProtectionSystem;
 import dev.civilizations.hytale.CivInhabitantData;
 import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivInhabitantUseSystem;
@@ -51,6 +52,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
         CivActivityRegistry activityRegistry = new CivActivityRegistry(unitRegistry);
         FarmBuildingRegistry farmRegistry = new FarmBuildingRegistry(unitRegistry);
         FarmFieldRegistry fieldRegistry = new FarmFieldRegistry();
+        BuildingPlacementRegistry buildingRegistry = new BuildingPlacementRegistry();
         PrefabPlacementService prefabPlacementService = new PrefabPlacementService();
         RtsInteractionController rtsInteractionController =
             new RtsInteractionController(
@@ -59,10 +61,16 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 activityRegistry,
                 farmRegistry,
                 fieldRegistry,
-                new BuildingPlacementRegistry(),
+                buildingRegistry,
                 prefabPlacementService
             );
 
+        getEntityStoreRegistry().registerSystem(
+            new CivBuildingBlockProtectionSystem.BreakProtection(buildingRegistry)
+        );
+        getEntityStoreRegistry().registerSystem(
+            new CivBuildingBlockProtectionSystem.PlaceProtection(buildingRegistry)
+        );
         getEntityStoreRegistry().registerSystem(new CivClaimDamageSystem(rtsInteractionController));
         getEntityStoreRegistry().registerSystem(new CivInhabitantUseSystem(rtsInteractionController));
         getEntityStoreRegistry().registerSystem(
@@ -80,6 +88,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 activityRegistry,
                 farmRegistry,
                 fieldRegistry,
+                buildingRegistry,
                 prefabPlacementService
             )
         );

@@ -157,10 +157,12 @@ public final class RtsInteractionController {
         if (session != null) {
             clearPlacement(playerRef, session);
         }
+        releaseConstructionReservations(playerRef);
         placementService.cancelConstructionSites(playerRef);
     }
 
     public void cancelConstructionSites(PlayerRef playerRef) {
+        releaseConstructionReservations(playerRef);
         int removed = placementService.cancelConstructionSites(playerRef);
         playerRef.sendMessage(Message.raw(
             removed == 0
@@ -276,8 +278,9 @@ public final class RtsInteractionController {
                 return;
             }
 
-            placementService.createConstructionSiteAtClick(playerRef, candidate);
-            placementRegistry.register(worldId, candidate.footprint());
+            PrefabPlacementService.ConstructionSite site =
+                placementService.createConstructionSiteAtClick(playerRef, candidate);
+            placementRegistry.reserve(worldId, site.id(), candidate.footprint());
 
             session.placementDefinition = null;
             session.previewTarget = null;
@@ -400,7 +403,11 @@ public final class RtsInteractionController {
         }
 
         UUID worldId = playerRef.getWorldUuid();
-        FarmBuildingRegistry.FarmSite farm = farmRegistry.findByEntranceHit(worldId, targetBlock);
+        BuildingPlacementRegistry.BuildingInstance building =
+            placementRegistry.findAt(worldId, targetBlock);
+        FarmBuildingRegistry.FarmSite farm = building == null
+            ? null
+            : farmRegistry.findByBuildingInstance(worldId, building.id());
         if (farm != null) {
             assignSelectedFarmer(playerRef, session, farm);
             return;
@@ -584,6 +591,13 @@ public final class RtsInteractionController {
         playerRef.sendMessage(Message.raw(
             "Bauarbeiter zugewiesen. Der Bewohner übernimmt automatisch die nächste freie Baustelle."
         ));
+    }
+
+    private void releaseConstructionReservations(PlayerRef playerRef) {
+        UUID ownerId = playerRef.getUuid();
+        placementService.constructionSites().stream()
+            .filter(site -> site.ownerId().equals(ownerId))
+            .forEach(site -> placementRegistry.release(site.worldId(), site.id()));
     }
 
     private void clearPlacement(PlayerRef playerRef, Session session) {
