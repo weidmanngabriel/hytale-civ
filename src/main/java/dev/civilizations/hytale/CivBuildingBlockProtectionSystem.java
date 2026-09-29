@@ -25,6 +25,45 @@ public final class CivBuildingBlockProtectionSystem {
     private CivBuildingBlockProtectionSystem() {
     }
 
+    private static boolean allowsFarmingPlacement(
+        BuildingPlacementRegistry.BuildingInstance building,
+        PlaceBlockEvent event
+    ) {
+        if (!isWheatField(building) || !isAboveFieldFloor(building, event.getTargetBlock())) {
+            return false;
+        }
+        return event.getItemInHand() != null
+            && "Plant_Seeds_Wheat".equals(event.getItemInHand().getItemId());
+    }
+
+    private static boolean allowsFarmingBreak(
+        BuildingPlacementRegistry.BuildingInstance building,
+        BreakBlockEvent event
+    ) {
+        return isWheatField(building)
+            && isAboveFieldFloor(building, event.getTargetBlock())
+            && event.getBlockType() != null
+            && event.getBlockType().getFarming() != null;
+    }
+
+    private static boolean isWheatField(BuildingPlacementRegistry.BuildingInstance building) {
+        return building.placement() != null
+            && building.placement().definition() != null
+            && PrefabPlacementService.WHEAT_FIELD.id().equals(
+                building.placement().definition().id()
+            );
+    }
+
+    private static boolean isAboveFieldFloor(
+        BuildingPlacementRegistry.BuildingInstance building,
+        org.joml.Vector3i target
+    ) {
+        return target != null
+            && building.placement() != null
+            && building.placement().footprint() != null
+            && target.y > building.placement().footprint().floorY();
+    }
+
     public static final class BreakProtection
         extends EntityEventSystem<EntityStore, BreakBlockEvent> {
 
@@ -53,8 +92,12 @@ public final class CivBuildingBlockProtectionSystem {
                 chunk.getReferenceTo(index),
                 PlayerRef.getComponentType()
             );
-            if (player != null
-                && buildings.findAt(player.getWorldUuid(), event.getTargetBlock()) != null) {
+            if (player == null) {
+                return;
+            }
+            BuildingPlacementRegistry.BuildingInstance building =
+                buildings.findAt(player.getWorldUuid(), event.getTargetBlock());
+            if (building != null && !allowsFarmingBreak(building, event)) {
                 event.setCancelled(true);
             }
         }
@@ -88,8 +131,12 @@ public final class CivBuildingBlockProtectionSystem {
                 chunk.getReferenceTo(index),
                 PlayerRef.getComponentType()
             );
-            if (player != null
-                && buildings.findAt(player.getWorldUuid(), event.getTargetBlock()) != null) {
+            if (player == null) {
+                return;
+            }
+            BuildingPlacementRegistry.BuildingInstance building =
+                buildings.findAt(player.getWorldUuid(), event.getTargetBlock());
+            if (building != null && !allowsFarmingPlacement(building, event)) {
                 event.setCancelled(true);
             }
         }
