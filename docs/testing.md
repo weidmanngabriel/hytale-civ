@@ -60,6 +60,18 @@ Der aktuelle RTS-Prototyp betrifft vor allem Kamera, Cursor-Zielerfassung, inter
 
 Zukünftige kontrollierte Server-Tests für Lifecycle, Registrierung und Engine-Interaktion. Noch nicht umgesetzt.
 
+## Manueller Check: nativer NPC-Pfad-Debug
+
+1. Einen NPC mit <code>/civclaim</code> als Civ-Bewohner beanspruchen.
+2. <code>/civdebug path</code> ausführen. Die Rückmeldung muss mindestens einen geladenen Civ-Bewohner melden und den Debug-Modus als aktiviert anzeigen.
+3. Dem Bewohner per RTS-Rechtsklick ein Ziel auf freiem Boden geben und bestätigen, dass Hytales Pfadvisualisierung erscheint.
+4. Ein Ziel hinter einem deutlichen Hindernis setzen und prüfen, dass die visualisierten Wegpunkte beziehungsweise Linien dem von Hytale gewählten Umweg folgen und nicht nur eine gerade Civ-Linie zum Endziel bilden.
+5. Den Test während Holzfäller-, Bauer- und Bauarbeiterbewegung wiederholen und bestätigen, dass dieselbe native Pfaddarstellung verwendet wird.
+6. <code>/civdebug path</code> erneut ausführen und bestätigen, dass die von Civ aktivierte Pfadvisualisierung verschwindet.
+7. Falls ein NPC bereits vor dem Civ-Toggle einen eigenen <code>VisPath</code>-Flag hatte, bestätigen, dass dieser beim Ausschalten nicht von Civ entfernt wird.
+
+Dieser Check ist ausdrücklich ein Runtime-Test des Hytale-Verhaltens. Die CI deckt hier Kompilierung und API-Vertrag gegen die festgesetzte Hytale-Abhängigkeit ab; die tatsächliche Darstellung des Engine-Pfads kann nur im laufenden Server/Client verifiziert werden.
+
 ## Hytale-API-Inspektionscheck
 
 Die CI führt zusätzlich zur normalen Kompilierung <code>snapshotHytaleApi</code> und einen repräsentativen Aufruf von <code>inspectHytaleClass</code> für <code>CommandBuffer</code> aus. Dieser Check beweist nur, dass die festgesetzte Hytale-Abhängigkeit auflösbar und ihre API maschinell inspizierbar ist; er ist kein Ersatz für Hytale-Server- oder Client-Laufzeittests.

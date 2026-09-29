@@ -21,6 +21,7 @@ import dev.civilizations.hytale.CivInhabitantData;
 import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivInhabitantUseSystem;
 import dev.civilizations.hytale.CivManualMovementSystem;
+import dev.civilizations.hytale.CivPathDebugService;
 import dev.civilizations.hytale.CivUnitRegistry;
 import dev.civilizations.hytale.ConstructionWorkSystem;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
@@ -64,6 +65,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
             new VikingNameGenerator()
         );
         CivUnitRegistry unitRegistry = new CivUnitRegistry(inhabitantService);
+        CivPathDebugService pathDebugService = new CivPathDebugService(inhabitantDataType);
         CivActivityRegistry activityRegistry = new CivActivityRegistry(unitRegistry);
         FarmBuildingRegistry farmRegistry = new FarmBuildingRegistry(unitRegistry);
         FarmFieldRegistry fieldRegistry = new FarmFieldRegistry();
@@ -117,7 +119,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getCommandRegistry().registerCommand(new CivBuildCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivBuildCancelCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivWikiCommand(rtsInteractionController));
-        getCommandRegistry().registerCommand(new CivDebugCommand(buildingRegistry, buildingPersistence));
+        getCommandRegistry().registerCommand(
+            new CivDebugCommand(buildingRegistry, buildingPersistence, pathDebugService)
+        );
 
         getEventRegistry().registerGlobal(AddPlayerToWorldEvent.class, event -> rtsInteractionController.handleWorldJoin(event.getWorld()));
         getEventRegistry().registerGlobal(TriggerVolumeEvent.class, event -> {
