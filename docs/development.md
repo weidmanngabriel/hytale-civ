@@ -22,6 +22,24 @@ in Hytale testen
 
 Unter Windows <code>gradlew.bat</code> verwenden.
 
+## Simulation Viewer
+
+Der Hytale-unabhängige Desktop-Viewer startet mit:
+
+~~~bash
+./gradlew simulationViewer
+~~~
+
+Unter Windows entsprechend:
+
+~~~bat
+gradlew.bat simulationViewer
+~~~
+
+Der Viewer startet ein kleines Demo-Szenario mit Holzfäller, Bauarbeiter und Farmer. Linksklick wählt einen Bewohner aus, Rechtsklick setzt für den ausgewählten Bewohner ein manuelles Ziel. <code>Step</code> führt genau einen 50-ms-Simulationsschritt aus; <code>x1</code>, <code>x10</code>, <code>x100</code> und <code>Max</code> beschleunigen nur die Headless-Simulation und verändern keine Gameplayregeln. Rechts werden aktueller Bewohnerzustand und deterministische <code>SimulationMetrics</code> angezeigt.
+
+Der Viewer ersetzt keine automatisierten Tests. Die Szenario-Tests laufen als normale JUnit-Tests mit <code>./gradlew test</code>. Im GitHub-Workflow werden sie für jeden Pull Request und anschließend erneut bei Pushes auf <code>main</code> beziehungsweise auf <code>v*</code>-Tags ausgeführt.
+
 ## Hytale-Abhängigkeit
 
 Release-Repository: <code>https://maven.hytale.com/release</code>

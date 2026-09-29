@@ -40,6 +40,15 @@ Szenario-Tests bleiben Hytale-unabhängig, außer das geprüfte Verhalten ist ta
 
 Der erste Cadence-Vertrag lautet: teure autonome Arbeitssuche erfolgt über <code>WorkDecisionSchedule</code> entweder unmittelbar nach einem relevanten Ereignis oder über einen begrenzten Retry. Ein wartender Bewohner darf deshalb nicht nur deshalb auf jedem Simulations- oder Engine-Tick dieselbe teure Suche wiederholen.
 
+## Manueller Simulation-Viewer-Check
+
+1. <code>./gradlew simulationViewer</code> starten und bestätigen, dass das Demo-Szenario ohne Hytale-Fenster erscheint.
+2. <code>Step</code> drücken und bestätigen, dass Tick und Simulationszeit genau einen Schritt weiterlaufen.
+3. Einen Bewohner mit Linksklick auswählen und prüfen, dass Beruf, State, Position und Bewegungsziel rechts erscheinen.
+4. Für den ausgewählten Bewohner per Rechtsklick ein Ziel auf der Karte setzen und bestätigen, dass <code>MANUAL_MOVE</code> aktiv wird und die autonome Tätigkeit danach fortgesetzt wird.
+5. <code>x100</code> oder <code>Max</code> wählen, starten und bestätigen, dass Weltzustand sowie Metrics schnell fortschreiten, ohne dass Hytale gestartet wird.
+6. <code>Reset</code> drücken und bestätigen, dass Demo-Welt, Tick und Metrics auf den Ausgangszustand zurückkehren.
+
 ## Hytale-Adapter-Tests
 
 Tests für Übersetzung und Adapterverhalten, soweit dies ohne laufenden Server sinnvoll möglich ist.
@@ -84,6 +93,7 @@ Der Test für direkte Bewegung verwendet die eingecheckte Rolle <code>Civ_Inhabi
 - <code>WorkDecisionScheduleTest</code> prüft unmittelbare Entscheidungen, begrenzte Retries und das Vorziehen eines relevanten Ereignisses gegenüber einem noch nicht fälligen Retry.
 - <code>SimulationRuntimeTest</code> deckt die ersten Golden-Szenarien für Bauarbeiter, Holzfäller, Farmer und manuelle Unterbrechungen ab. Dazu gehören feste Operationsbudgets: 100 wartende Bauarbeiter führen in 60 Simulationssekunden 6.000 Baustellensuchen aus, und ein Farmer ohne Feld führt in derselben Zeit 60 Feldsuchen statt einer Suche pro Tick aus.
 - <code>SimulationIndependenceTest</code> verhindert direkte Hytale-Imports im wiederverwendbaren Headless-Runtime-Paket.
+- <code>SimulationViewerAppTest</code> prüft das Demo-Szenario und die Snapshot-Grenze, ohne ein Swing-Fenster zu öffnen. Die grafische Darstellung selbst bleibt ein manueller Entwickler-Check.
 - <code>ManifestValidationTest</code> prüft die verpackten Plugin-Metadaten ohne Hytale zu starten.
 - <code>CivInhabitantRoleValidationTest</code> prüft die eingecheckte Civ-NPC-Rolle und den einzelnen Positionsslot, auf den die Java-Bewegungsanbindung angewiesen ist.
 
