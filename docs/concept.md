@@ -63,8 +63,8 @@ Der erste zusammenhängende Produktionsablauf verwendet eine fertig gebaute Farm
 2. Ein Bauer wird über den Arbeitsbereich der Farm zugewiesen. Dafür muss mindestens ein fertiges Weizenfeld vorhanden sein.
 3. Der Bauer läuft zuerst zur Farm und danach zum nächstgelegenen fertigen Weizenfeld.
 4. Auf dem Feld arbeitet er fünf Sekunden.
-5. Danach läuft er zum `output_storage` der Farm und lagert eine echte Hytale-Weizen-ItemStack-Einheit in der vorhandenen Farmtruhe ein.
-6. Erst nach erfolgreicher Einlagerung beginnt der nächste Gang zum Feld. Ist die Truhe voll oder nicht verfügbar, wartet der Zyklus beim Einlagern.
+5. Danach läuft er zuerst wieder über `workplace_access` und anschließend zum `output_storage` der Farm, wo er eine echte Hytale-Weizen-ItemStack-Einheit in der vorhandenen Farmtruhe einlagert.
+6. Erst nach erfolgreicher Einlagerung läuft er erneut über `workplace_access` und beginnt den nächsten Gang zum Feld. Ist die Truhe voll oder nicht verfügbar, wartet der Zyklus beim Einlagern.
 
 Die Laufwege kommen zusätzlich zu den fünf Sekunden Feldarbeit hinzu. Eingangswaren, Träger und die Suche nach Materialquellen sind noch nicht umgesetzt; der gemeinsame Produktionskern hält Inputs jedoch bereits als Rezeptdaten getrennt von ihrer späteren Beschaffungslogik.
 
