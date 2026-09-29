@@ -1,6 +1,8 @@
 package dev.civilizations.plugin;
 
 import com.hypixel.hytale.component.ComponentType;
+import com.hypixel.hytale.component.ResourceType;
+import com.hypixel.hytale.server.core.event.events.player.AddPlayerToWorldEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseMotionEvent;
@@ -11,6 +13,8 @@ import dev.civilizations.core.VikingNameGenerator;
 import dev.civilizations.hytale.CivActivityRegistry;
 import dev.civilizations.hytale.CivClaimDamageSystem;
 import dev.civilizations.hytale.CivBuildingBlockProtectionSystem;
+import dev.civilizations.hytale.CivBuildingDataResource;
+import dev.civilizations.hytale.CivBuildingPersistenceService;
 import dev.civilizations.hytale.CivInhabitantData;
 import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivInhabitantUseSystem;
@@ -29,6 +33,7 @@ import dev.civilizations.hytale.WoodcutterWorkSystem;
 public final class CivilizationsPlugin extends JavaPlugin {
 
     private static final String CIV_INHABITANT_DATA_ID = "CivInhabitantData";
+    private static final String CIV_BUILDING_DATA_ID = "CivBuildingData";
 
     public CivilizationsPlugin(JavaPluginInit init) {
         super(init);
@@ -43,6 +48,14 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 CIV_INHABITANT_DATA_ID,
                 CivInhabitantData.CODEC
             );
+        ResourceType<EntityStore, CivBuildingDataResource> buildingDataType =
+            getEntityStoreRegistry().registerResource(
+                CivBuildingDataResource.class,
+                CIV_BUILDING_DATA_ID,
+                CivBuildingDataResource.CODEC
+            );
+        CivBuildingPersistenceService buildingPersistence =
+            new CivBuildingPersistenceService(buildingDataType);
 
         CivInhabitantService inhabitantService = new CivInhabitantService(
             inhabitantDataType,
@@ -62,7 +75,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 farmRegistry,
                 fieldRegistry,
                 buildingRegistry,
-                prefabPlacementService
+                prefabPlacementService,
+                buildingPersistence
             );
 
         getEntityStoreRegistry().registerSystem(
@@ -89,7 +103,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 farmRegistry,
                 fieldRegistry,
                 buildingRegistry,
-                prefabPlacementService
+                prefabPlacementService,
+                buildingPersistence
             )
         );
 
@@ -101,6 +116,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getCommandRegistry().registerCommand(new CivBuildCancelCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivWikiCommand(rtsInteractionController));
 
+        getEventRegistry().register(AddPlayerToWorldEvent.class, event -> rtsInteractionController.handleWorldJoin(event.getWorld()));
         getEventRegistry().register(PlayerMouseButtonEvent.class, rtsInteractionController::handleMouseButton);
         getEventRegistry().register(PlayerMouseMotionEvent.class, rtsInteractionController::handleMouseMotion);
         getEventRegistry().register(PlayerDisconnectEvent.class, rtsInteractionController::handleDisconnect);
