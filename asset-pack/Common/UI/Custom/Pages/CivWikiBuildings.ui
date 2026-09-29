@@ -13,7 +13,7 @@ $C.@DecoratedContainer {
 
     Label { Text: "Farm"; Style: (FontSize: 20, TextColor: #ffffff); }
     Label {
-      Text: "Wird über Bauen → Farm platziert. Der sichtbare Boden wird eine Ebene in das Gelände eingelassen. Ein zugewiesener Bauer läuft zum Eingang, arbeitet innen und produziert lokalen Weizen.";
+      Text: "Wird über Bauen → Farm platziert. Der sichtbare Boden wird eine Ebene in das Gelände eingelassen. Ein zugewiesener Bauer läuft über die Farm zum nächsten Feld, arbeitet dort und bringt echten Weizen zurück in die Farmtruhe.";
       Style: (FontSize: 14, TextColor: #d7dde6);
       Anchor: (Bottom: 8);
     }

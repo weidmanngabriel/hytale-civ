@@ -77,7 +77,7 @@ Verifiziert bzw. aktuell gewollt:
 - Das Farm-Prefab definiert mindestens einen räumlichen Arbeitszugang über ein natives Hytale Trigger Volume. Mehrere Zugänge sollen möglich bleiben.
 - Ein zugewiesener Bewohner erhält den Beruf Bauer.
 - Farmarbeit soll möglichst sichtbar und physisch in der Hytale-Welt stattfinden und native Hytale-Systeme für Bewegung, Trigger, Interaktionen und Waren verwenden, bevor Civ äquivalente eigene Mechanismen einführt.
-- Lokaler Weizen soll, sobald die Farmproduktion entsprechend umgebaut wird, bevorzugt als physischer Bestand in einem geeigneten nativen Hytale-Container der Farm liegen statt nur als Integer im Java-`FarmBuilding`.
+- Lokaler Weizen liegt nach abgeschlossener Feldarbeit als physischer `Plant_Crop_Wheat_Item`-Stack im nativen Hytale-Container der Farm. Erst erfolgreiche Einlagerung schließt den Produktionszyklus ab.
 
 Nur aktueller Prototyp, **keine dauerhafte Domänenregel**:
 
@@ -88,7 +88,7 @@ Nur aktueller Prototyp, **keine dauerhafte Domänenregel**:
 - eine Einheit Weizen pro Zyklus;
 - Verlassen des Gebäudes nach jeder Einheit;
 - festes Außenziel zwei Blöcke südlich des Zugangs;
-- Produktionsstopp bei zehn Einheiten.
+- Produktionsstopp bei zehn Einheiten (entfallen; die native Containerkapazität begrenzt den Bestand).
 
 Diese Punkte bleiben als Beschreibung des derzeit laufenden Codes relevant, dürfen aber ohne erneute Produktentscheidung nicht als Zielverhalten für die nächste Farm-Iteration verwendet werden. Das in `civilizations-poc` vorhandene Modell mit sichtbarer Feldarbeit, Feldentwicklung, Ernte und Rücktransport ist eine Referenz für die weitere Produktentscheidung, nicht automatisch eine Regel dieses Projekts.
 
@@ -111,3 +111,12 @@ Für die aktuellen Creator-Prefabs gilt die gemeinsame Geländekonvention: Der P
 - Prefab-Entities und Trigger Volumes gelten erst nach Abschluss aller Bauschritte als fertig und werden erst beim finalen vollständigen Prefab-Placement aktiviert.
 - Die derzeitige Dauer von einer Sekunde pro Ebene und die generische Action-Animation sind Prototypwerte bzw. Platzhalter und keine dauerhaften Balancing-Regeln.
 - Baumaterialien, mehrere Bauarbeiter pro Baustelle, Bauarbeiter-Erfahrung und persistente Baustellenzuweisungen sind noch keine Domänenregeln.
+
+
+## Allgemeine Produktion und spätere Materialbeschaffung
+
+- Produktionsrezepte beschreiben Inputs, Outputs und Grundarbeitszeit unabhängig vom konkreten Beruf.
+- Berufe dürfen unterschiedliche Rezepte und Geschwindigkeiten verwenden, ohne eigene Kopien des gesamten Produktionsablaufs zu benötigen.
+- Ein Produktionsarbeiter mit Inputs darf nicht voraussetzen, dass diese bereits am Arbeitsplatz liegen.
+- Die spätere Warenlogistik entscheidet, aus welcher zulässigen Quelle benötigte Güter kommen (z. B. lokaler Arbeitsplatzcontainer, anderes Gebäude/Lager oder physische Weltware), reserviert sie und organisiert den Transport.
+- Produktion entscheidet **was** benötigt und erzeugt wird; Logistik entscheidet **woher** die Güter kommen. Diese Trennung soll spätere Trägerlieferungen ermöglichen, ohne Müller, Steinmetz oder andere Produzenten neu zu modellieren.

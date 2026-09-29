@@ -32,6 +32,7 @@ public final class FarmBuildingRegistry {
         UUID worldId,
         UUID buildingInstanceId,
         List<Vector3i> entranceBlocks,
+        Vector3i outputStorageMarker,
         PrefabPlacementService.PlacementFootprint footprint,
         Map<BlockPosition, Integer> replacedFloorBlocks
     ) {
@@ -55,6 +56,7 @@ public final class FarmBuildingRegistry {
             buildingInstanceId,
             building,
             entrances,
+            outputStorageMarker == null ? null : new Vector3i(outputStorageMarker),
             footprint,
             replacedFloorBlocks
         );
@@ -142,9 +144,7 @@ public final class FarmBuildingRegistry {
             }
 
             if (!site.building().assignFarmer(workerId(site.worldId(), key))) {
-                return site.building().workState() == FarmBuilding.WorkState.COMPLETE
-                    ? AssignmentResult.COMPLETE
-                    : AssignmentResult.OCCUPIED;
+                return AssignmentResult.OCCUPIED;
             }
 
             TransformComponent transform = ref.getStore().getComponentConcurrent(
@@ -194,8 +194,7 @@ public final class FarmBuildingRegistry {
     public enum AssignmentResult {
         ASSIGNED,
         ALREADY_ASSIGNED,
-        OCCUPIED,
-        COMPLETE
+        OCCUPIED
     }
 
     public static final class FarmSite {
@@ -204,6 +203,7 @@ public final class FarmBuildingRegistry {
         private final UUID buildingInstanceId;
         private final FarmBuilding building;
         private final List<BlockPosition> entrances;
+        private final Vector3i outputStorageMarker;
         private final PrefabPlacementService.PlacementFootprint footprint;
         private final Map<BlockPosition, Integer> replacedFloorBlocks;
         private CivUnitRegistry.UnitKey assignedFarmer;
@@ -214,6 +214,7 @@ public final class FarmBuildingRegistry {
             UUID buildingInstanceId,
             FarmBuilding building,
             List<BlockPosition> entrances,
+            Vector3i outputStorageMarker,
             PrefabPlacementService.PlacementFootprint footprint,
             Map<BlockPosition, Integer> replacedFloorBlocks
         ) {
@@ -221,6 +222,7 @@ public final class FarmBuildingRegistry {
             this.buildingInstanceId = buildingInstanceId;
             this.building = building;
             this.entrances = List.copyOf(entrances);
+            this.outputStorageMarker = outputStorageMarker;
             this.footprint = footprint;
             this.replacedFloorBlocks = Map.copyOf(replacedFloorBlocks);
             this.activeEntrance = this.entrances.getFirst();
@@ -240,6 +242,16 @@ public final class FarmBuildingRegistry {
 
         public int entranceCount() {
             return entrances.size();
+        }
+
+        public Vector3i outputStorageMarker() {
+            return outputStorageMarker == null ? null : new Vector3i(outputStorageMarker);
+        }
+
+        public Vector3d outputStorageTarget() {
+            return outputStorageMarker == null
+                ? entranceTarget()
+                : new Vector3d(outputStorageMarker.x + 0.5, outputStorageMarker.y, outputStorageMarker.z + 0.5);
         }
 
         public PrefabPlacementService.PlacementFootprint footprint() {

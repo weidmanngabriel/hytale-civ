@@ -21,7 +21,7 @@ $C.@DecoratedContainer {
 
     Label { Text: "Bauer"; Style: (FontSize: 20, TextColor: #ffffff); }
     Label {
-      Text: "Wird durch Rechtsklick auf einen Farm-Eingang zugewiesen. Arbeitet 5 Sekunden in der Farm und erzeugt 1 Weizen, bis die Farm 10 Weizen enthält.";
+      Text: "Wird an der Farm zugewiesen, läuft zum nächsten fertigen Weizenfeld und arbeitet dort 5 Sekunden. Danach bringt er 1 Weizen zur Farmtruhe; erst erfolgreiche Einlagerung startet den nächsten Zyklus.";
       Style: (FontSize: 14, TextColor: #d7dde6);
       Anchor: (Bottom: 8);
     }

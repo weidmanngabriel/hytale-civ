@@ -2,14 +2,12 @@ package dev.civilizations.core;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class FarmBuildingTest {
 
     @Test
-    void farmerProducesTenWheatByWalkingFarmFieldFarm() {
+    void farmerHarvestsThenWaitsUntilPhysicalOutputIsStored() {
         FarmBuilding farm = new FarmBuilding(
             "farm-test",
             new BlockPosition(10, 64, 10),
@@ -21,27 +19,17 @@ class FarmBuildingTest {
 
         assertTrue(farm.arriveAtFarm());
         assertEquals(FarmBuilding.WorkState.WALKING_TO_FIELD, farm.workState());
+        assertTrue(farm.arriveAtField());
 
-        for (int expectedWheat = 1; expectedWheat <= FarmBuilding.WHEAT_TARGET; expectedWheat++) {
-            assertTrue(farm.arriveAtField());
-            assertEquals(FarmBuilding.WorkState.WORKING_FIELD, farm.workState());
+        assertFalse(farm.advanceWork(4.999));
+        assertTrue(farm.advanceWork(0.001));
+        assertEquals(FarmBuilding.WorkState.RETURNING_TO_STORAGE, farm.workState());
 
-            assertFalse(farm.advanceWork(4.999));
-            assertEquals(expectedWheat - 1, farm.wheat());
+        assertTrue(farm.arriveAtFarm());
+        assertEquals(FarmBuilding.WorkState.STORING_OUTPUT, farm.workState());
 
-            assertTrue(farm.advanceWork(0.001));
-            assertEquals(expectedWheat, farm.wheat());
-            assertEquals(FarmBuilding.WorkState.RETURNING_TO_FARM, farm.workState());
-
-            assertTrue(farm.arriveAtFarm());
-            FarmBuilding.WorkState expectedState = expectedWheat == FarmBuilding.WHEAT_TARGET
-                ? FarmBuilding.WorkState.COMPLETE
-                : FarmBuilding.WorkState.WALKING_TO_FIELD;
-            assertEquals(expectedState, farm.workState());
-        }
-
-        assertFalse(farm.advanceWork(100));
-        assertEquals(FarmBuilding.WHEAT_TARGET, farm.wheat());
+        assertTrue(farm.outputStored());
+        assertEquals(FarmBuilding.WorkState.WALKING_TO_FIELD, farm.workState());
     }
 
     @Test

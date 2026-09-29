@@ -1,23 +1,26 @@
 package dev.civilizations.core;
 
+import java.util.Map;
 import java.util.Objects;
 
 /**
- * Minimal farm workplace for the first visible farm-field production loop.
+ * Farm workplace using the shared production state machine.
  */
 public final class FarmBuilding {
 
-    public static final int WHEAT_TARGET = 10;
-    public static final double PRODUCTION_SECONDS = 5.0;
+    public static final ProductionRecipe WHEAT_RECIPE = new ProductionRecipe(
+        "farm_wheat",
+        Map.of(),
+        Map.of("wheat", 1),
+        5.0
+    );
 
     private final String id;
     private final BlockPosition entranceBlock;
     private final BlockPosition exitBlock;
+    private final ProductionJob production = new ProductionJob(WHEAT_RECIPE);
 
     private String farmerId;
-    private int wheat;
-    private double workElapsedSeconds;
-    private WorkState workState = WorkState.WAITING_FOR_FARMER;
 
     public FarmBuilding(String id, BlockPosition entranceBlock, BlockPosition exitBlock) {
         this.id = Objects.requireNonNull(id, "id");
@@ -27,63 +30,57 @@ public final class FarmBuilding {
 
     public synchronized boolean assignFarmer(String farmerId) {
         Objects.requireNonNull(farmerId, "farmerId");
-        if (this.farmerId != null || workState == WorkState.COMPLETE) return false;
+        if (this.farmerId != null) return false;
+        if (!production.start()) return false;
         this.farmerId = farmerId;
-        workElapsedSeconds = 0.0;
-        workState = WorkState.WALKING_TO_FARM;
         return true;
     }
 
     public synchronized void unassignFarmer() {
         farmerId = null;
-        workElapsedSeconds = 0.0;
-        workState = wheat >= WHEAT_TARGET ? WorkState.COMPLETE : WorkState.WAITING_FOR_FARMER;
+        production.stop();
     }
 
     public synchronized boolean arriveAtFarm() {
-        if (workState == WorkState.WALKING_TO_FARM) {
-            workState = WorkState.WALKING_TO_FIELD;
-            return true;
-        }
-        if (workState == WorkState.RETURNING_TO_FARM) {
-            workState = wheat >= WHEAT_TARGET ? WorkState.COMPLETE : WorkState.WALKING_TO_FIELD;
-            return true;
-        }
-        return false;
+        return production.workplaceReached();
     }
 
     public synchronized boolean arriveAtField() {
-        if (workState != WorkState.WALKING_TO_FIELD) return false;
-        workElapsedSeconds = 0.0;
-        workState = WorkState.WORKING_FIELD;
-        return true;
+        return production.workAreaReached();
     }
 
     public synchronized boolean advanceWork(double deltaSeconds) {
-        if (deltaSeconds < 0.0) throw new IllegalArgumentException("deltaSeconds must be >= 0");
-        if (workState != WorkState.WORKING_FIELD) return false;
-        workElapsedSeconds += deltaSeconds;
-        if (workElapsedSeconds + 1.0e-9 < PRODUCTION_SECONDS) return false;
-        wheat++;
-        workElapsedSeconds = 0.0;
-        workState = WorkState.RETURNING_TO_FARM;
-        return true;
+        return production.advanceWork(deltaSeconds, 1.0);
+    }
+
+    public synchronized boolean outputStored() {
+        return production.outputStored();
     }
 
     public String id() { return id; }
     public BlockPosition entranceBlock() { return entranceBlock; }
     public BlockPosition exitBlock() { return exitBlock; }
     public synchronized String farmerId() { return farmerId; }
-    public synchronized int wheat() { return wheat; }
-    public synchronized double workElapsedSeconds() { return workElapsedSeconds; }
-    public synchronized WorkState workState() { return workState; }
+    public synchronized double workElapsedSeconds() { return production.workElapsedSeconds(); }
+    public synchronized WorkState workState() {
+        return switch (production.state()) {
+            case IDLE -> WorkState.WAITING_FOR_FARMER;
+            case TRAVELLING_TO_WORKPLACE -> WorkState.WALKING_TO_FARM;
+            case WAITING_FOR_INPUTS -> WorkState.WAITING_FOR_INPUTS;
+            case TRAVELLING_TO_WORK_AREA -> WorkState.WALKING_TO_FIELD;
+            case WORKING -> WorkState.WORKING_FIELD;
+            case CARRYING_OUTPUT -> WorkState.RETURNING_TO_STORAGE;
+            case STORING_OUTPUT -> WorkState.STORING_OUTPUT;
+        };
+    }
 
     public enum WorkState {
         WAITING_FOR_FARMER,
         WALKING_TO_FARM,
+        WAITING_FOR_INPUTS,
         WALKING_TO_FIELD,
         WORKING_FIELD,
-        RETURNING_TO_FARM,
-        COMPLETE
+        RETURNING_TO_STORAGE,
+        STORING_OUTPUT
     }
 }
