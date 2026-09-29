@@ -287,7 +287,8 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                 site.id(),
                 buildingType,
                 boundsMarker,
-                semanticVolumes
+                semanticVolumes,
+                site.candidate()
             );
         }
 

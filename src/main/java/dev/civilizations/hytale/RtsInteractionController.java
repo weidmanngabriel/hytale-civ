@@ -405,11 +405,8 @@ public final class RtsInteractionController {
         UUID worldId = playerRef.getWorldUuid();
         BuildingPlacementRegistry.BuildingInstance building =
             placementRegistry.findAt(worldId, targetBlock);
-        FarmBuildingRegistry.FarmSite farm = building == null
-            ? null
-            : farmRegistry.findByBuildingInstance(worldId, building.id());
-        if (farm != null) {
-            assignSelectedFarmer(playerRef, session, farm);
+        if (building != null) {
+            openBuildingActions(event, playerRef, building);
             return;
         }
 
@@ -429,6 +426,70 @@ public final class RtsInteractionController {
         playerRef.sendMessage(Message.raw(
             "Bewegungsbefehl " + targetBlock.x + ", " + targetBlock.y + ", " + targetBlock.z
                 + " an " + (accepted ? 1 : 0) + " Civ-Bewohner."
+        ));
+    }
+
+    private void openBuildingActions(
+        PlayerMouseButtonEvent event,
+        PlayerRef playerRef,
+        BuildingPlacementRegistry.BuildingInstance building
+    ) {
+        Ref<EntityStore> playerEntityRef = event.getPlayerRef();
+        Store<EntityStore> store = playerEntityRef.getStore();
+        event.getPlayer().getPageManager().openCustomPage(
+            playerEntityRef,
+            store,
+            new BuildingActionsPage(
+                playerRef,
+                () -> openDemolitionConfirmation(playerRef, playerEntityRef, store, building.id())
+            )
+        );
+    }
+
+    private void openDemolitionConfirmation(
+        PlayerRef playerRef,
+        Ref<EntityStore> playerEntityRef,
+        Store<EntityStore> store,
+        UUID buildingId
+    ) {
+        if (playerEntityRef == null || !playerEntityRef.isValid()) {
+            return;
+        }
+        Player player = store.getComponent(playerEntityRef, Player.getComponentType());
+        if (player == null) {
+            return;
+        }
+        player.getPageManager().openCustomPage(
+            playerEntityRef,
+            store,
+            new BuildingDemolitionConfirmPage(
+                playerRef,
+                () -> demolishBuilding(playerRef, buildingId)
+            )
+        );
+    }
+
+    private void demolishBuilding(PlayerRef playerRef, UUID buildingId) {
+        UUID worldId = playerRef.getWorldUuid();
+        World world = worldId == null ? null : Universe.get().getWorld(worldId);
+        BuildingPlacementRegistry.BuildingInstance building =
+            placementRegistry.find(worldId, buildingId);
+        if (world == null || building == null) {
+            playerRef.sendMessage(Message.raw("Das Gebäude ist nicht mehr verfügbar."));
+            return;
+        }
+
+        if (!placementService.demolish(world, building)) {
+            playerRef.sendMessage(Message.raw(
+                "Abriss nicht möglich: Die Gebäude-Chunks sind noch nicht vollständig geladen."
+            ));
+            return;
+        }
+
+        farmRegistry.removeByBuildingInstance(worldId, buildingId);
+        placementRegistry.remove(worldId, buildingId);
+        playerRef.sendMessage(Message.raw(
+            "Farm abgerissen. Der ursprüngliche Boden wurde wiederhergestellt."
         ));
     }
 

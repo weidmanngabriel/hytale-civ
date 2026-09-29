@@ -101,3 +101,8 @@ Baumaterialien, Bauarbeiter-XP, mehrere Arbeiter an derselben Baustelle, individ
 Ein fertiges Civ-Gebäude besitzt eine vom Creator im Hytale Trigger Volume Tool gezeichnete Gebäudezone. Das Volume trägt `civ.type=building_bounds` und `civ.building=<Gebäudetyp>`. Diese Zone bestimmt nach Fertigstellung, welcher Raum logisch zum Gebäude gehört. Sie wird für Gebäude-Picking, Überschneidungsschutz bei weiteren Platzierungen und Schutz vor direktem Blockabbau bzw. Blockplatzieren verwendet.
 
 Funktionsbereiche wie `workplace_access` oder `output_storage` bleiben eigene Trigger Volumes. Bei der Farm kann dadurch ein Rechtsklick auf einen beliebigen Block innerhalb der Gebäudezone die Farm treffen; der Arbeitszugang bleibt trotzdem das Ziel, zu dem der Bauer läuft. Das separat platzierte Feld verwendet weiterhin sein vorhandenes `civ.type=field`-Volume.
+
+
+### Gebäude abreißen
+
+Ein Rechtsklick auf ein fertig gebautes Farmgebäude innerhalb seiner `building_bounds` öffnet die Gebäudeaktionen. Über **Abreißen** und eine separate Bestätigung kann die Farm vollständig entfernt werden. Civ entfernt dabei die Prefab-Blöcke und Trigger Volumes, stellt die vor dem Bau gespeicherten Bodenblöcke wieder her und gibt die Fläche im Gebäuderegister wieder frei. Das separat platzierte Weizenfeld gehört nicht zum Farmabriss und bleibt bestehen.
