@@ -36,6 +36,8 @@ Reine Java-Simulation und Domänenregeln. Dieser Bereich darf <code>com.hypixel.
 
 Die Headless-Simulation ist keine zweite Gameplay-Implementierung und kein Ersatz für Hytales Navigation, Physik oder Weltmodell. Sie darf nur die Engine-Verträge simulieren, die ein Core-Ablauf tatsächlich benötigt. <code>SimulationMetrics</code> zählt dafür deterministische Operationen wie Planungsentscheidungen, Weltabfragen und Bewegungsanforderungen. Diese Zähler dienen als Performance-Budgets für Gameplay-Logik; reale CPU-, Rendering- und Hytale-Engine-Kosten bleiben Runtime-Messungen.
 
+<code>SimulationViewerApp</code> ist eine optionale Swing-/Java2D-Präsentationsschicht auf derselben Runtime. Sie liest unveränderliche <code>WorldSnapshot</code>-Daten, zeichnet Bewohner und einfache Weltobjekte und übersetzt Auswahl sowie manuelle Rechtsklick-Ziele in vorhandene Runtime-/Core-Befehle. Sie besitzt keine eigenen Gameplay-Regeln.
+
 ### hytale
 
 Adapter zwischen Hytale-Konzepten und Core-Konzepten. Entitäten, NPCs, Weltzugriff, Navigation, Kamera, Eingabe, UI und Rendering gehören hierher.
