@@ -169,12 +169,48 @@ public final class SimulationRuntime {
         return metrics.snapshot();
     }
 
+    public WorldSnapshot worldSnapshot() {
+        List<ResidentSnapshot> residentSnapshots = residents.values().stream()
+            .map(this::snapshot)
+            .toList();
+        List<TreeSnapshot> treeSnapshots = trees.values().stream()
+            .map(tree -> new TreeSnapshot(tree.position, tree.reservedBy))
+            .toList();
+        List<ConstructionSiteSnapshot> siteSnapshots = constructionSites.values().stream()
+            .map(site -> new ConstructionSiteSnapshot(
+                site.target.siteId(),
+                site.target.workPoint(),
+                site.target.totalSteps(),
+                site.reservedBy,
+                site.completed
+            ))
+            .toList();
+        List<FarmFieldSnapshot> fieldSnapshots = farmFields.entrySet().stream()
+            .flatMap(entry -> entry.getValue().stream()
+                .map(position -> new FarmFieldSnapshot(entry.getKey(), position)))
+            .toList();
+
+        return new WorldSnapshot(
+            tickCount,
+            elapsedSeconds(),
+            residentSnapshots,
+            treeSnapshots,
+            siteSnapshots,
+            fieldSnapshots,
+            metrics.snapshot()
+        );
+    }
+
     public ResidentSnapshot residentSnapshot(String residentId) {
-        Resident resident = resident(residentId);
+        return snapshot(resident(residentId));
+    }
+
+    private ResidentSnapshot snapshot(Resident resident) {
         return new ResidentSnapshot(
             resident.id,
             resident.profession,
             resident.position,
+            resident.movementTarget,
             stateName(resident),
             autonomousStateName(resident),
             resident.activity.manualMovementIntent() != null
@@ -540,13 +576,52 @@ public final class SimulationRuntime {
         };
     }
 
+    public record WorldSnapshot(
+        long tickCount,
+        double elapsedSeconds,
+        List<ResidentSnapshot> residents,
+        List<TreeSnapshot> trees,
+        List<ConstructionSiteSnapshot> constructionSites,
+        List<FarmFieldSnapshot> farmFields,
+        SimulationMetrics.Snapshot metrics
+    ) {
+        public WorldSnapshot {
+            residents = List.copyOf(residents);
+            trees = List.copyOf(trees);
+            constructionSites = List.copyOf(constructionSites);
+            farmFields = List.copyOf(farmFields);
+        }
+    }
+
     public record ResidentSnapshot(
         String id,
         Profession profession,
         WorldPosition position,
+        WorldPosition movementTarget,
         String state,
         String autonomousState,
         boolean manualMovementActive
+    ) {
+    }
+
+    public record TreeSnapshot(
+        BlockPosition position,
+        String reservedBy
+    ) {
+    }
+
+    public record ConstructionSiteSnapshot(
+        String siteId,
+        WorldPosition workPoint,
+        int totalSteps,
+        String reservedBy,
+        boolean completed
+    ) {
+    }
+
+    public record FarmFieldSnapshot(
+        String farmId,
+        WorldPosition position
     ) {
     }
 
