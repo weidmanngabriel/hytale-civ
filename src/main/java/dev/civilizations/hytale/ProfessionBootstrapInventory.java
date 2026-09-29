@@ -48,10 +48,14 @@ public final class ProfessionBootstrapInventory {
     ) {
         T component = ref.getStore().getComponent(ref, type);
         if (component == null || component.getInventory() == null) return;
-        component.getInventory().removeItemStack(
-            new ItemStack(WHEAT_SEED_ITEM_ID, FARMER_SEED_COUNT),
-            true,
-            true
-        );
+        ItemContainer inventory = component.getInventory();
+        int remaining = FARMER_SEED_COUNT;
+        for (short slot = 0; slot < inventory.getCapacity() && remaining > 0; slot++) {
+            ItemStack stack = inventory.getItemStack(slot);
+            if (stack == null || !WHEAT_SEED_ITEM_ID.equals(stack.getItemId())) continue;
+            int remove = Math.min(remaining, stack.getQuantity());
+            inventory.removeItemStackFromSlot(slot, remove, true, true);
+            remaining -= remove;
+        }
     }
 }
