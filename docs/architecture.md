@@ -245,3 +245,8 @@ Die aktuelle Gebäudeinstanz-ID verwendet die UUID der zugehörigen Baustelle. S
 Die Quelle benötigter Inputs gehört ausdrücklich nicht in `ProductionJob`. Eine spätere Goods-/Logistics-Schicht darf Waren aus Arbeitsplatzcontainern, anderen Gebäuden oder Welt-Drops wählen und reservieren. Der Hytale-Adapter führt Bewegung, Weltaktionen und native Containertransaktionen aus.
 
 Die Farm verwendet diesen Produktionskern als ersten konkreten Adapter. Ihr `output_storage`-Marker lokalisiert den bereits im Prefab enthaltenen nativen `ItemContainerBlock`. Nach fünf Sekunden Feldarbeit trägt der Bauer semantisch eine Einheit Output zurück; erst eine erfolgreiche native `ItemStack`-Einlagerung schließt den Zyklus ab. Ein voller oder nicht geladener Container erzeugt keinen parallelen Civ-Bestand.
+
+
+### Building identity and demolition snapshots
+
+Every completed Civ placeable that participates in protection/persistence/demolition owns an authored `civ.type=building_bounds` volume with its own `civ.building` type. Gameplay markers such as a wheat field's `civ.type=field` are separate semantic volumes of that building. Terrain snapshots persist stable Hytale block asset keys rather than runtime numeric block indices so demolition remains valid across server restarts and asset-index changes.
