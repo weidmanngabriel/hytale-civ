@@ -137,8 +137,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
 
     private static boolean hasArrived(Vector3d position, Vector3d target) {
         double dx = position.x - target.x;
-        double dy = position.y - target.y;
         double dz = position.z - target.z;
-        return dx * dx + dy * dy + dz * dz <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
+        return dx * dx + dz * dz <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
     }
 }
