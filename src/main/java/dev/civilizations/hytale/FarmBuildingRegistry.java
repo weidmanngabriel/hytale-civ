@@ -32,7 +32,7 @@ public final class FarmBuildingRegistry {
         UUID worldId,
         UUID buildingInstanceId,
         List<PrefabPlacementService.PlacedMarker> entranceMarkers,
-        Vector3i outputStorageMarker,
+        PrefabPlacementService.PlacedMarker outputStorage,
         PrefabPlacementService.PlacementFootprint footprint,
         Map<BlockPosition, Integer> replacedFloorBlocks
     ) {
@@ -61,7 +61,8 @@ public final class FarmBuildingRegistry {
             building,
             entrances,
             entranceVolumeIds,
-            outputStorageMarker == null ? null : new Vector3i(outputStorageMarker),
+            outputStorage == null ? null : outputStorage.id(),
+            outputStorage == null ? null : new Vector3i(outputStorage.position()),
             footprint,
             replacedFloorBlocks
         );
@@ -209,6 +210,7 @@ public final class FarmBuildingRegistry {
         private final FarmBuilding building;
         private final List<BlockPosition> entrances;
         private final List<String> entranceVolumeIds;
+        private final String outputStorageVolumeId;
         private final Vector3i outputStorageMarker;
         private final PrefabPlacementService.PlacementFootprint footprint;
         private final Map<BlockPosition, Integer> replacedFloorBlocks;
@@ -221,6 +223,7 @@ public final class FarmBuildingRegistry {
             FarmBuilding building,
             List<BlockPosition> entrances,
             List<String> entranceVolumeIds,
+            String outputStorageVolumeId,
             Vector3i outputStorageMarker,
             PrefabPlacementService.PlacementFootprint footprint,
             Map<BlockPosition, Integer> replacedFloorBlocks
@@ -230,6 +233,7 @@ public final class FarmBuildingRegistry {
             this.building = building;
             this.entrances = List.copyOf(entrances);
             this.entranceVolumeIds = List.copyOf(entranceVolumeIds);
+            this.outputStorageVolumeId = outputStorageVolumeId;
             this.outputStorageMarker = outputStorageMarker;
             this.footprint = footprint;
             this.replacedFloorBlocks = Map.copyOf(replacedFloorBlocks);
@@ -254,6 +258,10 @@ public final class FarmBuildingRegistry {
 
         public boolean hasEntranceVolume(String volumeId) {
             return volumeId != null && entranceVolumeIds.contains(volumeId);
+        }
+
+        public boolean hasOutputStorageVolume(String volumeId) {
+            return volumeId != null && volumeId.equals(outputStorageVolumeId);
         }
 
         public Vector3i outputStorageMarker() {
