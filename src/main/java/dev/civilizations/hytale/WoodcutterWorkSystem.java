@@ -14,6 +14,7 @@ import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
 import com.hypixel.hytale.server.core.modules.interaction.BlockHarvestUtils;
 import com.hypixel.hytale.server.core.universe.world.World;
+import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
@@ -226,12 +227,21 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     }
 
     private static boolean isTreeBase(World world, int x, int y, int z) {
-        BlockType current = world.getBlockType(x, y, z);
+        BlockType current = getLoadedBlockType(world, x, y, z);
         if (!isTreeTrunk(current)) {
             return false;
         }
 
-        return !isTreeTrunk(world.getBlockType(x, y - 1, z));
+        return !isTreeTrunk(getLoadedBlockType(world, x, y - 1, z));
+    }
+
+    private static BlockType getLoadedBlockType(World world, int x, int y, int z) {
+        long chunkIndex = ChunkUtil.indexChunkFromBlock(x, z);
+        WorldChunk chunk = world.getChunkIfLoaded(chunkIndex);
+        if (chunk == null) {
+            return null;
+        }
+        return chunk.getBlockType(x, y, z);
     }
 
     private static boolean isTreeTrunk(BlockType blockType) {
@@ -260,8 +270,8 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         for (int[] offset : CARDINAL_OFFSETS) {
             int x = tree.x() + offset[0];
             int z = tree.z() + offset[1];
-            if (!isEmpty(world.getBlockType(x, tree.y(), z))
-                || !isEmpty(world.getBlockType(x, tree.y() + 1, z))) {
+            if (!isEmpty(getLoadedBlockType(world, x, tree.y(), z))
+                || !isEmpty(getLoadedBlockType(world, x, tree.y() + 1, z))) {
                 continue;
             }
 
