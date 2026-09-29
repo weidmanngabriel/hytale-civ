@@ -396,11 +396,19 @@ public final class SimulationRuntime {
                 }
             }
             case WALKING_TO_FIELD -> tickFarmerFieldTravel(resident);
-            case WORKING_FIELD -> {
+            case SOWING_FIELD -> {
                 clearMovement(resident);
-                if (farm.advanceWork(tickSeconds)) {
-                    resident.fieldTarget = null;
-                }
+                farm.sowingComplete(true);
+            }
+            case WAITING_FOR_GROWTH -> {
+                clearMovement(resident);
+                farm.cropHarvested();
+                resident.fieldTarget = null;
+            }
+            case HARVESTING_FIELD -> {
+                clearMovement(resident);
+                farm.cropHarvested();
+                resident.fieldTarget = null;
             }
             case RETURNING_TO_STORAGE -> {
                 if (advanceMovement(resident, blockCenter(farm.exitBlock()))) {
