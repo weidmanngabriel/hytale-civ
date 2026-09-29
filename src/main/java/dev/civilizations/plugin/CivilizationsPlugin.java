@@ -51,6 +51,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
         CivActivityRegistry activityRegistry = new CivActivityRegistry(unitRegistry);
         FarmBuildingRegistry farmRegistry = new FarmBuildingRegistry(unitRegistry);
         FarmFieldRegistry fieldRegistry = new FarmFieldRegistry();
+        BuildingPlacementRegistry buildingRegistry = new BuildingPlacementRegistry();
         PrefabPlacementService prefabPlacementService = new PrefabPlacementService();
         RtsInteractionController rtsInteractionController =
             new RtsInteractionController(
@@ -59,7 +60,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 activityRegistry,
                 farmRegistry,
                 fieldRegistry,
-                new BuildingPlacementRegistry(),
+                buildingRegistry,
                 prefabPlacementService
             );
 
@@ -80,6 +81,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 activityRegistry,
                 farmRegistry,
                 fieldRegistry,
+                buildingRegistry,
                 prefabPlacementService
             )
         );
