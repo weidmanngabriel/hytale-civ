@@ -85,6 +85,21 @@ public final class FarmBuildingRegistry {
             .orElse(null);
     }
 
+    public boolean removeByBuildingInstance(UUID worldId, UUID buildingInstanceId) {
+        FarmSite site = findByBuildingInstance(worldId, buildingInstanceId);
+        if (site == null) {
+            return false;
+        }
+        farms.entrySet().removeIf(entry -> entry.getValue() == site);
+        farmerAssignments.entrySet().removeIf(entry -> entry.getValue() == site);
+        synchronized (site) {
+            site.setAssignedFarmer(null);
+            site.resetActiveEntrance();
+            site.building().unassignFarmer();
+        }
+        return true;
+    }
+
     public FarmSite findByEntranceHit(UUID worldId, Vector3i clickedBlock) {
         if (worldId == null || clickedBlock == null) {
             return null;
