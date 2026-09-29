@@ -4,6 +4,7 @@ import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
+import com.hypixel.hytale.server.core.inventory.transaction.ItemStackTransaction;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 
 /**
@@ -19,12 +20,10 @@ public final class ProfessionBootstrapInventory {
     static final int FARMER_SEED_COUNT = 4;
 
     public void enterFarmer(Ref<EntityStore> ref) {
-        ItemContainer inventory = preferredInventory(ref);
-        if (inventory != null) {
-            for (int i = 0; i < FARMER_SEED_COUNT; i++) {
-                inventory.addItemStack(new ItemStack(WHEAT_SEED_ITEM_ID, 1), true, true, true);
-            }
-        }
+        int remaining = FARMER_SEED_COUNT;
+        remaining = addTo(ref, InventoryComponent.Storage.getComponentType(), remaining);
+        remaining = addTo(ref, InventoryComponent.Hotbar.getComponentType(), remaining);
+        addTo(ref, InventoryComponent.Backpack.getComponentType(), remaining);
     }
 
     public void leaveFarmer(Ref<EntityStore> ref) {
@@ -33,15 +32,33 @@ public final class ProfessionBootstrapInventory {
         removeFrom(ref, InventoryComponent.Backpack.getComponentType());
     }
 
-    private ItemContainer preferredInventory(Ref<EntityStore> ref) {
-        InventoryComponent component = ref.getStore().getComponent(ref, InventoryComponent.Storage.getComponentType());
-        if (component == null) {
-            component = ref.getStore().getComponent(ref, InventoryComponent.Hotbar.getComponentType());
+    private <T extends InventoryComponent> int addTo(
+        Ref<EntityStore> ref,
+        com.hypixel.hytale.component.ComponentType<EntityStore, T> type,
+        int remaining
+    ) {
+        if (remaining <= 0) return 0;
+        T component = ref.getStore().getComponent(ref, type);
+        if (component == null || component.getInventory() == null) return remaining;
+
+        ItemContainer inventory = component.getInventory();
+        while (remaining > 0) {
+            ItemStackTransaction transaction = inventory.addItemStack(
+                new ItemStack(WHEAT_SEED_ITEM_ID, 1),
+                true,
+                true,
+                true
+            );
+            if (transaction == null || !transaction.succeeded()) {
+                break;
+            }
+            ItemStack remainder = transaction.getRemainder();
+            if (remainder != null && remainder.getQuantity() > 0) {
+                break;
+            }
+            remaining--;
         }
-        if (component == null) {
-            component = ref.getStore().getComponent(ref, InventoryComponent.Backpack.getComponentType());
-        }
-        return component == null ? null : component.getInventory();
+        return remaining;
     }
 
     private <T extends InventoryComponent> void removeFrom(
