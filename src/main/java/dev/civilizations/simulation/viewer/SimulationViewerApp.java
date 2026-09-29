@@ -1,11 +1,11 @@
 package dev.civilizations.simulation.viewer;
 
-import dev.civilizations.core.BlockPosition;
-import dev.civilizations.core.FarmBuilding;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.WorldPosition;
 import dev.civilizations.simulation.SimulationMetrics;
 import dev.civilizations.simulation.SimulationRuntime;
+import dev.civilizations.simulation.SimulationScenario;
+import dev.civilizations.simulation.SimulationScenarios;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -51,52 +51,6 @@ public final class SimulationViewerApp {
         });
     }
 
-    static SimulationRuntime createDemoRuntime() {
-        SimulationRuntime runtime = new SimulationRuntime();
-
-        runtime.addWoodcutter(
-            "woodcutter-1",
-            new WorldPosition(-7.0, 0.0, -4.0)
-        );
-        runtime.addConstructionWorker(
-            "builder-1",
-            new WorldPosition(-7.0, 0.0, 2.5)
-        );
-
-        FarmBuilding farm = new FarmBuilding(
-            "farm-1",
-            new BlockPosition(2, 0, 6),
-            new BlockPosition(2, 0, 5)
-        );
-        runtime.addFarmer(
-            "farmer-1",
-            new WorldPosition(-6.0, 0.0, 6.5),
-            farm
-        );
-
-        runtime.addTree(new BlockPosition(4, 0, -5));
-        runtime.addTree(new BlockPosition(7, 0, -3));
-        runtime.addTree(new BlockPosition(5, 0, 0));
-
-        runtime.addConstructionSite(
-            "house-site",
-            new WorldPosition(5.0, 0.0, 2.5),
-            8
-        );
-        runtime.addConstructionSite(
-            "storage-site",
-            new WorldPosition(8.0, 0.0, 4.5),
-            12
-        );
-
-        runtime.addFarmField(
-            farm.id(),
-            new WorldPosition(7.5, 0.0, 7.0)
-        );
-
-        return runtime;
-    }
-
     private static final class SimulationViewerFrame extends JFrame {
 
         private static final int FRAME_DELAY_MILLIS = 50;
@@ -107,9 +61,12 @@ public final class SimulationViewerApp {
         private final JLabel clockLabel = new JLabel();
         private final JButton playPauseButton = new JButton("Start");
         private final JComboBox<Speed> speedSelector = new JComboBox<>(Speed.values());
+        private final JComboBox<SimulationScenario> scenarioSelector =
+            new JComboBox<>(SimulationScenarios.all().toArray(SimulationScenario[]::new));
         private final Timer timer;
 
-        private SimulationRuntime runtime = createDemoRuntime();
+        private SimulationScenario selectedScenario = SimulationScenarios.DEMO_SETTLEMENT;
+        private SimulationRuntime runtime = selectedScenario.createRuntime();
         private String selectedResidentId;
         private boolean running;
 
@@ -161,7 +118,19 @@ public final class SimulationViewerApp {
             });
 
             speedSelector.setSelectedItem(Speed.X1);
+            scenarioSelector.setSelectedItem(selectedScenario);
+            scenarioSelector.addActionListener(event -> {
+                SimulationScenario scenario =
+                    (SimulationScenario) scenarioSelector.getSelectedItem();
+                if (scenario != null && scenario != selectedScenario) {
+                    selectedScenario = scenario;
+                    reset();
+                }
+            });
 
+            toolbar.add(new JLabel("Szenario:"));
+            toolbar.add(scenarioSelector);
+            toolbar.add(Box.createHorizontalStrut(12));
             toolbar.add(playPauseButton);
             toolbar.add(stepButton);
             toolbar.add(new JLabel("Tempo:"));
@@ -202,7 +171,9 @@ public final class SimulationViewerApp {
 
             JTextArea help = detailsArea();
             help.setText(
-                "Bedienung\n"
+                "Szenarien\n"
+                    + "Oben ein Start-Szenario wählen. Wechsel und Reset laden denselben definierten Weltzustand neu.\n\n"
+                    + "Bedienung\n"
                     + "Linksklick: Bewohner auswählen\n"
                     + "Rechtsklick: manuelles Ziel setzen\n"
                     + "Mausrad: Zoom\n"
@@ -225,7 +196,7 @@ public final class SimulationViewerApp {
         }
 
         private void reset() {
-            runtime = createDemoRuntime();
+            runtime = selectedScenario.createRuntime();
             selectedResidentId = null;
             canvas.setRuntime(runtime);
             canvas.setSelectedResidentId(null);
