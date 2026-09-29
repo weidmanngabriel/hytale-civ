@@ -112,7 +112,7 @@ Spielerbezogener vorläufiger Zustand wird nach Spieler-UUID getrennt. Auswahl, 
 
 Die Vorschau ist nur beratende Client-UX. Jede Aktion, die gemeinsamen Weltzustand verändert, muss beim tatsächlichen Commit serverseitig erneut gegen die aktuelle Welt und das Gebäuderegister geprüft werden. Dadurch können nicht zwei Spieler erfolgreich überlappende Gebäude setzen, nur weil beide vorher eine gültige Vorschau gesehen haben.
 
-Platzierte Gebäudeinstanzen behalten die ursprünglichen Weltblock-IDs, die durch ihren eingelassenen Boden ersetzt wurden. Dieser Schnappschuss ist laufzeitgebunden, solange die Gebäude selbst laufzeitgebunden sind. Werden platzierte Gebäude später persistent, muss der Geländeschnappschuss gemeinsam mit derselben Gebäudeinstanz gespeichert werden, damit ein späterer Abriss das vorherige Gelände wiederherstellen kann.
+Platzierte Gebäudeinstanzen behalten die ursprünglichen Weltblock-IDs, die durch ihren eingelassenen Boden ersetzt wurden. Der Abriss eines fertigen Gebäudes entfernt die belegten Prefab-Blöcke und zugehörigen Trigger Volumes, stellt diese gespeicherten Bodenblöcke wieder her und entfernt anschließend die Laufzeitregistrierung des Gebäudes. Die Operation arbeitet nur auf bereits geladenen Chunks und löst keine Chunk-Ladevorgänge aus. Dieser Schnappschuss ist laufzeitgebunden, solange die Gebäude selbst laufzeitgebunden sind. Werden platzierte Gebäude später persistent, muss der Geländeschnappschuss gemeinsam mit derselben Gebäudeinstanz gespeichert werden.
 
 ## Aktueller Meilenstein
 
