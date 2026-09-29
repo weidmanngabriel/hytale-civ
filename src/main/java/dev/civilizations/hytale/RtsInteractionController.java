@@ -499,10 +499,17 @@ public final class RtsInteractionController {
                 .map(PrefabPlacementService.PlacedMarker::position)
                 .toList();
             if (!entrances.isEmpty()) {
+                Vector3i outputStorage = building.semanticVolumes().stream()
+                    .filter(volume -> volume.hasTag(TYPE_TAG, "output_storage"))
+                    .filter(volume -> volume.hasTag(BUILDING_TAG, "farm"))
+                    .map(PrefabPlacementService.PlacedMarker::position)
+                    .findFirst()
+                    .orElse(null);
                 farmRegistry.registerFarm(
                     worldId,
                     building.id(),
                     entrances,
+                    outputStorage,
                     building.placement().footprint(),
                     building.placement().replacedFloorBlocks()
                 );
@@ -615,9 +622,7 @@ public final class RtsInteractionController {
                 playerRef.sendMessage(Message.raw("That NPC is already assigned to this farm."));
             case OCCUPIED ->
                 playerRef.sendMessage(Message.raw("That farm already has a Farmer."));
-            case COMPLETE ->
-                playerRef.sendMessage(Message.raw("That farm already contains 10 wheat."));
-        }
+                    }
     }
 
     private void assignFarmerProfession(
