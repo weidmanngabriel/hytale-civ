@@ -40,8 +40,8 @@ public final class BuildingActionsPage extends InteractiveCustomUIPage<BuildingA
     public void handleDataEvent(@Nonnull Ref<EntityStore> ref, @Nonnull Store<EntityStore> store,
                                 @Nonnull ActionData data) {
         if (DEMOLISH.equals(data.action)) {
-            demolish.run();
             close();
+            demolish.run();
         } else if (CLOSE.equals(data.action)) {
             close();
         }
