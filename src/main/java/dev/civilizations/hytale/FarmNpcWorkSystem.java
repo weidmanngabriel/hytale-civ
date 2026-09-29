@@ -269,7 +269,10 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
         CommandBuffer<EntityStore> entityAccessor
     ) {
         InventorySlot seed = findInventoryItem(ref, WHEAT_SEED_ITEM_ID);
-        if (seed == null) return PlantResult.NO_MORE_WORK;
+        if (seed == null) {
+            LOGGER.warning("[CivFarm] Planting reached SOWING_FIELD but no wheat seed was found in Storage, Hotbar or Backpack");
+            return PlantResult.NO_MORE_WORK;
+        }
 
         ItemStack seedStack = seed.container().getItemStack(seed.slot());
         if (seedStack == null || seedStack.getBlockKey() == null) {
@@ -348,6 +351,8 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
                 + ", crop=" + crop);
             return planted ? PlantResult.PLANTED : PlantResult.NO_MORE_WORK;
         }
+        LOGGER.warning("[CivFarm] Seed is available but no empty crop position was found in field footprint: "
+            + field.footprint());
         return PlantResult.NO_MORE_WORK;
     }
 
