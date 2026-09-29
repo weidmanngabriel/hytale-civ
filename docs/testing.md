@@ -30,7 +30,7 @@ Schnelle JUnit-5-Tests für reine Java-Domänenregeln und Hilfsfunktionen.
 
 Deterministische mehrstufige Tests sind die bevorzugte Abdeckung für Bewohner, Bedürfnisse, Berufe, Inventare, Produktion, Logistik, Wirtschaft und andere gekoppelte Simulationssysteme.
 
-Wenn diese Systeme eingeführt werden, sollen kleine Golden-Szenarien mit klar definiertem Ausgangszustand, Befehlen und erwartetem Ergebnis verwendet werden. Wichtige Invarianten werden direkt geprüft, zum Beispiel dass Inputs exakt einmal verbraucht werden, Inventare nie negativ werden und dieselbe Befehlsfolge dasselbe Ergebnis erzeugt.
+Wenn diese Systeme eingeführt werden, sollen kleine Golden-Szenarien mit klar definiertem Ausgangszustand, Befehlen und erwartetem Ergebnis verwendet werden. Wiederverwendbare Tick-0-Zustände liegen als <code>SimulationScenario</code> im gemeinsamen Szenariokatalog und können sowohl vom Viewer als auch von Tests gestartet werden. Erwartete Ergebnisse und Assertions gehören weiterhin in den jeweiligen Test, nicht in die Szenariodefinition. Wichtige Invarianten werden direkt geprüft, zum Beispiel dass Inputs exakt einmal verbraucht werden, Inventare nie negativ werden und dieselbe Befehlsfolge dasselbe Ergebnis erzeugt.
 
 Engine-Schritte dürfen in solchen Tests als kontrollierte Ergebnisse zurückgespielt werden. Wenn der Core beispielsweise einen Bewegungs-Intent erzeugt, kann der Test „angekommen“ melden, ohne Hytales Navigation zu starten. Damit werden Ablauf, Unterbrechung und Wiederaufnahme headless geprüft; nur die tatsächliche Umsetzung des Intents durch Hytale bleibt ein Adapter-/Runtime-Test.
 
@@ -42,12 +42,13 @@ Der erste Cadence-Vertrag lautet: teure autonome Arbeitssuche erfolgt über <cod
 
 ## Manueller Simulation-Viewer-Check
 
-1. <code>./gradlew simulationViewer</code> starten und bestätigen, dass das Demo-Szenario ohne Hytale-Fenster erscheint.
-2. <code>Step</code> drücken und bestätigen, dass Tick und Simulationszeit genau einen Schritt weiterlaufen.
-3. Einen Bewohner mit Linksklick auswählen und prüfen, dass Beruf, State, Position und Bewegungsziel rechts erscheinen.
-4. Für den ausgewählten Bewohner per Rechtsklick ein Ziel auf der Karte setzen und bestätigen, dass <code>MANUAL_MOVE</code> aktiv wird und die autonome Tätigkeit danach fortgesetzt wird.
-5. <code>x100</code> oder <code>Max</code> wählen, starten und bestätigen, dass Weltzustand sowie Metrics schnell fortschreiten, ohne dass Hytale gestartet wird.
-6. <code>Reset</code> drücken und bestätigen, dass Demo-Welt, Tick und Metrics auf den Ausgangszustand zurückkehren.
+1. <code>./gradlew simulationViewer</code> starten und bestätigen, dass <strong>Demo Settlement</strong> ohne Hytale-Fenster erscheint.
+2. Oben ein anderes Szenario auswählen und bestätigen, dass dessen definierter Startzustand sofort geladen wird.
+3. <code>Reset</code> drücken und bestätigen, dass das aktuell ausgewählte Szenario wieder exakt bei Tick 0 startet.
+4. <code>Step</code> drücken und bestätigen, dass Tick und Simulationszeit genau einen Schritt weiterlaufen.
+5. Einen Bewohner mit Linksklick auswählen und prüfen, dass Beruf, State, Position und Bewegungsziel rechts erscheinen.
+6. Für den ausgewählten Bewohner per Rechtsklick ein Ziel auf der Karte setzen und bestätigen, dass <code>MANUAL_MOVE</code> aktiv wird und die autonome Tätigkeit danach fortgesetzt wird.
+7. <code>x100</code> oder <code>Max</code> wählen, starten und bestätigen, dass Weltzustand sowie Metrics schnell fortschreiten, ohne dass Hytale gestartet wird.
 
 ## Hytale-Adapter-Tests
 
@@ -91,7 +92,8 @@ Der Test für direkte Bewegung verwendet die eingecheckte Rolle <code>Civ_Inhabi
 - <code>WoodcutterJobTest</code> prüft den headless Ablauf Such-Intent → Bewegungs-Intent → Ankunft → Arbeit → Fäll-Intent → neuer Zyklus.
 - <code>InhabitantActivityTest</code> prüft, dass ein manueller Bewegungsauftrag autonome Arbeit verdrängt, nach Abschluss wieder freigibt und den pausierten Holzfällerzustand nicht verändert.
 - <code>WorkDecisionScheduleTest</code> prüft unmittelbare Entscheidungen, begrenzte Retries und das Vorziehen eines relevanten Ereignisses gegenüber einem noch nicht fälligen Retry.
-- <code>SimulationRuntimeTest</code> deckt die ersten Golden-Szenarien für Bauarbeiter, Holzfäller, Farmer und manuelle Unterbrechungen ab. Dazu gehören feste Operationsbudgets: 100 wartende Bauarbeiter führen in 60 Simulationssekunden 6.000 Baustellensuchen aus, und ein Farmer ohne Feld führt in derselben Zeit 60 Feldsuchen statt einer Suche pro Tick aus.
+- <code>SimulationRuntimeTest</code> deckt die Core-Abläufe für Bauarbeiter, Holzfäller, Farmer und manuelle Unterbrechungen ab. Dazu gehören feste Operationsbudgets: 100 wartende Bauarbeiter führen in 60 Simulationssekunden 6.000 Baustellensuchen aus, und ein Farmer ohne Feld führt in derselben Zeit 60 Feldsuchen statt einer Suche pro Tick aus.
+- <code>SimulationScenariosTest</code> prüft den gemeinsamen Szenariokatalog: eindeutige IDs, headless Startbarkeit, frische Weltzustände pro Lauf sowie repräsentative Abläufe der Holzfäller-, Bauarbeiter-, Farmer- und Warteszenarien.
 - <code>SimulationIndependenceTest</code> verhindert direkte Hytale-Imports im wiederverwendbaren Headless-Runtime-Paket.
 - <code>SimulationViewerAppTest</code> prüft das Demo-Szenario und die Snapshot-Grenze, ohne ein Swing-Fenster zu öffnen. Die grafische Darstellung selbst bleibt ein manueller Entwickler-Check.
 - <code>ManifestValidationTest</code> prüft die verpackten Plugin-Metadaten ohne Hytale zu starten.
