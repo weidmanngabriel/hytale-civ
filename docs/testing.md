@@ -70,7 +70,7 @@ Zukünftige kontrollierte Server-Tests für Lifecycle, Registrierung und Engine-
 6. <code>/civdebug path</code> erneut ausführen und bestätigen, dass die von Civ aktivierte Pfadvisualisierung verschwindet.
 7. Falls ein NPC bereits vor dem Civ-Toggle einen eigenen <code>VisPath</code>-Flag hatte, bestätigen, dass dieser beim Ausschalten nicht von Civ entfernt wird.
 
-Dieser Check ist ausdrücklich ein Runtime-Test des Hytale-Verhaltens. Der Unit-Test für <code>CivPathDebugService</code> beweist nur, dass bestehende Debug-Flags beim Hinzufügen beziehungsweise Entfernen von <code>VisPath</code> erhalten bleiben.
+Dieser Check ist ausdrücklich ein Runtime-Test des Hytale-Verhaltens. Die CI deckt hier Kompilierung und API-Vertrag gegen die festgesetzte Hytale-Abhängigkeit ab; die tatsächliche Darstellung des Engine-Pfads kann nur im laufenden Server/Client verifiziert werden.
 
 ## Hytale-API-Inspektionscheck
 
