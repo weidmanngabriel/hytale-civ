@@ -22,6 +22,7 @@ import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.MovementIntent;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.WoodcutterJob;
+import dev.civilizations.core.WorkDecisionSchedule;
 import dev.civilizations.core.WorldPosition;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
@@ -112,7 +113,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         if (target != null && !isTreeBase(world, target.x(), target.y(), target.z())) {
             unitRegistry.clearMoveTarget(ref);
             runtime.job.abandonTarget();
-            runtime.retrySeconds = 0.0;
+            runtime.decisions.requestImmediate();
         }
 
         WoodcutterJob.Intent intent = runtime.job.intent();
@@ -127,7 +128,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             unitRegistry.clearMoveTarget(ref);
             fellTree(world, store, fellIntent.tree());
             runtime.job.fellingCompleted();
-            runtime.retrySeconds = 0.25;
+            runtime.decisions.scheduleRetry(0.25);
         }
     }
 
@@ -138,15 +139,15 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         WorkerRuntime runtime,
         float dt
     ) {
-        runtime.retrySeconds -= dt;
-        if (runtime.retrySeconds > 0.0) {
+        WorkDecisionSchedule.DecisionKind decision = runtime.decisions.advance(dt);
+        if (decision == WorkDecisionSchedule.DecisionKind.NONE) {
             return;
         }
 
         WoodcutterJob.WorkTarget target = findNearestTarget(world, position);
         if (target == null) {
             unitRegistry.clearMoveTarget(ref);
-            runtime.retrySeconds = RETRY_SECONDS;
+            runtime.decisions.scheduleRetry(RETRY_SECONDS);
             return;
         }
 
@@ -344,6 +345,6 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
 
     private static final class WorkerRuntime {
         private final WoodcutterJob job = new WoodcutterJob();
-        private double retrySeconds;
+        private final WorkDecisionSchedule decisions = new WorkDecisionSchedule();
     }
 }
