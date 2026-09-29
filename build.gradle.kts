@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
@@ -86,6 +87,13 @@ val releaseBundle = tasks.register<Zip>("releaseBundle") {
 
 tasks.named("build") {
     dependsOn(releaseBundle)
+}
+
+tasks.register<JavaExec>("simulationViewer") {
+    group = "development"
+    description = "Starts the Hytale-independent desktop simulation viewer."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("dev.civilizations.simulation.viewer.SimulationViewerApp")
 }
 
 tasks.register("deployToHytale") {
