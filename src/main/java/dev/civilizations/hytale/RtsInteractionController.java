@@ -498,6 +498,7 @@ public final class RtsInteractionController {
             if ("wheat_field".equals(building.placement().definition().id())) {
                 Vector3i fieldMarker = building.semanticVolumes().stream()
                     .filter(volume -> volume.hasTag(TYPE_TAG, "field"))
+                    .filter(volume -> volume.hasTag(BUILDING_TAG, "wheat_field"))
                     .map(PrefabPlacementService.PlacedMarker::position)
                     .findFirst()
                     .orElse(null);

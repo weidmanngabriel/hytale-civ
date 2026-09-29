@@ -3,6 +3,7 @@ package dev.civilizations.hytale;
 import com.hypixel.hytale.component.ResourceType;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.server.core.universe.world.World;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
@@ -63,8 +64,12 @@ public final class CivBuildingPersistenceService {
         StringBuilder floor = new StringBuilder();
         placement.replacedFloorBlocks().forEach((position, blockId) -> {
             if (!floor.isEmpty()) floor.append(';');
+            BlockType blockType = BlockType.getAssetMap().getAsset(blockId);
+            if (blockType == null) {
+                throw new IllegalStateException("Unknown terrain block id " + blockId);
+            }
             floor.append(position.x()).append(',').append(position.y()).append(',')
-                .append(position.z()).append(',').append(blockId);
+                .append(position.z()).append(',').append(b64(blockType.getId()));
         });
         StringBuilder markers = new StringBuilder();
         for (PrefabPlacementService.PlacedMarker marker : building.semanticVolumes()) {
@@ -111,8 +116,25 @@ public final class CivBuildingPersistenceService {
         String floorText = unb64(parts[7]);
         if (!floorText.isEmpty()) {
             for (String entry : floorText.split(";")) {
-                int[] values = ints(entry, 4);
-                floor.put(new BlockPosition(values[0], values[1], values[2]), values[3]);
+                String[] values = entry.split(",", -1);
+                if (values.length != 4) {
+                    throw new IllegalArgumentException("invalid terrain snapshot entry");
+                }
+                int x = Integer.parseInt(values[0]);
+                int y = Integer.parseInt(values[1]);
+                int z = Integer.parseInt(values[2]);
+                int blockId;
+                try {
+                    // Backward compatibility for snapshots written before stable block keys.
+                    blockId = Integer.parseInt(values[3]);
+                } catch (NumberFormatException ignored) {
+                    String blockKey = unb64(values[3]);
+                    blockId = BlockType.getAssetMap().getIndex(blockKey);
+                    if (blockId < 0) {
+                        throw new IllegalArgumentException("unknown terrain block " + blockKey);
+                    }
+                }
+                floor.put(new BlockPosition(x, y, z), blockId);
             }
         }
 
