@@ -17,18 +17,31 @@ public final class FarmFieldRegistry {
     private final Map<UUID, FieldSite> fields = new ConcurrentHashMap<>();
 
     public FieldSite registerField(
+        UUID buildingId,
         UUID worldId,
         Vector3i workMarker,
         PrefabPlacementService.PlacementFootprint footprint
     ) {
         FieldSite site = new FieldSite(
-            UUID.randomUUID(),
+            buildingId,
             worldId,
             new Vector3d(workMarker.x + 0.5, workMarker.y, workMarker.z + 0.5),
             footprint
         );
         fields.put(site.id(), site);
         return site;
+    }
+
+    public void removeByBuildingInstance(UUID worldId, UUID buildingId) {
+        if (worldId == null || buildingId == null) return;
+        fields.computeIfPresent(buildingId, (id, field) ->
+            field.worldId().equals(worldId) ? null : field
+        );
+    }
+
+    public void clearWorld(UUID worldId) {
+        if (worldId == null) return;
+        fields.entrySet().removeIf(entry -> entry.getValue().worldId().equals(worldId));
     }
 
     public FieldSite nearestField(UUID worldId, BlockPosition origin) {

@@ -306,11 +306,14 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                 .map(PrefabPlacementService.PlacedMarker::position)
                 .toList();
             if (!fieldMarkers.isEmpty()) {
-                fieldRegistry.registerField(
-                    site.worldId(),
-                    fieldMarkers.getFirst(),
-                    site.candidate().footprint()
-                );
+                if (buildingInstance != null) {
+                    fieldRegistry.registerField(
+                        buildingInstance.id(),
+                        site.worldId(),
+                        fieldMarkers.getFirst(),
+                        site.candidate().footprint()
+                    );
+                }
             }
         } else if (PrefabPlacementService.FARM.id().equals(site.definition().id())) {
             var outputStorage = placed.markers().stream()

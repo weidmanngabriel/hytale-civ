@@ -473,10 +473,11 @@ public final class RtsInteractionController {
         }
 
         farmRegistry.removeByBuildingInstance(worldId, buildingId);
+        fieldRegistry.removeByBuildingInstance(worldId, buildingId);
         placementRegistry.remove(worldId, buildingId);
         buildingPersistence.save(world, placementRegistry.buildings(worldId));
         playerRef.sendMessage(Message.raw(
-            "Farm abgerissen. Der ursprüngliche Boden wurde wiederhergestellt."
+            buildingDisplayName(building) + " abgerissen. Der ursprüngliche Boden wurde wiederhergestellt."
         ));
     }
 
@@ -489,8 +490,28 @@ public final class RtsInteractionController {
             buildingPersistence.load(world);
         placementRegistry.restoreWorld(worldId, restored);
         farmRegistry.clearWorld(worldId);
+        fieldRegistry.clearWorld(worldId);
         for (BuildingPlacementRegistry.BuildingInstance building : restored) {
-            if (!"farm".equals(building.buildingType()) || building.placement() == null) {
+            if (building.placement() == null) {
+                continue;
+            }
+            if ("wheat_field".equals(building.placement().definition().id())) {
+                Vector3i fieldMarker = building.semanticVolumes().stream()
+                    .filter(volume -> volume.hasTag(TYPE_TAG, "field"))
+                    .map(PrefabPlacementService.PlacedMarker::position)
+                    .findFirst()
+                    .orElse(null);
+                if (fieldMarker != null) {
+                    fieldRegistry.registerField(
+                        building.id(),
+                        worldId,
+                        fieldMarker,
+                        building.placement().footprint()
+                    );
+                }
+                continue;
+            }
+            if (!"farm".equals(building.buildingType())) {
                 continue;
             }
             List<Vector3i> entrances = building.semanticVolumes().stream()
@@ -515,6 +536,13 @@ public final class RtsInteractionController {
                 );
             }
         }
+    }
+
+    private static String buildingDisplayName(BuildingPlacementRegistry.BuildingInstance building) {
+        if (building != null && building.placement() != null) {
+            return building.placement().definition().displayName();
+        }
+        return "Gebäude";
     }
 
     public boolean isClaimed(Ref<EntityStore> target) {
