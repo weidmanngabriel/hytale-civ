@@ -40,8 +40,8 @@ public final class BuildingDemolitionConfirmPage extends InteractiveCustomUIPage
     public void handleDataEvent(@Nonnull Ref<EntityStore> ref, @Nonnull Store<EntityStore> store,
                                 @Nonnull ActionData data) {
         if (CONFIRM.equals(data.action)) {
-            confirm.run();
             close();
+            confirm.run();
         } else if (CANCEL.equals(data.action)) {
             close();
         }

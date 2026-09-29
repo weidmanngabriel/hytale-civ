@@ -52,6 +52,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
     private final FarmFieldRegistry fieldRegistry;
     private final BuildingPlacementRegistry buildingRegistry;
     private final PrefabPlacementService placementService;
+    private final CivBuildingPersistenceService buildingPersistence;
 
     private final Map<CivUnitRegistry.UnitKey, WorkerRuntime> workers =
         new ConcurrentHashMap<>();
@@ -64,7 +65,8 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         FarmBuildingRegistry farmRegistry,
         FarmFieldRegistry fieldRegistry,
         BuildingPlacementRegistry buildingRegistry,
-        PrefabPlacementService placementService
+        PrefabPlacementService placementService,
+        CivBuildingPersistenceService buildingPersistence
     ) {
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
@@ -72,6 +74,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         this.fieldRegistry = fieldRegistry;
         this.buildingRegistry = buildingRegistry;
         this.placementService = placementService;
+        this.buildingPersistence = buildingPersistence;
     }
 
     @Override
@@ -289,6 +292,10 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                 boundsMarker,
                 semanticVolumes,
                 site.candidate()
+            );
+            buildingPersistence.save(
+                world,
+                buildingRegistry.buildings(site.worldId())
             );
         }
 
