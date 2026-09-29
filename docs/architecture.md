@@ -236,3 +236,12 @@ Während der Bauphase reserviert `BuildingPlacementRegistry` weiterhin den block
 Weitere Trigger Volumes wie `workplace_access` und `output_storage` bleiben semantische Unterbereiche derselben platzierten Prefab-Instanz. Sie definieren Funktionen, nicht die allgemeine Gebäudegrenze. Das separat platzierte Farmfeld behält `civ.type=field` und wird nicht als `building_bounds` behandelt.
 
 Die aktuelle Gebäudeinstanz-ID verwendet die UUID der zugehörigen Baustelle. Sie ist nur eine Runtime-Identität und ändert die weiterhin offene Entscheidung zur dauerhaften Gebäudeidentität nicht.
+
+
+### Gemeinsamer Produktionszyklus
+
+`ProductionRecipe` beschreibt Hytale-unabhängig benötigte Inputs, erzeugte Outputs und eine Grundarbeitszeit. `ProductionJob` besitzt den gemeinsamen semantischen Ablauf vom Arbeitsplatz über Input-Bereitschaft und Arbeitsort bis zum Rücktransport und Einlagern des Outputs. Berufs- oder Erfahrungsunterschiede verändern die Arbeitsgeschwindigkeit über einen Multiplikator, ohne den Ablauf zu duplizieren.
+
+Die Quelle benötigter Inputs gehört ausdrücklich nicht in `ProductionJob`. Eine spätere Goods-/Logistics-Schicht darf Waren aus Arbeitsplatzcontainern, anderen Gebäuden oder Welt-Drops wählen und reservieren. Der Hytale-Adapter führt Bewegung, Weltaktionen und native Containertransaktionen aus.
+
+Die Farm verwendet diesen Produktionskern als ersten konkreten Adapter. Ihr `output_storage`-Marker lokalisiert den bereits im Prefab enthaltenen nativen `ItemContainerBlock`. Nach fünf Sekunden Feldarbeit trägt der Bauer semantisch eine Einheit Output zurück; erst eine erfolgreiche native `ItemStack`-Einlagerung schließt den Zyklus ab. Ein voller oder nicht geladener Container erzeugt keinen parallelen Civ-Bestand.
