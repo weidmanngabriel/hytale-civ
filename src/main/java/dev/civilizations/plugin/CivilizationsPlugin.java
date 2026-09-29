@@ -10,6 +10,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.VikingNameGenerator;
 import dev.civilizations.hytale.CivActivityRegistry;
 import dev.civilizations.hytale.CivClaimDamageSystem;
+import dev.civilizations.hytale.CivBuildingBlockProtectionSystem;
 import dev.civilizations.hytale.CivInhabitantData;
 import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivInhabitantUseSystem;
@@ -64,6 +65,12 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 prefabPlacementService
             );
 
+        getEntityStoreRegistry().registerSystem(
+            new CivBuildingBlockProtectionSystem.BreakProtection(buildingRegistry)
+        );
+        getEntityStoreRegistry().registerSystem(
+            new CivBuildingBlockProtectionSystem.PlaceProtection(buildingRegistry)
+        );
         getEntityStoreRegistry().registerSystem(new CivClaimDamageSystem(rtsInteractionController));
         getEntityStoreRegistry().registerSystem(new CivInhabitantUseSystem(rtsInteractionController));
         getEntityStoreRegistry().registerSystem(
