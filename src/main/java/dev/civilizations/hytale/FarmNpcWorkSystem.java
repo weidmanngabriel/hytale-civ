@@ -171,6 +171,12 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
                     building.arriveAtFarm();
                 }
             }
+            case RETURNING_TO_STORAGE -> {
+                if (site.hasOutputStorageVolume(volumeId)) {
+                    unitRegistry.clearMoveTarget(ref);
+                    building.arriveAtFarm();
+                }
+            }
             case WALKING_TO_FIELD -> {
                 CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
                 FarmFieldRegistry.FieldSite field = activeFields.get(key);
