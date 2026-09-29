@@ -110,3 +110,8 @@ Ein Rechtsklick auf ein fertig gebautes Farmgebäude innerhalb seiner `building_
 ### Farmer-Test-Saatgut
 
 Bis die allgemeine Materialbeschaffung und das eigentliche Säen umgesetzt sind, erhält ein Bewohner beim Wechsel in den Beruf Bauer vorläufig vier native Hytale-`Plant_Seeds_Wheat`-Seed-Bags in sein NPC-Inventar. Beim Wechsel aus dem Beruf Bauer werden bis zu vier davon wieder entfernt. Dies ist ausschließlich ein Development-Bootstrap und keine spätere Wirtschaftsregel.
+
+
+### Gemeinsamer Gebäude-Lifecycle
+
+Farm und Weizenfeld sind gleichermaßen persistente Civ-Gebäude. Beide werden nach Fertigstellung über dieselbe stabile Building-ID, Bounds/Footprint, semantische Volumes und Terrain-Snapshot gespeichert. Der Feld-Registry ist nur ein Runtime-Arbeitsindex und wird nach Weltbeitritt aus den persistenten Gebäudedaten rekonstruiert. Schutz und Abriss laufen über dieselbe Building-Infrastruktur; Abriss stellt den gespeicherten ursprünglichen Boden wieder her.
