@@ -10,6 +10,7 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
 import dev.civilizations.hytale.CivBuildingPersistenceService;
+import dev.civilizations.hytale.CivPathDebugService;
 
 import java.util.List;
 
@@ -17,10 +18,15 @@ final class CivDebugCommand extends AbstractPlayerCommand {
     private final BuildingPlacementRegistry buildingRegistry;
     private final CivBuildingPersistenceService buildingPersistence;
 
-    CivDebugCommand(BuildingPlacementRegistry buildingRegistry, CivBuildingPersistenceService buildingPersistence) {
+    CivDebugCommand(
+        BuildingPlacementRegistry buildingRegistry,
+        CivBuildingPersistenceService buildingPersistence,
+        CivPathDebugService pathDebugService
+    ) {
         super("civdebug", "Shows read-only Civilizations development diagnostics.");
         this.buildingRegistry = buildingRegistry;
         this.buildingPersistence = buildingPersistence;
+        addSubCommand(new PathCommand(pathDebugService));
         requireNoPermission();
     }
 
@@ -43,6 +49,31 @@ final class CivDebugCommand extends AbstractPlayerCommand {
                 building.buildingType() + " | id=" + building.id()
                     + " | snapshot=" + snapshotBlocks + " blocks"
                     + " | volumes=" + building.semanticVolumes().size() + " [" + volumes + "]"
+            ));
+        }
+    }
+    private static final class PathCommand extends AbstractPlayerCommand {
+        private final CivPathDebugService pathDebugService;
+
+        private PathCommand(CivPathDebugService pathDebugService) {
+            super("path", "Toggles Hytale's native path visualization for loaded Civ inhabitants.");
+            this.pathDebugService = pathDebugService;
+            requireNoPermission();
+        }
+
+        @Override
+        protected void execute(
+            CommandContext context,
+            Store<EntityStore> store,
+            Ref<EntityStore> ref,
+            PlayerRef playerRef,
+            World world
+        ) {
+            CivPathDebugService.ToggleResult result = pathDebugService.toggle(store);
+            context.sendMessage(Message.raw(
+                "Civ path debug " + (result.enabled() ? "enabled" : "disabled")
+                    + " | loaded inhabitants=" + result.matchedNpcCount()
+                    + " | flags changed=" + result.changedNpcCount()
             ));
         }
     }
