@@ -1,6 +1,6 @@
 # 0001: Headless-Simulationsruntime als zweiter Laufzeitpfad
 
-Status: Proposed
+Status: Accepted
 
 ## Kontext
 
