@@ -36,16 +36,6 @@ public final class CivBuildingBlockProtectionSystem {
             && "Plant_Seeds_Wheat".equals(event.getItemInHand().getItemId());
     }
 
-    private static boolean allowsFarmingBreak(
-        BuildingPlacementRegistry.BuildingInstance building,
-        BreakBlockEvent event
-    ) {
-        return isWheatField(building)
-            && isAboveFieldFloor(building, event.getTargetBlock())
-            && event.getBlockType() != null
-            && event.getBlockType().getFarming() != null;
-    }
-
     private static boolean isWheatField(BuildingPlacementRegistry.BuildingInstance building) {
         return building.placement() != null
             && building.placement().definition() != null
@@ -97,7 +87,7 @@ public final class CivBuildingBlockProtectionSystem {
             }
             BuildingPlacementRegistry.BuildingInstance building =
                 buildings.findAt(player.getWorldUuid(), event.getTargetBlock());
-            if (building != null && !allowsFarmingBreak(building, event)) {
+            if (building != null) {
                 event.setCancelled(true);
             }
         }
