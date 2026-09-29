@@ -115,3 +115,8 @@ Bis die allgemeine Materialbeschaffung und das eigentliche Säen umgesetzt sind,
 ### Gemeinsamer Gebäude-Lifecycle
 
 Farm und Weizenfeld sind gleichermaßen persistente Civ-Gebäude. Beide werden nach Fertigstellung über dieselbe stabile Building-ID, Bounds/Footprint, semantische Volumes und Terrain-Snapshot gespeichert. Der Feld-Registry ist nur ein Runtime-Arbeitsindex und wird nach Weltbeitritt aus den persistenten Gebäudedaten rekonstruiert. Schutz und Abriss laufen über dieselbe Building-Infrastruktur; Abriss stellt den gespeicherten ursprünglichen Boden wieder her.
+
+
+### Weizenfeld als eigenständiges Gebäude
+
+Das Weizenfeld besitzt einen eigenen `wheat_field`-Gebäudebereich für Auswahl, Schutz, Persistenz und Abriss. Sein `field`-Marker ist davon getrennt und dient ausschließlich als Arbeitsziel für Farmer. Terrain-Snapshots für den Abriss speichern stabile Block-Asset-IDs, damit ein Neustart keine laufzeitabhängigen numerischen Block-IDs als falsche Blöcke wiederherstellt.
