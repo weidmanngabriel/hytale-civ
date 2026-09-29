@@ -36,6 +36,10 @@ Engine-Schritte dürfen in solchen Tests als kontrollierte Ergebnisse zurückges
 
 Szenario-Tests bleiben Hytale-unabhängig, außer das geprüfte Verhalten ist tatsächlich ein Engine-Vertrag. UI-Klicks sind kein Ersatz für einen Core-Test einer Regel, die auch ohne UI formulierbar ist.
 
+<code>SimulationRuntime</code> stellt dafür einen festen 50-ms-Simulationsschritt, eine minimale Fake-Welt und deterministische <code>SimulationMetrics</code> bereit. Fake-Bewegung läuft geradlinig und beweist ausdrücklich nicht Hytales Wegfindung. Performance-Budgets in Szenario-Tests sollen primär fachliche Operationen begrenzen, zum Beispiel Suchentscheidungen, Weltabfragen und Bewegungsanforderungen, statt von der Geschwindigkeit eines CI-Rechners abzuhängen.
+
+Der erste Cadence-Vertrag lautet: teure autonome Arbeitssuche erfolgt über <code>WorkDecisionSchedule</code> entweder unmittelbar nach einem relevanten Ereignis oder über einen begrenzten Retry. Ein wartender Bewohner darf deshalb nicht nur deshalb auf jedem Simulations- oder Engine-Tick dieselbe teure Suche wiederholen.
+
 ## Hytale-Adapter-Tests
 
 Tests für Übersetzung und Adapterverhalten, soweit dies ohne laufenden Server sinnvoll möglich ist.
@@ -77,6 +81,9 @@ Der Test für direkte Bewegung verwendet die eingecheckte Rolle <code>Civ_Inhabi
 - <code>CoreIndependenceTest</code> verhindert direkte Hytale-Imports im Core.
 - <code>WoodcutterJobTest</code> prüft den headless Ablauf Such-Intent → Bewegungs-Intent → Ankunft → Arbeit → Fäll-Intent → neuer Zyklus.
 - <code>InhabitantActivityTest</code> prüft, dass ein manueller Bewegungsauftrag autonome Arbeit verdrängt, nach Abschluss wieder freigibt und den pausierten Holzfällerzustand nicht verändert.
+- <code>WorkDecisionScheduleTest</code> prüft unmittelbare Entscheidungen, begrenzte Retries und das Vorziehen eines relevanten Ereignisses gegenüber einem noch nicht fälligen Retry.
+- <code>SimulationRuntimeTest</code> deckt die ersten Golden-Szenarien für Bauarbeiter, Holzfäller, Farmer und manuelle Unterbrechungen ab. Dazu gehören feste Operationsbudgets: 100 wartende Bauarbeiter führen in 60 Simulationssekunden 6.000 Baustellensuchen aus, und ein Farmer ohne Feld führt in derselben Zeit 60 Feldsuchen statt einer Suche pro Tick aus.
+- <code>SimulationIndependenceTest</code> verhindert direkte Hytale-Imports im wiederverwendbaren Headless-Runtime-Paket.
 - <code>ManifestValidationTest</code> prüft die verpackten Plugin-Metadaten ohne Hytale zu starten.
 - <code>CivInhabitantRoleValidationTest</code> prüft die eingecheckte Civ-NPC-Rolle und den einzelnen Positionsslot, auf den die Java-Bewegungsanbindung angewiesen ist.
 
@@ -101,7 +108,7 @@ Der Prototyp verlässt sich nach dem Brechen des Stammblocks bewusst auf das nat
 
 Automatisierte Abdeckung umfasst derzeit:
 
-- <code>FarmBuildingTest</code>: prüft einen Bauernplatz, fünf Sekunden aktive Arbeit pro Weizen, verpflichtendes Verlassen nach jedem Produktionsschritt und den harten Stopp bei zehn Weizen.
+- <code>FarmBuildingTest</code>: prüft den einzelnen Bauernplatz sowie den fünfsekündigen Arbeitszyklus vom Farmzugang über das Feld bis zur physischen Ablage des Outputs.
 - <code>FarmPrefabValidationTest</code>: prüft die beiden eingecheckten Creator-Prefabs. Die Farm besitzt eine leere native 18-Slot-Truhe sowie <code>workplace_access</code>- und <code>output_storage</code>-Marker; das separate 6×6-Weizenfeld besteht aus nativem Tilled Soil und besitzt den <code>field</code>-Marker.
 
 Manuelle Abnahme:

@@ -20,6 +20,7 @@ import dev.civilizations.core.ConstructionJob;
 import dev.civilizations.core.MovementIntent;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.WorldPosition;
+import dev.civilizations.core.WorkDecisionSchedule;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
@@ -126,6 +127,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
             releaseReservation(key, runtime);
             runtime.job.abandonTarget();
             runtime.site = null;
+            runtime.decisions.requestImmediate();
         }
 
         ConstructionJob.Intent intent = runtime.job.intent();
@@ -148,8 +150,8 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         WorkerRuntime runtime,
         float dt
     ) {
-        runtime.retrySeconds -= dt;
-        if (runtime.retrySeconds > 0.0) {
+        WorkDecisionSchedule.DecisionKind decision = runtime.decisions.advance(dt);
+        if (decision == WorkDecisionSchedule.DecisionKind.NONE) {
             return;
         }
 
@@ -177,7 +179,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
 
         if (best == null) {
             unitRegistry.clearMoveTarget(ref);
-            runtime.retrySeconds = RETRY_SECONDS;
+            runtime.decisions.scheduleRetry(RETRY_SECONDS);
             return;
         }
 
@@ -269,6 +271,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
             releaseReservation(key, runtime);
             runtime.job.abandonTarget();
             runtime.site = null;
+            runtime.decisions.requestImmediate();
             return;
         }
 
@@ -344,7 +347,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         releaseReservation(key, runtime);
         runtime.site = null;
         runtime.job.constructionCompleted();
-        runtime.retrySeconds = 0.25;
+        runtime.decisions.scheduleRetry(0.25);
     }
 
     private void releaseWorker(CivUnitRegistry.UnitKey key) {
@@ -453,8 +456,8 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
 
     private static final class WorkerRuntime {
         private final ConstructionJob job = new ConstructionJob();
+        private final WorkDecisionSchedule decisions = new WorkDecisionSchedule();
         private PrefabPlacementService.ConstructionSite site;
-        private double retrySeconds;
         private boolean animationStarted;
     }
 }

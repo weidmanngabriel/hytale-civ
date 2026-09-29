@@ -13,11 +13,11 @@ Spielerinput / UI
       ↓ Command
 Core-Simulation
       ↓ Intent
-Hytale-Adapter
-      ↓
-Hytale-Plugin / API
-      ↓ Result / Event
-Core-Simulation
+      ├──────────────→ Hytale-Adapter → Hytale-Plugin / API
+      │                                      ↓ Result / Event
+      └──────────────→ Headless-Simulation ──┘
+                                             ↓
+                                      Core-Simulation
 ~~~
 
 Die Grenze ist verhaltensorientiert: UI und Hytale-Code übersetzen Eingaben und führen Engine-Arbeit aus, besitzen aber keine Civ-Spielregeln. Der Core entscheidet über Zustandswechsel, Prioritäten und Unterbrechungen. Ein Core-Intent beschreibt nur das gewünschte Ergebnis, zum Beispiel „Bewohner soll zu Ziel X laufen“; der Adapter setzt das mit Hytales nativer Navigation um und meldet Ankunft beziehungsweise Fehlschlag zurück.
@@ -27,6 +27,14 @@ Bewegung ist deshalb zweigeteilt. **Wer wann wohin und warum läuft** gehört zu
 ### core
 
 Reine Java-Simulation und Domänenregeln. Dieser Bereich darf <code>com.hypixel.hytale.*</code> nicht importieren. Bewohner, Berufe, Bedürfnisse, Inventare, Waren, Produktion, Gebäudestatus, Befehle, Wirtschaft und Simulations-Ticks gehören hierher. Der aktuell umgesetzte Berufszustand umfasst die Hytale-unabhängigen Typen <code>FarmBuilding</code>, <code>WoodcutterJob</code>, <code>BlockPosition</code> und <code>Profession</code>.
+
+<code>WorkDecisionSchedule</code> bildet die gemeinsame Taktung teurer autonomer Entscheidungen ab. Ein Bewohner plant entweder aufgrund eines explizit angeforderten unmittelbaren Ereignisses oder nach Ablauf eines begrenzten Retry-Intervalls. Der Scheduler selbst führt keine Weltabfragen aus und ist deshalb sowohl vom Hytale-Adapter als auch von der Headless-Simulation verwendbar.
+
+### simulation
+
+<code>dev.civilizations.simulation</code> ist ein Hytale-unabhängiger zweiter Laufzeitpfad für Entwicklung und automatisierte Szenario-Tests. <code>SimulationRuntime</code> verwendet dieselben Core-Zustandsautomaten wie Hytale, ersetzt Engine-Schritte aber bewusst durch kleine deterministische Fixtures: geradlinige Fake-Bewegung, In-Memory-Bäume, Baustellen und Felder sowie kontrollierte Resultate.
+
+Die Headless-Simulation ist keine zweite Gameplay-Implementierung und kein Ersatz für Hytales Navigation, Physik oder Weltmodell. Sie darf nur die Engine-Verträge simulieren, die ein Core-Ablauf tatsächlich benötigt. <code>SimulationMetrics</code> zählt dafür deterministische Operationen wie Planungsentscheidungen, Weltabfragen und Bewegungsanforderungen. Diese Zähler dienen als Performance-Budgets für Gameplay-Logik; reale CPU-, Rendering- und Hytale-Engine-Kosten bleiben Runtime-Messungen.
 
 ### hytale
 
@@ -45,7 +53,8 @@ Der aktuelle RTS-Validierungsprototyp sowie Farm- und Holzfäller-Slice enthalte
 - <code>WoodcutterWorkSystem</code> interpretiert die Intents des Hytale-unabhängigen <code>WoodcutterJob</code>. Weltabhängige Baumsuche und Arbeitsposition, native NPC-Navigation sowie <code>BlockHarvestUtils.performBlockDamage</code> bleiben im Adapter; Zustandsfolge und Arbeitsdauer bleiben im Core. Die Baumsuche liest während des ECS-Ticks ausschließlich bereits geladene Chunks über <code>World.getChunkIfLoaded</code>; sie darf durch Blockabfragen keinen Chunk synchron laden, weil Chunk-Aktivierung den ECS-Store während laufender Systemverarbeitung verändern kann. Normale Drops, Break-Events und Blockphysik bleiben damit bei der Engine.
 - <code>PrefabPlacementService</code> besitzt den Civ-Baustellen-Placement-Lifecycle selbst. Während der Mausbewegung erzeugt beziehungsweise verschiebt es eine native <code>PersistentPrefabPreview</code>-Entität am validierten Civ-Anker. Linksklick übernimmt diese Preview als Baustelle, ohne <code>BlockSelection.place</code> aufzurufen; Rechtsklick entfernt sie. Das Builder-Paste-Tool und <code>PrefabPasteEvent</code> sind nicht mehr Teil dieses Civ-Commit-Pfads. Für die aktuellen Creator-Prefabs liegt der logische Civ-Bauanker einen Block unter dem anvisierten Oberflächenblock. `groundSinkBlocks` wird bei der Erzeugung dieses terrain-relativen Civ-Ankers angewendet. `PrefabPlacementService` übersetzt diesen anschließend zentral in den von Hytales Prefab-APIs erwarteten Placement-Origin, weil `BlockSelection.place` den übergebenen Vektor zusätzlich mit dem internen Prefab-Anchor verrechnet. Preview, materialisierte Bau-Layer und finales natives Prefab verwenden dieselbe Übersetzung, damit ihre sichtbare Höhe übereinstimmt. Im aktuellen Preview-Spike wird die alte blockweise Kollisions-/Terrainprüfung bewusst nicht vor dem Preview-Spawn ausgeführt: sie stammt aus dem Sofort-Paste-Pfad und verhindert auf eingesenkten Baustellenankern die isolierte Verifikation von <code>PersistentPrefabPreview</code>. Die Kollisionsregeln müssen nach erfolgreicher Runtime-Verifikation passend zu Baustellen neu eingeführt werden.
 - <code>BuildingPlacementRegistry</code> bleibt der bisherige Laufzeitmechanismus für bereits fertig platzierte Civ-Bauflächen. Die neue Baustellen-Platzierung ist zunächst ein separater Engine-Validierungsschritt: sie erzeugt noch kein fertiges Farmgebäude und registriert deshalb noch keine fertige <code>FarmBuilding</code>-Instanz.
-- <code>FarmFieldRegistry</code> registriert fertig gebaute Weizenfelder anhand ihres Civ-Footprints. Für den ersten Farm-Slice wird das zur Farm nächstgelegene fertige Feld automatisch als Arbeitsfeld verwendet.\n- <code>FarmNpcWorkSystem</code> übersetzt die Core-Farmzustände in native Bewegungsziele zwischen Farm und Feld. Die fünf Sekunden Produktionsarbeit finden sichtbar am Feld statt; anschließend kehrt der Bauer zur Farm zurück.
+- <code>FarmFieldRegistry</code> registriert fertig gebaute Weizenfelder anhand ihres Civ-Footprints. Für den ersten Farm-Slice wird das zur Farm nächstgelegene fertige Feld automatisch als Arbeitsfeld verwendet.
+- <code>FarmNpcWorkSystem</code> übersetzt die Core-Farmzustände in native Bewegungsziele zwischen Farm und Feld. Die fünf Sekunden Produktionsarbeit finden sichtbar am Feld statt; anschließend kehrt der Bauer zur Farm zurück. Das für einen Arbeitsweg ausgewählte Feld wird während dieses Wegs wiederverwendet und nur neu gesucht, wenn kein gültiges registriertes Feld mehr vorliegt; dadurch wird die Feldsuche nicht auf jedem ECS-Tick wiederholt.
 
 <code>CivUnitRegistry</code> identifiziert eine Laufzeitentität über ihren <code>Store</code> plus Entitätsindex und behält gleichzeitig die ursprüngliche <code>Ref</code> zur Validierung. Dadurch wird nicht auf Java-Objektidentität wiederholt erzeugter <code>Ref</code>-Instanzen vertraut und veraltete Entitätsslots werden nicht als gültige Civ-Einheiten behandelt.
 
@@ -68,13 +77,13 @@ Hytale-Bootstrap und Lifecycle. Hier werden Adapter und Services verdrahtet sowi
 
 ## Abhängigkeitsregel
 
-Abhängigkeiten zeigen in Richtung Core. <code>core</code> ist Hytale-unabhängig. <code>hytale</code> darf von <code>core</code> und der Hytale-API abhängen. <code>plugin</code> darf von beiden und der Hytale-API abhängen.
+Abhängigkeiten zeigen in Richtung Core. <code>core</code> ist Hytale-unabhängig. <code>simulation</code> darf von <code>core</code> abhängen, aber nicht von der Hytale-API. <code>hytale</code> darf von <code>core</code> und der Hytale-API abhängen. <code>plugin</code> darf von beiden und der Hytale-API abhängen.
 
 Dadurch bleibt der Großteil des Verhaltens in normalen JUnit-Tests ausführbar. Hytale wird nur dort benötigt, wo das Engine-Verhalten selbst geprüft wird.
 
 ### Headless Ablaufsteuerung
 
-Mehrstufige Gameplay-Abläufe sollen als Core-Zustand plus kleine Commands, Intents und Ergebnisse modelliert werden, wenn dadurch eine echte Engine-Grenze entsteht. Ein Test darf Engine-Ergebnisse wie „angekommen“ künstlich zurückmelden und dadurch denselben Zustandsautomaten weitertreiben, den der Hytale-Adapter im Spiel bedient.
+Mehrstufige Gameplay-Abläufe sollen als Core-Zustand plus kleine Commands, Intents und Ergebnisse modelliert werden, wenn dadurch eine echte Engine-Grenze entsteht. Ein Test darf Engine-Ergebnisse wie „angekommen“ künstlich zurückmelden und dadurch denselben Zustandsautomaten weitertreiben, den der Hytale-Adapter im Spiel bedient. <code>SimulationRuntime</code> ist der erste wiederverwendbare Harness für solche Abläufe. Er läuft standardmäßig mit einem festen 50-ms-Simulationsschritt und zählt fachliche Arbeit statt Wall-Clock-Zeit, damit zum Beispiel „wie oft sucht ein wartender Bauarbeiter nach einer Baustelle?“ reproduzierbar als Regression geprüft werden kann.
 
 Der erste konkrete Beweisfall ist die Bewohnerbewegung mit Holzfällerarbeit:
 

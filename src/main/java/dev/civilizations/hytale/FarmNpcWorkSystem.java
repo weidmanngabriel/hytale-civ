@@ -15,6 +15,9 @@ import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import dev.civilizations.core.FarmBuilding;
 import org.joml.Vector3d;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * Translates the core farm work state into Hytale NPC movement targets.
  */
@@ -28,6 +31,8 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
     private final FarmBuildingRegistry farmRegistry;
     private final FarmFieldRegistry fieldRegistry;
     private final NativeBuildingStorage storage = new NativeBuildingStorage();
+    private final Map<CivUnitRegistry.UnitKey, FarmFieldRegistry.FieldSite> activeFields =
+        new ConcurrentHashMap<>();
 
     public FarmNpcWorkSystem(
         CivUnitRegistry unitRegistry,
@@ -60,13 +65,16 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
         CommandBuffer<EntityStore> commandBuffer
     ) {
         Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
+        CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
         FarmBuildingRegistry.FarmSite site = farmRegistry.getAssignment(ref);
 
         if (site == null) {
+            activeFields.remove(key);
             return;
         }
 
         if (!ref.isValid()) {
+            activeFields.remove(key);
             farmRegistry.unassignFarmer(ref);
             activityRegistry.forget(ref);
             unitRegistry.forget(ref);
@@ -76,6 +84,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
         TransformComponent transform =
             commandBuffer.getComponent(ref, TransformComponent.getComponentType());
         if (transform == null) {
+            activeFields.remove(key);
             farmRegistry.unassignFarmer(ref);
             return;
         }
@@ -85,9 +94,6 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
         if (!activityRegistry.autonomousWorkAllowed(ref)) {
             return;
         }
-
-        FarmFieldRegistry.FieldSite field =
-            fieldRegistry.nearestField(site.worldId(), building.entranceBlock());
 
         switch (building.workState()) {
             case WAITING_FOR_FARMER, WAITING_FOR_INPUTS -> unitRegistry.clearMoveTarget(ref);
@@ -100,13 +106,24 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
                 }
             }
             case WALKING_TO_FIELD -> {
-                if (field == null) {
-                    unitRegistry.clearMoveTarget(ref);
-                    return;
+                FarmFieldRegistry.FieldSite field = activeFields.get(key);
+                if (!fieldRegistry.isRegistered(field)) {
+                    field = fieldRegistry.nearestField(
+                        site.worldId(),
+                        building.entranceBlock()
+                    );
+                    if (field == null) {
+                        activeFields.remove(key);
+                        unitRegistry.clearMoveTarget(ref);
+                        return;
+                    }
+                    activeFields.put(key, field);
                 }
+
                 Vector3d target = field.workTarget();
                 unitRegistry.setMoveTarget(ref, target);
                 if (hasArrived(position, target)) {
+                    activeFields.remove(key);
                     unitRegistry.clearMoveTarget(ref);
                     building.arriveAtField();
                 }
@@ -126,6 +143,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
                 }
             }
             case STORING_OUTPUT -> {
+                activeFields.remove(key);
                 unitRegistry.clearMoveTarget(ref);
                 World world = Universe.get().getWorld(site.worldId());
                 if (storage.tryStore(world, site.outputStorageMarker(), new ItemStack(WHEAT_ITEM_ID, 1))) {
