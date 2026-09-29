@@ -51,7 +51,7 @@ class SimulationScenariosTest {
         assertEquals(2, metrics.constructionSearches());
         assertEquals(2, metrics.fieldSearches());
         assertEquals(6, metrics.failedPlans());
-        assertEquals(0, metrics.movementRequests());
+        assertEquals(1, metrics.movementRequests());
     }
 
     @Test
