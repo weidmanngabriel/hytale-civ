@@ -450,30 +450,7 @@ public final class RtsInteractionController {
             store,
             new BuildingActionsPage(
                 playerRef,
-                () -> openDemolitionConfirmation(playerRef, playerEntityRef, store, building.id())
-            )
-        );
-    }
-
-    private void openDemolitionConfirmation(
-        PlayerRef playerRef,
-        Ref<EntityStore> playerEntityRef,
-        Store<EntityStore> store,
-        UUID buildingId
-    ) {
-        if (playerEntityRef == null || !playerEntityRef.isValid()) {
-            return;
-        }
-        Player player = store.getComponent(playerEntityRef, Player.getComponentType());
-        if (player == null) {
-            return;
-        }
-        player.getPageManager().openCustomPage(
-            playerEntityRef,
-            store,
-            new BuildingDemolitionConfirmPage(
-                playerRef,
-                () -> demolishBuilding(playerRef, buildingId)
+                () -> demolishBuilding(playerRef, building.id())
             )
         );
     }
