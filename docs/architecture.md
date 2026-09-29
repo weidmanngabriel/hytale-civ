@@ -36,7 +36,9 @@ Reine Java-Simulation und Domänenregeln. Dieser Bereich darf <code>com.hypixel.
 
 Die Headless-Simulation ist keine zweite Gameplay-Implementierung und kein Ersatz für Hytales Navigation, Physik oder Weltmodell. Sie darf nur die Engine-Verträge simulieren, die ein Core-Ablauf tatsächlich benötigt. <code>SimulationMetrics</code> zählt dafür deterministische Operationen wie Planungsentscheidungen, Weltabfragen und Bewegungsanforderungen. Diese Zähler dienen als Performance-Budgets für Gameplay-Logik; reale CPU-, Rendering- und Hytale-Engine-Kosten bleiben Runtime-Messungen.
 
-<code>SimulationViewerApp</code> ist eine optionale Swing-/Java2D-Präsentationsschicht auf derselben Runtime. Sie liest unveränderliche <code>WorldSnapshot</code>-Daten, zeichnet Bewohner und einfache Weltobjekte und übersetzt Auswahl sowie manuelle Rechtsklick-Ziele in vorhandene Runtime-/Core-Befehle. Sie besitzt keine eigenen Gameplay-Regeln.
+<code>SimulationScenario</code> beschreibt einen benannten, deterministischen Tick-0-Startzustand. <code>SimulationScenarios</code> hält die kleinen eingebauten Szenarien zentral, damit Viewer und automatisierte Szenario-Tests denselben Aufbau verwenden können. Ein Szenario enthält bewusst keine erwarteten Ergebnisse oder Test-Assertions; diese bleiben in den Tests.
+
+<code>SimulationViewerApp</code> ist eine optionale Swing-/Java2D-Präsentationsschicht auf derselben Runtime. Sie liest unveränderliche <code>WorldSnapshot</code>-Daten, zeichnet Bewohner und einfache Weltobjekte und übersetzt Auswahl sowie manuelle Rechtsklick-Ziele in vorhandene Runtime-/Core-Befehle. Der Viewer startet über ein auswählbares <code>SimulationScenario</code>; Szenariowechsel und Reset erzeugen jeweils einen frischen Runtime-Zustand. Die Präsentationsschicht besitzt keine eigenen Gameplay-Regeln.
 
 ### hytale
 
