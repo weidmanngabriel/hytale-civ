@@ -120,3 +120,10 @@ Für die aktuellen Creator-Prefabs gilt die gemeinsame Geländekonvention: Der P
 - Ein Produktionsarbeiter mit Inputs darf nicht voraussetzen, dass diese bereits am Arbeitsplatz liegen.
 - Die spätere Warenlogistik entscheidet, aus welcher zulässigen Quelle benötigte Güter kommen (z. B. lokaler Arbeitsplatzcontainer, anderes Gebäude/Lager oder physische Weltware), reserviert sie und organisiert den Transport.
 - Produktion entscheidet **was** benötigt und erzeugt wird; Logistik entscheidet **woher** die Güter kommen. Diese Trennung soll spätere Trägerlieferungen ermöglichen, ohne Müller, Steinmetz oder andere Produzenten neu zu modellieren.
+
+
+### Temporärer Farmer-Bootstrap
+
+- Für den aktuellen Entwicklungsslice erhält ein Bewohner beim Eintritt in den Beruf Bauer vier native Wheat Seed Bags (`Plant_Seeds_Wheat`).
+- Beim Verlassen des Farmer-Berufs werden bis zu vier Wheat Seed Bags wieder aus seinem Inventar entfernt.
+- Dieses Verhalten ist ausdrücklich keine dauerhafte Domänenregel. Es wird entfernt, sobald Farmer Saatgut über die allgemeine Waren-/Logistikbeschaffung beziehen.
