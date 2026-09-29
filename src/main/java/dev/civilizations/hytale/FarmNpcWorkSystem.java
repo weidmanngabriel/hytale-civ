@@ -33,6 +33,8 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
     private final NativeBuildingStorage storage = new NativeBuildingStorage();
     private final Map<CivUnitRegistry.UnitKey, FarmFieldRegistry.FieldSite> activeFields =
         new ConcurrentHashMap<>();
+    private final Map<CivUnitRegistry.UnitKey, AccessRoute> accessRoutes =
+        new ConcurrentHashMap<>();
 
     public FarmNpcWorkSystem(
         CivUnitRegistry unitRegistry,
@@ -106,6 +108,16 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
                 }
             }
             case WALKING_TO_FIELD -> {
+                if (accessRoutes.get(key) == AccessRoute.TO_FIELD) {
+                    Vector3d target = site.entranceTarget();
+                    unitRegistry.setMoveTarget(ref, target);
+                    if (hasArrived(position, target)) {
+                        accessRoutes.remove(key);
+                        unitRegistry.clearMoveTarget(ref);
+                    }
+                    break;
+                }
+
                 FarmFieldRegistry.FieldSite field = activeFields.get(key);
                 if (!fieldRegistry.isRegistered(field)) {
                     field = fieldRegistry.nearestField(
@@ -131,10 +143,21 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
             case WORKING_FIELD -> {
                 unitRegistry.clearMoveTarget(ref);
                 if (building.advanceWork(dt)) {
-                    unitRegistry.setMoveTarget(ref, site.outputStorageTarget());
+                    accessRoutes.put(key, AccessRoute.TO_STORAGE);
+                    unitRegistry.setMoveTarget(ref, site.entranceTarget());
                 }
             }
             case RETURNING_TO_STORAGE -> {
+                if (accessRoutes.get(key) == AccessRoute.TO_STORAGE) {
+                    Vector3d target = site.entranceTarget();
+                    unitRegistry.setMoveTarget(ref, target);
+                    if (hasArrived(position, target)) {
+                        accessRoutes.remove(key);
+                        unitRegistry.clearMoveTarget(ref);
+                    }
+                    break;
+                }
+
                 Vector3d target = site.outputStorageTarget();
                 unitRegistry.setMoveTarget(ref, target);
                 if (hasArrived(position, target)) {
@@ -147,6 +170,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
                 unitRegistry.clearMoveTarget(ref);
                 World world = Universe.get().getWorld(site.worldId());
                 if (storage.tryStore(world, site.outputStorageMarker(), new ItemStack(WHEAT_ITEM_ID, 1))) {
+                    accessRoutes.put(key, AccessRoute.TO_FIELD);
                     building.outputStored();
                 }
             }
@@ -164,6 +188,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
         }
 
         FarmBuilding building = site.building();
+        CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
         switch (building.workState()) {
             case WALKING_TO_FARM -> {
                 if (site.hasEntranceVolume(volumeId)) {
@@ -172,13 +197,26 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
                 }
             }
             case RETURNING_TO_STORAGE -> {
-                if (site.hasOutputStorageVolume(volumeId)) {
+                if (site.hasEntranceVolume(volumeId)
+                    && accessRoutes.get(key) == AccessRoute.TO_STORAGE) {
+                    accessRoutes.remove(key);
+                    unitRegistry.clearMoveTarget(ref);
+                } else if (site.hasOutputStorageVolume(volumeId)
+                    && accessRoutes.get(key) != AccessRoute.TO_STORAGE) {
                     unitRegistry.clearMoveTarget(ref);
                     building.arriveAtFarm();
                 }
             }
             case WALKING_TO_FIELD -> {
-                CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
+                if (site.hasEntranceVolume(volumeId)
+                    && accessRoutes.get(key) == AccessRoute.TO_FIELD) {
+                    accessRoutes.remove(key);
+                    unitRegistry.clearMoveTarget(ref);
+                    break;
+                }
+                if (accessRoutes.get(key) == AccessRoute.TO_FIELD) {
+                    break;
+                }
                 FarmFieldRegistry.FieldSite field = activeFields.get(key);
                 if (field != null && volumeId.equals(field.workVolumeId())) {
                     activeFields.remove(key);
@@ -190,6 +228,11 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
                 // Other production phases do not advance on trigger entry.
             }
         }
+    }
+
+    private enum AccessRoute {
+        TO_STORAGE,
+        TO_FIELD
     }
 
     private static boolean hasArrived(Vector3d position, Vector3d target) {
