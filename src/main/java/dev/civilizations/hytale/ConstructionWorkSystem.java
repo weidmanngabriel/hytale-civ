@@ -23,6 +23,7 @@ import dev.civilizations.core.WorldPosition;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,6 +41,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
 
     private static final String TYPE_TAG = "civ.type";
     private static final String BUILDING_TAG = "civ.building";
+    private static final String BUILDING_BOUNDS = "building_bounds";
     private static final String WORKPLACE_ACCESS = "workplace_access";
     private static final String FIELD = "field";
     private static final String FARM = "farm";
@@ -48,6 +50,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
     private final CivActivityRegistry activityRegistry;
     private final FarmBuildingRegistry farmRegistry;
     private final FarmFieldRegistry fieldRegistry;
+    private final BuildingPlacementRegistry buildingRegistry;
     private final PrefabPlacementService placementService;
 
     private final Map<CivUnitRegistry.UnitKey, WorkerRuntime> workers =
@@ -60,12 +63,14 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         CivActivityRegistry activityRegistry,
         FarmBuildingRegistry farmRegistry,
         FarmFieldRegistry fieldRegistry,
+        BuildingPlacementRegistry buildingRegistry,
         PrefabPlacementService placementService
     ) {
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
         this.farmRegistry = farmRegistry;
         this.fieldRegistry = fieldRegistry;
+        this.buildingRegistry = buildingRegistry;
         this.placementService = placementService;
     }
 
@@ -266,6 +271,26 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         PrefabPlacementService.PlacedPrefab placed =
             placementService.completeConstruction(owner, world, site);
 
+        PrefabPlacementService.PlacedMarker boundsMarker = placed.markers().stream()
+            .filter(marker -> marker.hasTag(TYPE_TAG, BUILDING_BOUNDS))
+            .findFirst()
+            .orElse(null);
+        BuildingPlacementRegistry.BuildingInstance buildingInstance = null;
+        if (boundsMarker != null) {
+            String buildingType = boundsMarker.tags().get(BUILDING_TAG);
+            List<PrefabPlacementService.PlacedMarker> semanticVolumes = placed.markers().stream()
+                .filter(marker -> buildingType == null
+                    || buildingType.equals(marker.tags().get(BUILDING_TAG)))
+                .toList();
+            buildingInstance = buildingRegistry.completeBuilding(
+                site.worldId(),
+                site.id(),
+                buildingType,
+                boundsMarker,
+                semanticVolumes
+            );
+        }
+
         if (PrefabPlacementService.WHEAT_FIELD.id().equals(site.definition().id())) {
             var fieldMarkers = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, FIELD))
@@ -285,9 +310,10 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
                 .map(PrefabPlacementService.PlacedMarker::position)
                 .toList();
-            if (!entrances.isEmpty()) {
+            if (!entrances.isEmpty() && buildingInstance != null) {
                 farmRegistry.registerFarm(
                     site.worldId(),
+                    buildingInstance.id(),
                     entrances,
                     site.candidate().footprint(),
                     site.candidate().replacedFloorBlocks()
