@@ -44,6 +44,10 @@ public final class FarmFieldRegistry {
         fields.entrySet().removeIf(entry -> entry.getValue().worldId().equals(worldId));
     }
 
+    public boolean isRegistered(FieldSite site) {
+        return site != null && fields.get(site.id()) == site;
+    }
+
     public FieldSite nearestField(UUID worldId, BlockPosition origin) {
         if (worldId == null || origin == null) return null;
         return fields.values().stream()
