@@ -72,11 +72,13 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
 
         if (site == null) {
             activeFields.remove(key);
+            accessRoutes.remove(key);
             return;
         }
 
         if (!ref.isValid()) {
             activeFields.remove(key);
+            accessRoutes.remove(key);
             farmRegistry.unassignFarmer(ref);
             activityRegistry.forget(ref);
             unitRegistry.forget(ref);
@@ -87,6 +89,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
             commandBuffer.getComponent(ref, TransformComponent.getComponentType());
         if (transform == null) {
             activeFields.remove(key);
+            accessRoutes.remove(key);
             farmRegistry.unassignFarmer(ref);
             return;
         }
