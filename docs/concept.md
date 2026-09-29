@@ -109,7 +109,7 @@ Ein Rechtsklick auf ein fertig gebautes Farmgebäude innerhalb seiner `building_
 
 ### Farmer-Test-Saatgut
 
-Bis die allgemeine Materialbeschaffung und das eigentliche Säen umgesetzt sind, erhält ein Bewohner beim Wechsel in den Beruf Bauer vorläufig vier native Hytale-`Plant_Seeds_Wheat`-Seed-Bags in sein NPC-Inventar. Beim Wechsel aus dem Beruf Bauer werden bis zu vier davon wieder entfernt. Dies ist ausschließlich ein Development-Bootstrap und keine spätere Wirtschaftsregel.
+Bis die allgemeine Materialbeschaffung umgesetzt ist, erhält ein Bewohner beim Wechsel in den Beruf Bauer vorläufig vier native Hytale-`Plant_Seeds_Wheat`-Seed-Bags in sein NPC-Inventar. Der Bauer verwendet diese jetzt tatsächlich auf dem fertig gebauten Weizenfeld: Saatgut wird als echte Hytale-Pflanze gesetzt, Hytale übernimmt den nativen Wachstumszyklus und reife Pflanzen werden über Hytales Farming-Ernte geerntet. Der dadurch real im NPC-Inventar ankommende Weizen wird anschließend zum Farmcontainer gebracht. Beim Wechsel aus dem Beruf Bauer werden bis zu vier verbliebene Bootstrap-Seed-Bags wieder entfernt. Nur die automatische Ausgabe der vier Seed-Bags ist Development-Bootstrap; Säen, Wachstum und Ernte sind der aktuelle Farmablauf.
 
 
 ### Gemeinsamer Gebäude-Lifecycle

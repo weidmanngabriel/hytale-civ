@@ -112,7 +112,7 @@ class SimulationRuntimeTest {
         runtime.addFarmField(farm.id(), field);
         runtime.addFarmer("farmer-1", field, farm);
 
-        runtime.runForSeconds(5.2);
+        runtime.runForSeconds(6.0);
 
         SimulationMetrics.Snapshot metrics = runtime.metrics();
         assertEquals(1, metrics.fieldSearches());

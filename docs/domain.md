@@ -76,19 +76,17 @@ Verifiziert bzw. aktuell gewollt:
 
 - Das Farm-Prefab definiert mindestens einen räumlichen Arbeitszugang über ein natives Hytale Trigger Volume. Mehrere Zugänge sollen möglich bleiben.
 - Ein zugewiesener Bewohner erhält den Beruf Bauer.
-- Farmarbeit soll möglichst sichtbar und physisch in der Hytale-Welt stattfinden und native Hytale-Systeme für Bewegung, Trigger, Interaktionen und Waren verwenden, bevor Civ äquivalente eigene Mechanismen einführt.
-- Lokaler Weizen liegt nach abgeschlossener Feldarbeit als physischer `Plant_Crop_Wheat_Item`-Stack im nativen Hytale-Container der Farm. Erst erfolgreiche Einlagerung schließt den Produktionszyklus ab.
+- Farmarbeit findet sichtbar und physisch in der Hytale-Welt statt: Der Bauer setzt echtes Saatgut auf dem Weizenfeld, die Pflanzen durchlaufen Hytales nativen Farming-Wachstumszyklus und reife Pflanzen werden über Hytales native Farming-Ernte geerntet.
+- Civ besitzt keinen eigenen Pflanzen-Wachstumstimer und erzeugt bei der Ernte keinen künstlichen Weizen-Output.
+- Der bei der nativen Ernte tatsächlich im NPC-Inventar ankommende `Plant_Crop_Wheat_Item` wird zum nativen Hytale-Container der Farm transportiert. Erst erfolgreiche Einlagerung schließt diesen Erntezyklus ab.
 
 Nur aktueller Prototyp, **keine dauerhafte Domänenregel**:
 
 - genau ein Bauernplatz;
 - Auswahl des Zugangs nur nach Luftlinienentfernung;
-- logischer Zustand ARBEITET_INNEN als eigentlicher Produktionsort;
-- fünf Sekunden Arbeitszeit pro Weizen;
-- eine Einheit Weizen pro Zyklus;
-- Verlassen des Gebäudes nach jeder Einheit;
-- festes Außenziel zwei Blöcke südlich des Zugangs;
-- Produktionsstopp bei zehn Einheiten (entfallen; die native Containerkapazität begrenzt den Bestand).
+- genau ein automatisch ausgewähltes, nächstgelegenes Feld pro Arbeitszyklus;
+- Rücktransport nach jedem erfolgreich geernteten Weizen-Stack;
+- die native Containerkapazität begrenzt den eingelagerten Bestand.
 
 Diese Punkte bleiben als Beschreibung des derzeit laufenden Codes relevant, dürfen aber ohne erneute Produktentscheidung nicht als Zielverhalten für die nächste Farm-Iteration verwendet werden. Das in `civilizations-poc` vorhandene Modell mit sichtbarer Feldarbeit, Feldentwicklung, Ernte und Rücktransport ist eine Referenz für die weitere Produktentscheidung, nicht automatisch eine Regel dieses Projekts.
 

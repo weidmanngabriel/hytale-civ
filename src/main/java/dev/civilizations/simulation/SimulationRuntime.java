@@ -396,11 +396,22 @@ public final class SimulationRuntime {
                 }
             }
             case WALKING_TO_FIELD -> tickFarmerFieldTravel(resident);
-            case WORKING_FIELD -> {
+            case SOWING_FIELD -> {
                 clearMovement(resident);
-                if (farm.advanceWork(tickSeconds)) {
-                    resident.fieldTarget = null;
+                resident.cropGrowthElapsedSeconds = 0.0;
+                farm.sowingComplete(true);
+            }
+            case WAITING_FOR_GROWTH -> {
+                clearMovement(resident);
+                resident.cropGrowthElapsedSeconds += tickSeconds;
+                if (resident.cropGrowthElapsedSeconds >= 5.0) {
+                    resident.cropGrowthElapsedSeconds = 0.0;
+                    farm.cropHarvested();
                 }
+            }
+            case HARVESTING_FIELD -> {
+                clearMovement(resident);
+                farm.fieldCycleFinished();
             }
             case RETURNING_TO_STORAGE -> {
                 if (advanceMovement(resident, blockCenter(farm.exitBlock()))) {
@@ -638,6 +649,7 @@ public final class SimulationRuntime {
         private WorldPosition position;
         private WorldPosition movementTarget;
         private WorldPosition fieldTarget;
+        private double cropGrowthElapsedSeconds;
 
         private Resident(
             String id,

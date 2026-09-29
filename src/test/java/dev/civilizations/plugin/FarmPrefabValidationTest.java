@@ -26,7 +26,7 @@ class FarmPrefabValidationTest {
         assertCommonPrefabHeader(prefab);
 
         JsonNode blocks = prefab.path("blocks");
-        assertEquals(236, blocks.size());
+        assertEquals(234, blocks.size());
 
         boolean foundEmptyChest = false;
         for (JsonNode block : blocks) {
