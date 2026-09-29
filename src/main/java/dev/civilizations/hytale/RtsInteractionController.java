@@ -520,7 +520,7 @@ public final class RtsInteractionController {
                 .filter(volume -> volume.hasTag(BUILDING_TAG, "farm"))
                 .toList();
             if (!entrances.isEmpty()) {
-                Vector3i outputStorage = building.semanticVolumes().stream()
+                PrefabPlacementService.PlacedMarker outputStorage = building.semanticVolumes().stream()
                     .filter(volume -> volume.hasTag(TYPE_TAG, "output_storage"))
                     .filter(volume -> volume.hasTag(BUILDING_TAG, "farm"))
                     .findFirst()
