@@ -937,28 +937,28 @@
       "Components": {
         "Transform": {
           "Position": {
-            "X": 1,
-            "Y": 2,
-            "Z": 1
+            "X": 1.0,
+            "Y": 2.0,
+            "Z": 1.0
           },
           "Rotation": {
-            "Pitch": 0,
-            "Yaw": 0,
-            "Roll": 0
+            "Pitch": 0.0,
+            "Yaw": 0.0,
+            "Roll": 0.0
           }
         },
         "TriggerVolume": {
           "Shape": {
             "Type": "Box",
             "Min": {
-              "X": -3,
-              "Y": -2,
-              "Z": -3
+              "X": -3.0,
+              "Y": -2.0,
+              "Z": -3.0
             },
             "Max": {
-              "X": 3,
-              "Y": 2,
-              "Z": 3
+              "X": 3.0,
+              "Y": 2.0,
+              "Z": 3.0
             }
           },
           "Enabled": true,

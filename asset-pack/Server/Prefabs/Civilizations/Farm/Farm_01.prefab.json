@@ -6,12 +6,6 @@
   "anchorZ": 0,
   "blocks": [
     {
-      "x": -7,
-      "y": 0,
-      "z": -7,
-      "name": "Soil_Grass"
-    },
-    {
       "x": -6,
       "y": 3,
       "z": -2,
@@ -1476,12 +1470,6 @@
       "y": 3,
       "z": 2,
       "name": "*Wood_Softwood_Roof_Hollow_State_Definitions_Corner_Left"
-    },
-    {
-      "x": 7,
-      "y": 0,
-      "z": -7,
-      "name": "Soil_Grass"
     }
   ],
   "fluids": [
