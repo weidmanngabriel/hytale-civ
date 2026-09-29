@@ -21,7 +21,9 @@ public final class ProfessionBootstrapInventory {
     public void enterFarmer(Ref<EntityStore> ref) {
         ItemContainer inventory = preferredInventory(ref);
         if (inventory != null) {
-            inventory.addItemStack(new ItemStack(WHEAT_SEED_ITEM_ID, FARMER_SEED_COUNT), true, true, true);
+            for (int i = 0; i < FARMER_SEED_COUNT; i++) {
+                inventory.addItemStack(new ItemStack(WHEAT_SEED_ITEM_ID, 1), true, true, true);
+            }
         }
     }
 
