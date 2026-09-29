@@ -282,6 +282,17 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
             .filter(marker -> marker.hasTag(TYPE_TAG, BUILDING_BOUNDS))
             .findFirst()
             .orElse(null);
+        // The wheat-field prefab intentionally has one authored trigger volume. Its field
+        // marker doubles as the lifecycle/protection bounds instead of injecting a second
+        // Civ-only trigger into the prefab.
+        if (boundsMarker == null
+            && PrefabPlacementService.WHEAT_FIELD.id().equals(site.definition().id())) {
+            boundsMarker = placed.markers().stream()
+                .filter(marker -> marker.hasTag(TYPE_TAG, FIELD))
+                .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
+                .findFirst()
+                .orElse(null);
+        }
         BuildingPlacementRegistry.BuildingInstance buildingInstance = null;
         if (boundsMarker != null) {
             String buildingType = boundsMarker.tags().get(BUILDING_TAG);
@@ -306,7 +317,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         if (PrefabPlacementService.WHEAT_FIELD.id().equals(site.definition().id())) {
             var fieldMarkers = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, FIELD))
-                 .filter(marker -> marker.hasTag(BUILDING_TAG, WHEAT_FIELD))
+                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
                 .toList();
             if (!fieldMarkers.isEmpty()) {
                 if (buildingInstance != null) {

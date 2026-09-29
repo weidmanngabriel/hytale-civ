@@ -70,9 +70,8 @@ class FarmPrefabValidationTest {
         }
 
         JsonNode entities = prefab.path("entities");
-        assertEquals(2, entities.size());
-        assertMarker(entities, "civ_wheat_field_building", "wheat_field", "building_bounds");
-        assertMarker(entities, "civ_farm_field", "wheat_field", "field");
+        assertEquals(1, entities.size());
+        assertMarker(entities, "civ_farm_field", "farm", "field");
     }
 
     private JsonNode read(String fileName) throws Exception {

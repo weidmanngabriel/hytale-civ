@@ -966,54 +966,12 @@
             "Npc"
           ],
           "Tags": {
-            "civ.building": "wheat_field",
+            "civ.building": "farm",
             "civ.type": "field"
           },
           "KeepLoaded": false,
           "PrefabIndex": 0,
           "Name": "civ_farm_field"
-        }
-      }
-    },
-    {
-      "Components": {
-        "Transform": {
-          "Position": {
-            "X": 1,
-            "Y": 2,
-            "Z": 1
-          },
-          "Rotation": {
-            "Pitch": 0,
-            "Yaw": 0,
-            "Roll": 0
-          }
-        },
-        "TriggerVolume": {
-          "Shape": {
-            "Type": "Box",
-            "Min": {
-              "X": -3,
-              "Y": -2,
-              "Z": -3
-            },
-            "Max": {
-              "X": 3,
-              "Y": 2,
-              "Z": 3
-            }
-          },
-          "Enabled": true,
-          "TargetTypes": [
-            "Npc"
-          ],
-          "Tags": {
-            "civ.building": "wheat_field",
-            "civ.type": "building_bounds"
-          },
-          "KeepLoaded": false,
-          "PrefabIndex": 1,
-          "Name": "civ_wheat_field_building"
         }
       }
     }
