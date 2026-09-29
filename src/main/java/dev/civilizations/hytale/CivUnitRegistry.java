@@ -28,6 +28,7 @@ public final class CivUnitRegistry {
     private static final int CIV_MOVE_POSITION_SLOT = 0;
 
     private final CivInhabitantService inhabitantService;
+    private final ProfessionBootstrapInventory professionInventory = new ProfessionBootstrapInventory();
     private final Map<UnitKey, UnitState> units = new ConcurrentHashMap<>();
 
     public CivUnitRegistry(CivInhabitantService inhabitantService) {
@@ -40,6 +41,9 @@ public final class CivUnitRegistry {
 
     public boolean toggleClaim(Ref<EntityStore> ref) {
         if (inhabitantService.get(ref) != null) {
+            if (inhabitantService.getProfession(ref) == Profession.FARMER) {
+                professionInventory.leaveFarmer(ref);
+            }
             cancelMoveTarget(ref);
             inhabitantService.releaseInhabitant(ref);
             units.remove(keyOf(ref));
@@ -184,7 +188,17 @@ public final class CivUnitRegistry {
             return;
         }
 
+        Profession previous = inhabitantService.getProfession(ref);
+        if (previous == profession) {
+            return;
+        }
+        if (previous == Profession.FARMER) {
+            professionInventory.leaveFarmer(ref);
+        }
         inhabitantService.assignProfession(ref, profession);
+        if (profession == Profession.FARMER) {
+            professionInventory.enterFarmer(ref);
+        }
     }
 
     public Profession getProfession(Ref<EntityStore> ref) {

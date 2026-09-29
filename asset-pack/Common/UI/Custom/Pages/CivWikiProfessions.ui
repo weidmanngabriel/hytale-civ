@@ -21,7 +21,7 @@ $C.@DecoratedContainer {
 
     Label { Text: "Bauer"; Style: (FontSize: 20, TextColor: #ffffff); }
     Label {
-      Text: "Wird an der Farm zugewiesen, läuft zum nächsten fertigen Weizenfeld und arbeitet dort 5 Sekunden. Danach bringt er 1 Weizen zur Farmtruhe; erst erfolgreiche Einlagerung startet den nächsten Zyklus.";
+      Text: "Wird an der Farm zugewiesen und erhält für den aktuellen Test 4 Weizensaat-Beutel. Er läuft zum nächsten fertigen Weizenfeld und arbeitet dort 5 Sekunden. Danach bringt er 1 Weizen zur Farmtruhe. Beim Berufswechsel wird das Test-Saatgut wieder entfernt.";
       Style: (FontSize: 14, TextColor: #d7dde6);
       Anchor: (Bottom: 8);
     }
