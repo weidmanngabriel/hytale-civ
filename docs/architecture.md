@@ -244,7 +244,7 @@ Fertige Civ-Gebäude definieren ihre autoritative räumliche Gebäudezone im Pre
 
 Während der Bauphase reserviert `BuildingPlacementRegistry` weiterhin den blockbasierten Placement-Footprint der Baustelle. Nach dem finalen nativen Prefab-Placement liest `PrefabPlacementService` die Welt-AABB der neu erzeugten Trigger Volumes über Hytales `TriggerVolumeShape.getWorldAABB(...)`. Ist ein `building_bounds` vorhanden, ersetzt diese authored Zone die temporäre Baustellenreservierung und wird zur Runtime-Autorität für allgemeines Gebäude-Picking, Placement-Overlap und Blockschutz.
 
-Weitere Trigger Volumes wie `workplace_access` und `output_storage` bleiben semantische Unterbereiche derselben platzierten Prefab-Instanz. Sie definieren Funktionen, nicht die allgemeine Gebäudegrenze. Das separat platzierte Farmfeld behält `civ.type=field` und wird nicht als `building_bounds` behandelt.
+Weitere Trigger Volumes wie `workplace_access` und `output_storage` bleiben semantische Unterbereiche derselben platzierten Prefab-Instanz. Sie definieren Funktionen, nicht die allgemeine Gebäudegrenze. Das separat platzierte Weizenfeld verwendet seinen `field`-Marker zugleich als Lifecycle-/Schutzgrenze. Der gemeinsame Blockschutz bleibt für Boden- und Fremdblockänderungen aktiv, lässt innerhalb eines fertigen Weizenfelds aber native Weizen-Saatgut-Platzierung oberhalb des Feldbodens sowie das Brechen nativer Farming-Crop-Blöcke zu. Der Schutz greift ausschließlich bei Spielerentitäten (`PlayerRef`); NPC-Placement wird dadurch nicht blockiert.
 
 Die aktuelle Gebäudeinstanz-ID verwendet die UUID der zugehörigen Baustelle. Sie ist nur eine Runtime-Identität und ändert die weiterhin offene Entscheidung zur dauerhaften Gebäudeidentität nicht.
 
