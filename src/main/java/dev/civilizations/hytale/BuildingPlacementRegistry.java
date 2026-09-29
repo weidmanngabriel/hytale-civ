@@ -95,7 +95,7 @@ public final class BuildingPlacementRegistry {
             boundsMarker.id(),
             boundsMarker.bounds(),
             semanticVolumes,
-            null
+            placement
         );
         List<BuildingInstance> updated =
             new ArrayList<>(buildings.getOrDefault(worldId, List.of()));
