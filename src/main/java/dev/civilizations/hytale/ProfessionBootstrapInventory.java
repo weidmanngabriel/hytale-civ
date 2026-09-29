@@ -20,7 +20,7 @@ public final class ProfessionBootstrapInventory {
     static final int FARMER_SEED_COUNT = 4;
 
     public void enterFarmer(Ref<EntityStore> ref) {
-        int remaining = FARMER_SEED_COUNT;
+        ItemStack remaining = new ItemStack(WHEAT_SEED_ITEM_ID, FARMER_SEED_COUNT);
         remaining = addTo(ref, InventoryComponent.Storage.getComponentType(), remaining);
         remaining = addTo(ref, InventoryComponent.Hotbar.getComponentType(), remaining);
         addTo(ref, InventoryComponent.Backpack.getComponentType(), remaining);
@@ -32,33 +32,23 @@ public final class ProfessionBootstrapInventory {
         removeFrom(ref, InventoryComponent.Backpack.getComponentType());
     }
 
-    private <T extends InventoryComponent> int addTo(
+    private <T extends InventoryComponent> ItemStack addTo(
         Ref<EntityStore> ref,
         com.hypixel.hytale.component.ComponentType<EntityStore, T> type,
-        int remaining
+        ItemStack remaining
     ) {
-        if (remaining <= 0) return 0;
+        if (remaining == null || remaining.getQuantity() <= 0) return null;
         T component = ref.getStore().getComponent(ref, type);
         if (component == null || component.getInventory() == null) return remaining;
 
-        ItemContainer inventory = component.getInventory();
-        while (remaining > 0) {
-            ItemStackTransaction transaction = inventory.addItemStack(
-                new ItemStack(WHEAT_SEED_ITEM_ID, 1),
-                true,
-                true,
-                true
-            );
-            if (transaction == null || !transaction.succeeded()) {
-                break;
-            }
-            ItemStack remainder = transaction.getRemainder();
-            if (remainder != null && remainder.getQuantity() > 0) {
-                break;
-            }
-            remaining--;
-        }
-        return remaining;
+        ItemStackTransaction transaction = component.getInventory().addItemStack(
+            remaining,
+            true,
+            true,
+            true
+        );
+        if (transaction == null) return remaining;
+        return transaction.getRemainder();
     }
 
     private <T extends InventoryComponent> void removeFrom(
