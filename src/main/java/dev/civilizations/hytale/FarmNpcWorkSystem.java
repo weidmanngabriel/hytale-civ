@@ -26,6 +26,7 @@ import org.joml.Vector3d;
 import org.joml.Vector3i;
 
 import java.util.Map;
+import java.util.logging.Logger;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -34,6 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
 
+    private static final Logger LOGGER = Logger.getLogger(FarmNpcWorkSystem.class.getName());
     private static final double ARRIVAL_DISTANCE = 0.45;
     private static final String WHEAT_ITEM_ID = "Plant_Crop_Wheat_Item";
     private static final String WHEAT_SEED_ITEM_ID = "Plant_Seeds_Wheat";
@@ -271,11 +273,17 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
 
         ItemStack seedStack = seed.container().getItemStack(seed.slot());
         if (seedStack == null || seedStack.getBlockKey() == null) {
+            LOGGER.warning("[CivFarm] Seed found but has no placeable block key: item="
+                + (seedStack == null ? "null" : seedStack.getItemId())
+                + ", slot=" + seed.slot());
             return PlantResult.NO_MORE_WORK;
         }
 
         World world = Universe.get().getWorld(field.worldId());
-        if (world == null) return PlantResult.NO_MORE_WORK;
+        if (world == null) {
+            LOGGER.warning("[CivFarm] Planting aborted: farm world is not loaded: " + field.worldId());
+            return PlantResult.NO_MORE_WORK;
+        }
         ChunkStore chunkStore = world.getChunkStore();
         Store<ChunkStore> chunkAccessor = chunkStore.getStore();
 
@@ -295,6 +303,26 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
             Ref<ChunkStore> soilSection =
                 chunkStore.getChunkSectionReferenceAtBlock(soil.x, soil.y, soil.z);
             if (soilSection == null || !soilSection.isValid()) continue;
+            BlockSection soilBlocks = chunkAccessor.getComponent(
+                soilSection,
+                BlockSection.getComponentType()
+            );
+            int soilBlockId = soilBlocks == null
+                ? -1
+                : soilBlocks.get(soil.x, soil.y, soil.z);
+            BlockType soilBlockType = soilBlockId < 0
+                ? null
+                : BlockType.getAssetMap().getAsset(soilBlockId);
+
+            LOGGER.info("[CivFarm] Plant attempt: item=" + seedStack.getItemId()
+                + ", quantity=" + seedStack.getQuantity()
+                + ", blockKey=" + seedStack.getBlockKey()
+                + ", slot=" + seed.slot()
+                + ", soil=" + soil
+                + ", soilBlockId=" + soilBlockId
+                + ", soilHasFarming=" + (soilBlockType != null && soilBlockType.getFarming() != null)
+                + ", crop=" + crop
+                + ", cropBlockId=" + section.get(crop.x, crop.y, crop.z));
 
             boolean planted = BlockPlaceUtils.placeBlock(
                 ref,
@@ -313,6 +341,11 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
                 false,
                 false
             );
+            LOGGER.info("[CivFarm] Native placement result: planted=" + planted
+                + ", item=" + seedStack.getItemId()
+                + ", blockKey=" + seedStack.getBlockKey()
+                + ", soil=" + soil
+                + ", crop=" + crop);
             return planted ? PlantResult.PLANTED : PlantResult.NO_MORE_WORK;
         }
         return PlantResult.NO_MORE_WORK;
