@@ -10,7 +10,7 @@ Spätere Meilensteine können dauerhafte Civ-Bewohner, vollständige Routenplanu
 
 Der aktuelle Produkt-Meilenstein ist ein RTS-Prototyp mit steuerbaren NPCs zusätzlich zum ursprünglichen Plugin-Smoke-Test.
 
-<code>/civtest</code> zeigt, dass das Plugin geladen ist.
+<code>/civtest</code> zeigt, dass das Plugin geladen ist.\n\n<code>/civdebug</code> ist ein vorläufiger, rein lesender Entwicklungsbefehl. Er zeigt für die aktuelle Welt die Anzahl der Laufzeit- und persistent gespeicherten Civ-Gebäude sowie pro persistentem Gebäude ID, Typ, Anzahl gespeicherter Snapshot-Blöcke und semantische Trigger-Volume-Typen. Er verändert keinen Spielzustand und soll vor einem fertigen Release wieder entfernt oder deaktiviert werden.
 
 <code>/civrtstest</code> schaltet eine feste, schräge RTS-Kamera mit sichtbarem Mauszeiger ein oder aus. Der Spieler wechselt dabei nicht in den Spectator-Modus.
 
