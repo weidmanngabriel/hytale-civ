@@ -121,6 +121,20 @@ public final class BuildingPlacementRegistry {
         return existing;
     }
 
+    public synchronized void restoreWorld(
+        UUID worldId,
+        List<BuildingInstance> restored
+    ) {
+        if (worldId == null) {
+            return;
+        }
+        buildings.put(worldId, List.copyOf(restored == null ? List.of() : restored));
+    }
+
+    public List<BuildingInstance> buildings(UUID worldId) {
+        return List.copyOf(buildings.getOrDefault(worldId, List.of()));
+    }
+
     public BuildingInstance findAt(UUID worldId, Vector3i block) {
         if (worldId == null || block == null) {
             return null;
