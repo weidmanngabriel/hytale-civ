@@ -8,6 +8,7 @@ import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.ComponentAccessor;
 import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.math.vector.Rotation3f;
+import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentPrefabPreview;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
 import com.hypixel.hytale.builtin.triggervolumes.TriggerVolumesPlugin;
@@ -20,6 +21,7 @@ import com.hypixel.hytale.server.core.prefab.PrefabStore;
 import com.hypixel.hytale.server.core.prefab.selection.standard.BlockSelection;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
+import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
@@ -88,11 +90,29 @@ public final class PrefabPlacementService {
             .toList();
         PlacementFootprint footprint = footprintFor(source, anchor, floorCells);
 
+        Map<BlockPosition, Integer> replacedFloorBlocks = new LinkedHashMap<>();
+        for (PrefabCell cell : floorCells) {
+            Vector3i position = worldPosition(source, anchor, cell);
+            WorldChunk chunk = loadedChunk(world, position.x, position.z);
+            if (chunk == null) {
+                return PlacementCandidate.invalid(
+                    definition,
+                    anchor,
+                    footprint,
+                    "Die Baufläche ist noch nicht vollständig geladen."
+                );
+            }
+            replacedFloorBlocks.put(
+                new BlockPosition(position.x, position.y, position.z),
+                chunk.getBlock(position.x, position.y, position.z)
+            );
+        }
+
         return PlacementCandidate.valid(
             definition,
             anchor,
             footprint,
-            Map.of()
+            replacedFloorBlocks
         );
     }
 
@@ -349,6 +369,60 @@ public final class PrefabPlacementService {
         PlacedPrefab placed = place(playerRef, world, site.candidate());
         constructionSites.remove(site.id(), site);
         return placed;
+    }
+
+    public boolean demolish(World world, BuildingPlacementRegistry.BuildingInstance building) {
+        if (world == null || building == null || building.placement() == null) {
+            return false;
+        }
+
+        PlacementCandidate candidate = building.placement();
+        BlockSelection source = requireSource(candidate.definition());
+        List<Vector3i> occupied = new ArrayList<>();
+        source.forEachBlock((x, y, z, holder) -> occupied.add(worldPosition(
+            source,
+            candidate.anchor(),
+            new PrefabCell(x, y, z)
+        )));
+
+        for (Vector3i position : occupied) {
+            if (loadedChunk(world, position.x, position.z) == null) {
+                return false;
+            }
+        }
+        for (BlockPosition position : candidate.replacedFloorBlocks().keySet()) {
+            if (loadedChunk(world, position.x(), position.z()) == null) {
+                return false;
+            }
+        }
+
+        for (Vector3i position : occupied) {
+            loadedChunk(world, position.x, position.z).setBlock(
+                position.x,
+                position.y,
+                position.z,
+                BlockType.EMPTY
+            );
+        }
+        candidate.replacedFloorBlocks().forEach((position, blockId) ->
+            loadedChunk(world, position.x(), position.z()).setBlock(
+                position.x(),
+                position.y(),
+                position.z(),
+                blockId
+            )
+        );
+
+        TriggerVolumeManager volumes = triggerVolumeManager(world);
+        building.semanticVolumes().stream()
+            .map(PlacedMarker::id)
+            .filter(volumes::hasVolume)
+            .forEach(volumes::unregister);
+        return true;
+    }
+
+    private static WorldChunk loadedChunk(World world, int blockX, int blockZ) {
+        return world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(blockX, blockZ));
     }
 
     private static List<Integer> occupiedLayers(BlockSelection source) {
