@@ -120,3 +120,8 @@ Farm und Weizenfeld sind gleichermaßen persistente Civ-Gebäude. Beide werden n
 ### Weizenfeld als eigenständiges Gebäude
 
 Das Weizenfeld besitzt einen eigenen `wheat_field`-Gebäudebereich für Auswahl, Schutz, Persistenz und Abriss. Sein `field`-Marker ist davon getrennt und dient ausschließlich als Arbeitsziel für Farmer. Terrain-Snapshots für den Abriss speichern stabile Block-Asset-IDs, damit ein Neustart keine laufzeitabhängigen numerischen Block-IDs als falsche Blöcke wiederherstellt.
+
+
+### Bewohnerinventar ansehen
+
+Im Personenaktionsmenü eines beanspruchten Civ-Bewohners gibt es **Inventar ansehen**. Die Ansicht zeigt das tatsächliche Hytale-Inventar des Bewohners inklusive der von Hytale zusammengefassten relevanten Inventarbereiche. Sie ist zunächst schreibgeschützt: Der Spieler kann kontrollieren, welche Gegenstände der Bewohner trägt, aber über diese Ansicht keine Items hineinlegen, herausnehmen oder verschieben.

@@ -38,6 +38,17 @@ $C.@DecoratedContainer {
     }
 
     Label {
+      Text: "Bewohner";
+      Style: (FontSize: 18, TextColor: #ffffff);
+      Anchor: (Top: 20);
+    }
+
+    $C.@TextButton #InventoryButton {
+      @Text = "Inventar ansehen";
+      Anchor: (Width: 220, Height: 44, Top: 8);
+    }
+
+    Label {
       Text: "Bewegen nach …  – aktuell per Rechtsklick";
       Style: (FontSize: 15, TextColor: #b8b8b8);
       Anchor: (Top: 24);

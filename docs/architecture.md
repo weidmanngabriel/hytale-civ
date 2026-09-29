@@ -266,3 +266,8 @@ Every completed Civ placeable that participates in protection/persistence/demoli
 ### Semantic arrival via native TriggerVolumes
 
 Farm production uses Hytale's native `TriggerVolumeEvent ENTER` events as the primary signal that an assigned NPC reached authored semantic work areas such as `workplace_access`, `field`, and `output_storage`. Runtime registries retain the placed trigger-volume IDs so an ENTER event can be matched to the worker's currently intended semantic target. Navigation still belongs to the Hytale adapter; Core only advances the production phase after the matching semantic arrival. Distance checks remain a defensive fallback rather than the primary arrival contract.
+
+
+### NPC-Inventaransicht
+
+Das Personenaktionsmenü kann das tatsächliche Hytale-Inventar eines beanspruchten Civ-Bewohners schreibgeschützt öffnen. Der Hytale-Adapter verwendet dafür Hytales native `InventoryComponent.getCombined(..., HOTBAR_FIRST)`-Zusammenstellung und zeigt sie in einem nativen `ContainerWindow`. Wie bei Hytales eigenem `invsee`-Pfad liegt ein `DelegateItemContainer` mit `DENY_ALL` vor dem echten Container, sodass diese Ansicht keine Civ-Inventarregeln dupliziert und keine Items verändert.

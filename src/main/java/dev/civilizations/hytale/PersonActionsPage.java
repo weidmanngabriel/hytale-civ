@@ -25,16 +25,19 @@ public final class PersonActionsPage
     private static final String ACTION_WOODCUTTER = "woodcutter";
     private static final String ACTION_CONSTRUCTION_WORKER = "construction_worker";
     private static final String ACTION_FARMER = "farmer";
+    private static final String ACTION_INVENTORY = "inventory";
 
     private final Runnable assignWoodcutter;
     private final Runnable assignConstructionWorker;
     private final Runnable assignFarmer;
+    private final Runnable openInventory;
 
     public PersonActionsPage(
         PlayerRef playerRef,
         Runnable assignWoodcutter,
         Runnable assignConstructionWorker,
-        Runnable assignFarmer
+        Runnable assignFarmer,
+        Runnable openInventory
     ) {
         super(
             playerRef,
@@ -44,6 +47,7 @@ public final class PersonActionsPage
         this.assignWoodcutter = assignWoodcutter;
         this.assignConstructionWorker = assignConstructionWorker;
         this.assignFarmer = assignFarmer;
+        this.openInventory = openInventory;
     }
 
     @Override
@@ -68,6 +72,12 @@ public final class PersonActionsPage
         );
         events.addEventBinding(
             CustomUIEventBindingType.Activating,
+            "#InventoryButton",
+            EventData.of("Action", ACTION_INVENTORY),
+            false
+        );
+        events.addEventBinding(
+            CustomUIEventBindingType.Activating,
             "#ConstructionWorkerButton",
             EventData.of("Action", ACTION_CONSTRUCTION_WORKER),
             false
@@ -80,7 +90,10 @@ public final class PersonActionsPage
         @Nonnull Store<EntityStore> store,
         @Nonnull ActionData data
     ) {
-        if (ACTION_WOODCUTTER.equals(data.action)) {
+        if (ACTION_INVENTORY.equals(data.action)) {
+            close();
+            openInventory.run();
+        } else if (ACTION_WOODCUTTER.equals(data.action)) {
             assignWoodcutter.run();
             close();
         } else if (ACTION_CONSTRUCTION_WORKER.equals(data.action)) {

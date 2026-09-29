@@ -7,6 +7,13 @@ import com.hypixel.hytale.protocol.MouseButtonState;
 import com.hypixel.hytale.protocol.MouseButtonType;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.entity.entities.Player;
+import com.hypixel.hytale.protocol.packets.interface_.Page;
+import com.hypixel.hytale.server.core.entity.entities.player.windows.ContainerWindow;
+import com.hypixel.hytale.server.core.entity.entities.player.windows.Window;
+import com.hypixel.hytale.server.core.inventory.InventoryComponent;
+import com.hypixel.hytale.server.core.inventory.container.CombinedItemContainer;
+import com.hypixel.hytale.server.core.inventory.container.DelegateItemContainer;
+import com.hypixel.hytale.server.core.inventory.container.filter.FilterType;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseMotionEvent;
@@ -559,7 +566,8 @@ public final class RtsInteractionController {
             playerRef,
             () -> assignWoodcutter(playerRef, target),
             () -> assignConstructionWorker(playerRef, target),
-            () -> assignFarmerProfession(playerRef, target)
+            () -> assignFarmerProfession(playerRef, target),
+            () -> openNpcInventory(playerRef, target)
         );
     }
 
@@ -601,8 +609,43 @@ public final class RtsInteractionController {
                 playerRef,
                 () -> assignWoodcutter(playerRef, selected),
                 () -> assignConstructionWorker(playerRef, selected),
-                () -> assignFarmerProfession(playerRef, selected)
+                () -> assignFarmerProfession(playerRef, selected),
+                () -> openNpcInventory(playerRef, selected)
             )
+        );
+    }
+
+    private void openNpcInventory(PlayerRef playerRef, Ref<EntityStore> target) {
+        if (target == null || !target.isValid() || !unitRegistry.isClaimed(target)) {
+            playerRef.sendMessage(Message.raw("Der ausgewählte Civ-Bewohner ist nicht mehr verfügbar."));
+            return;
+        }
+
+        Ref<EntityStore> playerEntityRef = playerRef.getReference();
+        if (playerEntityRef == null || !playerEntityRef.isValid()) {
+            return;
+        }
+        Store<EntityStore> playerStore = playerEntityRef.getStore();
+        Player player = playerStore.getComponent(playerEntityRef, Player.getComponentType());
+        if (player == null) {
+            return;
+        }
+
+        Store<EntityStore> npcStore = target.getStore();
+        CombinedItemContainer inventory = InventoryComponent.getCombined(
+            npcStore,
+            target,
+            InventoryComponent.HOTBAR_FIRST
+        );
+        DelegateItemContainer readOnlyInventory = new DelegateItemContainer(inventory);
+        readOnlyInventory.setGlobalFilter(FilterType.DENY_ALL);
+
+        player.getPageManager().setPageWithWindows(
+            playerEntityRef,
+            playerStore,
+            Page.Bench,
+            true,
+            new Window[] {new ContainerWindow(readOnlyInventory)}
         );
     }
 
