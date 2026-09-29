@@ -523,7 +523,6 @@ public final class RtsInteractionController {
                 Vector3i outputStorage = building.semanticVolumes().stream()
                     .filter(volume -> volume.hasTag(TYPE_TAG, "output_storage"))
                     .filter(volume -> volume.hasTag(BUILDING_TAG, "farm"))
-                    .map(PrefabPlacementService.PlacedMarker::position)
                     .findFirst()
                     .orElse(null);
                 farmRegistry.registerFarm(
