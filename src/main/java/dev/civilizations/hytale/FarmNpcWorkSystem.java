@@ -7,7 +7,6 @@ import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
-import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.protocol.BlockRotation;
 import com.hypixel.hytale.protocol.Rotation;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
@@ -128,7 +127,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
             case WALKING_TO_FIELD -> walkToField(ref, key, site, building, position);
             case SOWING_FIELD -> {
                 unitRegistry.clearMoveTarget(ref);
-                FarmFieldRegistry.FieldSite field = requireActiveField(key, site, building);
+                FarmFieldRegistry.FieldSite field = requireActiveField(ref, key, site, building);
                 if (field == null) break;
 
                 PlantResult result = plantOneSeed(ref, field, commandBuffer);
@@ -141,7 +140,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
             }
             case WAITING_FOR_GROWTH -> {
                 unitRegistry.clearMoveTarget(ref);
-                FarmFieldRegistry.FieldSite field = requireActiveField(key, site, building);
+                FarmFieldRegistry.FieldSite field = requireActiveField(ref, key, site, building);
                 if (field == null) break;
 
                 if (!fieldHasCrop(site.worldId(), field)) {
@@ -155,7 +154,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
             }
             case HARVESTING_FIELD -> {
                 unitRegistry.clearMoveTarget(ref);
-                FarmFieldRegistry.FieldSite field = requireActiveField(key, site, building);
+                FarmFieldRegistry.FieldSite field = requireActiveField(ref, key, site, building);
                 if (field == null) break;
 
                 if (!fieldHasCrop(site.worldId(), field)) {
@@ -207,7 +206,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
             return;
         }
 
-        FarmFieldRegistry.FieldSite field = requireActiveField(key, site, building);
+        FarmFieldRegistry.FieldSite field = requireActiveField(ref, key, site, building);
         if (field == null) return;
 
         Vector3d target = field.workTarget();
@@ -244,6 +243,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
     }
 
     private FarmFieldRegistry.FieldSite requireActiveField(
+        Ref<EntityStore> ref,
         CivUnitRegistry.UnitKey key,
         FarmBuildingRegistry.FarmSite site,
         FarmBuilding building
@@ -253,7 +253,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
             field = fieldRegistry.nearestField(site.worldId(), building.entranceBlock());
             if (field == null) {
                 activeFields.remove(key);
-                unitRegistry.clearMoveTarget(unitRegistry.refOf(key));
+                unitRegistry.clearMoveTarget(ref);
                 return null;
             }
             activeFields.put(key, field);
