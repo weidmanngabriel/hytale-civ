@@ -18,6 +18,8 @@ import javax.annotation.Nonnull;
 
 public final class BuildingActionsPage extends InteractiveCustomUIPage<BuildingActionsPage.ActionData> {
     private static final String DEMOLISH = "demolish";
+    private static final String CONFIRM = "confirm";
+    private static final String CANCEL = "cancel";
     private static final String CLOSE = "close";
     private final Runnable demolish;
 
@@ -32,6 +34,10 @@ public final class BuildingActionsPage extends InteractiveCustomUIPage<BuildingA
         commands.append("Pages/CivBuildingActions.ui");
         events.addEventBinding(CustomUIEventBindingType.Activating, "#DemolishButton",
             EventData.of("Action", DEMOLISH), false);
+        events.addEventBinding(CustomUIEventBindingType.Activating, "#ConfirmButton",
+            EventData.of("Action", CONFIRM), false);
+        events.addEventBinding(CustomUIEventBindingType.Activating, "#CancelButton",
+            EventData.of("Action", CANCEL), false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#CloseButton",
             EventData.of("Action", CLOSE), false);
     }
@@ -40,11 +46,29 @@ public final class BuildingActionsPage extends InteractiveCustomUIPage<BuildingA
     public void handleDataEvent(@Nonnull Ref<EntityStore> ref, @Nonnull Store<EntityStore> store,
                                 @Nonnull ActionData data) {
         if (DEMOLISH.equals(data.action)) {
-            close();
+            showConfirmation();
+        } else if (CONFIRM.equals(data.action)) {
             demolish.run();
+            close();
+        } else if (CANCEL.equals(data.action)) {
+            hideConfirmation();
         } else if (CLOSE.equals(data.action)) {
             close();
         }
+    }
+
+    private void showConfirmation() {
+        UICommandBuilder commands = new UICommandBuilder();
+        commands.set("#ActionsPanel.Visible", false);
+        commands.set("#ConfirmationPanel.Visible", true);
+        sendUpdate(commands, false);
+    }
+
+    private void hideConfirmation() {
+        UICommandBuilder commands = new UICommandBuilder();
+        commands.set("#ConfirmationPanel.Visible", false);
+        commands.set("#ActionsPanel.Visible", true);
+        sendUpdate(commands, false);
     }
 
     public static final class ActionData {
