@@ -323,7 +323,6 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
             var outputStorage = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, "output_storage"))
                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
-                .map(PrefabPlacementService.PlacedMarker::position)
                 .findFirst()
                 .orElse(null);
             var entrances = placed.markers().stream()
