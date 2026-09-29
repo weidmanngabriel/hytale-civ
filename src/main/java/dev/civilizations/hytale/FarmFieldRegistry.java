@@ -19,12 +19,14 @@ public final class FarmFieldRegistry {
     public FieldSite registerField(
         UUID buildingId,
         UUID worldId,
+        String workVolumeId,
         Vector3i workMarker,
         PrefabPlacementService.PlacementFootprint footprint
     ) {
         FieldSite site = new FieldSite(
             buildingId,
             worldId,
+            workVolumeId,
             new Vector3d(workMarker.x + 0.5, workMarker.y, workMarker.z + 0.5),
             footprint
         );
@@ -59,6 +61,7 @@ public final class FarmFieldRegistry {
     public record FieldSite(
         UUID id,
         UUID worldId,
+        String workVolumeId,
         Vector3d workTarget,
         PrefabPlacementService.PlacementFootprint footprint
     ) {

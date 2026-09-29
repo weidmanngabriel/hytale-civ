@@ -496,17 +496,17 @@ public final class RtsInteractionController {
                 continue;
             }
             if ("wheat_field".equals(building.placement().definition().id())) {
-                Vector3i fieldMarker = building.semanticVolumes().stream()
+                PrefabPlacementService.PlacedMarker fieldMarker = building.semanticVolumes().stream()
                     .filter(volume -> volume.hasTag(TYPE_TAG, "field"))
                     .filter(volume -> volume.hasTag(BUILDING_TAG, "wheat_field"))
-                    .map(PrefabPlacementService.PlacedMarker::position)
                     .findFirst()
                     .orElse(null);
                 if (fieldMarker != null) {
                     fieldRegistry.registerField(
                         building.id(),
                         worldId,
-                        fieldMarker,
+                        fieldMarker.id(),
+                        fieldMarker.position(),
                         building.placement().footprint()
                     );
                 }
@@ -515,10 +515,9 @@ public final class RtsInteractionController {
             if (!"farm".equals(building.buildingType())) {
                 continue;
             }
-            List<Vector3i> entrances = building.semanticVolumes().stream()
+            List<PrefabPlacementService.PlacedMarker> entrances = building.semanticVolumes().stream()
                 .filter(volume -> volume.hasTag(TYPE_TAG, "workplace_access"))
                 .filter(volume -> volume.hasTag(BUILDING_TAG, "farm"))
-                .map(PrefabPlacementService.PlacedMarker::position)
                 .toList();
             if (!entrances.isEmpty()) {
                 Vector3i outputStorage = building.semanticVolumes().stream()

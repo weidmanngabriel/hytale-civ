@@ -2,6 +2,8 @@ package dev.civilizations.plugin;
 
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.ResourceType;
+import com.hypixel.hytale.builtin.triggervolumes.event.TriggerVolumeEvent;
+import com.hypixel.hytale.builtin.triggervolumes.effect.TriggerEventType;
 import com.hypixel.hytale.server.core.event.events.player.AddPlayerToWorldEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
@@ -90,9 +92,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getEntityStoreRegistry().registerSystem(
             new CivManualMovementSystem(unitRegistry, activityRegistry)
         );
-        getEntityStoreRegistry().registerSystem(
-            new FarmNpcWorkSystem(unitRegistry, activityRegistry, farmRegistry, fieldRegistry)
-        );
+        FarmNpcWorkSystem farmNpcWorkSystem =
+            new FarmNpcWorkSystem(unitRegistry, activityRegistry, farmRegistry, fieldRegistry);
+        getEntityStoreRegistry().registerSystem(farmNpcWorkSystem);
         getEntityStoreRegistry().registerSystem(
             new WoodcutterWorkSystem(unitRegistry, activityRegistry)
         );
@@ -118,6 +120,11 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getCommandRegistry().registerCommand(new CivDebugCommand(buildingRegistry, buildingPersistence));
 
         getEventRegistry().registerGlobal(AddPlayerToWorldEvent.class, event -> rtsInteractionController.handleWorldJoin(event.getWorld()));
+        getEventRegistry().registerGlobal(TriggerVolumeEvent.class, event -> {
+            if (event.getTriggerEventType() == TriggerEventType.ENTER) {
+                farmNpcWorkSystem.handleTriggerEnter(event.getEntityRef(), event.getVolumeId());
+            }
+        });
         getEventRegistry().register(PlayerMouseButtonEvent.class, rtsInteractionController::handleMouseButton);
         getEventRegistry().register(PlayerMouseMotionEvent.class, rtsInteractionController::handleMouseMotion);
         getEventRegistry().register(PlayerDisconnectEvent.class, rtsInteractionController::handleDisconnect);

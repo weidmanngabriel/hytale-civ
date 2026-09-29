@@ -306,15 +306,15 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         if (PrefabPlacementService.WHEAT_FIELD.id().equals(site.definition().id())) {
             var fieldMarkers = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, FIELD))
-                .filter(marker -> marker.hasTag(BUILDING_TAG, WHEAT_FIELD))
-                .map(PrefabPlacementService.PlacedMarker::position)
+                 .filter(marker -> marker.hasTag(BUILDING_TAG, WHEAT_FIELD))
                 .toList();
             if (!fieldMarkers.isEmpty()) {
                 if (buildingInstance != null) {
                     fieldRegistry.registerField(
                         buildingInstance.id(),
                         site.worldId(),
-                        fieldMarkers.getFirst(),
+                        fieldMarkers.getFirst().id(),
+                        fieldMarkers.getFirst().position(),
                         site.candidate().footprint()
                     );
                 }
@@ -328,8 +328,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                 .orElse(null);
             var entrances = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, WORKPLACE_ACCESS))
-                .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
-                .map(PrefabPlacementService.PlacedMarker::position)
+                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
                 .toList();
             if (!entrances.isEmpty() && buildingInstance != null) {
                 farmRegistry.registerFarm(

@@ -261,3 +261,8 @@ Die Farm verwendet diesen Produktionskern als ersten konkreten Adapter. Ihr `out
 ### Building identity and demolition snapshots
 
 Every completed Civ placeable that participates in protection/persistence/demolition owns an authored `civ.type=building_bounds` volume with its own `civ.building` type. Gameplay markers such as a wheat field's `civ.type=field` are separate semantic volumes of that building. Terrain snapshots persist stable Hytale block asset keys rather than runtime numeric block indices so demolition remains valid across server restarts and asset-index changes.
+
+
+### Semantic arrival via native TriggerVolumes
+
+Farm production uses Hytale's native `TriggerVolumeEvent ENTER` events as the primary signal that an assigned NPC reached authored semantic work areas such as `workplace_access` and `field`. Runtime registries retain the placed trigger-volume IDs so an ENTER event can be matched to the worker's currently intended semantic target. Navigation still belongs to the Hytale adapter; Core only advances the production phase after the matching semantic arrival. Distance checks remain a defensive fallback rather than the primary arrival contract.

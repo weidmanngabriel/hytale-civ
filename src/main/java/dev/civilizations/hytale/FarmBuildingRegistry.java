@@ -31,17 +31,21 @@ public final class FarmBuildingRegistry {
     public FarmSite registerFarm(
         UUID worldId,
         UUID buildingInstanceId,
-        List<Vector3i> entranceBlocks,
+        List<PrefabPlacementService.PlacedMarker> entranceMarkers,
         Vector3i outputStorageMarker,
         PrefabPlacementService.PlacementFootprint footprint,
         Map<BlockPosition, Integer> replacedFloorBlocks
     ) {
-        if (entranceBlocks == null || entranceBlocks.isEmpty()) {
+        if (entranceMarkers == null || entranceMarkers.isEmpty()) {
             throw new IllegalArgumentException("A farm requires at least one entrance.");
         }
 
-        List<BlockPosition> entrances = entranceBlocks.stream()
+        List<BlockPosition> entrances = entranceMarkers.stream()
+            .map(PrefabPlacementService.PlacedMarker::position)
             .map(FarmBuildingRegistry::toCore)
+            .toList();
+        List<String> entranceVolumeIds = entranceMarkers.stream()
+            .map(PrefabPlacementService.PlacedMarker::id)
             .toList();
 
         BlockPosition primaryEntrance = entrances.getFirst();
@@ -56,6 +60,7 @@ public final class FarmBuildingRegistry {
             buildingInstanceId,
             building,
             entrances,
+            entranceVolumeIds,
             outputStorageMarker == null ? null : new Vector3i(outputStorageMarker),
             footprint,
             replacedFloorBlocks
@@ -203,6 +208,7 @@ public final class FarmBuildingRegistry {
         private final UUID buildingInstanceId;
         private final FarmBuilding building;
         private final List<BlockPosition> entrances;
+        private final List<String> entranceVolumeIds;
         private final Vector3i outputStorageMarker;
         private final PrefabPlacementService.PlacementFootprint footprint;
         private final Map<BlockPosition, Integer> replacedFloorBlocks;
@@ -214,6 +220,7 @@ public final class FarmBuildingRegistry {
             UUID buildingInstanceId,
             FarmBuilding building,
             List<BlockPosition> entrances,
+            List<String> entranceVolumeIds,
             Vector3i outputStorageMarker,
             PrefabPlacementService.PlacementFootprint footprint,
             Map<BlockPosition, Integer> replacedFloorBlocks
@@ -222,6 +229,7 @@ public final class FarmBuildingRegistry {
             this.buildingInstanceId = buildingInstanceId;
             this.building = building;
             this.entrances = List.copyOf(entrances);
+            this.entranceVolumeIds = List.copyOf(entranceVolumeIds);
             this.outputStorageMarker = outputStorageMarker;
             this.footprint = footprint;
             this.replacedFloorBlocks = Map.copyOf(replacedFloorBlocks);
@@ -242,6 +250,10 @@ public final class FarmBuildingRegistry {
 
         public int entranceCount() {
             return entrances.size();
+        }
+
+        public boolean hasEntranceVolume(String volumeId) {
+            return volumeId != null && entranceVolumeIds.contains(volumeId);
         }
 
         public Vector3i outputStorageMarker() {

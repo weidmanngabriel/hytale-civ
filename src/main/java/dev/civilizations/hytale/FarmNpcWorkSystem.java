@@ -153,6 +153,39 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
         }
     }
 
+
+    public void handleTriggerEnter(Ref<EntityStore> ref, String volumeId) {
+        if (ref == null || !ref.isValid() || volumeId == null) {
+            return;
+        }
+        FarmBuildingRegistry.FarmSite site = farmRegistry.getAssignment(ref);
+        if (site == null || !activityRegistry.autonomousWorkAllowed(ref)) {
+            return;
+        }
+
+        FarmBuilding building = site.building();
+        switch (building.workState()) {
+            case WALKING_TO_FARM -> {
+                if (site.hasEntranceVolume(volumeId)) {
+                    unitRegistry.clearMoveTarget(ref);
+                    building.arriveAtFarm();
+                }
+            }
+            case WALKING_TO_FIELD -> {
+                CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
+                FarmFieldRegistry.FieldSite field = activeFields.get(key);
+                if (field != null && volumeId.equals(field.workVolumeId())) {
+                    activeFields.remove(key);
+                    unitRegistry.clearMoveTarget(ref);
+                    building.arriveAtField();
+                }
+            }
+            default -> {
+                // Other production phases do not advance on trigger entry.
+            }
+        }
+    }
+
     private static boolean hasArrived(Vector3d position, Vector3d target) {
         double dx = position.x - target.x;
         double dz = position.z - target.z;
