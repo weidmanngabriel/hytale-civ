@@ -21,7 +21,7 @@ $C.@DecoratedContainer {
 
     Label { Text: "Weizen"; Style: (FontSize: 20, TextColor: #ffffff); }
     Label {
-      Text: "Die Farm speichert Weizen aktuell lokal als Zahl. Ein Bauer erzeugt nach jeweils 5 Sekunden Arbeit 1 Weizen; bei 10 stoppt die Produktion.";
+      Text: "Weizen wird als echter Hytale-Gegenstand in der vorhandenen Farmtruhe gelagert. Der Bauer bringt nach jeder Feldarbeit 1 Weizen zurück; bei voller Truhe wartet die Produktion beim Einlagern.";
       Style: (FontSize: 14, TextColor: #d7dde6);
       Anchor: (Bottom: 8);
     }
