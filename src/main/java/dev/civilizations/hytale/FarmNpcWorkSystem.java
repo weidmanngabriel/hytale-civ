@@ -6,7 +6,10 @@ import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
+import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
+import com.hypixel.hytale.server.core.universe.Universe;
+import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import dev.civilizations.core.FarmBuilding;
@@ -18,11 +21,13 @@ import org.joml.Vector3d;
 public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
 
     private static final double ARRIVAL_DISTANCE = 0.45;
+    private static final String WHEAT_ITEM_ID = "Plant_Crop_Wheat_Item";
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
     private final FarmBuildingRegistry farmRegistry;
     private final FarmFieldRegistry fieldRegistry;
+    private final NativeBuildingStorage storage = new NativeBuildingStorage();
 
     public FarmNpcWorkSystem(
         CivUnitRegistry unitRegistry,
@@ -85,8 +90,8 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
             fieldRegistry.nearestField(site.worldId(), building.entranceBlock());
 
         switch (building.workState()) {
-            case WAITING_FOR_FARMER, COMPLETE -> unitRegistry.clearMoveTarget(ref);
-            case WALKING_TO_FARM, RETURNING_TO_FARM -> {
+            case WAITING_FOR_FARMER, WAITING_FOR_INPUTS -> unitRegistry.clearMoveTarget(ref);
+            case WALKING_TO_FARM -> {
                 Vector3d target = site.entranceTarget();
                 unitRegistry.setMoveTarget(ref, target);
                 if (hasArrived(position, target)) {
@@ -109,7 +114,22 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
             case WORKING_FIELD -> {
                 unitRegistry.clearMoveTarget(ref);
                 if (building.advanceWork(dt)) {
-                    unitRegistry.setMoveTarget(ref, site.entranceTarget());
+                    unitRegistry.setMoveTarget(ref, site.outputStorageTarget());
+                }
+            }
+            case RETURNING_TO_STORAGE -> {
+                Vector3d target = site.outputStorageTarget();
+                unitRegistry.setMoveTarget(ref, target);
+                if (hasArrived(position, target)) {
+                    unitRegistry.clearMoveTarget(ref);
+                    building.arriveAtFarm();
+                }
+            }
+            case STORING_OUTPUT -> {
+                unitRegistry.clearMoveTarget(ref);
+                World world = Universe.get().getWorld(site.worldId());
+                if (storage.tryStore(world, site.outputStorageMarker(), new ItemStack(WHEAT_ITEM_ID, 1))) {
+                    building.outputStored();
                 }
             }
         }
