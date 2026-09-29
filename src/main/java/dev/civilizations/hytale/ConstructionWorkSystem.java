@@ -313,6 +313,12 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                 );
             }
         } else if (PrefabPlacementService.FARM.id().equals(site.definition().id())) {
+            var outputStorage = placed.markers().stream()
+                .filter(marker -> marker.hasTag(TYPE_TAG, "output_storage"))
+                .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
+                .map(PrefabPlacementService.PlacedMarker::position)
+                .findFirst()
+                .orElse(null);
             var entrances = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, WORKPLACE_ACCESS))
                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
@@ -323,6 +329,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                     site.worldId(),
                     buildingInstance.id(),
                     entrances,
+                    outputStorage,
                     site.candidate().footprint(),
                     site.candidate().replacedFloorBlocks()
                 );
