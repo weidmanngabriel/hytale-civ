@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class FarmBuildingTest {
 
     @Test
-    void farmerHarvestsThenWaitsUntilPhysicalOutputIsStored() {
+    void farmerSowsWaitsForNativeGrowthHarvestsAndStoresPhysicalOutput() {
         FarmBuilding farm = new FarmBuilding(
             "farm-test",
             new BlockPosition(10, 64, 10),
@@ -19,10 +19,14 @@ class FarmBuildingTest {
 
         assertTrue(farm.arriveAtFarm());
         assertEquals(FarmBuilding.WorkState.WALKING_TO_FIELD, farm.workState());
-        assertTrue(farm.arriveAtField());
 
-        assertFalse(farm.advanceWork(4.999));
-        assertTrue(farm.advanceWork(0.001));
+        assertTrue(farm.arriveAtField());
+        assertEquals(FarmBuilding.WorkState.SOWING_FIELD, farm.workState());
+
+        assertTrue(farm.sowingComplete(true));
+        assertEquals(FarmBuilding.WorkState.WAITING_FOR_GROWTH, farm.workState());
+
+        assertTrue(farm.cropHarvested());
         assertEquals(FarmBuilding.WorkState.RETURNING_TO_STORAGE, farm.workState());
 
         assertTrue(farm.arriveAtFarm());
@@ -30,6 +34,30 @@ class FarmBuildingTest {
 
         assertTrue(farm.outputStored());
         assertEquals(FarmBuilding.WorkState.WALKING_TO_FIELD, farm.workState());
+
+        assertTrue(farm.arriveAtField());
+        assertEquals(FarmBuilding.WorkState.HARVESTING_FIELD, farm.workState());
+        assertTrue(farm.noRipeCropYet());
+        assertEquals(FarmBuilding.WorkState.WAITING_FOR_GROWTH, farm.workState());
+
+        assertTrue(farm.fieldCycleFinished());
+        assertEquals(FarmBuilding.WorkState.SOWING_FIELD, farm.workState());
+    }
+
+    @Test
+    void farmerWaitsForInputsWhenNothingCouldBeSown() {
+        FarmBuilding farm = new FarmBuilding(
+            "farm-test",
+            new BlockPosition(0, 0, 0),
+            new BlockPosition(0, 0, -2)
+        );
+
+        assertTrue(farm.assignFarmer("farmer-1"));
+        assertTrue(farm.arriveAtFarm());
+        assertTrue(farm.arriveAtField());
+
+        assertFalse(farm.sowingComplete(false));
+        assertEquals(FarmBuilding.WorkState.WAITING_FOR_INPUTS, farm.workState());
     }
 
     @Test
