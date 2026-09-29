@@ -225,3 +225,14 @@ The placed construction blueprint uses Hytale's `PersistentPrefabPreview` only a
 Die projektgebundene `HytaleServer.jar` bestätigt für diesen Slice `PersistentPrefabPreview.updateLayers(...)`, `BlockSelection.forEachBlock(...)`, blockhaltende Teil-`BlockSelection`-Instanzen, `BlockSelection.placeNoReturn(...)` sowie `AnimationUtils.playAnimation(...)` und `stopAnimation(...)`. Es wurde keine native Construction-Site-Queue oder native Prefab-Baureihenfolge gefunden. Deshalb bleibt nur die Civ-spezifische Reservierungs- und Reihenfolgeentscheidung eigener Code.
 
 `PrefabPlacementService` materialisiert während des Baus ausschließlich Block-Ebenen ohne Prefab-Entities. Beim ersten realen Bauschritt wird die `PersistentPrefabPreview` entfernt. Nach der letzten Ebene wird der bestehende vollständige native Prefab-Placement-Pfad einmal ausgeführt, damit enthaltene Entities und Trigger Volumes korrekt von Hytale erzeugt werden. Eine Farm wird erst danach im `FarmBuildingRegistry` registriert.
+
+
+### Allgemeine Civ-Gebäudegrenze
+
+Fertige Civ-Gebäude definieren ihre autoritative räumliche Gebäudezone im Prefab über ein natives Hytale Trigger Volume mit `civ.type=building_bounds`. Der Gebäudetyp bleibt über `civ.building=<type>` getaggt. Creator zeichnen und taggen diese Zone direkt mit Hytales Trigger Volume Tool; Civ berechnet die fertige Gebäudegrenze nicht aus den sichtbaren Prefab-Blöcken.
+
+Während der Bauphase reserviert `BuildingPlacementRegistry` weiterhin den blockbasierten Placement-Footprint der Baustelle. Nach dem finalen nativen Prefab-Placement liest `PrefabPlacementService` die Welt-AABB der neu erzeugten Trigger Volumes über Hytales `TriggerVolumeShape.getWorldAABB(...)`. Ist ein `building_bounds` vorhanden, ersetzt diese authored Zone die temporäre Baustellenreservierung und wird zur Runtime-Autorität für allgemeines Gebäude-Picking, Placement-Overlap und Blockschutz.
+
+Weitere Trigger Volumes wie `workplace_access` und `output_storage` bleiben semantische Unterbereiche derselben platzierten Prefab-Instanz. Sie definieren Funktionen, nicht die allgemeine Gebäudegrenze. Das separat platzierte Farmfeld behält `civ.type=field` und wird nicht als `building_bounds` behandelt.
+
+Die aktuelle Gebäudeinstanz-ID verwendet die UUID der zugehörigen Baustelle. Sie ist nur eine Runtime-Identität und ändert die weiterhin offene Entscheidung zur dauerhaften Gebäudeidentität nicht.
