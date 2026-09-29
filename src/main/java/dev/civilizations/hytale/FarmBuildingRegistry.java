@@ -85,6 +85,17 @@ public final class FarmBuildingRegistry {
             .orElse(null);
     }
 
+    public void clearWorld(UUID worldId) {
+        if (worldId == null) {
+            return;
+        }
+        List<FarmSite> removed = farms.values().stream()
+            .filter(site -> worldId.equals(site.worldId()))
+            .toList();
+        farms.entrySet().removeIf(entry -> worldId.equals(entry.getValue().worldId()));
+        farmerAssignments.entrySet().removeIf(entry -> removed.contains(entry.getValue()));
+    }
+
     public boolean removeByBuildingInstance(UUID worldId, UUID buildingInstanceId) {
         FarmSite site = findByBuildingInstance(worldId, buildingInstanceId);
         if (site == null) {
