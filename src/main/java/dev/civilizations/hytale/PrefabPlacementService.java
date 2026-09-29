@@ -90,9 +90,10 @@ public final class PrefabPlacementService {
             .toList();
         PlacementFootprint footprint = footprintFor(source, anchor, floorCells);
 
-        Map<BlockPosition, Integer> replacedFloorBlocks = new LinkedHashMap<>();
-        for (PrefabCell cell : floorCells) {
-            Vector3i position = worldPosition(source, anchor, cell);
+        Map<BlockPosition, Integer> replacedBlocks = new LinkedHashMap<>();
+        Vector3i placementOrigin = enginePlacementOrigin(definition, anchor);
+        for (PrefabCell cell : cells) {
+            Vector3i position = worldPosition(source, placementOrigin, cell);
             WorldChunk chunk = loadedChunk(world, position.x, position.z);
             if (chunk == null) {
                 return PlacementCandidate.invalid(
@@ -102,7 +103,7 @@ public final class PrefabPlacementService {
                     "Die Baufläche ist noch nicht vollständig geladen."
                 );
             }
-            replacedFloorBlocks.put(
+            replacedBlocks.put(
                 new BlockPosition(position.x, position.y, position.z),
                 chunk.getBlock(position.x, position.y, position.z)
             );
@@ -112,7 +113,7 @@ public final class PrefabPlacementService {
             definition,
             anchor,
             footprint,
-            replacedFloorBlocks
+            replacedBlocks
         );
     }
 
@@ -377,33 +378,12 @@ public final class PrefabPlacementService {
         }
 
         PlacementCandidate candidate = building.placement();
-        BlockSelection source = requireSource(candidate.definition());
-        List<Vector3i> occupied = new ArrayList<>();
-        source.forEachBlock((x, y, z, holder) -> occupied.add(worldPosition(
-            source,
-            candidate.anchor(),
-            new PrefabCell(x, y, z)
-        )));
-
-        for (Vector3i position : occupied) {
-            if (loadedChunk(world, position.x, position.z) == null) {
-                return false;
-            }
-        }
         for (BlockPosition position : candidate.replacedFloorBlocks().keySet()) {
             if (loadedChunk(world, position.x(), position.z()) == null) {
                 return false;
             }
         }
 
-        for (Vector3i position : occupied) {
-            loadedChunk(world, position.x, position.z).setBlock(
-                position.x,
-                position.y,
-                position.z,
-                BlockType.EMPTY
-            );
-        }
         candidate.replacedFloorBlocks().forEach((position, blockId) ->
             loadedChunk(world, position.x(), position.z()).setBlock(
                 position.x(),
@@ -546,10 +526,16 @@ public final class PrefabPlacementService {
      * Civ terrain convention; Hytale then applies the prefab's own internal anchor.
      */
     private static Vector3i enginePlacementOrigin(PlacementCandidate candidate) {
-        Vector3i anchor = candidate.anchor();
+        return enginePlacementOrigin(candidate.definition(), candidate.anchor());
+    }
+
+    private static Vector3i enginePlacementOrigin(
+        PlacementDefinition definition,
+        Vector3i anchor
+    ) {
         return new Vector3i(
             anchor.x,
-            anchor.y + candidate.definition().groundSinkBlocks(),
+            anchor.y + definition.groundSinkBlocks(),
             anchor.z
         );
     }
