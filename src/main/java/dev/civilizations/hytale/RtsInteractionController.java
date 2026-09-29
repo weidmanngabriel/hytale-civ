@@ -37,6 +37,7 @@ public final class RtsInteractionController {
     private final FarmFieldRegistry fieldRegistry;
     private final BuildingPlacementRegistry placementRegistry;
     private final PrefabPlacementService placementService;
+    private final CivBuildingPersistenceService buildingPersistence;
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
     private final Set<UUID> claimArmed = ConcurrentHashMap.newKeySet();
 
@@ -47,7 +48,8 @@ public final class RtsInteractionController {
         FarmBuildingRegistry farmRegistry,
         FarmFieldRegistry fieldRegistry,
         BuildingPlacementRegistry placementRegistry,
-        PrefabPlacementService placementService
+        PrefabPlacementService placementService,
+        CivBuildingPersistenceService buildingPersistence
     ) {
         this.cameraController = cameraController;
         this.unitRegistry = unitRegistry;
@@ -56,6 +58,7 @@ public final class RtsInteractionController {
         this.fieldRegistry = fieldRegistry;
         this.placementRegistry = placementRegistry;
         this.placementService = placementService;
+        this.buildingPersistence = buildingPersistence;
     }
 
     public boolean toggle(PlayerRef playerRef) {
@@ -406,7 +409,13 @@ public final class RtsInteractionController {
         BuildingPlacementRegistry.BuildingInstance building =
             placementRegistry.findAt(worldId, targetBlock);
         if (building != null) {
-            openBuildingActions(event, playerRef, building);
+            FarmBuildingRegistry.FarmSite farm =
+                farmRegistry.findByBuildingInstance(worldId, building.id());
+            if (session.selected != null && farm != null) {
+                assignSelectedFarmer(playerRef, session, farm);
+            } else {
+                openBuildingActions(event, playerRef, building);
+            }
             return;
         }
 
@@ -488,9 +497,40 @@ public final class RtsInteractionController {
 
         farmRegistry.removeByBuildingInstance(worldId, buildingId);
         placementRegistry.remove(worldId, buildingId);
+        buildingPersistence.save(world, placementRegistry.buildings(worldId));
         playerRef.sendMessage(Message.raw(
             "Farm abgerissen. Der ursprüngliche Boden wurde wiederhergestellt."
         ));
+    }
+
+    public void handleWorldJoin(World world) {
+        if (world == null) {
+            return;
+        }
+        UUID worldId = world.getWorldConfig().getUuid();
+        List<BuildingPlacementRegistry.BuildingInstance> restored =
+            buildingPersistence.load(world);
+        placementRegistry.restoreWorld(worldId, restored);
+        farmRegistry.clearWorld(worldId);
+        for (BuildingPlacementRegistry.BuildingInstance building : restored) {
+            if (!"farm".equals(building.buildingType()) || building.placement() == null) {
+                continue;
+            }
+            List<Vector3i> entrances = building.semanticVolumes().stream()
+                .filter(volume -> volume.hasTag(TYPE_TAG, "workplace_access"))
+                .filter(volume -> volume.hasTag(BUILDING_TAG, "farm"))
+                .map(PrefabPlacementService.PlacedMarker::position)
+                .toList();
+            if (!entrances.isEmpty()) {
+                farmRegistry.registerFarm(
+                    worldId,
+                    building.id(),
+                    entrances,
+                    building.placement().footprint(),
+                    building.placement().replacedFloorBlocks()
+                );
+            }
+        }
     }
 
     public boolean isClaimed(Ref<EntityStore> target) {
