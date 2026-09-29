@@ -17,15 +17,40 @@ $C.@DecoratedContainer {
     LayoutMode: Top;
     FlexWeight: 1;
 
-    Label {
-      Text: "Gebäudeaktionen";
-      Style: (FontSize: 18, TextColor: #ffffff);
-      Anchor: (Bottom: 18);
+    Group #ActionsPanel {
+      LayoutMode: Top;
+
+      Label {
+        Text: "Gebäudeaktionen";
+        Style: (FontSize: 18, TextColor: #ffffff);
+        Anchor: (Bottom: 18);
+      }
+
+      $C.@TextButton #DemolishButton {
+        @Text = "Abreißen";
+        Anchor: (Width: 260, Height: 48);
+      }
     }
 
-    $C.@TextButton #DemolishButton {
-      @Text = "Abreißen";
-      Anchor: (Width: 260, Height: 48);
+    Group #ConfirmationPanel {
+      Visible: false;
+      LayoutMode: Top;
+
+      Label {
+        Text: "Farm wirklich abreißen?";
+        Style: (FontSize: 18, TextColor: #ffffff);
+        Anchor: (Bottom: 18);
+      }
+
+      $C.@TextButton #ConfirmButton {
+        @Text = "Ja, abreißen";
+        Anchor: (Width: 260, Height: 48, Bottom: 12);
+      }
+
+      $C.@TextButton #CancelButton {
+        @Text = "Abbrechen";
+        Anchor: (Width: 260, Height: 44);
+      }
     }
   }
 
