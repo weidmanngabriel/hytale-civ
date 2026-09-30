@@ -148,7 +148,7 @@ Manuelle Abnahme:
 9. **Weizenfeld** auswählen und denselben Ablauf prüfen. Auch hier darf beim Bestätigen nicht sofort das echte Feld entstehen; es muss eine getrennte Baustellen-Vorschau an der abgesenkten Civ-Bauposition entstehen.
 10. Bestätigen, dass <code>/civfarm</code> weiterhin denselben Farm-Platzierungsablauf startet wie das Menü.
 11. Mit <code>/civclaim</code> einen NPC beanspruchen, ihn auswählen, im Arbeitsbereich der Farm rechts klicken und bestätigen, dass die Zuweisung als Bauer weiterhin funktioniert.
-12. Bestätigen, dass der NPC zum Eingang läuft, ungefähr fünf Sekunden innen arbeitet, das Gebäude verlässt, für jeden Produktionsschritt erneut hineingeht und nach dem zehnten Weizen draußen bleibt.
+12. Bestätigen, dass der NPC zum Eingang und anschließend zum Weizenfeld läuft. Wenn `Plant_Seeds_Wheat` verfügbar ist, muss der Pflanzschritt über `FarmPlantingService` laufen. In der aktuell unterstützten Runtime ist dieser Adapter bewusst `UNSUPPORTED`; der Bauer darf deshalb nicht weiter versuchen, eine Spieler-Interaction zu simulieren, sondern pausiert den Arbeitszyklus kontrolliert.
 13. Während der Bauer zu einem Farmziel läuft, ein manuelles Bodenziel geben. Bestätigen, dass er zuerst dorthin läuft und anschließend seinen Farmablauf fortsetzt.
 14. Den Server nach einer Berufszuteilung sauber neu starten und bestätigen, dass der Bewohner weiterhin als Civ-Bewohner mit demselben Namen und Beruf erkannt wird. Die konkrete Farm-Arbeitsplatzzuweisung bleibt derzeit laufzeitgebunden.
 
