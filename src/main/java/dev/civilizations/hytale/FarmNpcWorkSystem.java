@@ -14,7 +14,10 @@ import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
-import com.hypixel.hytale.server.core.modules.interaction.BlockPlaceUtils;
+import com.hypixel.hytale.server.core.entity.InteractionContext;
+import com.hypixel.hytale.server.core.entity.InteractionManager;
+import com.hypixel.hytale.server.core.modules.interaction.InteractionModule;
+import com.hypixel.hytale.server.core.modules.interaction.interaction.config.RootInteraction;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
@@ -274,26 +277,52 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
             return PlantResult.NO_MORE_WORK;
         }
 
-        ItemStack seedStack = seed.container().getItemStack(seed.slot());
-        if (seedStack == null || seedStack.getBlockKey() == null) {
-            LOGGER.warning("[CivFarm] Seed found but has no placeable block key: item="
-                + (seedStack == null ? "null" : seedStack.getItemId())
-                + ", slot=" + seed.slot());
-            return PlantResult.NO_MORE_WORK;
-        }
-
         World world = Universe.get().getWorld(field.worldId());
         if (world == null) {
             LOGGER.warning("[CivFarm] Planting aborted: farm world is not loaded: " + field.worldId());
             return PlantResult.NO_MORE_WORK;
         }
-        ChunkStore chunkStore = world.getChunkStore();
-        Store<ChunkStore> chunkAccessor = chunkStore.getStore();
 
+        InteractionManager interactionManager = entityAccessor.getComponent(
+            ref,
+            InteractionModule.get().getInteractionManagerComponent()
+        );
+        if (interactionManager == null) {
+            LOGGER.warning("[CivFarm] NPC has no native InteractionManager; cannot sow wheat.");
+            return PlantResult.NO_MORE_WORK;
+        }
+
+        ItemStack heldItem = InventoryComponent.getItemInHand(entityAccessor, ref);
+        if (heldItem == null || !WHEAT_SEED_ITEM_ID.equals(heldItem.getItemId())) {
+            LOGGER.warning("[CivFarm] Wheat seed is available, but the NPC is not holding it in the active hotbar slot; native Seed interaction was not started.");
+            return PlantResult.NO_MORE_WORK;
+        }
+
+        InteractionContext context = InteractionContext.forInteraction(
+            interactionManager,
+            ref,
+            com.hypixel.hytale.protocol.InteractionType.Secondary,
+            entityAccessor
+        );
+        String rootInteractionId = context.getRootInteractionId(
+            com.hypixel.hytale.protocol.InteractionType.Secondary
+        );
+        if (rootInteractionId == null) {
+            LOGGER.warning("[CivFarm] Wheat seed has no native Secondary interaction; item=" + heldItem.getItemId());
+            return PlantResult.NO_MORE_WORK;
+        }
+
+        RootInteraction rootInteraction = RootInteraction.getAssetMap().getAsset(rootInteractionId);
+        if (rootInteraction == null) {
+            LOGGER.warning("[CivFarm] Native seed interaction could not be resolved: " + rootInteractionId);
+            return PlantResult.NO_MORE_WORK;
+        }
+
+        Store<ChunkStore> chunkAccessor = world.getChunkStore().getStore();
         for (Vector3i soil : fieldSoilPositions(field)) {
             Vector3i crop = new Vector3i(soil).add(UP);
             Ref<ChunkStore> cropSection =
-                chunkStore.getChunkSectionReferenceAtBlock(crop.x, crop.y, crop.z);
+                world.getChunkStore().getChunkSectionReferenceAtBlock(crop.x, crop.y, crop.z);
             if (cropSection == null || !cropSection.isValid()) continue;
             BlockSection section = chunkAccessor.getComponent(
                 cropSection,
@@ -304,7 +333,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
             }
 
             Ref<ChunkStore> soilSection =
-                chunkStore.getChunkSectionReferenceAtBlock(soil.x, soil.y, soil.z);
+                world.getChunkStore().getChunkSectionReferenceAtBlock(soil.x, soil.y, soil.z);
             if (soilSection == null || !soilSection.isValid()) continue;
             BlockSection soilBlocks = chunkAccessor.getComponent(
                 soilSection,
@@ -316,46 +345,51 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
             BlockType soilBlockType = soilBlockId < 0
                 ? null
                 : BlockType.getAssetMap().getAsset(soilBlockId);
-
             if (soilBlockType == null || soilBlockType.getFarming() == null) {
                 continue;
             }
 
-            LOGGER.info("[CivFarm] Plant attempt: item=" + seedStack.getItemId()
-                + ", quantity=" + seedStack.getQuantity()
-                + ", blockKey=" + seedStack.getBlockKey()
-                + ", slot=" + seed.slot()
-                + ", soil=" + soil
-                + ", soilBlockId=" + soilBlockId
-                + ", soilHasFarming=" + (soilBlockType != null && soilBlockType.getFarming() != null)
-                + ", crop=" + crop
-                + ", cropBlockId=" + section.get(crop.x, crop.y, crop.z));
-
-            boolean planted = BlockPlaceUtils.placeBlock(
+            com.hypixel.hytale.protocol.BlockPosition targetBlock =
+                new com.hypixel.hytale.protocol.BlockPosition(soil.x, soil.y, soil.z);
+            InteractionContext targetContext = InteractionContext.forInteraction(
+                interactionManager,
                 ref,
-                seedStack,
-                seedStack.getBlockKey(),
-                seed.container(),
-                UP,
-                crop,
-                DEFAULT_BLOCK_ROTATION,
-                (byte) seed.slot(),
-                true,
-                cropSection,
-                chunkAccessor,
-                entityAccessor,
-                false,
-                false,
+                com.hypixel.hytale.protocol.InteractionType.Secondary,
+                entityAccessor
+            );
+            var chain = interactionManager.initChain(
+                com.hypixel.hytale.protocol.InteractionType.Secondary,
+                targetContext,
+                rootInteraction,
+                -1,
+                targetBlock,
                 false
             );
-            LOGGER.info("[CivFarm] Native placement result: planted=" + planted
-                + ", item=" + seedStack.getItemId()
-                + ", blockKey=" + seedStack.getBlockKey()
-                + ", soil=" + soil
-                + ", crop=" + crop);
+            if (!interactionManager.applyRules(
+                targetContext,
+                chain.getChainData(),
+                com.hypixel.hytale.protocol.InteractionType.Secondary,
+                rootInteraction
+            )) {
+                LOGGER.info("[CivFarm] Native wheat Seed_Condition rejected target: soil=" + soil);
+                continue;
+            }
+
+            LOGGER.info("[CivFarm] Starting native wheat seed interaction: interaction="
+                + rootInteractionId + ", soil=" + soil + ", crop=" + crop);
+            interactionManager.executeChain(ref, entityAccessor, chain);
+
+            int plantedBlockId = section.get(crop.x, crop.y, crop.z);
+            BlockType plantedBlockType = BlockType.getAssetMap().getAsset(plantedBlockId);
+            boolean planted = plantedBlockId != BlockType.EMPTY_ID
+                && plantedBlockType != null
+                && plantedBlockType.getFarming() != null;
+            LOGGER.info("[CivFarm] Native wheat seed interaction result: planted=" + planted
+                + ", interaction=" + rootInteractionId + ", soil=" + soil + ", crop=" + crop);
             return planted ? PlantResult.PLANTED : PlantResult.NO_MORE_WORK;
         }
-        LOGGER.warning("[CivFarm] Seed is available but no empty crop position was found in field volume: "
+
+        LOGGER.warning("[CivFarm] Wheat seed is available but no valid empty farming position was found in field volume: "
             + field.fieldBounds());
         return PlantResult.NO_MORE_WORK;
     }
