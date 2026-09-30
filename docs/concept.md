@@ -40,16 +40,20 @@ RTS ist eine Bedienungsart und keine Voraussetzung für die Civ-Simulation. Bewo
 
 Einem ausgewählten, beanspruchten Civ-NPC kann über sein Aktionsmenü der Beruf Holzfäller zugewiesen werden.
 
-Der erste Arbeitsablauf konzentriert sich bewusst auf die sichtbare Interaktion in der Welt:
+Der aktuelle Arbeitsablauf fällt einen erkannten Baum als zusammenhängende Holzstruktur und schützt dabei Civ-/Hytale-Trigger-Volumes vor automatischem Abbau:
 
-1. Der Holzfäller sucht in der Nähe nach einem geeigneten Baum.
-2. Er läuft zu einer freien Position neben dem Stamm.
-3. Er führt für kurze Zeit eine Fällarbeit aus.
-4. Der unterste Stammblock wird gefällt.
-5. Normale Hytale-Drops sowie das übliche Verhalten des Baums bleiben erhalten.
-6. Danach sucht der Holzfäller den nächsten Baum und wiederholt den Ablauf.
+1. Der Holzfäller sucht in geladenen Chunks nach einem geeigneten Baum. Berührt ein Holzblock des erkannten Baums irgendein aktives Trigger Volume, wird der gesamte Baum als Arbeitsziel verworfen.
+2. Ein Baum wird für genau einen Holzfäller reserviert. Weitere Holzfäller überspringen alle Holzblöcke dieses reservierten Baums.
+3. Der Holzfäller wählt einen freien Standplatz direkt neben dem Stamm. Unter seinen Füßen muss ein fester Nicht-Holz-Block liegen; Standplatz und Boden dürfen nicht in einem Trigger Volume liegen. Gibt es keinen solchen Platz, wird der Baum nicht bearbeitet.
+4. Während der Arbeit bleibt der Holzfäller an diesem Standplatz und spielt vorläufig die austauschbare generische Action-Animation `Alerted` ab.
+5. Die Arbeitsdauer wächst mit der Zahl der erkannten Holzblöcke: aktuell zwei Sekunden Grundzeit plus 0,5 Sekunden pro Holzblock. Diese Werte sind vorläufige Balanceparameter.
+6. Unmittelbar vor dem Fällen wird der Trigger-Volume-Schutz erneut geprüft. Danach werden die erkannten Holzblöcke über Hytales nativen Block-Damage-/Harvest-Pfad abgebaut, damit Hytales normale Drops, Break-Events und Baum-/Blattverhalten weiterhin maßgeblich bleiben.
+7. Erkannte Wurzel-Holzblöcke unterhalb des Stammfußes werden ebenfalls entfernt. Für diese Positionen merkt sich Civ vor dem Fällen einen passenden häufigen Nicht-Holz-Nachbarblock und setzt ihn nach dem Abbau zurück, sofern die Position leer und weiterhin ungeschützt ist. Dadurch soll der Holzfäller Wurzellöcher schließen, ohne selbst in sie hinabzusteigen.
+8. Danach wird die Reservierung freigegeben und der Holzfäller sucht den nächsten Baum.
 
-Arbeitsbereiche, das Tragen von Holz, Lagerlieferungen und eine vollständige dauerhafte Arbeitsplatzzuweisung sind noch nicht Teil dieses Umfangs.
+Die Baumerkennung beginnt weiterhin bei einem Hytale-Holzblock mit Gather-Type `Woods`, dessen Asset-ID `trunk` enthält, und sammelt anschließend direkt zusammenhängende `Woods`-Blöcke innerhalb begrenzter Baumdimensionen. Eine öffentliche native Hytale-API zum serverseitigen vollständigen Fällen eines ganzen Baums ist für die aktuell gepinnte Runtime nicht verifiziert; deshalb grenzt Civ die zu bearbeitende Holzstruktur selbst ab, delegiert den eigentlichen Blockabbau aber weiterhin an Hytale.
+
+Das Einsammeln der Holz-Drops ins Bewohnerinventar, eine größenabhängig balancierte Holzausbeute, das Tragen zu einem gemeinsamen Ablage-/Lagerort, Arbeitsbereiche und eine dauerhafte Arbeitsplatzzuweisung sind noch nicht Teil dieses Schritts.
 
 ## Farm-Vertical-Slice
 
