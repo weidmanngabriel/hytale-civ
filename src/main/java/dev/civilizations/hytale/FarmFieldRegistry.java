@@ -1,6 +1,7 @@
 package dev.civilizations.hytale;
 
 import dev.civilizations.core.BlockPosition;
+import dev.civilizations.core.BuildingBounds;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
@@ -21,14 +22,14 @@ public final class FarmFieldRegistry {
         UUID worldId,
         String workVolumeId,
         Vector3i workMarker,
-        PrefabPlacementService.PlacementFootprint footprint
+        BuildingBounds fieldBounds
     ) {
         FieldSite site = new FieldSite(
             buildingId,
             worldId,
             workVolumeId,
             new Vector3d(workMarker.x + 0.5, workMarker.y, workMarker.z + 0.5),
-            footprint
+            fieldBounds
         );
         fields.put(site.id(), site);
         return site;
@@ -63,7 +64,7 @@ public final class FarmFieldRegistry {
         UUID worldId,
         String workVolumeId,
         Vector3d workTarget,
-        PrefabPlacementService.PlacementFootprint footprint
+        BuildingBounds fieldBounds
     ) {
         public FieldSite {
             workTarget = new Vector3d(workTarget);
