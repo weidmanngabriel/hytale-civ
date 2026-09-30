@@ -61,7 +61,7 @@ Die Creator-Prefabs werden ohne zusätzlichen Civ-Höhenoffset an das native Pas
 
 Nach dem Platzieren kann ein beanspruchter Civ-NPC ausgewählt und über den Arbeitsbereich der Farm als Bauer zugewiesen werden. Gibt es mehrere mögliche Zugänge, wird aktuell der zum Bewohner nächstgelegene verwendet.
 
-Der erste zusammenhängende Produktionsablauf verwendet eine fertig gebaute Farm und ein separat fertig gebautes Weizenfeld:
+Der erste zusammenhängende Produktionsablauf verwendet eine fertig gebaute Farm und ein separat fertig gebautes Weizenfeld. Das automatische Pflanzen durch den Bauer ist im aktuellen Hytale-Runtime-Stand vorläufig pausiert, weil dafür noch kein verifizierter nativer serverseitiger NPC-Pflanzpfad verfügbar ist; die Civ-Farm baut Hytales Seed-Placement nicht nach.
 
 1. Der Spieler baut Farm und Weizenfeld über `/civbuild`.
 2. Ein Bauer wird über den Arbeitsbereich der Farm zugewiesen. Dafür muss mindestens ein fertiges Weizenfeld vorhanden sein.
