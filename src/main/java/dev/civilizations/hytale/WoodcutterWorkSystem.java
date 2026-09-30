@@ -297,7 +297,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
                     evaluatedWood.addAll(tree.blocks());
                     if (tree.blocks().isEmpty()
                         || treeTouchesProtectedVolume(world, tree)
-                        || isReservedByOther(world, tree, worker)) {
+                        || isReservedByOther(tree, worker)) {
                         continue;
                     }
 
@@ -375,7 +375,12 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             .comparingInt(BlockPosition::y)
             .thenComparingInt(BlockPosition::x)
             .thenComparingInt(BlockPosition::z));
-        return new TreeStructure(base, List.copyOf(blocks), Map.copyOf(rootFillBlocks));
+        return new TreeStructure(
+            base,
+            List.copyOf(blocks),
+            Map.copyOf(rootFillBlocks),
+            world.getWorldConfig().getUuid()
+        );
     }
 
     private static boolean withinTreeBounds(BlockPosition base, BlockPosition position) {
@@ -422,7 +427,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         return breaking != null && WOOD_GATHER_TYPE.equals(breaking.getGatherType());
     }
 
-    private Vector3d findWorkTarget(
+    private static Vector3d findWorkTarget(
         World world,
         Vector3d workerPosition,
         TreeStructure tree
@@ -462,30 +467,27 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     }
 
     private boolean reserveTree(CivUnitRegistry.UnitKey worker, TreeStructure tree) {
-        UUID worldId = tree.worldId();
         for (BlockPosition block : tree.blocks()) {
             CivUnitRegistry.UnitKey reservedBy = treeReservations.get(
-                new ReservedBlock(worldId, block)
+                new ReservedBlock(tree.worldId(), block)
             );
             if (reservedBy != null && !reservedBy.equals(worker)) {
                 return false;
             }
         }
         for (BlockPosition block : tree.blocks()) {
-            treeReservations.put(new ReservedBlock(worldId, block), worker);
+            treeReservations.put(new ReservedBlock(tree.worldId(), block), worker);
         }
         return true;
     }
 
     private boolean isReservedByOther(
-        World world,
         TreeStructure tree,
         CivUnitRegistry.UnitKey worker
     ) {
-        UUID worldId = world.getWorldConfig().getUuid();
         for (BlockPosition block : tree.blocks()) {
             CivUnitRegistry.UnitKey reservedBy = treeReservations.get(
-                new ReservedBlock(worldId, block)
+                new ReservedBlock(tree.worldId(), block)
             );
             if (reservedBy != null && !reservedBy.equals(worker)) {
                 return true;
@@ -508,9 +510,8 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     }
 
     private void releaseTree(CivUnitRegistry.UnitKey worker, TreeStructure tree) {
-        UUID worldId = tree.worldId();
         for (BlockPosition block : tree.blocks()) {
-            treeReservations.remove(new ReservedBlock(worldId, block), worker);
+            treeReservations.remove(new ReservedBlock(tree.worldId(), block), worker);
         }
     }
 
@@ -666,17 +667,6 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         Map<BlockPosition, Integer> rootFillBlocks,
         UUID worldId
     ) {
-        private TreeStructure(
-            BlockPosition base,
-            List<BlockPosition> blocks,
-            Map<BlockPosition, Integer> rootFillBlocks
-        ) {
-            this(base, blocks, rootFillBlocks, null);
-        }
-
-        private TreeStructure withWorld(UUID worldId) {
-            return new TreeStructure(base, blocks, rootFillBlocks, worldId);
-        }
     }
 
     private record ReservedBlock(UUID worldId, BlockPosition block) {
