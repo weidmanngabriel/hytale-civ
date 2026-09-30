@@ -14,10 +14,6 @@ import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
-import com.hypixel.hytale.server.core.entity.InteractionContext;
-import com.hypixel.hytale.server.core.entity.InteractionManager;
-import com.hypixel.hytale.server.core.modules.interaction.InteractionModule;
-import com.hypixel.hytale.server.core.modules.interaction.interaction.config.RootInteraction;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
@@ -51,6 +47,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
     private final FarmBuildingRegistry farmRegistry;
     private final FarmFieldRegistry fieldRegistry;
     private final NativeBuildingStorage storage = new NativeBuildingStorage();
+    private final FarmPlantingService plantingService = new FarmPlantingService();
     private final Map<CivUnitRegistry.UnitKey, FarmFieldRegistry.FieldSite> activeFields =
         new ConcurrentHashMap<>();
     private final Map<CivUnitRegistry.UnitKey, AccessRoute> accessRoutes =
@@ -138,8 +135,11 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
                 PlantResult result = plantOneSeed(ref, field, commandBuffer);
                 if (result == PlantResult.PLANTED) {
                     plantedInCurrentPass.put(key, true);
-                } else if (result == PlantResult.NO_MORE_WORK) {
+                } else if (result == PlantResult.NO_MORE_WORK || result == PlantResult.UNSUPPORTED) {
                     boolean plantedAny = plantedInCurrentPass.remove(key) != null;
+                    if (result == PlantResult.UNSUPPORTED) {
+                        LOGGER.info("[CivFarm] Farmer paused because native wheat planting is currently unavailable.");
+                    }
                     building.sowingComplete(plantedAny || fieldHasCrop(site.worldId(), field));
                 }
             }
@@ -283,41 +283,6 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
             return PlantResult.NO_MORE_WORK;
         }
 
-        InteractionManager interactionManager = entityAccessor.getComponent(
-            ref,
-            InteractionModule.get().getInteractionManagerComponent()
-        );
-        if (interactionManager == null) {
-            LOGGER.warning("[CivFarm] NPC has no native InteractionManager; cannot sow wheat.");
-            return PlantResult.NO_MORE_WORK;
-        }
-
-        ItemStack heldItem = InventoryComponent.getItemInHand(entityAccessor, ref);
-        if (heldItem == null || !WHEAT_SEED_ITEM_ID.equals(heldItem.getItemId())) {
-            LOGGER.warning("[CivFarm] Wheat seed is available, but the NPC is not holding it in the active hotbar slot; native Seed interaction was not started.");
-            return PlantResult.NO_MORE_WORK;
-        }
-
-        InteractionContext context = InteractionContext.forInteraction(
-            interactionManager,
-            ref,
-            com.hypixel.hytale.protocol.InteractionType.Secondary,
-            entityAccessor
-        );
-        String rootInteractionId = context.getRootInteractionId(
-            com.hypixel.hytale.protocol.InteractionType.Secondary
-        );
-        if (rootInteractionId == null) {
-            LOGGER.warning("[CivFarm] Wheat seed has no native Secondary interaction; item=" + heldItem.getItemId());
-            return PlantResult.NO_MORE_WORK;
-        }
-
-        RootInteraction rootInteraction = RootInteraction.getAssetMap().getAsset(rootInteractionId);
-        if (rootInteraction == null) {
-            LOGGER.warning("[CivFarm] Native seed interaction could not be resolved: " + rootInteractionId);
-            return PlantResult.NO_MORE_WORK;
-        }
-
         Store<ChunkStore> chunkAccessor = world.getChunkStore().getStore();
         for (Vector3i soil : fieldSoilPositions(field)) {
             Vector3i crop = new Vector3i(soil).add(UP);
@@ -349,44 +314,22 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
                 continue;
             }
 
-            com.hypixel.hytale.protocol.BlockPosition targetBlock =
-                new com.hypixel.hytale.protocol.BlockPosition(soil.x, soil.y, soil.z);
-            InteractionContext targetContext = InteractionContext.forInteraction(
-                interactionManager,
+            FarmPlantingService.Result result = plantingService.plantWheat(
                 ref,
-                com.hypixel.hytale.protocol.InteractionType.Secondary,
+                world,
+                soil,
+                seed.stack(),
                 entityAccessor
             );
-            var chain = interactionManager.initChain(
-                com.hypixel.hytale.protocol.InteractionType.Secondary,
-                targetContext,
-                rootInteraction,
-                -1,
-                targetBlock,
-                false
-            );
-            if (!interactionManager.applyRules(
-                targetContext,
-                chain.getChainData(),
-                com.hypixel.hytale.protocol.InteractionType.Secondary,
-                rootInteraction
-            )) {
-                LOGGER.info("[CivFarm] Native wheat Seed_Condition rejected target: soil=" + soil);
-                continue;
+            if (result == FarmPlantingService.Result.PLANTED) {
+                return PlantResult.PLANTED;
             }
-
-            LOGGER.info("[CivFarm] Starting native wheat seed interaction: interaction="
-                + rootInteractionId + ", soil=" + soil + ", crop=" + crop);
-            interactionManager.executeChain(ref, entityAccessor, chain);
-
-            int plantedBlockId = section.get(crop.x, crop.y, crop.z);
-            BlockType plantedBlockType = BlockType.getAssetMap().getAsset(plantedBlockId);
-            boolean planted = plantedBlockId != BlockType.EMPTY_ID
-                && plantedBlockType != null
-                && plantedBlockType.getFarming() != null;
-            LOGGER.info("[CivFarm] Native wheat seed interaction result: planted=" + planted
-                + ", interaction=" + rootInteractionId + ", soil=" + soil + ", crop=" + crop);
-            return planted ? PlantResult.PLANTED : PlantResult.NO_MORE_WORK;
+            if (result == FarmPlantingService.Result.UNSUPPORTED) {
+                LOGGER.info("[CivFarm] Wheat planting is currently unavailable: Hytale exposes no verified native server-side NPC seed-placement API for this runtime. Farmer remains idle until a supported engine path is available.");
+                return PlantResult.UNSUPPORTED;
+            }
+            LOGGER.warning("[CivFarm] Native wheat planting failed at soil=" + soil);
+            return PlantResult.NO_MORE_WORK;
         }
 
         LOGGER.warning("[CivFarm] Wheat seed is available but no valid empty farming position was found in field volume: "
@@ -480,7 +423,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
         for (short slot = 0; slot < inventory.getCapacity(); slot++) {
             ItemStack stack = inventory.getItemStack(slot);
             if (stack != null && itemId.equals(stack.getItemId()) && stack.getQuantity() > 0) {
-                return new InventorySlot(inventory, slot);
+                return new InventorySlot(inventory, slot, stack);
             }
         }
         return null;
@@ -544,10 +487,11 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
 
     private enum PlantResult {
         PLANTED,
-        NO_MORE_WORK
+        NO_MORE_WORK,
+        UNSUPPORTED
     }
 
-    private record InventorySlot(ItemContainer container, short slot) {
+    private record InventorySlot(ItemContainer container, short slot, ItemStack stack) {
     }
 
     private static boolean hasArrived(Vector3d position, Vector3d target) {
