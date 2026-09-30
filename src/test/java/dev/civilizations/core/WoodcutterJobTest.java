@@ -16,7 +16,7 @@ class WoodcutterJobTest {
         BlockPosition tree = new BlockPosition(12, 64, 8);
         WorldPosition interactionPoint = new WorldPosition(11.5, 64.0, 8.5);
         WoodcutterJob.WorkTarget target =
-            new WoodcutterJob.WorkTarget(tree, interactionPoint);
+            new WoodcutterJob.WorkTarget(tree, interactionPoint, 12);
 
         assertInstanceOf(WoodcutterJob.FindTreeIntent.class, job.intent());
 
@@ -30,7 +30,7 @@ class WoodcutterJobTest {
 
         assertTrue(job.movementArrived());
         assertInstanceOf(WoodcutterJob.ChopTreeIntent.class, job.intent());
-        assertFalse(job.advanceWork(WoodcutterJob.CHOP_SECONDS - 0.001));
+        assertFalse(job.advanceWork(target.chopSeconds() - 0.001));
         assertEquals(WoodcutterJob.WorkState.CHOPPING, job.state());
 
         assertTrue(job.advanceWork(0.001));
@@ -43,6 +43,24 @@ class WoodcutterJobTest {
         assertEquals(WoodcutterJob.WorkState.SEARCHING, job.state());
         assertNull(job.targetTree());
         assertInstanceOf(WoodcutterJob.FindTreeIntent.class, job.intent());
+    }
+
+    @Test
+    void largerTreesTakeLongerToChop() {
+        WoodcutterJob.WorkTarget small = new WoodcutterJob.WorkTarget(
+            new BlockPosition(1, 2, 3),
+            new WorldPosition(0.5, 2.0, 3.5),
+            6
+        );
+        WoodcutterJob.WorkTarget large = new WoodcutterJob.WorkTarget(
+            new BlockPosition(4, 5, 6),
+            new WorldPosition(3.5, 5.0, 6.5),
+            20
+        );
+
+        assertTrue(large.chopSeconds() > small.chopSeconds());
+        assertEquals(5.0, small.chopSeconds(), 1.0e-9);
+        assertEquals(12.0, large.chopSeconds(), 1.0e-9);
     }
 
     @Test
