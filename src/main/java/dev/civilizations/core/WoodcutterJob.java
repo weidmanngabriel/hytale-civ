@@ -11,7 +11,9 @@ import java.util.Objects;
  */
 public final class WoodcutterJob {
 
-    public static final double CHOP_SECONDS = 2.5;
+    public static final double BASE_CHOP_SECONDS = 2.0;
+    public static final double CHOP_SECONDS_PER_WOOD_BLOCK = 0.5;
+    public static final double CHOP_SECONDS = chopSecondsFor(1);
 
     private WorkTarget target;
     private double workElapsedSeconds;
@@ -24,7 +26,7 @@ public final class WoodcutterJob {
                 new MoveToTreeIntent(new MovementIntent(target.interactionPoint()));
             case CHOPPING -> new ChopTreeIntent(
                 target.tree(),
-                Math.max(0.0, CHOP_SECONDS - workElapsedSeconds)
+                Math.max(0.0, target.chopSeconds() - workElapsedSeconds)
             );
             case READY_TO_FELL -> new FellTreeIntent(target.tree());
         };
@@ -61,7 +63,7 @@ public final class WoodcutterJob {
         }
 
         workElapsedSeconds += deltaSeconds;
-        if (workElapsedSeconds + 1.0e-9 < CHOP_SECONDS) {
+        if (workElapsedSeconds + 1.0e-9 < target.chopSeconds()) {
             return false;
         }
 
@@ -104,11 +106,33 @@ public final class WoodcutterJob {
         return state;
     }
 
-    public record WorkTarget(BlockPosition tree, WorldPosition interactionPoint) {
+    public static double chopSecondsFor(int woodBlockCount) {
+        if (woodBlockCount <= 0) {
+            throw new IllegalArgumentException("woodBlockCount must be > 0");
+        }
+        return BASE_CHOP_SECONDS + CHOP_SECONDS_PER_WOOD_BLOCK * woodBlockCount;
+    }
+
+    public record WorkTarget(
+        BlockPosition tree,
+        WorldPosition interactionPoint,
+        int woodBlockCount
+    ) {
 
         public WorkTarget {
             Objects.requireNonNull(tree, "tree");
             Objects.requireNonNull(interactionPoint, "interactionPoint");
+            if (woodBlockCount <= 0) {
+                throw new IllegalArgumentException("woodBlockCount must be > 0");
+            }
+        }
+
+        public WorkTarget(BlockPosition tree, WorldPosition interactionPoint) {
+            this(tree, interactionPoint, 1);
+        }
+
+        public double chopSeconds() {
+            return WoodcutterJob.chopSecondsFor(woodBlockCount);
         }
     }
 
