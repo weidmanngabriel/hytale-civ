@@ -509,13 +509,22 @@ public final class RtsInteractionController {
                     .findFirst()
                     .orElse(null);
                 if (fieldMarker != null) {
-                    fieldRegistry.registerField(
-                        building.id(),
-                        worldId,
-                        fieldMarker.id(),
-                        fieldMarker.position(),
-                        fieldMarker.bounds()
-                    );
+                    PrefabPlacementService.PlacedMarker hydratedFieldMarker =
+                        hydrateMarkerBounds(world, fieldMarker);
+                    if (hydratedFieldMarker != null && hydratedFieldMarker.bounds() != null) {
+                        fieldRegistry.registerField(
+                            building.id(),
+                            worldId,
+                            hydratedFieldMarker.id(),
+                            hydratedFieldMarker.position(),
+                            hydratedFieldMarker.bounds()
+                        );
+                    } else {
+                        System.err.println(
+                            "[Civ Farm] Could not restore wheat field bounds for volume "
+                                + fieldMarker.id() + "; field registration skipped."
+                        );
+                    }
                 }
                 continue;
             }
@@ -542,6 +551,36 @@ public final class RtsInteractionController {
                 );
             }
         }
+    }
+
+    private static PrefabPlacementService.PlacedMarker hydrateMarkerBounds(
+        World world,
+        PrefabPlacementService.PlacedMarker marker
+    ) {
+        if (marker == null || marker.bounds() != null || world == null) {
+            return marker;
+        }
+
+        var volumeManager = world.getEntityStore().getStore().getResource(
+            com.hypixel.hytale.builtin.triggervolumes.TriggerVolumesPlugin.get()
+                .getManagerResourceType()
+        );
+        var volume = volumeManager == null ? null : volumeManager.getVolume(marker.id());
+        if (volume == null || volume.getShape() == null || volume.getPosition() == null) {
+            return marker;
+        }
+
+        Vector3d min = new Vector3d();
+        Vector3d max = new Vector3d();
+        volume.getShape().getWorldAABB(volume.getPosition(), min, max);
+        return new PrefabPlacementService.PlacedMarker(
+            marker.id(),
+            marker.position(),
+            marker.tags(),
+            new dev.civilizations.core.BuildingBounds(
+                min.x, min.y, min.z, max.x, max.y, max.z
+            )
+        );
     }
 
     private static String buildingDisplayName(BuildingPlacementRegistry.BuildingInstance building) {
