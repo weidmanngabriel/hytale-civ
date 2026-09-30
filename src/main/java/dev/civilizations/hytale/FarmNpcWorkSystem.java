@@ -317,6 +317,10 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
                 ? null
                 : BlockType.getAssetMap().getAsset(soilBlockId);
 
+            if (soilBlockType == null || soilBlockType.getFarming() == null) {
+                continue;
+            }
+
             LOGGER.info("[CivFarm] Plant attempt: item=" + seedStack.getItemId()
                 + ", quantity=" + seedStack.getQuantity()
                 + ", blockKey=" + seedStack.getBlockKey()
@@ -351,8 +355,8 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
                 + ", crop=" + crop);
             return planted ? PlantResult.PLANTED : PlantResult.NO_MORE_WORK;
         }
-        LOGGER.warning("[CivFarm] Seed is available but no empty crop position was found in field footprint: "
-            + field.footprint());
+        LOGGER.warning("[CivFarm] Seed is available but no empty crop position was found in field volume: "
+            + field.fieldBounds());
         return PlantResult.NO_MORE_WORK;
     }
 
@@ -400,11 +404,16 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
     private static java.util.List<Vector3i> fieldSoilPositions(
         FarmFieldRegistry.FieldSite field
     ) {
-        PrefabPlacementService.PlacementFootprint footprint = field.footprint();
+        dev.civilizations.core.BuildingBounds bounds = field.fieldBounds();
         java.util.List<Vector3i> positions = new java.util.ArrayList<>();
-        for (int x = footprint.minX(); x <= footprint.maxX(); x++) {
-            for (int z = footprint.minZ(); z <= footprint.maxZ(); z++) {
-                positions.add(new Vector3i(x, footprint.floorY(), z));
+        int minX = (int) Math.floor(bounds.minX());
+        int maxX = (int) Math.ceil(bounds.maxX()) - 1;
+        int minZ = (int) Math.floor(bounds.minZ());
+        int maxZ = (int) Math.ceil(bounds.maxZ()) - 1;
+        int soilY = (int) Math.floor(bounds.minY());
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                positions.add(new Vector3i(x, soilY, z));
             }
         }
         return positions;
