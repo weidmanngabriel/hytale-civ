@@ -514,7 +514,7 @@ public final class RtsInteractionController {
                         worldId,
                         fieldMarker.id(),
                         fieldMarker.position(),
-                        building.placement().footprint()
+                        fieldMarker.bounds()
                     );
                 }
                 continue;
