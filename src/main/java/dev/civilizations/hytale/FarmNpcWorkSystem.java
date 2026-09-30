@@ -405,6 +405,11 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
         FarmFieldRegistry.FieldSite field
     ) {
         dev.civilizations.core.BuildingBounds bounds = field.fieldBounds();
+        if (bounds == null) {
+            LOGGER.warning("[CivFarm] Field has no bounds; skipping soil scan: field="
+                + field.id());
+            return java.util.List.of();
+        }
         java.util.List<Vector3i> positions = new java.util.ArrayList<>();
         int minX = (int) Math.floor(bounds.minX());
         int maxX = (int) Math.ceil(bounds.maxX()) - 1;
