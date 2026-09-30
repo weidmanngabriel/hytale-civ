@@ -20,7 +20,6 @@ import dev.civilizations.core.ConstructionJob;
 import dev.civilizations.core.MovementIntent;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.WorldPosition;
-import dev.civilizations.core.WorkDecisionSchedule;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
@@ -46,7 +45,6 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
     private static final String WORKPLACE_ACCESS = "workplace_access";
     private static final String FIELD = "field";
     private static final String FARM = "farm";
-    private static final String WHEAT_FIELD = "wheat_field";
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
@@ -127,7 +125,6 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
             releaseReservation(key, runtime);
             runtime.job.abandonTarget();
             runtime.site = null;
-            runtime.decisions.requestImmediate();
         }
 
         ConstructionJob.Intent intent = runtime.job.intent();
@@ -150,8 +147,8 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         WorkerRuntime runtime,
         float dt
     ) {
-        WorkDecisionSchedule.DecisionKind decision = runtime.decisions.advance(dt);
-        if (decision == WorkDecisionSchedule.DecisionKind.NONE) {
+        runtime.retrySeconds -= dt;
+        if (runtime.retrySeconds > 0.0) {
             return;
         }
 
@@ -179,7 +176,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
 
         if (best == null) {
             unitRegistry.clearMoveTarget(ref);
-            runtime.decisions.scheduleRetry(RETRY_SECONDS);
+            runtime.retrySeconds = RETRY_SECONDS;
             return;
         }
 
@@ -271,7 +268,6 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
             releaseReservation(key, runtime);
             runtime.job.abandonTarget();
             runtime.site = null;
-            runtime.decisions.requestImmediate();
             return;
         }
 
@@ -282,17 +278,6 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
             .filter(marker -> marker.hasTag(TYPE_TAG, BUILDING_BOUNDS))
             .findFirst()
             .orElse(null);
-        // The wheat-field prefab intentionally has one authored trigger volume. Its field
-        // marker doubles as the lifecycle/protection bounds instead of injecting a second
-        // Civ-only trigger into the prefab.
-        if (boundsMarker == null
-            && PrefabPlacementService.WHEAT_FIELD.id().equals(site.definition().id())) {
-            boundsMarker = placed.markers().stream()
-                .filter(marker -> marker.hasTag(TYPE_TAG, FIELD))
-                .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
-                .findFirst()
-                .orElse(null);
-        }
         BuildingPlacementRegistry.BuildingInstance buildingInstance = null;
         if (boundsMarker != null) {
             String buildingType = boundsMarker.tags().get(BUILDING_TAG);
@@ -317,28 +302,27 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         if (PrefabPlacementService.WHEAT_FIELD.id().equals(site.definition().id())) {
             var fieldMarkers = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, FIELD))
-                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
+                .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
+                .map(PrefabPlacementService.PlacedMarker::position)
                 .toList();
             if (!fieldMarkers.isEmpty()) {
-                if (buildingInstance != null) {
-                    fieldRegistry.registerField(
-                        buildingInstance.id(),
-                        site.worldId(),
-                        fieldMarkers.getFirst().id(),
-                        fieldMarkers.getFirst().position(),
-                        fieldMarkers.getFirst().bounds()
-                    );
-                }
+                fieldRegistry.registerField(
+                    site.worldId(),
+                    fieldMarkers.getFirst(),
+                    site.candidate().footprint()
+                );
             }
         } else if (PrefabPlacementService.FARM.id().equals(site.definition().id())) {
             var outputStorage = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, "output_storage"))
                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
+                .map(PrefabPlacementService.PlacedMarker::position)
                 .findFirst()
                 .orElse(null);
             var entrances = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, WORKPLACE_ACCESS))
-                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
+                .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
+                .map(PrefabPlacementService.PlacedMarker::position)
                 .toList();
             if (!entrances.isEmpty() && buildingInstance != null) {
                 farmRegistry.registerFarm(
@@ -356,7 +340,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         releaseReservation(key, runtime);
         runtime.site = null;
         runtime.job.constructionCompleted();
-        runtime.decisions.scheduleRetry(0.25);
+        runtime.retrySeconds = 0.25;
     }
 
     private void releaseWorker(CivUnitRegistry.UnitKey key) {
@@ -465,8 +449,8 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
 
     private static final class WorkerRuntime {
         private final ConstructionJob job = new ConstructionJob();
-        private final WorkDecisionSchedule decisions = new WorkDecisionSchedule();
         private PrefabPlacementService.ConstructionSite site;
+        private double retrySeconds;
         private boolean animationStarted;
     }
 }
