@@ -24,6 +24,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.WorldPosition;
+import org.joml.Vector3d;
 import org.joml.Vector3i;
 
 import java.util.List;
