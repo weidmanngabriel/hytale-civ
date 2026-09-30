@@ -273,3 +273,7 @@ Farm production uses Hytale's native `TriggerVolumeEvent ENTER` events as the pr
 ### NPC-Inventaransicht
 
 Das Personenaktionsmenü kann das tatsächliche Hytale-Inventar eines beanspruchten Civ-Bewohners schreibgeschützt öffnen. Der Hytale-Adapter verwendet dafür Hytales native `InventoryComponent.getCombined(..., HOTBAR_FIRST)`-Zusammenstellung und zeigt sie in einem nativen `ContainerWindow`. Wie bei Hytales eigenem `invsee`-Pfad liegt ein `DelegateItemContainer` mit `DENY_ALL` vor dem echten Container, sodass diese Ansicht keine Civ-Inventarregeln dupliziert und keine Items verändert.
+
+### Native Farming Interactions
+
+The farmer keeps the Civ-level work cycle, field selection and inventory policy, but does not recreate Hytale's seed placement. For wheat sowing, the Hytale adapter resolves the active item's native Secondary interaction through InteractionContext and InteractionManager, supplies the selected tilled-soil block as the interaction target, and lets Hytale execute the configured seed interaction chain. This preserves Hytale's Seed_Condition/Seed_Place behavior and its item consumption rules instead of duplicating them in Civ. The Civ farm currently exposes only Plant_Seeds_Wheat; additional crop types are a future Civ data decision, not a replacement for Hytale's native placement mechanism.
