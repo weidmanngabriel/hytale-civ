@@ -326,7 +326,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                         site.worldId(),
                         fieldMarkers.getFirst().id(),
                         fieldMarkers.getFirst().position(),
-                        site.candidate().footprint()
+                        fieldMarkers.getFirst().bounds()
                     );
                 }
             }
