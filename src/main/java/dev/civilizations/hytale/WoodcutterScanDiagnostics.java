@@ -22,7 +22,11 @@ public final class WoodcutterScanDiagnostics {
     private final AtomicLong treeBases = new AtomicLong();
     private final AtomicLong treesCollected = new AtomicLong();
     private final AtomicLong treeBlocksCollected = new AtomicLong();
+    private final AtomicLong protectedTrees = new AtomicLong();
+    private final AtomicLong reservedTrees = new AtomicLong();
     private final AtomicLong workTargetChecks = new AtomicLong();
+    private final AtomicLong noStandPositionTrees = new AtomicLong();
+    private final AtomicLong usableTrees = new AtomicLong();
     private final AtomicLong lastLogNanos = new AtomicLong();
 
     public boolean enabled() {
@@ -45,7 +49,11 @@ public final class WoodcutterScanDiagnostics {
         long foundTreeBases,
         long collectedTrees,
         long collectedTreeBlocks,
-        long checkedWorkTargets
+        long rejectedProtectedTrees,
+        long rejectedReservedTrees,
+        long checkedWorkTargets,
+        long rejectedNoStandPositionTrees,
+        long foundUsableTrees
     ) {
         if (!enabled.get()) {
             return;
@@ -58,7 +66,11 @@ public final class WoodcutterScanDiagnostics {
         treeBases.addAndGet(foundTreeBases);
         treesCollected.addAndGet(collectedTrees);
         treeBlocksCollected.addAndGet(collectedTreeBlocks);
+        protectedTrees.addAndGet(rejectedProtectedTrees);
+        reservedTrees.addAndGet(rejectedReservedTrees);
         workTargetChecks.addAndGet(checkedWorkTargets);
+        noStandPositionTrees.addAndGet(rejectedNoStandPositionTrees);
+        usableTrees.addAndGet(foundUsableTrees);
 
         maybeLog();
     }
@@ -74,7 +86,11 @@ public final class WoodcutterScanDiagnostics {
             treeBases.get(),
             treesCollected.get(),
             treeBlocksCollected.get(),
-            workTargetChecks.get()
+            protectedTrees.get(),
+            reservedTrees.get(),
+            workTargetChecks.get(),
+            noStandPositionTrees.get(),
+            usableTrees.get()
         );
     }
 
@@ -95,7 +111,11 @@ public final class WoodcutterScanDiagnostics {
         treeBases.set(0L);
         treesCollected.set(0L);
         treeBlocksCollected.set(0L);
+        protectedTrees.set(0L);
+        reservedTrees.set(0L);
         workTargetChecks.set(0L);
+        noStandPositionTrees.set(0L);
+        usableTrees.set(0L);
     }
 
     public record ToggleResult(boolean enabled, Snapshot snapshot) {
@@ -109,7 +129,11 @@ public final class WoodcutterScanDiagnostics {
         long treeBases,
         long treesCollected,
         long treeBlocksCollected,
-        long workTargetChecks
+        long protectedTrees,
+        long reservedTrees,
+        long workTargetChecks,
+        long noStandPositionTrees,
+        long usableTrees
     ) {
         public double averageMillis() {
             return scans == 0L ? 0.0 : (totalNanos / 1_000_000.0) / scans;
@@ -122,7 +146,7 @@ public final class WoodcutterScanDiagnostics {
         public String summary() {
             return String.format(
                 Locale.ROOT,
-                "scans=%d avgMs=%.3f maxMs=%.3f positions=%d treeBases=%d treesCollected=%d treeBlocks=%d workTargetChecks=%d",
+                "scans=%d avgMs=%.3f maxMs=%.3f positions=%d treeBases=%d treesCollected=%d treeBlocks=%d protected=%d reserved=%d workTargetChecks=%d noStand=%d usable=%d",
                 scans,
                 averageMillis(),
                 maxMillis(),
@@ -130,7 +154,11 @@ public final class WoodcutterScanDiagnostics {
                 treeBases,
                 treesCollected,
                 treeBlocksCollected,
-                workTargetChecks
+                protectedTrees,
+                reservedTrees,
+                workTargetChecks,
+                noStandPositionTrees,
+                usableTrees
             );
         }
     }
