@@ -21,6 +21,7 @@ import dev.civilizations.hytale.CivInhabitantData;
 import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivInhabitantUseSystem;
 import dev.civilizations.hytale.CivManualMovementSystem;
+import dev.civilizations.hytale.CivNameplateStatusSystem;
 import dev.civilizations.hytale.CivPathDebugService;
 import dev.civilizations.hytale.CivUnitRegistry;
 import dev.civilizations.hytale.ConstructionWorkSystem;
@@ -113,6 +114,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 buildingPersistence
             )
         );
+        CivNameplateStatusSystem nameplateStatusSystem =
+            new CivNameplateStatusSystem(unitRegistry, activityRegistry);
+        getEntityStoreRegistry().registerSystem(nameplateStatusSystem);
 
         getCommandRegistry().registerCommand(new CivTestCommand());
         getCommandRegistry().registerCommand(new CivRtsTestCommand(rtsInteractionController));
@@ -127,7 +131,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 buildingPersistence,
                 pathDebugService,
                 woodcutterScanDiagnostics,
-                activityRegistry
+                activityRegistry,
+                nameplateStatusSystem
             )
         );
 
