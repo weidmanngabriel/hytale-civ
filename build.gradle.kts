@@ -113,6 +113,9 @@ val hytaleServerBareSmoke = tasks.register<Exec>("hytaleServerBareSmoke") {
     group = "verification"
     description = "Boots the pinned Hytale server in bare/offline mode with the Civ plugin, then stops it."
     dependsOn(pluginJar)
+    notCompatibleWithConfigurationCache(
+        "Starts the external Hytale server process from an isolated runtime directory."
+    )
 
     doFirst {
         val smokeDir = layout.buildDirectory.dir("hytale-server-smoke").get().asFile
@@ -135,8 +138,6 @@ val hytaleServerBareSmoke = tasks.register<Exec>("hytaleServerBareSmoke") {
             "--auth-mode",
             "offline",
             "--disable-sentry",
-            "--mods",
-            modsDir.absolutePath,
             "--boot-command",
             "stop"
         )
