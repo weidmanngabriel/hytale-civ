@@ -12,14 +12,14 @@ final class WoodcutterScanDiagnosticsTest {
     void recordsOnlyWhileEnabledAndAggregatesRuntimeSamples() {
         WoodcutterScanDiagnostics diagnostics = new WoodcutterScanDiagnostics();
 
-        diagnostics.record(1_000_000L, 10, 1, 1, 12, 1);
+        diagnostics.record(1_000_000L, 10, 1, 1, 12, 0, 0, 1, 0, 1);
         assertEquals(0, diagnostics.snapshot().scans());
 
         WoodcutterScanDiagnostics.ToggleResult enabled = diagnostics.toggle();
         assertTrue(enabled.enabled());
 
-        diagnostics.record(2_000_000L, 100, 2, 2, 40, 2);
-        diagnostics.record(4_000_000L, 200, 3, 3, 60, 3);
+        diagnostics.record(2_000_000L, 100, 2, 2, 40, 1, 0, 2, 1, 1);
+        diagnostics.record(4_000_000L, 200, 3, 3, 60, 0, 1, 3, 2, 0);
 
         WoodcutterScanDiagnostics.Snapshot snapshot = diagnostics.snapshot();
         assertEquals(2, snapshot.scans());
@@ -29,7 +29,11 @@ final class WoodcutterScanDiagnosticsTest {
         assertEquals(5, snapshot.treeBases());
         assertEquals(5, snapshot.treesCollected());
         assertEquals(100, snapshot.treeBlocksCollected());
+        assertEquals(1, snapshot.protectedTrees());
+        assertEquals(1, snapshot.reservedTrees());
         assertEquals(5, snapshot.workTargetChecks());
+        assertEquals(3, snapshot.noStandPositionTrees());
+        assertEquals(1, snapshot.usableTrees());
 
         WoodcutterScanDiagnostics.ToggleResult disabled = diagnostics.toggle();
         assertFalse(disabled.enabled());
@@ -40,7 +44,7 @@ final class WoodcutterScanDiagnosticsTest {
     void enablingAgainResetsPreviousMeasurementWindow() {
         WoodcutterScanDiagnostics diagnostics = new WoodcutterScanDiagnostics();
         diagnostics.toggle();
-        diagnostics.record(2_000_000L, 100, 2, 2, 40, 2);
+        diagnostics.record(2_000_000L, 100, 2, 2, 40, 1, 0, 2, 1, 1);
         diagnostics.toggle();
 
         WoodcutterScanDiagnostics.ToggleResult enabledAgain = diagnostics.toggle();
@@ -48,5 +52,7 @@ final class WoodcutterScanDiagnosticsTest {
         assertTrue(enabledAgain.enabled());
         assertEquals(0, enabledAgain.snapshot().scans());
         assertEquals(0, enabledAgain.snapshot().positionsChecked());
+        assertEquals(0, enabledAgain.snapshot().protectedTrees());
+        assertEquals(0, enabledAgain.snapshot().usableTrees());
     }
 }
