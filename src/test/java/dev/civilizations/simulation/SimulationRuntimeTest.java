@@ -121,7 +121,7 @@ class SimulationRuntimeTest {
     }
 
     @Test
-    void manualMovePausesAndThenResumesAutonomousWork() {
+    void manualMovePausesThenWaitsBeforeResumingAutonomousWork() {
         SimulationRuntime runtime = new SimulationRuntime();
         BlockPosition tree = new BlockPosition(8, 0, 0);
         runtime.addTree(tree);
@@ -150,13 +150,18 @@ class SimulationRuntimeTest {
         assertEquals("WALKING_TO_TREE", duringOrder.autonomousState());
 
         runtime.runForSeconds(1.5);
-        assertFalse(runtime.residentSnapshot("woodcutter-1").manualMovementActive());
-        assertEquals(
-            "WALKING_TO_TREE",
-            runtime.residentSnapshot("woodcutter-1").autonomousState()
+        SimulationRuntime.ResidentSnapshot duringResumeDelay =
+            runtime.residentSnapshot("woodcutter-1");
+        assertFalse(duringResumeDelay.manualMovementActive());
+        assertEquals("RESUME_DELAY", duringResumeDelay.state());
+        assertEquals("WALKING_TO_TREE", duringResumeDelay.autonomousState());
+
+        runtime.runForSeconds(2.0);
+        assertFalse(
+            "RESUME_DELAY".equals(runtime.residentSnapshot("woodcutter-1").state())
         );
 
-        runtime.runForSeconds(7.0);
+        runtime.runForSeconds(8.0);
 
         assertFalse(runtime.treeExists(tree));
         assertEquals(1, runtime.metrics().treesFelled());
