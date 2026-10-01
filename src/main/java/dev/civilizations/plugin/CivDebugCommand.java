@@ -14,6 +14,7 @@ import dev.civilizations.hytale.CivActivityRegistry;
 import dev.civilizations.hytale.CivBuildingPersistenceService;
 import dev.civilizations.hytale.CivNameplateStatusSystem;
 import dev.civilizations.hytale.CivPathDebugService;
+import dev.civilizations.hytale.CivPlayerRigDebugService;
 import dev.civilizations.hytale.WoodcutterScanDiagnostics;
 
 import java.util.List;
@@ -29,7 +30,8 @@ final class CivDebugCommand extends AbstractPlayerCommand {
         CivPathDebugService pathDebugService,
         WoodcutterScanDiagnostics woodcutterScanDiagnostics,
         CivActivityRegistry activityRegistry,
-        CivNameplateStatusSystem nameplateStatusSystem
+        CivNameplateStatusSystem nameplateStatusSystem,
+        CivPlayerRigDebugService playerRigDebugService
     ) {
         super("civdebug", "Shows read-only Civilizations development diagnostics.");
         this.buildingRegistry = buildingRegistry;
@@ -38,6 +40,7 @@ final class CivDebugCommand extends AbstractPlayerCommand {
         addSubCommand(new WoodScanCommand(woodcutterScanDiagnostics));
         addSubCommand(new ActivityCommand(activityRegistry));
         addSubCommand(new StatusCommand(nameplateStatusSystem));
+        addSubCommand(new PlayerRigCommand(playerRigDebugService));
         requireNoPermission();
     }
 
@@ -197,6 +200,47 @@ final class CivDebugCommand extends AbstractPlayerCommand {
                         + " | profession=" + entry.profession()
                         + " | status=" + entry.status()
                         + " | nameplate=" + entry.nameplateText()
+                ));
+            }
+        }
+    }
+
+    private static final class PlayerRigCommand extends AbstractPlayerCommand {
+        private final CivPlayerRigDebugService playerRigDebugService;
+
+        private PlayerRigCommand(CivPlayerRigDebugService playerRigDebugService) {
+            super("playerrig", "Toggles the native Player rig on loaded Civ inhabitants for animation testing.");
+            this.playerRigDebugService = playerRigDebugService;
+            requireNoPermission();
+        }
+
+        @Override
+        protected void execute(
+            CommandContext context,
+            Store<EntityStore> store,
+            Ref<EntityStore> ref,
+            PlayerRef playerRef,
+            World world
+        ) {
+            CivPlayerRigDebugService.ToggleResult result = playerRigDebugService.toggle(store);
+            if (result.error() != null) {
+                context.sendMessage(Message.raw("Civ Player-rig spike failed: " + result.error()));
+                return;
+            }
+
+            context.sendMessage(Message.raw(
+                "Civ Player-rig spike " + (result.enabled() ? "enabled" : "disabled")
+                    + " | loaded inhabitants=" + result.matchedNpcCount()
+                    + " | visuals changed=" + result.changedNpcCount()
+            ));
+            if (result.enabled()) {
+                context.sendMessage(Message.raw(
+                    "Player animation sets=" + result.playerAnimationSetCount()
+                        + " | first sets=" + String.join(", ", result.animationSetPreview())
+                ));
+                context.sendMessage(Message.raw(
+                    "Probe: Player model + random PlayerSkin + Action animation 'Alerted'. "
+                        + "Move a Civ inhabitant to verify native locomotion; run the command again to restore the original visuals."
                 ));
             }
         }
