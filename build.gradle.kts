@@ -109,18 +109,22 @@ val hytaleJavaLauncher = javaToolchains.launcherFor {
     languageVersion = JavaLanguageVersion.of(25)
 }
 
-val hytaleServerBareSmoke = tasks.register<Exec>("hytaleServerBareSmoke") {
+val hytaleServerBareProbe = tasks.register<Exec>("hytaleServerBareProbe") {
     group = "verification"
-    description = "Boots the pinned Hytale server in bare/offline mode with the Civ plugin, then stops it."
+    description = "Starts the pinned Hytale server in bare/offline mode and verifies Civ discovery up to the expected missing-assets boundary."
     dependsOn(pluginJar)
     notCompatibleWithConfigurationCache(
-        "Starts the external Hytale server process from an isolated runtime directory."
+        "Starts the external Hytale server process and inspects its runtime log."
     )
 
+    val probeDir = layout.buildDirectory.dir("hytale-server-probe")
+
     doFirst {
-        val smokeDir = layout.buildDirectory.dir("hytale-server-smoke").get().asFile
-        val modsDir = smokeDir.resolve("mods")
-        delete(smokeDir)
+        val runtimeDir = probeDir.get().asFile
+        val modsDir = runtimeDir.resolve("mods")
+        val logFile = runtimeDir.resolve("server.log")
+        val exitFile = runtimeDir.resolve("server.exit")
+        delete(runtimeDir)
         modsDir.mkdirs()
 
         copy {
@@ -129,22 +133,51 @@ val hytaleServerBareSmoke = tasks.register<Exec>("hytaleServerBareSmoke") {
         }
 
         val serverJar = hytaleServerRuntime.singleFile
-        workingDir(smokeDir)
+        val javaExecutable = hytaleJavaLauncher.get().executablePath.asFile.absolutePath
+        workingDir(runtimeDir)
         commandLine(
-            hytaleJavaLauncher.get().executablePath.asFile.absolutePath,
-            "-jar",
+            "bash",
+            "-c",
+            """
+                set -o pipefail
+                set +e
+                "${'$'}1" -jar "${'$'}2" --bare --auth-mode offline --disable-sentry 2>&1 | tee "${'$'}3"
+                status=${'$'}{PIPESTATUS[0]}
+                printf '%s\n' "${'$'}status" > "${'$'}4"
+                exit 0
+            """.trimIndent(),
+            "hytale-server-probe",
+            javaExecutable,
             serverJar.absolutePath,
-            "--bare",
-            "--auth-mode",
-            "offline",
-            "--disable-sentry",
-            "--boot-command",
-            "stop"
+            logFile.absolutePath,
+            exitFile.absolutePath
+        )
+    }
+
+    doLast {
+        val runtimeDir = probeDir.get().asFile
+        val logFile = runtimeDir.resolve("server.log")
+        val exitFile = runtimeDir.resolve("server.exit")
+        val log = logFile.readText()
+        val serverExit = exitFile.readText().trim().toInt()
+
+        if (serverExit != 7) {
+            throw GradleException("Expected Hytale 0.6.8 bare probe to stop at missing assets with exit 7, got $serverExit.")
+        }
+        if (!log.contains("Civilizations:HytaleCiv")) {
+            throw GradleException("Hytale did not discover the Civ plugin before shutdown.")
+        }
+        if (!log.contains("client.disconnection.shutdownReason.missingAssets.failedToLoad")) {
+            throw GradleException("Hytale did not stop at the verified missing-assets boundary.")
+        }
+
+        logger.lifecycle(
+            "Hytale bare probe reached Civ plugin discovery and the expected missing-assets boundary."
         )
     }
 }
 
-hytaleServerBareSmoke.configure {
+hytaleServerBareProbe.configure {
     mustRunAfter(tasks.named("test"))
 }
 
