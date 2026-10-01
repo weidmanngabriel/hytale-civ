@@ -72,13 +72,18 @@ public final class CivInhabitantLifecycleSystem extends RefSystem<EntityStore> {
         Store<EntityStore> store,
         CommandBuffer<EntityStore> commandBuffer
     ) {
-        // All of these are runtime-only caches/reservations. They must be cleared even for UNLOAD,
-        // while the CivInhabitantData component itself remains Hytale-owned persistent state.
+        // Worker state and reservations are active-memory state, so they are always discarded.
+        // The persistent Civ component itself stays Hytale-owned and survives UNLOAD.
         farmWorkSystem.forgetRuntime(ref);
         woodcutterWorkSystem.forgetRuntime(ref);
         constructionWorkSystem.forgetRuntime(ref);
-        farmRegistry.unassignFarmer(ref);
         activityRegistry.forget(ref);
         unitRegistry.forget(ref);
+
+        // A chunk UNLOAD is not deletion. Keep the farm relationship intact so normal streaming
+        // cannot silently unassign a farmer. Real removal (including /entityclean) releases it.
+        if (reason != RemoveReason.UNLOAD) {
+            farmRegistry.unassignFarmer(ref);
+        }
     }
 }
