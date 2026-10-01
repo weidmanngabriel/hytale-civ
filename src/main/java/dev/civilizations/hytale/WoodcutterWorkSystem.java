@@ -62,9 +62,10 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     private static final double ARRIVAL_DISTANCE = 1.0;
     private static final double RETRY_SECONDS = 1.0;
     private static final double DIAGNOSTIC_INTERVAL_SECONDS = 5.0;
-    // Temporary generic action animation. Kept behind one constant so a dedicated axe animation
-    // can replace it without changing woodcutter gameplay logic.
-    private static final String WOODCUTTING_ANIMATION = "Alerted";
+    // The ItemPlayerAnimations child loops Hytale's native axe swing client-side, so Civ only
+    // sends one start and one stop for each chopping phase instead of retriggering every swing.
+    private static final String WOODCUTTING_ITEM_ANIMATIONS = "Civ_Woodcutter_Axe";
+    private static final String WOODCUTTING_ANIMATION = "SwingDown";
 
     /**
      * A Hytale tree can contain diagonally touching branches and roots. Treat all 26 adjacent
@@ -175,6 +176,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
                 AnimationUtils.playAnimation(
                     ref,
                     AnimationSlot.Action,
+                    WOODCUTTING_ITEM_ANIMATIONS,
                     WOODCUTTING_ANIMATION,
                     store
                 );
