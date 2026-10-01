@@ -1,0 +1,57 @@
+name: Hytale Local Runtime Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/headless-server-spike
+    paths:
+      - .github/workflows/hytale-local.yml
+
+permissions:
+  contents: read
+
+jobs:
+  local-runtime-probe:
+    name: Verify local Hytale runtime
+    runs-on: [self-hosted, Windows, X64, hytale-local]
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify runner environment
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if ([string]::IsNullOrWhiteSpace($env:HYTALE_SERVER_JAR)) {
+            throw 'HYTALE_SERVER_JAR is not available to the runner process.'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:HYTALE_ASSETS_PATH)) {
+            throw 'HYTALE_ASSETS_PATH is not available to the runner process.'
+          }
+          if (-not (Test-Path -LiteralPath $env:HYTALE_SERVER_JAR -PathType Leaf)) {
+            throw 'HYTALE_SERVER_JAR does not point to an existing file.'
+          }
+          if (-not (Test-Path -LiteralPath $env:HYTALE_ASSETS_PATH -PathType Leaf)) {
+            throw 'HYTALE_ASSETS_PATH does not point to an existing file.'
+          }
+
+          Write-Host 'Hytale server JAR: OK'
+          Write-Host 'Hytale Assets.zip: OK'
+
+      - name: Verify Java 25
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $versionOutput = & java -version 2>&1 | Out-String
+          Write-Host $versionOutput
+
+          if ($LASTEXITCODE -ne 0) {
+            throw 'java -version failed.'
+          }
+          if ($versionOutput -notmatch 'version "25(\.|\")') {
+            throw 'The self-hosted runner must expose Java 25 on PATH for the Hytale runtime test.'
+          }
