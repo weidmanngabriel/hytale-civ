@@ -158,12 +158,13 @@ public final class VikingAppearanceGenerator {
         }
 
         String variant = null;
-        if (!part.getVariants().isEmpty()) {
+        Map<String, PlayerSkinPart.Variant> nativeVariants = part.getVariants();
+        if (nativeVariants != null && !nativeVariants.isEmpty()) {
             List<String> variants = option.variants().isEmpty()
-                ? List.copyOf(part.getVariants().keySet())
+                ? List.copyOf(nativeVariants.keySet())
                 : option.variants();
             List<String> validVariants = variants.stream()
-                .filter(part.getVariants()::containsKey)
+                .filter(nativeVariants::containsKey)
                 .toList();
             if (validVariants.isEmpty()) {
                 throw new IllegalStateException(
@@ -184,7 +185,7 @@ public final class VikingAppearanceGenerator {
         return textures.get(random.nextInt(textures.size()));
     }
 
-    private static List<String> availableTextures(PlayerSkinPart part) {
+    static List<String> availableTextures(PlayerSkinPart part) {
         if (part.getGradientSet() != null && !part.getGradientSet().isBlank()) {
             PlayerSkinGradientSet set = CosmeticsModule.get().getRegistry().getGradientSets()
                 .get(part.getGradientSet());
@@ -193,12 +194,21 @@ public final class VikingAppearanceGenerator {
             }
             return List.copyOf(set.getGradients().keySet());
         }
-        if (!part.getTextures().isEmpty()) {
-            return List.copyOf(part.getTextures().keySet());
+
+        var directTextures = part.getTextures();
+        if (directTextures != null && !directTextures.isEmpty()) {
+            return List.copyOf(directTextures.keySet());
         }
-        if (!part.getVariants().isEmpty()) {
-            return part.getVariants().values().stream()
-                .flatMap(variant -> variant.getTextures().keySet().stream())
+
+        Map<String, PlayerSkinPart.Variant> variants = part.getVariants();
+        if (variants != null && !variants.isEmpty()) {
+            return variants.values().stream()
+                .flatMap(variant -> {
+                    var variantTextures = variant.getTextures();
+                    return variantTextures == null
+                        ? java.util.stream.Stream.<String>empty()
+                        : variantTextures.keySet().stream();
+                })
                 .distinct()
                 .toList();
         }
