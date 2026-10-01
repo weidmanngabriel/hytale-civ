@@ -11,8 +11,9 @@ import java.util.Objects;
  */
 public final class WoodcutterJob {
 
-    public static final double BASE_CHOP_SECONDS = 2.0;
-    public static final double CHOP_SECONDS_PER_WOOD_BLOCK = 0.5;
+    public static final double BASE_CHOP_SECONDS = 4.0;
+    public static final double CHOP_SECONDS_PER_WOOD_BLOCK = 0.05;
+    public static final double MAX_CHOP_SECONDS = 20.0;
     public static final double CHOP_SECONDS = chopSecondsFor(1);
 
     private WorkTarget target;
@@ -110,7 +111,10 @@ public final class WoodcutterJob {
         if (woodBlockCount <= 0) {
             throw new IllegalArgumentException("woodBlockCount must be > 0");
         }
-        return BASE_CHOP_SECONDS + CHOP_SECONDS_PER_WOOD_BLOCK * woodBlockCount;
+        return Math.min(
+            MAX_CHOP_SECONDS,
+            BASE_CHOP_SECONDS + CHOP_SECONDS_PER_WOOD_BLOCK * woodBlockCount
+        );
     }
 
     public record WorkTarget(
