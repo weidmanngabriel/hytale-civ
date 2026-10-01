@@ -11,9 +11,9 @@
 7. Use `docs/decisions/` for the rationale behind significant architectural decisions.
 8. Update documentation together with the related change and only where affected. Do not duplicate the same rule across several documents without a clear reason.
 9. Do not add speculative documentation. Leave unknown behavior explicitly unknown until reliable project-specific information exists.
-10. Do not silently resolve contradictions between code, documentation or a current user instruction. Current user instructions and this file take precedence; surface the contradiction so the maintained documentation can be corrected deliberately.
+10. Do not silently choose between unresolved contradictions in code, documentation or a current user instruction. Surface the contradiction while it is unresolved so it can be checked deliberately. Once reliable evidence establishes the current correct behavior, update the maintained documentation to that result and remove stale, false or superseded statements instead of preserving historical contradictions in current-reference docs. Current user instructions and this file take precedence.
 11. Before Hytale-specific work, read `docs/hytale/README.md` and the relevant topic pages. Treat `docs/hytale/` as the maintained integration wiki for reusable knowledge about the pinned Hytale version, not as a substitute for Civ architecture documentation.
-12. When Hytale-specific investigation or implementation produces a new reusable verified insight, update the relevant `docs/hytale/` page in the same change. Correct stale statements, mark unresolved/runtime-dependent behavior explicitly as open, and create/link a new topic page when no existing page fits. Do not leave durable Hytale integration knowledge only in chat, issues or code comments.
+12. When Hytale-specific investigation or implementation produces a new reusable verified insight, update the relevant `docs/hytale/` page in the same change. Treat the wiki as a current-reference knowledge base: replace or remove stale information when newer verified evidence supersedes it, mark only genuinely unresolved/runtime-dependent behavior explicitly as open, and create/link a new topic page when no existing page fits. Do not leave durable Hytale integration knowledge only in chat, issues or code comments.
 
 ## Architecture boundaries
 
