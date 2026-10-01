@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class CivActivityRegistry {
 
     private final CivUnitRegistry unitRegistry;
-    private final Map<CivUnitRegistry.UnitKey, InhabitantActivity> activities =
+    private final Map<CivUnitRegistry.UnitKey, TrackedActivity> activities =
         new ConcurrentHashMap<>();
 
     public CivActivityRegistry(CivUnitRegistry unitRegistry) {
@@ -38,38 +38,39 @@ public final class CivActivityRegistry {
     }
 
     public MovementIntent manualMovementIntent(Ref<EntityStore> ref) {
-        InhabitantActivity activity = activities.get(unitRegistry.keyOf(ref));
+        InhabitantActivity activity = existingActivity(ref);
         return activity == null ? null : activity.manualMovementIntent();
     }
 
     public void advance(Ref<EntityStore> ref, double deltaSeconds) {
-        InhabitantActivity activity = activities.get(unitRegistry.keyOf(ref));
+        InhabitantActivity activity = existingActivity(ref);
         if (activity != null) {
             activity.advance(deltaSeconds);
         }
     }
 
     public boolean autonomousWorkAllowed(Ref<EntityStore> ref) {
-        InhabitantActivity activity = activities.get(unitRegistry.keyOf(ref));
+        InhabitantActivity activity = existingActivity(ref);
         return activity == null || activity.autonomousWorkAllowed();
     }
 
     public boolean completeManualMove(Ref<EntityStore> ref) {
-        InhabitantActivity activity = activities.get(unitRegistry.keyOf(ref));
+        InhabitantActivity activity = existingActivity(ref);
         return activity != null && activity.completeManualMove();
     }
 
     public boolean cancelManualMove(Ref<EntityStore> ref) {
-        InhabitantActivity activity = activities.get(unitRegistry.keyOf(ref));
+        InhabitantActivity activity = existingActivity(ref);
         return activity != null && activity.cancelManualMove();
     }
 
     public List<ActivityDebugEntry> debugSnapshots(Store<EntityStore> store) {
+        pruneStaleEntries(store);
         return activities.entrySet().stream()
             .filter(entry -> entry.getKey().store() == store)
             .map(entry -> new ActivityDebugEntry(
                 entry.getKey().entityIndex(),
-                entry.getValue().snapshot()
+                entry.getValue().activity().snapshot()
             ))
             .sorted(Comparator.comparingInt(ActivityDebugEntry::entityIndex))
             .toList();
@@ -79,11 +80,44 @@ public final class CivActivityRegistry {
         activities.remove(unitRegistry.keyOf(ref));
     }
 
+    private InhabitantActivity existingActivity(Ref<EntityStore> ref) {
+        CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
+        TrackedActivity tracked = activities.get(key);
+        if (tracked == null) {
+            return null;
+        }
+        if (!tracked.ref().isValid()) {
+            activities.remove(key, tracked);
+            return null;
+        }
+        return tracked.activity();
+    }
+
     private InhabitantActivity activity(Ref<EntityStore> ref) {
-        return activities.computeIfAbsent(
-            unitRegistry.keyOf(ref),
-            ignored -> new InhabitantActivity()
-        );
+        CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
+        TrackedActivity tracked = activities.compute(key, (ignored, current) -> {
+            if (current == null || !current.ref().isValid()) {
+                return new TrackedActivity(ref, new InhabitantActivity());
+            }
+            return current;
+        });
+        return tracked.activity();
+    }
+
+    private void pruneStaleEntries(Store<EntityStore> store) {
+        activities.entrySet().removeIf(entry -> {
+            if (entry.getKey().store() != store) {
+                return false;
+            }
+            Ref<EntityStore> ref = entry.getValue().ref();
+            return !ref.isValid() || !unitRegistry.isClaimed(ref);
+        });
+    }
+
+    private record TrackedActivity(
+        Ref<EntityStore> ref,
+        InhabitantActivity activity
+    ) {
     }
 
     public record ActivityDebugEntry(
