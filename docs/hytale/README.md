@@ -23,15 +23,18 @@ Eine gefundene Klasse oder Methodensignatur beweist nicht automatisch, wann oder
 
 Wenn bei Hytale-spezifischer Entwicklung eine neue wiederverwendbare Erkenntnis entsteht, muss die passende Seite in `docs/hytale/` im selben Change aktualisiert werden.
 
+Das Wiki ist eine **Current-Truth-Dokumentation**. Ziel ist nicht, jede frühere Annahme oder jeden historischen Widerspruch aufzubewahren, sondern den aktuell verifizierten Wissensstand möglichst klar darzustellen.
+
 Dabei gilt:
 
 - neue verifizierte Erkenntnisse ergänzen statt nur im Chat, Issue oder Codekommentar stehen lassen,
-- veraltete Aussagen korrigieren oder entfernen,
-- Widersprüche nicht still auflösen, sondern sichtbar dokumentieren,
+- veraltete, falsche oder durch neuere Evidenz ersetzte Aussagen korrigieren, überschreiben oder entfernen,
+- Widersprüche nur solange sichtbar lassen, wie noch nicht geklärt ist, welche Aussage richtig ist,
+- sobald ein Widerspruch zuverlässig geklärt ist, nur die aktuelle korrekte Aussage in der laufenden Referenzdokumentation behalten,
 - offene oder nur teilweise verifizierte Punkte ausdrücklich als **offen** kennzeichnen,
 - keine hypothetischen APIs, Lifecycle-Annahmen oder Client-Verhalten als Fakten dokumentieren,
 - Implementierungsdetails von Civ nur aufnehmen, wenn sie für das Verständnis der Hytale-Integration nötig sind,
-- größere Architekturentscheidungen weiterhin als ADR unter `docs/decisions/` dokumentieren.
+- historische Begründungen oder bewusst verworfene Alternativen nur dann aufbewahren, wenn sie als Architekturentscheidung relevant sind; dafür ADRs unter `docs/decisions/` verwenden.
 
 Vor neuer Hytale-spezifischer Arbeit zuerst diese Übersicht und die relevante Themenseite lesen. Wenn eine passende Themenseite fehlt und die Erkenntnis wiederverwendbar ist, eine neue Seite anlegen und hier verlinken.
 
