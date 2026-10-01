@@ -31,6 +31,7 @@ import dev.civilizations.hytale.FarmNpcWorkSystem;
 import dev.civilizations.hytale.PrefabPlacementService;
 import dev.civilizations.hytale.RtsCameraController;
 import dev.civilizations.hytale.RtsInteractionController;
+import dev.civilizations.hytale.WoodcutterScanDiagnostics;
 import dev.civilizations.hytale.WoodcutterWorkSystem;
 
 public final class CivilizationsPlugin extends JavaPlugin {
@@ -71,6 +72,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
         FarmFieldRegistry fieldRegistry = new FarmFieldRegistry();
         BuildingPlacementRegistry buildingRegistry = new BuildingPlacementRegistry();
         PrefabPlacementService prefabPlacementService = new PrefabPlacementService();
+        WoodcutterScanDiagnostics woodcutterScanDiagnostics = new WoodcutterScanDiagnostics();
         RtsInteractionController rtsInteractionController =
             new RtsInteractionController(
                 new RtsCameraController(),
@@ -98,7 +100,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
             new FarmNpcWorkSystem(unitRegistry, activityRegistry, farmRegistry, fieldRegistry);
         getEntityStoreRegistry().registerSystem(farmNpcWorkSystem);
         getEntityStoreRegistry().registerSystem(
-            new WoodcutterWorkSystem(unitRegistry, activityRegistry)
+            new WoodcutterWorkSystem(unitRegistry, activityRegistry, woodcutterScanDiagnostics)
         );
         getEntityStoreRegistry().registerSystem(
             new ConstructionWorkSystem(
@@ -120,7 +122,12 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getCommandRegistry().registerCommand(new CivBuildCancelCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivWikiCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(
-            new CivDebugCommand(buildingRegistry, buildingPersistence, pathDebugService)
+            new CivDebugCommand(
+                buildingRegistry,
+                buildingPersistence,
+                pathDebugService,
+                woodcutterScanDiagnostics
+            )
         );
 
         getEventRegistry().registerGlobal(AddPlayerToWorldEvent.class, event -> rtsInteractionController.handleWorldJoin(event.getWorld()));
