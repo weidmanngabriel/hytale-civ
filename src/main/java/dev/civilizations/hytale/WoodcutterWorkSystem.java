@@ -59,13 +59,15 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     private static final int MAX_TREE_BLOCKS = 512;
     private static final int WORK_POSITION_RADIUS = 3;
     private static final int WORK_SURFACE_VERTICAL_RADIUS = 6;
+    private static final int WORK_TRUNK_HEIGHT = 3;
     private static final double ARRIVAL_DISTANCE = 1.0;
     private static final double RETRY_SECONDS = 1.0;
     private static final double DIAGNOSTIC_INTERVAL_SECONDS = 5.0;
+    private static final double WORK_TARGET_SCORE_EPSILON = 0.0001;
     // The ItemPlayerAnimations child loops Hytale's native axe swing client-side, so Civ only
     // sends one start and one stop for each chopping phase instead of retriggering every swing.
     private static final String WOODCUTTING_ITEM_ANIMATIONS = "Civ_Woodcutter_Axe";
-    private static final String WOODCUTTING_ANIMATION = "SwingDown";
+    private static final String WOODCUTTING_ANIMATION = "SwingLeft";
 
     /**
      * A Hytale tree can contain diagonally touching branches and roots. Treat all 26 adjacent
@@ -538,9 +540,11 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         TreeStructure tree
     ) {
         Vector3d best = null;
-        double bestDistanceSquared = Double.POSITIVE_INFINITY;
+        double bestWoodDistanceSquared = Double.POSITIVE_INFINITY;
+        double bestWorkerDistanceSquared = Double.POSITIVE_INFINITY;
         BlockPosition base = tree.base();
         int preferredFeetY = (int) Math.floor(workerPosition.y);
+        List<BlockPosition> lowerTrunkBlocks = lowerTrunkBlocks(tree);
 
         for (int radius = 1; radius <= WORK_POSITION_RADIUS; radius++) {
             for (int dx = -radius; dx <= radius; dx++) {
@@ -563,9 +567,17 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
                             z
                         );
                         if (upperCandidate != null) {
-                            double distanceSquared = workerPosition.distanceSquared(upperCandidate);
-                            if (distanceSquared < bestDistanceSquared) {
-                                bestDistanceSquared = distanceSquared;
+                            WorkTargetScore score = workTargetScore(
+                                upperCandidate,
+                                workerPosition,
+                                lowerTrunkBlocks
+                            );
+                            if (score.betterThan(
+                                bestWoodDistanceSquared,
+                                bestWorkerDistanceSquared
+                            )) {
+                                bestWoodDistanceSquared = score.woodDistanceSquared();
+                                bestWorkerDistanceSquared = score.workerDistanceSquared();
                                 best = upperCandidate;
                             }
                         }
@@ -582,9 +594,17 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
                             z
                         );
                         if (lowerCandidate != null) {
-                            double distanceSquared = workerPosition.distanceSquared(lowerCandidate);
-                            if (distanceSquared < bestDistanceSquared) {
-                                bestDistanceSquared = distanceSquared;
+                            WorkTargetScore score = workTargetScore(
+                                lowerCandidate,
+                                workerPosition,
+                                lowerTrunkBlocks
+                            );
+                            if (score.betterThan(
+                                bestWoodDistanceSquared,
+                                bestWorkerDistanceSquared
+                            )) {
+                                bestWoodDistanceSquared = score.woodDistanceSquared();
+                                bestWorkerDistanceSquared = score.workerDistanceSquared();
                                 best = lowerCandidate;
                             }
                         }
@@ -594,6 +614,42 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         }
 
         return best;
+    }
+
+    private static List<BlockPosition> lowerTrunkBlocks(TreeStructure tree) {
+        BlockPosition base = tree.base();
+        List<BlockPosition> lowerTrunk = new ArrayList<>();
+        for (BlockPosition block : tree.blocks()) {
+            if (block.y() < base.y() || block.y() > base.y() + WORK_TRUNK_HEIGHT) {
+                continue;
+            }
+            if (Math.abs(block.x() - base.x()) > WORK_POSITION_RADIUS + 1
+                || Math.abs(block.z() - base.z()) > WORK_POSITION_RADIUS + 1) {
+                continue;
+            }
+            lowerTrunk.add(block);
+        }
+        return lowerTrunk.isEmpty() ? List.of(base) : lowerTrunk;
+    }
+
+    private static WorkTargetScore workTargetScore(
+        Vector3d candidate,
+        Vector3d workerPosition,
+        List<BlockPosition> lowerTrunkBlocks
+    ) {
+        double nearestWoodDistanceSquared = Double.POSITIVE_INFINITY;
+        for (BlockPosition block : lowerTrunkBlocks) {
+            double dx = candidate.x - (block.x() + 0.5);
+            double dz = candidate.z - (block.z() + 0.5);
+            double distanceSquared = dx * dx + dz * dz;
+            if (distanceSquared < nearestWoodDistanceSquared) {
+                nearestWoodDistanceSquared = distanceSquared;
+            }
+        }
+        return new WorkTargetScore(
+            nearestWoodDistanceSquared,
+            workerPosition.distanceSquared(candidate)
+        );
     }
 
     private static Vector3d validWorkSurface(
@@ -851,6 +907,23 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     }
 
     private record ReservedBlock(UUID worldId, BlockPosition block) {
+    }
+
+    private record WorkTargetScore(
+        double woodDistanceSquared,
+        double workerDistanceSquared
+    ) {
+        private boolean betterThan(
+            double bestWoodDistanceSquared,
+            double bestWorkerDistanceSquared
+        ) {
+            if (woodDistanceSquared + WORK_TARGET_SCORE_EPSILON < bestWoodDistanceSquared) {
+                return true;
+            }
+            return Math.abs(woodDistanceSquared - bestWoodDistanceSquared)
+                <= WORK_TARGET_SCORE_EPSILON
+                && workerDistanceSquared < bestWorkerDistanceSquared;
+        }
     }
 
     private static final class ScanCounters {

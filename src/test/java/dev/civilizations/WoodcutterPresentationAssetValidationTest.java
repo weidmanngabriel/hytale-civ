@@ -26,16 +26,16 @@ class WoodcutterPresentationAssetValidationTest {
     }
 
     @Test
-    void woodcutterAxeUsesLoopingNativeSwingDown() throws Exception {
+    void woodcutterAxeUsesLoopingNativeHorizontalSwing() throws Exception {
         JsonNode asset = new ObjectMapper().readTree(Files.readString(AXE_ANIMATIONS_PATH));
-        JsonNode swingDown = asset.path("Animations").path("SwingDown");
+        JsonNode swingLeft = asset.path("Animations").path("SwingLeft");
 
         assertEquals("Axe", asset.path("Parent").asText());
-        assertTrue(swingDown.path("Looping").asBoolean());
-        assertEquals(0.75, swingDown.path("Speed").asDouble(), 0.0001);
+        assertTrue(swingLeft.path("Looping").asBoolean());
+        assertEquals(0.75, swingLeft.path("Speed").asDouble(), 0.0001);
         assertEquals(
-            "Characters/Animations/Items/Main_Handed/Axe/Attacks/Swing_Down/Swing_Down.blockyanim",
-            swingDown.path("ThirdPerson").asText()
+            "Characters/Animations/Items/Main_Handed/Axe/Attacks/Swing_Left/Swing_Left.blockyanim",
+            swingLeft.path("ThirdPerson").asText()
         );
     }
 }
