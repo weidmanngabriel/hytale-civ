@@ -6,30 +6,100 @@ import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.inventory.container.ItemContainer;
 import com.hypixel.hytale.server.core.inventory.transaction.ItemStackTransaction;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import com.hypixel.hytale.server.npc.util.InventoryHelper;
+import dev.civilizations.core.Profession;
 
 /**
  * Temporary development bootstrap for profession-specific NPC items.
  *
  * <p>This is not the future goods sourcing system. It only makes the current
- * farming slice testable until workers can source recipe inputs from buildings,
- * storage, or world goods.
+ * profession slices testable until workers can source tools and recipe inputs
+ * from buildings, storage, or world goods.
  */
 public final class ProfessionBootstrapInventory {
 
     static final String WHEAT_SEED_ITEM_ID = "Plant_Seeds_Wheat";
     static final int FARMER_SEED_COUNT = 4;
+    static final String WOODCUTTER_AXE_ITEM_ID = "Tool_Axe_Iron";
 
-    public void enterFarmer(Ref<EntityStore> ref) {
+    public void enterProfession(Ref<EntityStore> ref, Profession profession) {
+        if (profession == null) return;
+        switch (profession) {
+            case FARMER -> enterFarmer(ref);
+            case WOODCUTTER -> enterWoodcutter(ref);
+            default -> {
+            }
+        }
+    }
+
+    public void leaveProfession(Ref<EntityStore> ref, Profession profession) {
+        if (profession == null) return;
+        switch (profession) {
+            case FARMER -> leaveFarmer(ref);
+            case WOODCUTTER -> leaveWoodcutter(ref);
+            default -> {
+            }
+        }
+    }
+
+    private void enterFarmer(Ref<EntityStore> ref) {
         ItemStack remaining = new ItemStack(WHEAT_SEED_ITEM_ID, FARMER_SEED_COUNT);
         remaining = addTo(ref, InventoryComponent.Storage.getComponentType(), remaining);
         remaining = addTo(ref, InventoryComponent.Hotbar.getComponentType(), remaining);
         addTo(ref, InventoryComponent.Backpack.getComponentType(), remaining);
     }
 
-    public void leaveFarmer(Ref<EntityStore> ref) {
-        removeFrom(ref, InventoryComponent.Storage.getComponentType());
-        removeFrom(ref, InventoryComponent.Hotbar.getComponentType());
-        removeFrom(ref, InventoryComponent.Backpack.getComponentType());
+    private void leaveFarmer(Ref<EntityStore> ref) {
+        removeFrom(
+            ref,
+            InventoryComponent.Storage.getComponentType(),
+            WHEAT_SEED_ITEM_ID,
+            FARMER_SEED_COUNT
+        );
+        removeFrom(
+            ref,
+            InventoryComponent.Hotbar.getComponentType(),
+            WHEAT_SEED_ITEM_ID,
+            FARMER_SEED_COUNT
+        );
+        removeFrom(
+            ref,
+            InventoryComponent.Backpack.getComponentType(),
+            WHEAT_SEED_ITEM_ID,
+            FARMER_SEED_COUNT
+        );
+    }
+
+    private void enterWoodcutter(Ref<EntityStore> ref) {
+        byte slot = InventoryHelper.findHotbarSlotWithItem(
+            ref,
+            ref.getStore(),
+            WOODCUTTER_AXE_ITEM_ID
+        );
+        if (slot < 0) {
+            slot = InventoryHelper.findHotbarEmptySlot(ref, ref.getStore());
+        }
+        if (slot < 0) {
+            return;
+        }
+        if (!InventoryHelper.setHotbarItem(
+            ref,
+            WOODCUTTER_AXE_ITEM_ID,
+            slot,
+            ref.getStore()
+        )) {
+            return;
+        }
+        InventoryHelper.setHotbarSlot(ref, slot, ref.getStore());
+    }
+
+    private void leaveWoodcutter(Ref<EntityStore> ref) {
+        removeFrom(
+            ref,
+            InventoryComponent.Hotbar.getComponentType(),
+            WOODCUTTER_AXE_ITEM_ID,
+            1
+        );
     }
 
     private <T extends InventoryComponent> ItemStack addTo(
@@ -53,15 +123,17 @@ public final class ProfessionBootstrapInventory {
 
     private <T extends InventoryComponent> void removeFrom(
         Ref<EntityStore> ref,
-        com.hypixel.hytale.component.ComponentType<EntityStore, T> type
+        com.hypixel.hytale.component.ComponentType<EntityStore, T> type,
+        String itemId,
+        int count
     ) {
         T component = ref.getStore().getComponent(ref, type);
         if (component == null || component.getInventory() == null) return;
         ItemContainer inventory = component.getInventory();
-        int remaining = FARMER_SEED_COUNT;
+        int remaining = count;
         for (short slot = 0; slot < inventory.getCapacity() && remaining > 0; slot++) {
             ItemStack stack = inventory.getItemStack(slot);
-            if (stack == null || !WHEAT_SEED_ITEM_ID.equals(stack.getItemId())) continue;
+            if (stack == null || !itemId.equals(stack.getItemId())) continue;
             int remove = Math.min(remaining, stack.getQuantity());
             inventory.removeItemStackFromSlot(slot, remove, true, true);
             remaining -= remove;
