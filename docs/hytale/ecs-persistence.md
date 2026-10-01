@@ -16,6 +16,8 @@ Für die Darstellung eines Civ-Bewohners wird Hytales natives Player-Modell übe
 
 Name und Appearance teilen dasselbe persistierte `Gender`: erst wird die Identität erzeugt, danach wird der Appearance-Pool mit genau diesem Geschlecht gefiltert.
 
+Beim Auflösen von Character-Creator-Teilen sind `PlayerSkinPart.getTextures()` und `PlayerSkinPart.getVariants()` nicht als leere Maps garantiert. Die gepinnte `HytaleServer.jar` initialisiert diese Felder nur, wenn die jeweilige Eigenschaft im Cosmetic-JSON vorhanden ist; andernfalls liefern die Getter `null`. Dasselbe gilt für `PlayerSkinPart.Variant.getTextures()`. Civ behandelt diese Werte deshalb als leere Sammlungen, bevor Texturen oder Varianten ausgewertet werden.
+
 `CivNameplateStatusSystem` ergänzt nur Laufzeitstatus für die Darstellung. Persistenter Name, `DisplayNameComponent` und `CivInhabitantData` werden dadurch nicht ersetzt.
 
 ## Persistenz
