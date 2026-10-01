@@ -44,14 +44,14 @@ RTS ist eine Bedienungsart und keine Voraussetzung für die Civ-Simulation. Bewo
 
 ## Holzfäller-Vertical-Slice
 
-Einem ausgewählten, beanspruchten Civ-NPC kann über sein Aktionsmenü der Beruf Holzfäller zugewiesen werden.
+Einem ausgewählten, beanspruchten Civ-NPC kann über sein Aktionsmenü der Beruf Holzfäller zugewiesen werden. Beim Wechsel in den Beruf erhält der Bewohner vorläufig eine native Hytale-Eisenaxt (`Weapon_Axe_Iron`) in seiner Hotbar und hält sie aktiv in der Hand. Beim Wechsel in einen anderen Beruf oder beim Freigeben aus der Civ wird diese Bootstrap-Axt wieder entfernt. Diese automatische Werkzeugausgabe ist ein Development-Bootstrap und noch keine Materialbeschaffung.
 
 Der aktuelle Arbeitsablauf fällt einen erkannten Baum als zusammenhängende Holzstruktur und schützt dabei fertige Civ-Gebäude vor automatischem Abbau:
 
 1. Der Holzfäller sucht in geladenen Chunks nach einem geeigneten Baum. Berührt ein Holzblock des erkannten Baums ein Trigger Volume mit `civ.type=building_bounds`, wird der gesamte Baum als Arbeitsziel verworfen.
 2. Ein Baum wird für genau einen Holzfäller reserviert. Weitere Holzfäller überspringen alle Holzblöcke dieses reservierten Baums.
 3. Der Holzfäller wählt einen freien Standplatz bis zu drei Blöcke um den Stamm. Unter seinen Füßen muss ein fester Nicht-Holz-Block liegen; Standplatz und Boden dürfen nicht in einem geschützten `building_bounds`-Volume liegen. Die Navigation läuft bis auf höchstens einen Block an diesen Arbeitspunkt heran; erst dann beginnt die Arbeitsphase. Gibt es keinen solchen Platz, wird der Baum nicht bearbeitet.
-4. Während der Arbeit bleibt der Holzfäller an diesem Standplatz und spielt vorläufig die austauschbare generische Action-Animation `Alerted` ab.
+4. Während der Arbeit bleibt der Holzfäller an diesem Standplatz und spielt Hytales native Player-Axtanimation `SwingDown` in einer Civ-Animation-Schleife ab. Civ startet die Animation einmal beim Beginn der Arbeitsphase und stoppt sie beim Ende oder bei einer Unterbrechung; die einzelnen Schläge werden nicht serverseitig pro Tick neu ausgelöst.
 5. Die Arbeitsdauer wächst mit der Zahl der erkannten Holzblöcke: aktuell vier Sekunden Grundzeit plus 0,05 Sekunden pro Holzblock, gedeckelt bei 20 Sekunden. Diese Werte sind vorläufige Balanceparameter.
 6. Unmittelbar vor dem Fällen wird der Gebäudeschutz erneut geprüft. Danach werden die erkannten Holzblöcke über Hytales nativen Block-Damage-/Harvest-Pfad abgebaut, damit Hytales normale Drops, Break-Events und Baum-/Blattverhalten weiterhin maßgeblich bleiben.
 7. Erkannte Wurzel-Holzblöcke unterhalb des Stammfußes werden ebenfalls entfernt. Für diese Positionen merkt sich Civ vor dem Fällen einen passenden häufigen Nicht-Holz-Nachbarblock und setzt ihn nach dem Abbau zurück, sofern die Position leer und weiterhin ungeschützt ist. Dadurch soll der Holzfäller Wurzellöcher schließen, ohne selbst in sie hinabzusteigen.
