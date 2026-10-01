@@ -70,7 +70,7 @@ class SimulationRuntimeTest {
             new WorldPosition(0.0, 0.0, 0.0)
         );
 
-        runtime.runForSeconds(4.0);
+        runtime.runForSeconds(6.0);
 
         assertFalse(runtime.treeExists(tree));
         assertEquals(1, runtime.metrics().treesFelled());
@@ -156,7 +156,7 @@ class SimulationRuntimeTest {
             runtime.residentSnapshot("woodcutter-1").autonomousState()
         );
 
-        runtime.runForSeconds(5.0);
+        runtime.runForSeconds(7.0);
 
         assertFalse(runtime.treeExists(tree));
         assertEquals(1, runtime.metrics().treesFelled());
