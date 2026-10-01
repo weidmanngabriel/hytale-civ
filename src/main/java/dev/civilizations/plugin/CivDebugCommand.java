@@ -12,6 +12,7 @@ import dev.civilizations.core.InhabitantActivity;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
 import dev.civilizations.hytale.CivActivityRegistry;
 import dev.civilizations.hytale.CivBuildingPersistenceService;
+import dev.civilizations.hytale.CivNameplateStatusSystem;
 import dev.civilizations.hytale.CivPathDebugService;
 import dev.civilizations.hytale.WoodcutterScanDiagnostics;
 
@@ -27,7 +28,8 @@ final class CivDebugCommand extends AbstractPlayerCommand {
         CivBuildingPersistenceService buildingPersistence,
         CivPathDebugService pathDebugService,
         WoodcutterScanDiagnostics woodcutterScanDiagnostics,
-        CivActivityRegistry activityRegistry
+        CivActivityRegistry activityRegistry,
+        CivNameplateStatusSystem nameplateStatusSystem
     ) {
         super("civdebug", "Shows read-only Civilizations development diagnostics.");
         this.buildingRegistry = buildingRegistry;
@@ -35,6 +37,7 @@ final class CivDebugCommand extends AbstractPlayerCommand {
         addSubCommand(new PathCommand(pathDebugService));
         addSubCommand(new WoodScanCommand(woodcutterScanDiagnostics));
         addSubCommand(new ActivityCommand(activityRegistry));
+        addSubCommand(new StatusCommand(nameplateStatusSystem));
         requireNoPermission();
     }
 
@@ -156,6 +159,44 @@ final class CivDebugCommand extends AbstractPlayerCommand {
                             snapshot.resumeDelayRemainingSeconds()
                         )
                         + " | destination=" + destination
+                ));
+            }
+        }
+    }
+
+    private static final class StatusCommand extends AbstractPlayerCommand {
+        private final CivNameplateStatusSystem statusSystem;
+
+        private StatusCommand(CivNameplateStatusSystem statusSystem) {
+            super("status", "Shows the current player-facing Civ inhabitant nameplate status.");
+            this.statusSystem = statusSystem;
+            requireNoPermission();
+        }
+
+        @Override
+        protected void execute(
+            CommandContext context,
+            Store<EntityStore> store,
+            Ref<EntityStore> ref,
+            PlayerRef playerRef,
+            World world
+        ) {
+            List<CivNameplateStatusSystem.StatusDebugEntry> entries =
+                statusSystem.debugSnapshots(store);
+            context.sendMessage(Message.raw(
+                "Civ status debug | loaded inhabitants=" + entries.size()
+            ));
+            if (entries.isEmpty()) {
+                context.sendMessage(Message.raw("Keine geladenen Civ-Bewohner mit Status gefunden."));
+                return;
+            }
+
+            for (CivNameplateStatusSystem.StatusDebugEntry entry : entries) {
+                context.sendMessage(Message.raw(
+                    "entity=" + entry.entityIndex()
+                        + " | profession=" + entry.profession()
+                        + " | status=" + entry.status()
+                        + " | nameplate=" + entry.nameplateText()
                 ));
             }
         }
