@@ -62,7 +62,6 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     private static final double ARRIVAL_DISTANCE = 1.0;
     private static final double RETRY_SECONDS = 1.0;
     private static final double DIAGNOSTIC_INTERVAL_SECONDS = 5.0;
-    private static final float FELL_DAMAGE_SCALE = 100_000.0f;
     // Temporary generic action animation. Kept behind one constant so a dedicated axe animation
     // can replace it without changing woodcutter gameplay logic.
     private static final String WOODCUTTING_ANIMATION = "Alerted";
@@ -205,7 +204,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
                 return;
             }
 
-            boolean felled = fellTree(world, store, runtime.tree);
+            boolean felled = fellTree(ref, world, store, runtime.tree);
             releaseReservation(key, runtime);
             runtime.tree = null;
             if (felled) {
@@ -740,6 +739,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     }
 
     private static boolean fellTree(
+        Ref<EntityStore> actor,
         World world,
         Store<EntityStore> entityStore,
         TreeStructure tree
@@ -756,7 +756,8 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             if (isInsideTriggerVolume(world, block)) {
                 return false;
             }
-            if (!isWoodStructureBlock(getLoadedBlockType(world, block.x(), block.y(), block.z()))) {
+            BlockType before = getLoadedBlockType(world, block.x(), block.y(), block.z());
+            if (!isWoodStructureBlock(before)) {
                 continue;
             }
 
@@ -766,17 +767,16 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
                 continue;
             }
 
-            changed |= BlockHarvestUtils.performBlockDamage(
+            BlockHarvestUtils.performBlockBreak(
+                actor,
+                null,
                 new Vector3i(block.x(), block.y(), block.z()),
-                null,
-                null,
-                FELL_DAMAGE_SCALE,
-                0,
-                false,
                 chunkRef,
                 entityStore,
                 chunkStore
             );
+            BlockType after = getLoadedBlockType(world, block.x(), block.y(), block.z());
+            changed |= isWoodStructureBlock(before) && !isWoodStructureBlock(after);
         }
 
         for (Map.Entry<BlockPosition, Integer> fill : tree.rootFillBlocks().entrySet()) {
