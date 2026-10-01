@@ -8,12 +8,15 @@ import com.hypixel.hytale.server.core.command.system.basecommands.AbstractPlayer
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import dev.civilizations.core.InhabitantActivity;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
+import dev.civilizations.hytale.CivActivityRegistry;
 import dev.civilizations.hytale.CivBuildingPersistenceService;
 import dev.civilizations.hytale.CivPathDebugService;
 import dev.civilizations.hytale.WoodcutterScanDiagnostics;
 
 import java.util.List;
+import java.util.Locale;
 
 final class CivDebugCommand extends AbstractPlayerCommand {
     private final BuildingPlacementRegistry buildingRegistry;
@@ -23,13 +26,15 @@ final class CivDebugCommand extends AbstractPlayerCommand {
         BuildingPlacementRegistry buildingRegistry,
         CivBuildingPersistenceService buildingPersistence,
         CivPathDebugService pathDebugService,
-        WoodcutterScanDiagnostics woodcutterScanDiagnostics
+        WoodcutterScanDiagnostics woodcutterScanDiagnostics,
+        CivActivityRegistry activityRegistry
     ) {
         super("civdebug", "Shows read-only Civilizations development diagnostics.");
         this.buildingRegistry = buildingRegistry;
         this.buildingPersistence = buildingPersistence;
         addSubCommand(new PathCommand(pathDebugService));
         addSubCommand(new WoodScanCommand(woodcutterScanDiagnostics));
+        addSubCommand(new ActivityCommand(activityRegistry));
         requireNoPermission();
     }
 
@@ -104,6 +109,55 @@ final class CivDebugCommand extends AbstractPlayerCommand {
                 "Civ wood scan debug " + (result.enabled() ? "enabled" : "disabled")
                     + " | " + result.snapshot().summary()
             ));
+        }
+    }
+
+    private static final class ActivityCommand extends AbstractPlayerCommand {
+        private final CivActivityRegistry activityRegistry;
+
+        private ActivityCommand(CivActivityRegistry activityRegistry) {
+            super("activity", "Shows manual-move and autonomous-work state for Civ inhabitants.");
+            this.activityRegistry = activityRegistry;
+            requireNoPermission();
+        }
+
+        @Override
+        protected void execute(
+            CommandContext context,
+            Store<EntityStore> store,
+            Ref<EntityStore> ref,
+            PlayerRef playerRef,
+            World world
+        ) {
+            List<CivActivityRegistry.ActivityDebugEntry> entries =
+                activityRegistry.debugSnapshots(store);
+            context.sendMessage(Message.raw(
+                "Civ activity debug | tracked inhabitants=" + entries.size()
+            ));
+            if (entries.isEmpty()) {
+                context.sendMessage(Message.raw(
+                    "Noch kein manueller Civ-Bewegungsauftrag in dieser Welt verfolgt."
+                ));
+                return;
+            }
+
+            for (CivActivityRegistry.ActivityDebugEntry entry : entries) {
+                InhabitantActivity.ActivitySnapshot snapshot = entry.snapshot();
+                String destination = snapshot.manualMovement() == null
+                    ? "-"
+                    : snapshot.manualMovement().destination().toString();
+                context.sendMessage(Message.raw(
+                    "entity=" + entry.entityIndex()
+                        + " | state=" + snapshot.mode()
+                        + " | autonomous=" + snapshot.autonomousWorkAllowed()
+                        + " | resume=" + String.format(
+                            Locale.ROOT,
+                            "%.2fs",
+                            snapshot.resumeDelayRemainingSeconds()
+                        )
+                        + " | destination=" + destination
+                ));
+            }
         }
     }
 }
