@@ -23,6 +23,7 @@ import dev.civilizations.hytale.CivInhabitantUseSystem;
 import dev.civilizations.hytale.CivManualMovementSystem;
 import dev.civilizations.hytale.CivNameplateStatusSystem;
 import dev.civilizations.hytale.CivPathDebugService;
+import dev.civilizations.hytale.CivPlayerRigDebugService;
 import dev.civilizations.hytale.CivUnitRegistry;
 import dev.civilizations.hytale.ConstructionWorkSystem;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
@@ -68,6 +69,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
         );
         CivUnitRegistry unitRegistry = new CivUnitRegistry(inhabitantService);
         CivPathDebugService pathDebugService = new CivPathDebugService(inhabitantDataType);
+        CivPlayerRigDebugService playerRigDebugService =
+            new CivPlayerRigDebugService(inhabitantDataType);
         CivActivityRegistry activityRegistry = new CivActivityRegistry(unitRegistry);
         FarmBuildingRegistry farmRegistry = new FarmBuildingRegistry(unitRegistry);
         FarmFieldRegistry fieldRegistry = new FarmFieldRegistry();
@@ -132,7 +135,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 pathDebugService,
                 woodcutterScanDiagnostics,
                 activityRegistry,
-                nameplateStatusSystem
+                nameplateStatusSystem,
+                playerRigDebugService
             )
         );
 

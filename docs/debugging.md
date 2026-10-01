@@ -1,5 +1,24 @@
 # Runtime-Debugging
 
+## Player-Rig-/Animations-Spike
+
+`/civdebug playerrig` schaltet für alle aktuell geladenen Civ-Bewohner einen isolierten Player-Rig-Test ein oder wieder aus.
+
+Beim Einschalten ersetzt Civ nur die Laufzeitdarstellung der bereits geladenen Bewohner durch Hytales natives `Player`-Model, weist über `PlayerSkinComponent` einen zufälligen nativen Player-Skin zu und startet einmal die bereits im Projekt verwendete Action-Animation `Alerted`. Das persistente `Civ_Inhabitant`-Rollen-Asset bleibt unverändert. Beim Ausschalten werden das vorherige Model und ein gegebenenfalls vorhandener Player-Skin wiederhergestellt.
+
+Der Befehl meldet zusätzlich, wie viele Animations-Sets das zur Laufzeit geladene `Player`-Model besitzt, und zeigt einen begrenzten Ausschnitt der Set-Namen. Diese Ausgabe ist Diagnoseinformation aus dem tatsächlich geladenen Hytale-Asset und keine Civ-eigene Animationsliste.
+
+### Manueller Test
+
+1. Mindestens einen NPC mit `/civclaim` als Civ-Bewohner beanspruchen.
+2. `/civdebug playerrig` ausführen. Der Bewohner muss auf das native Player-Model mit einem Player-Skin wechseln. Im Chat müssen die Anzahl der geladenen Bewohner und die Anzahl der Player-Animations-Sets erscheinen.
+3. Prüfen, ob die einmal ausgelöste Action-Animation `Alerted` auf dem Player-Rig sichtbar abgespielt wird.
+4. Dem Bewohner im RTS-Modus per Rechtsklick ein Bewegungsziel geben. Prüfen, ob Hytales native Idle-/Laufdarstellung auf dem Player-Rig plausibel funktioniert und die vorhandene Civ-Navigation unverändert bleibt.
+5. Optional einen Beruf zuweisen und prüfen, ob bestehende Arbeitsanimationen auf dem Player-Rig sichtbar oder offensichtlich inkompatibel sind. Dieser Spike ändert keine Berufslogik.
+6. `/civdebug playerrig` erneut ausführen. Der Bewohner muss auf seine ursprüngliche Darstellung zurückwechseln.
+
+Der Spike belegt erst dann die Eignung als dauerhafte Civ-NPC-Basis, wenn Model/Skin, native Fortbewegung und mehrere relevante Arbeitsanimationen im Client tatsächlich funktionieren. Die Existenz der Server-Komponenten allein ist kein Beweis für vollständige Runtime-Kompatibilität.
+
 ## Holzfäller-Baumsuche messen
 
 `/civdebug woodscan` schaltet die Laufzeitmessung der echten Hytale-Baumsuche ein oder aus.
