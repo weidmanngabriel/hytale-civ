@@ -1,1 +1,1300 @@
-{"schemaVersion":5,"id":"human_viking","species":"Human","culture":"Viking","colors":{"hair":{"gradientSet":"Hair","slots":["haircut","facialHair","eyebrows"],"byAge":{"Baby":["BrownDark","Brown","BrownLight","Blond","BlondPlatinum","BlondSand","Copper","Red"],"Child":["BrownDark","Brown","BrownLight","Blond","BlondPlatinum","BlondSand","Copper","Red"],"Adult":["BrownDark","Brown","BrownLight","Blond","BlondPlatinum","BlondSand","Copper","Red"],"Elder":["Grey","White"]}},"skin":{"gradientSet":"Skin","allowed":["02","08","09","15","48"],"slots":["bodyCharacteristic"]},"eyes":{"allowed":["Blue","BlueLight","Turquoise","GreenLight","Grey"],"gradientSet":"Eyes_Gradient","slots":["eyes"]},"earAccessory":{"gradientSet":"Ornamented_Metal","allowed":["Brass_Purple","Gold_Red","Copper_Green","Silver_Blue"],"slots":["earAccessory"]}},"slots":{"haircut":[{"label":"Viking","assetId":"Viking","sex":["Male","Female"],"ages":["Adult","Elder"]},{"label":"Braid","assetId":"Braid","sex":["Female"],"ages":["Adult","Elder"]},{"label":"Curly","assetId":"Curly","sex":["Female"],"ages":["Child","Adult","Elder"]},{"label":"Wings","assetId":"Wings","sex":["Male"],"ages":["Child","Adult","Elder"]},{"label":"Windswept","assetId":"Windswept","sex":["Female"],"ages":["Child","Adult","Elder"]},{"label":"Braided Ponytail","assetId":"BraidedPonytail","sex":["Female"],"ages":["Child","Adult","Elder"]},{"label":"Thick Braid","assetId":"ThickBraid","sex":["Female"],"ages":["Child","Adult","Elder"]},{"label":"Wavy Braid","assetId":"WavyBraids","sex":["Female"],"ages":["Child","Adult","Elder"]},{"label":"Viking Topknot","assetId":"VikinManBun","sex":["Female"],"ages":["Child","Adult","Elder"]},{"label":"Long Wavy","assetId":"WavyLong","sex":["Female"],"ages":["Child","Adult","Elder"]},{"label":"Long Low Tied","assetId":"LongTied","sex":["Female"],"ages":["Child","Adult","Elder"]},{"label":"Berserker","assetId":"Berserker","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Tied Face Framing Strands","assetId":"FrontTied","sex":["Female"],"ages":["Child","Adult","Elder"]},{"label":"Long Straight","assetId":"Long","sex":["Female"],"ages":["Child","Adult","Elder"]},{"label":"Spiky","assetId":"SpikedUp","sex":["Male"],"ages":["Child"]},{"label":"Buzz Cut","assetId":"BuzzCut","sex":["Male"],"ages":["Child","Adult","Elder"]},{"label":"Undercut Bangs","assetId":"BangsShavedBack","sex":["Male"],"ages":["Child","Adult","Elder"]},{"label":"Cornrows","assetId":"Cornrows","sex":["Male"],"ages":["Child","Adult","Elder"]},{"label":"Dreadlocks","assetId":"Dreadlocks","sex":["Male","Female"],"ages":["Child","Adult","Elder"]},{"label":"No Hair","assetId":null,"sex":["Male","Female"],"ages":["Baby"]},{"label":"No Hair","assetId":null,"sex":["Male"],"ages":["Adult","Elder"]}],"eyebrows":[{"label":"Medium","assetId":"Medium","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Thin","assetId":"Thin","sex":["Male","Female"],"ages":["Baby","Child","Adult","Elder"]},{"label":"Thick","assetId":"Thick","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Bushy","assetId":"Bushy","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Large","assetId":"Large","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Angry","assetId":"Angry","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Square","assetId":"Square","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Heavy Eyebrows","assetId":"Heavy","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Thin Bushy","assetId":"BushyThin","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Serious","assetId":"Serious","sex":["Male"],"ages":["Adult","Elder"]}],"eyes":[{"label":"Medium","assetId":"Medium_Eyes","sex":["Female"],"ages":["Baby","Child","Adult","Elder"]},{"label":"Square","assetId":"Square_Eyes","sex":["Male"],"ages":["Baby","Child","Adult","Elder"]}],"facialHair":[{"label":"Medium","assetId":"Medium","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Large","assetId":"Beard_Large","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Viking","assetId":"VikingBeard","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Pirate","assetId":"PirateBeard","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Triple Braid","assetId":"TripleBraid","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Double Braid","assetId":"DoubleBraid","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Long Goatee","assetId":"GoateeLong","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Soldier","assetId":"Soldier","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Hip","assetId":"Hip","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Trimmed","assetId":"Trimmed","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Stylish","assetId":"Stylish","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Short Trimmed","assetId":"Short_Trimmed","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Long Wavy Beard","assetId":"WavyLongBeard","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Long Curly Beard","assetId":"CurlyLongBeard","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Pointed Viking","assetId":"VikingBeard2","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Goatee","assetId":"Goatee","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Chin Curtain","assetId":"Chin_Curtain","sex":["Male"],"ages":["Adult","Elder"]},{"label":"None","assetId":null,"sex":["Female"],"ages":["Baby","Child","Adult","Elder"]},{"label":"None","assetId":null,"sex":["Male"],"ages":["Baby","Child"]}],"headAccessory":[],"faceAccessory":[],"earAccessory":[{"label":"None","assetId":null,"sex":["Male","Female"],"ages":["Baby","Child","Adult","Elder"]},{"label":"Simple Earrings","assetId":"SimpleEarring","sex":["Male","Female"],"ages":["Adult","Elder"],"variants":["Both","Left","Right"]},{"label":"Double Earrings","assetId":"DoubleEarrings","sex":["Male","Female"],"ages":["Adult","Elder"],"variants":["Both","Left","Right"]}],"underwear":[{"label":"Boxer","assetId":"Boxer","sex":["Male"],"ages":["Baby","Child","Adult","Elder"]},{"label":"Bra","assetId":"Bra","sex":["Female"],"ages":["Baby","Child","Adult","Elder"]}],"bodyCharacteristic":[{"label":"Muscular","assetId":"Muscular","sex":["Male","Female"],"ages":["Baby","Child","Adult","Elder"]}],"face":[{"label":"Default","assetId":"Face_Neutral","sex":["Male"],"ages":["Baby","Child","Adult","Elder"]},{"label":"Neutral - Freckles","assetId":"Face_Neutral_Freckles","sex":["Male"],"ages":["Child","Adult","Elder"],"requiresBaseColor":["Red","Copper"]},{"label":"Neutral - Scarred","assetId":"Face_Scar","sex":["Male"],"ages":["Child","Adult","Elder"]},{"label":"Neutral - Aged","assetId":"Face_Aged","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Neutral - Wizened","assetId":"Face_Older2","sex":["Male","Female"],"ages":["Elder"]},{"label":"Makeup","assetId":"Face_MakeUp","sex":["Male"],"ages":["Adult","Elder"]},{"label":"Makeup - Winged Eyes","assetId":"Face_Make_Up_2","sex":["Female"],"ages":["Baby","Child","Adult","Elder"]},{"label":"Makeup - Freckles","assetId":"Face_MakeUp_Freckles","sex":["Female"],"ages":["Baby","Child","Adult","Elder"],"requiresBaseColor":["Red","Copper"]},{"label":"Makeup - Eyeliner","assetId":"Face_MakeUp_HeavyEyeliner","sex":["Female"],"ages":["Adult","Elder"]},{"label":"Makeup - Aged","assetId":"Face_MakeUp_Older","sex":["Female"],"ages":["Elder"]},{"label":"Makeup - Wizened","assetId":"Face_MakeUp_Older2","sex":["Male","Female"],"ages":["Elder"]}],"mouth":[{"label":"Neutral","assetId":"Mouth_Default","sex":["Male"],"ages":["Baby","Child","Adult","Elder"]},{"label":"Makeup","assetId":"Mouth_Makeup","sex":["Female"],"ages":["Baby","Child","Adult","Elder"]}],"ears":[{"label":"Default","assetId":"Default","sex":["Male","Female"],"ages":["Baby","Child","Adult","Elder"]}],"undertop":[{"label":"V Neck Shirt","assetId":"VNeck_Shirt","sex":["Male"],"ages":["Child","Adult","Elder"]},{"label":"Belted Shirt","assetId":"Belt_Shirt","sex":["Male"],"ages":["Child","Adult","Elder"]},{"label":"Viking Shirt","assetId":"VikingShirt","sex":["Male"],"ages":["Child","Adult","Elder"]},{"label":"Gold Trimmed Shirt","assetId":"LongSleeveShirt_GoldTrim","sex":["Male"],"ages":["Child","Adult","Elder"]},{"label":"Simple Tunic","assetId":"FarmerTop","sex":["Male"],"ages":["Child","Adult","Elder"]},{"label":"Crinkled Top","assetId":"Crinkled_Top","sex":["Male"],"ages":["Child","Adult","Elder"]},{"label":"Heart Camisole","assetId":"HeartCamisole","sex":["Female"],"ages":["Child","Adult","Elder"]},{"label":"Tube Top","assetId":"Undertops_Tubetop","sex":["Female"],"ages":["Child","Adult","Elder"]},{"label":"Mercenary Top","assetId":"Mercenary_Top","sex":["Female"],"ages":["Child","Adult","Elder"]},{"label":"Catacomb Crawler Shirt","assetId":"CatacombCrawler_Undertop","sex":["Female"],"ages":["Child","Adult","Elder"]},{"label":"None","assetId":null,"sex":["Male","Female"],"ages":["Baby"]},{"label":"None","assetId":null,"sex":["Male"],"ages":["Child","Adult","Elder"]}],"overtop":[],"gloves":[{"label":"Leather Mittens","assetId":"LeatherMittens","sex":["Male","Female"],"ages":["Adult","Elder"]},{"label":"Leather Straps","assetId":"Straps_Leather","sex":["Male","Female"],"ages":["Adult","Elder"]},{"label":"Runic Shackles","assetId":"Shackles_Feran","sex":["Male","Female"],"ages":["Adult","Elder"]},{"label":"Catacomb Crawler Gloves","assetId":"CatacombCrawler_Gloves","sex":["Male","Female"],"ages":["Adult","Elder"]},{"label":"None","assetId":null,"sex":["Male","Female"],"ages":["Baby","Child"]}],"pants":[{"label":"Leather Pants","assetId":"LeatherPants","sex":["Male"],"ages":["Baby","Child","Adult","Elder"]},{"label":"Striped Pants","assetId":"StripedPants","sex":["Male"],"ages":["Baby","Child","Adult","Elder"]},{"label":"Bulky Suede","assetId":"BulkySuede","sex":["Male"],"ages":["Baby","Child","Adult","Elder"]},{"label":"Forest Bermuda","assetId":"Forest_Bermuda","sex":["Female"],"ages":["Baby","Child","Adult","Elder"]}],"overpants":[{"label":"Wraps","assetId":"LongSocks_BasicWrap","sex":["Male","Female"],"ages":["Baby","Child","Adult","Elder"]}],"shoes":[{"label":"Warm Boots","assetId":"SnowBoots","sex":["Male","Female"],"ages":["Child","Adult","Elder"]},{"label":"Polar Boots","assetId":"Arctic","sex":["Male","Female"],"ages":["Child","Adult","Elder"]},{"label":"Leather Boots","assetId":"LeatherBoots","sex":["Male","Female"],"ages":["Child","Adult","Elder"]},{"label":"None","assetId":null,"sex":["Male","Female"],"ages":["Baby"]}],"skinFeature":[],"cape":[]},"professionOverrides":{}}
+{
+  "schemaVersion": 5,
+  "id": "human_viking",
+  "species": "Human",
+  "culture": "Viking",
+  "colors": {
+    "hair": {
+      "gradientSet": "Hair",
+      "slots": [
+        "haircut",
+        "facialHair",
+        "eyebrows"
+      ],
+      "byAge": {
+        "Baby": [
+          "BrownDark",
+          "Brown",
+          "BrownLight",
+          "Blond",
+          "BlondPlatinum",
+          "BlondSand",
+          "Copper",
+          "Red"
+        ],
+        "Child": [
+          "BrownDark",
+          "Brown",
+          "BrownLight",
+          "Blond",
+          "BlondPlatinum",
+          "BlondSand",
+          "Copper",
+          "Red"
+        ],
+        "Adult": [
+          "BrownDark",
+          "Brown",
+          "BrownLight",
+          "Blond",
+          "BlondPlatinum",
+          "BlondSand",
+          "Copper",
+          "Red"
+        ],
+        "Elder": [
+          "Grey",
+          "White"
+        ]
+      }
+    },
+    "skin": {
+      "gradientSet": "Skin",
+      "allowed": [
+        "02",
+        "08",
+        "09",
+        "15",
+        "48"
+      ],
+      "slots": [
+        "bodyCharacteristic"
+      ]
+    },
+    "eyes": {
+      "allowed": [
+        "Blue",
+        "BlueLight",
+        "Turquoise",
+        "GreenLight",
+        "Grey"
+      ],
+      "gradientSet": "Eyes_Gradient",
+      "slots": [
+        "eyes"
+      ]
+    },
+    "earAccessory": {
+      "gradientSet": "Ornamented_Metal",
+      "allowed": [
+        "Brass_Purple",
+        "Gold_Red",
+        "Copper_Green",
+        "Silver_Blue"
+      ],
+      "slots": [
+        "earAccessory"
+      ]
+    }
+  },
+  "slots": {
+    "haircut": [
+      {
+        "label": "Viking",
+        "assetId": "Viking",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Braid",
+        "assetId": "Braid",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Curly",
+        "assetId": "Curly",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Wings",
+        "assetId": "Wings",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Windswept",
+        "assetId": "Windswept",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Braided Ponytail",
+        "assetId": "BraidedPonytail",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Thick Braid",
+        "assetId": "ThickBraid",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Wavy Braid",
+        "assetId": "WavyBraids",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Viking Topknot",
+        "assetId": "VikinManBun",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Long Wavy",
+        "assetId": "WavyLong",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Long Low Tied",
+        "assetId": "LongTied",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Berserker",
+        "assetId": "Berserker",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Tied Face Framing Strands",
+        "assetId": "FrontTied",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Long Straight",
+        "assetId": "Long",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Spiky",
+        "assetId": "SpikedUp",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Child"
+        ]
+      },
+      {
+        "label": "Buzz Cut",
+        "assetId": "BuzzCut",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Undercut Bangs",
+        "assetId": "BangsShavedBack",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Cornrows",
+        "assetId": "Cornrows",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Dreadlocks",
+        "assetId": "Dreadlocks",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "No Hair",
+        "assetId": null,
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Baby"
+        ]
+      },
+      {
+        "label": "No Hair",
+        "assetId": null,
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      }
+    ],
+    "eyebrows": [
+      {
+        "label": "Medium",
+        "assetId": "Medium",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Thin",
+        "assetId": "Thin",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Thick",
+        "assetId": "Thick",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Bushy",
+        "assetId": "Bushy",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Large",
+        "assetId": "Large",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Angry",
+        "assetId": "Angry",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Square",
+        "assetId": "Square",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Heavy Eyebrows",
+        "assetId": "Heavy",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Thin Bushy",
+        "assetId": "BushyThin",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Serious",
+        "assetId": "Serious",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      }
+    ],
+    "eyes": [
+      {
+        "label": "Medium",
+        "assetId": "Medium_Eyes",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Square",
+        "assetId": "Square_Eyes",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      }
+    ],
+    "facialHair": [
+      {
+        "label": "Medium",
+        "assetId": "Medium",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Large",
+        "assetId": "Beard_Large",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Viking",
+        "assetId": "VikingBeard",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Pirate",
+        "assetId": "PirateBeard",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Triple Braid",
+        "assetId": "TripleBraid",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Double Braid",
+        "assetId": "DoubleBraid",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Long Goatee",
+        "assetId": "GoateeLong",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Soldier",
+        "assetId": "Soldier",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Hip",
+        "assetId": "Hip",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Trimmed",
+        "assetId": "Trimmed",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Stylish",
+        "assetId": "Stylish",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Short Trimmed",
+        "assetId": "Short_Trimmed",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Long Wavy Beard",
+        "assetId": "WavyLongBeard",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Long Curly Beard",
+        "assetId": "CurlyLongBeard",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Pointed Viking",
+        "assetId": "VikingBeard2",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Goatee",
+        "assetId": "Goatee",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Chin Curtain",
+        "assetId": "Chin_Curtain",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "None",
+        "assetId": null,
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "None",
+        "assetId": null,
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Baby",
+          "Child"
+        ]
+      }
+    ],
+    "headAccessory": [],
+    "faceAccessory": [],
+    "earAccessory": [
+      {
+        "label": "None",
+        "assetId": null,
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Simple Earrings",
+        "assetId": "SimpleEarring",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ],
+        "variants": [
+          "Both",
+          "Left",
+          "Right"
+        ]
+      },
+      {
+        "label": "Double Earrings",
+        "assetId": "DoubleEarrings",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ],
+        "variants": [
+          "Both",
+          "Left",
+          "Right"
+        ]
+      }
+    ],
+    "underwear": [
+      {
+        "label": "Boxer",
+        "assetId": "Boxer",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Bra",
+        "assetId": "Bra",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      }
+    ],
+    "bodyCharacteristic": [
+      {
+        "label": "Muscular",
+        "assetId": "Muscular",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      }
+    ],
+    "face": [
+      {
+        "label": "Default",
+        "assetId": "Face_Neutral",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult"
+        ]
+      },
+      {
+        "label": "Neutral - Freckles",
+        "assetId": "Face_Neutral_Freckles",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+        ],
+        "requiresBaseColor": [
+          "Red",
+          "Copper"
+        ]
+      },
+      {
+        "label": "Neutral - Scarred",
+        "assetId": "Face_Scar",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+        ]
+      },
+      {
+        "label": "Neutral - Aged",
+        "assetId": "Face_Aged",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult"
+        ]
+      },
+      {
+        "label": "Neutral - Wizened",
+        "assetId": "Face_Older2",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Elder"
+        ]
+      },
+      {
+        "label": "Makeup",
+        "assetId": "Face_MakeUp",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Adult"
+        ]
+      },
+      {
+        "label": "Makeup - Winged Eyes",
+        "assetId": "Face_Make_Up_2",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult"
+        ]
+      },
+      {
+        "label": "Makeup - Freckles",
+        "assetId": "Face_MakeUp_Freckles",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult"
+        ],
+        "requiresBaseColor": [
+          "Red",
+          "Copper"
+        ]
+      },
+      {
+        "label": "Makeup - Eyeliner",
+        "assetId": "Face_MakeUp_HeavyEyeliner",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Adult"
+        ]
+      },
+      {
+        "label": "Makeup - Aged",
+        "assetId": "Face_MakeUp_Older",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Adult"
+        ]
+      },
+      {
+        "label": "Makeup - Wizened",
+        "assetId": "Face_MakeUp_Older2",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Elder"
+        ]
+      }
+    ],
+    "mouth": [
+      {
+        "label": "Neutral",
+        "assetId": "Mouth_Default",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Makeup",
+        "assetId": "Mouth_Makeup",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      }
+    ],
+    "ears": [
+      {
+        "label": "Default",
+        "assetId": "Default",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      }
+    ],
+    "undertop": [
+      {
+        "label": "V Neck Shirt",
+        "assetId": "VNeck_Shirt",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Belted Shirt",
+        "assetId": "Belt_Shirt",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Viking Shirt",
+        "assetId": "VikingShirt",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Gold Trimmed Shirt",
+        "assetId": "LongSleeveShirt_GoldTrim",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Simple Tunic",
+        "assetId": "FarmerTop",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Crinkled Top",
+        "assetId": "Crinkled_Top",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Heart Camisole",
+        "assetId": "HeartCamisole",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Tube Top",
+        "assetId": "Undertops_Tubetop",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Mercenary Top",
+        "assetId": "Mercenary_Top",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Catacomb Crawler Shirt",
+        "assetId": "CatacombCrawler_Undertop",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "None",
+        "assetId": null,
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Baby"
+        ]
+      },
+      {
+        "label": "None",
+        "assetId": null,
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      }
+    ],
+    "overtop": [],
+    "gloves": [
+      {
+        "label": "Leather Mittens",
+        "assetId": "LeatherMittens",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Leather Straps",
+        "assetId": "Straps_Leather",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Runic Shackles",
+        "assetId": "Shackles_Feran",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Catacomb Crawler Gloves",
+        "assetId": "CatacombCrawler_Gloves",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "None",
+        "assetId": null,
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Baby",
+          "Child"
+        ]
+      }
+    ],
+    "pants": [
+      {
+        "label": "Leather Pants",
+        "assetId": "LeatherPants",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Striped Pants",
+        "assetId": "StripedPants",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Bulky Suede",
+        "assetId": "BulkySuede",
+        "sex": [
+          "Male"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Forest Bermuda",
+        "assetId": "Forest_Bermuda",
+        "sex": [
+          "Female"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      }
+    ],
+    "overpants": [
+      {
+        "label": "Wraps",
+        "assetId": "LongSocks_BasicWrap",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Baby",
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      }
+    ],
+    "shoes": [
+      {
+        "label": "Warm Boots",
+        "assetId": "SnowBoots",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Polar Boots",
+        "assetId": "Arctic",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "Leather Boots",
+        "assetId": "LeatherBoots",
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Child",
+          "Adult",
+          "Elder"
+        ]
+      },
+      {
+        "label": "None",
+        "assetId": null,
+        "sex": [
+          "Male",
+          "Female"
+        ],
+        "ages": [
+          "Baby"
+        ]
+      }
+    ],
+    "skinFeature": [],
+    "cape": []
+  },
+  "professionOverrides": {}
+}
