@@ -11,6 +11,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
 import dev.civilizations.hytale.CivBuildingPersistenceService;
 import dev.civilizations.hytale.CivPathDebugService;
+import dev.civilizations.hytale.WoodcutterScanDiagnostics;
 
 import java.util.List;
 
@@ -21,12 +22,14 @@ final class CivDebugCommand extends AbstractPlayerCommand {
     CivDebugCommand(
         BuildingPlacementRegistry buildingRegistry,
         CivBuildingPersistenceService buildingPersistence,
-        CivPathDebugService pathDebugService
+        CivPathDebugService pathDebugService,
+        WoodcutterScanDiagnostics woodcutterScanDiagnostics
     ) {
         super("civdebug", "Shows read-only Civilizations development diagnostics.");
         this.buildingRegistry = buildingRegistry;
         this.buildingPersistence = buildingPersistence;
         addSubCommand(new PathCommand(pathDebugService));
+        addSubCommand(new WoodScanCommand(woodcutterScanDiagnostics));
         requireNoPermission();
     }
 
@@ -52,6 +55,7 @@ final class CivDebugCommand extends AbstractPlayerCommand {
             ));
         }
     }
+
     private static final class PathCommand extends AbstractPlayerCommand {
         private final CivPathDebugService pathDebugService;
 
@@ -74,6 +78,31 @@ final class CivDebugCommand extends AbstractPlayerCommand {
                 "Civ path debug " + (result.enabled() ? "enabled" : "disabled")
                     + " | loaded inhabitants=" + result.matchedNpcCount()
                     + " | flags changed=" + result.changedNpcCount()
+            ));
+        }
+    }
+
+    private static final class WoodScanCommand extends AbstractPlayerCommand {
+        private final WoodcutterScanDiagnostics diagnostics;
+
+        private WoodScanCommand(WoodcutterScanDiagnostics diagnostics) {
+            super("woodscan", "Toggles real Hytale woodcutter tree-search performance diagnostics.");
+            this.diagnostics = diagnostics;
+            requireNoPermission();
+        }
+
+        @Override
+        protected void execute(
+            CommandContext context,
+            Store<EntityStore> store,
+            Ref<EntityStore> ref,
+            PlayerRef playerRef,
+            World world
+        ) {
+            WoodcutterScanDiagnostics.ToggleResult result = diagnostics.toggle();
+            context.sendMessage(Message.raw(
+                "Civ wood scan debug " + (result.enabled() ? "enabled" : "disabled")
+                    + " | " + result.snapshot().summary()
             ));
         }
     }
