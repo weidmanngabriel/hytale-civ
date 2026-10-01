@@ -59,7 +59,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     private static final int MAX_TREE_BLOCKS = 512;
     private static final int WORK_POSITION_RADIUS = 3;
     private static final int WORK_SURFACE_VERTICAL_RADIUS = 6;
-    private static final double ARRIVAL_DISTANCE = 3.0;
+    private static final double ARRIVAL_DISTANCE = 1.0;
     private static final double RETRY_SECONDS = 1.0;
     private static final double DIAGNOSTIC_INTERVAL_SECONDS = 5.0;
     private static final float FELL_DAMAGE_SCALE = 100_000.0f;
@@ -164,14 +164,10 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         if (intent instanceof WoodcutterJob.FindTreeIntent) {
             searchForTree(ref, key, world, position, runtime, dt);
         } else if (intent instanceof WoodcutterJob.MoveToTreeIntent moveIntent) {
-            executeMovement(ref, key, position, runtime, moveIntent.movement());
-        } else if (intent instanceof WoodcutterJob.ChopTreeIntent chopIntent) {
+            executeMovement(ref, position, runtime, moveIntent.movement());
+        } else if (intent instanceof WoodcutterJob.ChopTreeIntent) {
             unitRegistry.clearMoveTarget(ref);
             if (!runtime.animationStarted) {
-                System.out.println(
-                    "[CivWoodcutterDiag] worker=" + key.entityIndex()
-                        + " state=chopping remaining=" + chopIntent.remainingSeconds()
-                );
                 AnimationUtils.playAnimation(
                     ref,
                     AnimationSlot.Action,
@@ -181,10 +177,6 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
                 runtime.animationStarted = true;
             }
             if (runtime.job.advanceWork(dt)) {
-                System.out.println(
-                    "[CivWoodcutterDiag] worker=" + key.entityIndex()
-                        + " state=ready-to-fell"
-                );
                 stopChopAnimation(ref, store);
                 runtime.animationStarted = false;
             }
@@ -194,10 +186,6 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             runtime.animationStarted = false;
 
             if (runtime.tree == null || treeTouchesProtectedVolume(world, runtime.tree)) {
-                System.out.println(
-                    "[CivWoodcutterDiag] worker=" + key.entityIndex()
-                        + " state=fell-aborted-invalid-target"
-                );
                 releaseReservation(key, runtime);
                 runtime.job.abandonTarget();
                 runtime.tree = null;
@@ -209,17 +197,9 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             releaseReservation(key, runtime);
             runtime.tree = null;
             if (felled) {
-                System.out.println(
-                    "[CivWoodcutterDiag] worker=" + key.entityIndex()
-                        + " state=fell-success"
-                );
                 runtime.job.fellingCompleted();
                 runtime.decisions.scheduleRetry(0.25);
             } else {
-                System.out.println(
-                    "[CivWoodcutterDiag] worker=" + key.entityIndex()
-                        + " state=fell-failed"
-                );
                 runtime.job.abandonTarget();
                 runtime.decisions.requestImmediate();
             }
@@ -292,7 +272,6 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
 
     private void executeMovement(
         Ref<EntityStore> ref,
-        CivUnitRegistry.UnitKey key,
         Vector3d position,
         WorkerRuntime runtime,
         MovementIntent movement
@@ -304,13 +283,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         }
 
         unitRegistry.clearMoveTarget(ref);
-        if (runtime.job.movementArrived()) {
-            System.out.println(
-                "[CivWoodcutterDiag] worker=" + key.entityIndex()
-                    + " state=arrived distance="
-                    + Math.sqrt(squared(position.x - target.x) + squared(position.z - target.z))
-            );
-        }
+        runtime.job.movementArrived();
     }
 
     private TreeCandidate findNearestTarget(
@@ -619,7 +592,6 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         int z
     ) {
         BlockPosition feet = new BlockPosition(x, feetY, z);
-        BlockPosition head = new BlockPosition(x, feetY + 1, z);
         BlockPosition support = new BlockPosition(x, feetY - 1, z);
         BlockType supportType = getLoadedBlockType(world, x, feetY - 1, z);
 
