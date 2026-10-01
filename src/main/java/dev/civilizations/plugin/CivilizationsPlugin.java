@@ -126,7 +126,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 buildingRegistry,
                 buildingPersistence,
                 pathDebugService,
-                woodcutterScanDiagnostics
+                woodcutterScanDiagnostics,
+                activityRegistry
             )
         );
 
