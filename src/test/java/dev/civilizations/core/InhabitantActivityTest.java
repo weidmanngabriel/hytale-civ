@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class InhabitantActivityTest {
 
     @Test
-    void manualMoveSuppressesAutonomousWorkUntilArrival() {
+    void manualMoveSuppressesAutonomousWorkUntilResumeDelayExpires() {
         InhabitantActivity activity = new InhabitantActivity();
         WorldPosition destination = new WorldPosition(8.5, 65.0, -2.5);
 
@@ -21,10 +21,34 @@ class InhabitantActivityTest {
 
         assertFalse(activity.autonomousWorkAllowed());
         assertEquals(new MovementIntent(destination), activity.manualMovementIntent());
+        assertEquals(
+            InhabitantActivity.ActivityMode.MANUAL_MOVE,
+            activity.snapshot().mode()
+        );
 
         assertTrue(activity.completeManualMove());
-        assertTrue(activity.autonomousWorkAllowed());
         assertNull(activity.manualMovementIntent());
+        assertFalse(activity.autonomousWorkAllowed());
+        assertEquals(
+            InhabitantActivity.ActivityMode.RESUME_DELAY,
+            activity.snapshot().mode()
+        );
+        assertEquals(
+            InhabitantActivity.MANUAL_MOVE_RESUME_DELAY_SECONDS,
+            activity.snapshot().resumeDelayRemainingSeconds(),
+            0.0001
+        );
+
+        activity.advance(1.5);
+        assertFalse(activity.autonomousWorkAllowed());
+        assertEquals(0.5, activity.snapshot().resumeDelayRemainingSeconds(), 0.0001);
+
+        activity.advance(0.5);
+        assertTrue(activity.autonomousWorkAllowed());
+        assertEquals(
+            InhabitantActivity.ActivityMode.AUTONOMOUS,
+            activity.snapshot().mode()
+        );
     }
 
     @Test
@@ -61,6 +85,11 @@ class InhabitantActivityTest {
         assertEquals(beforeOverride, job.intent());
 
         activity.completeManualMove();
+
+        assertFalse(activity.autonomousWorkAllowed());
+        assertEquals(beforeOverride, job.intent());
+
+        activity.advance(InhabitantActivity.MANUAL_MOVE_RESUME_DELAY_SECONDS);
 
         assertTrue(activity.autonomousWorkAllowed());
         assertEquals(beforeOverride, job.intent());
