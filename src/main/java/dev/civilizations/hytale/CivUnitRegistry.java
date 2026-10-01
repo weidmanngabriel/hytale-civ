@@ -41,9 +41,7 @@ public final class CivUnitRegistry {
 
     public boolean toggleClaim(Ref<EntityStore> ref) {
         if (inhabitantService.get(ref) != null) {
-            if (inhabitantService.getProfession(ref) == Profession.FARMER) {
-                professionInventory.leaveFarmer(ref);
-            }
+            professionInventory.leaveProfession(ref, inhabitantService.getProfession(ref));
             cancelMoveTarget(ref);
             inhabitantService.releaseInhabitant(ref);
             units.remove(keyOf(ref));
@@ -63,6 +61,7 @@ public final class CivUnitRegistry {
         CommandBuffer<EntityStore> commandBuffer
     ) {
         if (inhabitantService.isInhabitant(ref, commandBuffer)) {
+            professionInventory.leaveProfession(ref, inhabitantService.getProfession(ref));
             cancelMoveTarget(ref);
             inhabitantService.releaseInhabitant(ref, commandBuffer);
             units.remove(keyOf(ref));
@@ -192,13 +191,9 @@ public final class CivUnitRegistry {
         if (previous == profession) {
             return;
         }
-        if (previous == Profession.FARMER) {
-            professionInventory.leaveFarmer(ref);
-        }
+        professionInventory.leaveProfession(ref, previous);
         inhabitantService.assignProfession(ref, profession);
-        if (profession == Profession.FARMER) {
-            professionInventory.enterFarmer(ref);
-        }
+        professionInventory.enterProfession(ref, profession);
     }
 
     public Profession getProfession(Ref<EntityStore> ref) {
