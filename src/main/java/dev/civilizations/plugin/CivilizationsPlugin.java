@@ -25,6 +25,8 @@ import dev.civilizations.hytale.CivManualMovementSystem;
 import dev.civilizations.hytale.CivNameplateStatusSystem;
 import dev.civilizations.hytale.CivPathDebugService;
 import dev.civilizations.hytale.CivPlayerRigDebugService;
+import dev.civilizations.hytale.CivSelectedNpcHudController;
+import dev.civilizations.hytale.CivSelectedNpcHudSystem;
 import dev.civilizations.hytale.CivUnitRegistry;
 import dev.civilizations.hytale.ConstructionWorkSystem;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
@@ -75,6 +77,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
         CivPlayerRigDebugService playerRigDebugService =
             new CivPlayerRigDebugService(inhabitantDataType);
         CivActivityRegistry activityRegistry = new CivActivityRegistry(unitRegistry);
+        CivSelectedNpcHudController selectedNpcHudController =
+            new CivSelectedNpcHudController(unitRegistry, activityRegistry);
         FarmBuildingRegistry farmRegistry = new FarmBuildingRegistry(unitRegistry);
         FarmFieldRegistry fieldRegistry = new FarmFieldRegistry();
         BuildingPlacementRegistry buildingRegistry = new BuildingPlacementRegistry();
@@ -138,9 +142,14 @@ public final class CivilizationsPlugin extends JavaPlugin {
         CivNameplateStatusSystem nameplateStatusSystem =
             new CivNameplateStatusSystem(unitRegistry, activityRegistry);
         getEntityStoreRegistry().registerSystem(nameplateStatusSystem);
+        getEntityStoreRegistry().registerSystem(
+            new CivSelectedNpcHudSystem(selectedNpcHudController)
+        );
 
         getCommandRegistry().registerCommand(new CivTestCommand());
-        getCommandRegistry().registerCommand(new CivRtsTestCommand(rtsInteractionController));
+        getCommandRegistry().registerCommand(
+            new CivRtsTestCommand(rtsInteractionController, selectedNpcHudController)
+        );
         getCommandRegistry().registerCommand(new CivClaimCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivFarmCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivBuildCommand(rtsInteractionController));
@@ -164,8 +173,10 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 farmNpcWorkSystem.handleTriggerEnter(event.getEntityRef(), event.getVolumeId());
             }
         });
+        getEventRegistry().register(PlayerMouseButtonEvent.class, selectedNpcHudController::handleMouseButton);
         getEventRegistry().register(PlayerMouseButtonEvent.class, rtsInteractionController::handleMouseButton);
         getEventRegistry().register(PlayerMouseMotionEvent.class, rtsInteractionController::handleMouseMotion);
+        getEventRegistry().register(PlayerDisconnectEvent.class, selectedNpcHudController::handleDisconnect);
         getEventRegistry().register(PlayerDisconnectEvent.class, rtsInteractionController::handleDisconnect);
     }
 }

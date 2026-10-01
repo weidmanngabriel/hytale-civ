@@ -7,15 +7,21 @@ import com.hypixel.hytale.server.core.command.system.basecommands.AbstractPlayer
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import dev.civilizations.hytale.CivSelectedNpcHudController;
 import dev.civilizations.hytale.RtsInteractionController;
 
 final class CivRtsTestCommand extends AbstractPlayerCommand {
 
     private final RtsInteractionController interactionController;
+    private final CivSelectedNpcHudController hudController;
 
-    CivRtsTestCommand(RtsInteractionController interactionController) {
+    CivRtsTestCommand(
+        RtsInteractionController interactionController,
+        CivSelectedNpcHudController hudController
+    ) {
         super("civrtstest", "Toggles the Civilizations RTS camera/input validation mode.");
         this.interactionController = interactionController;
+        this.hudController = hudController;
         requireNoPermission();
     }
 
@@ -27,6 +33,7 @@ final class CivRtsTestCommand extends AbstractPlayerCommand {
         PlayerRef playerRef,
         World world
     ) {
-        interactionController.toggle(playerRef);
+        boolean active = interactionController.toggle(playerRef);
+        hudController.setRtsActive(playerRef, active);
     }
 }
