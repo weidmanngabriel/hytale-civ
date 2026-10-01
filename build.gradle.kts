@@ -24,9 +24,15 @@ repositories {
 val hytaleServerVersion = providers.gradleProperty("hytaleServerVersion").get()
 val artifactBaseName = providers.gradleProperty("artifactBaseName").getOrElse("hytale-civ")
 val assetPackDir = layout.projectDirectory.dir("asset-pack")
+val hytaleServerRuntime = configurations.create("hytaleServerRuntime") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    isTransitive = false
+}
 
 dependencies {
     compileOnly("com.hypixel.hytale:Server:$hytaleServerVersion")
+    hytaleServerRuntime("com.hypixel.hytale:Server:$hytaleServerVersion")
 
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -97,6 +103,48 @@ tasks.register<JavaExec>("simulationViewer") {
     description = "Starts the Hytale-independent desktop simulation viewer."
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("dev.civilizations.simulation.viewer.SimulationViewerApp")
+}
+
+val hytaleJavaLauncher = javaToolchains.launcherFor {
+    languageVersion = JavaLanguageVersion.of(25)
+}
+
+val hytaleServerBareSmoke = tasks.register<Exec>("hytaleServerBareSmoke") {
+    group = "verification"
+    description = "Boots the pinned Hytale server in bare/offline mode with the Civ plugin, then stops it."
+    dependsOn(pluginJar)
+
+    doFirst {
+        val smokeDir = layout.buildDirectory.dir("hytale-server-smoke").get().asFile
+        val modsDir = smokeDir.resolve("mods")
+        delete(smokeDir)
+        modsDir.mkdirs()
+
+        copy {
+            from(pluginJar.flatMap { it.archiveFile })
+            into(modsDir)
+        }
+
+        val serverJar = hytaleServerRuntime.singleFile
+        workingDir(smokeDir)
+        commandLine(
+            hytaleJavaLauncher.get().executablePath.asFile.absolutePath,
+            "-jar",
+            serverJar.absolutePath,
+            "--bare",
+            "--auth-mode",
+            "offline",
+            "--disable-sentry",
+            "--mods",
+            modsDir.absolutePath,
+            "--boot-command",
+            "stop"
+        )
+    }
+}
+
+hytaleServerBareSmoke.configure {
+    mustRunAfter(tasks.named("test"))
 }
 
 tasks.register("deployToHytale") {
