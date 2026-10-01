@@ -55,19 +55,13 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     private static final int TREE_MAX_ABOVE_BASE = 32;
     private static final int TREE_MAX_BELOW_BASE = 6;
     private static final int MAX_TREE_BLOCKS = 512;
+    private static final int WORK_POSITION_RADIUS = 3;
     private static final double ARRIVAL_DISTANCE = 0.6;
     private static final double RETRY_SECONDS = 1.0;
     private static final float FELL_DAMAGE_SCALE = 100_000.0f;
     // Temporary generic action animation. Kept behind one constant so a dedicated axe animation
     // can replace it without changing woodcutter gameplay logic.
     private static final String WOODCUTTING_ANIMATION = "Alerted";
-
-    private static final int[][] CARDINAL_OFFSETS = {
-        {1, 0},
-        {-1, 0},
-        {0, 1},
-        {0, -1}
-    };
 
     private static final int[][] CONNECTED_OFFSETS = {
         {1, 0, 0},
@@ -436,30 +430,43 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         double bestDistanceSquared = Double.POSITIVE_INFINITY;
         BlockPosition base = tree.base();
 
-        for (int[] offset : CARDINAL_OFFSETS) {
-            int x = base.x() + offset[0];
-            int z = base.z() + offset[1];
-            BlockPosition feet = new BlockPosition(x, base.y(), z);
-            BlockPosition head = new BlockPosition(x, base.y() + 1, z);
-            BlockPosition support = new BlockPosition(x, base.y() - 1, z);
-            BlockType supportType = getLoadedBlockType(world, support.x(), support.y(), support.z());
+        for (int radius = 1; radius <= WORK_POSITION_RADIUS; radius++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != radius) {
+                        continue;
+                    }
 
-            if (!isEmpty(getLoadedBlockType(world, feet.x(), feet.y(), feet.z()))
-                || !isEmpty(getLoadedBlockType(world, head.x(), head.y(), head.z()))
-                || isEmpty(supportType)
-                || isWoodStructureBlock(supportType)
-                || isInsideTriggerVolume(world, feet)
-                || isInsideTriggerVolume(world, support)) {
-                continue;
-            }
+                    int x = base.x() + dx;
+                    int z = base.z() + dz;
+                    BlockPosition feet = new BlockPosition(x, base.y(), z);
+                    BlockPosition head = new BlockPosition(x, base.y() + 1, z);
+                    BlockPosition support = new BlockPosition(x, base.y() - 1, z);
+                    BlockType supportType = getLoadedBlockType(
+                        world,
+                        support.x(),
+                        support.y(),
+                        support.z()
+                    );
 
-            Vector3d candidate = new Vector3d(x + 0.5, base.y(), z + 0.5);
-            double distanceSquared =
-                squared(workerPosition.x - candidate.x)
-                    + squared(workerPosition.z - candidate.z);
-            if (distanceSquared < bestDistanceSquared) {
-                bestDistanceSquared = distanceSquared;
-                best = candidate;
+                    if (!isEmpty(getLoadedBlockType(world, feet.x(), feet.y(), feet.z()))
+                        || !isEmpty(getLoadedBlockType(world, head.x(), head.y(), head.z()))
+                        || isEmpty(supportType)
+                        || isWoodStructureBlock(supportType)
+                        || isInsideTriggerVolume(world, feet)
+                        || isInsideTriggerVolume(world, support)) {
+                        continue;
+                    }
+
+                    Vector3d candidate = new Vector3d(x + 0.5, base.y(), z + 0.5);
+                    double distanceSquared =
+                        squared(workerPosition.x - candidate.x)
+                            + squared(workerPosition.z - candidate.z);
+                    if (distanceSquared < bestDistanceSquared) {
+                        bestDistanceSquared = distanceSquared;
+                        best = candidate;
+                    }
+                }
             }
         }
 
