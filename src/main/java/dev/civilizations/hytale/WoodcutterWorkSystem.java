@@ -705,6 +705,12 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         return false;
     }
 
+    public void forgetRuntime(Ref<EntityStore> ref) {
+        if (ref != null) {
+            releaseWorker(unitRegistry.keyOf(ref));
+        }
+    }
+
     private void releaseWorker(CivUnitRegistry.UnitKey worker) {
         WorkerRuntime runtime = workers.remove(worker);
         if (runtime != null) {
