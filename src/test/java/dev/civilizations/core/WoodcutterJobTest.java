@@ -46,7 +46,7 @@ class WoodcutterJobTest {
     }
 
     @Test
-    void largerTreesTakeLongerToChop() {
+    void largerTreesTakeLongerToChopUntilDurationCap() {
         WoodcutterJob.WorkTarget small = new WoodcutterJob.WorkTarget(
             new BlockPosition(1, 2, 3),
             new WorldPosition(0.5, 2.0, 3.5),
@@ -59,8 +59,11 @@ class WoodcutterJobTest {
         );
 
         assertTrue(large.chopSeconds() > small.chopSeconds());
-        assertEquals(5.0, small.chopSeconds(), 1.0e-9);
-        assertEquals(12.0, large.chopSeconds(), 1.0e-9);
+        assertEquals(4.3, small.chopSeconds(), 1.0e-9);
+        assertEquals(5.0, large.chopSeconds(), 1.0e-9);
+        assertEquals(9.5, WoodcutterJob.chopSecondsFor(110), 1.0e-9);
+        assertEquals(17.7, WoodcutterJob.chopSecondsFor(274), 1.0e-9);
+        assertEquals(20.0, WoodcutterJob.chopSecondsFor(1000), 1.0e-9);
     }
 
     @Test

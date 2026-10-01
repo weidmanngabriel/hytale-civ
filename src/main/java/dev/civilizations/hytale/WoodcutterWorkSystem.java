@@ -59,7 +59,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     private static final int MAX_TREE_BLOCKS = 512;
     private static final int WORK_POSITION_RADIUS = 3;
     private static final int WORK_SURFACE_VERTICAL_RADIUS = 6;
-    private static final double ARRIVAL_DISTANCE = 3.0;
+    private static final double ARRIVAL_DISTANCE = 1.0;
     private static final double RETRY_SECONDS = 1.0;
     private static final double DIAGNOSTIC_INTERVAL_SECONDS = 5.0;
     private static final float FELL_DAMAGE_SCALE = 100_000.0f;
@@ -619,7 +619,6 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         int z
     ) {
         BlockPosition feet = new BlockPosition(x, feetY, z);
-        BlockPosition head = new BlockPosition(x, feetY + 1, z);
         BlockPosition support = new BlockPosition(x, feetY - 1, z);
         BlockType supportType = getLoadedBlockType(world, x, feetY - 1, z);
 

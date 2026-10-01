@@ -40,14 +40,14 @@ RTS ist eine Bedienungsart und keine Voraussetzung für die Civ-Simulation. Bewo
 
 Einem ausgewählten, beanspruchten Civ-NPC kann über sein Aktionsmenü der Beruf Holzfäller zugewiesen werden.
 
-Der aktuelle Arbeitsablauf fällt einen erkannten Baum als zusammenhängende Holzstruktur und schützt dabei Civ-/Hytale-Trigger-Volumes vor automatischem Abbau:
+Der aktuelle Arbeitsablauf fällt einen erkannten Baum als zusammenhängende Holzstruktur und schützt dabei fertige Civ-Gebäude vor automatischem Abbau:
 
-1. Der Holzfäller sucht in geladenen Chunks nach einem geeigneten Baum. Berührt ein Holzblock des erkannten Baums irgendein aktives Trigger Volume, wird der gesamte Baum als Arbeitsziel verworfen.
+1. Der Holzfäller sucht in geladenen Chunks nach einem geeigneten Baum. Berührt ein Holzblock des erkannten Baums ein Trigger Volume mit `civ.type=building_bounds`, wird der gesamte Baum als Arbeitsziel verworfen.
 2. Ein Baum wird für genau einen Holzfäller reserviert. Weitere Holzfäller überspringen alle Holzblöcke dieses reservierten Baums.
-3. Der Holzfäller wählt einen freien Standplatz direkt neben dem Stamm. Unter seinen Füßen muss ein fester Nicht-Holz-Block liegen; Standplatz und Boden dürfen nicht in einem Trigger Volume liegen. Gibt es keinen solchen Platz, wird der Baum nicht bearbeitet.
+3. Der Holzfäller wählt einen freien Standplatz bis zu drei Blöcke um den Stamm. Unter seinen Füßen muss ein fester Nicht-Holz-Block liegen; Standplatz und Boden dürfen nicht in einem geschützten `building_bounds`-Volume liegen. Die Navigation läuft bis auf höchstens einen Block an diesen Arbeitspunkt heran; erst dann beginnt die Arbeitsphase. Gibt es keinen solchen Platz, wird der Baum nicht bearbeitet.
 4. Während der Arbeit bleibt der Holzfäller an diesem Standplatz und spielt vorläufig die austauschbare generische Action-Animation `Alerted` ab.
-5. Die Arbeitsdauer wächst mit der Zahl der erkannten Holzblöcke: aktuell zwei Sekunden Grundzeit plus 0,5 Sekunden pro Holzblock. Diese Werte sind vorläufige Balanceparameter.
-6. Unmittelbar vor dem Fällen wird der Trigger-Volume-Schutz erneut geprüft. Danach werden die erkannten Holzblöcke über Hytales nativen Block-Damage-/Harvest-Pfad abgebaut, damit Hytales normale Drops, Break-Events und Baum-/Blattverhalten weiterhin maßgeblich bleiben.
+5. Die Arbeitsdauer wächst mit der Zahl der erkannten Holzblöcke: aktuell vier Sekunden Grundzeit plus 0,05 Sekunden pro Holzblock, gedeckelt bei 20 Sekunden. Diese Werte sind vorläufige Balanceparameter.
+6. Unmittelbar vor dem Fällen wird der Gebäudeschutz erneut geprüft. Danach werden die erkannten Holzblöcke über Hytales nativen Block-Damage-/Harvest-Pfad abgebaut, damit Hytales normale Drops, Break-Events und Baum-/Blattverhalten weiterhin maßgeblich bleiben.
 7. Erkannte Wurzel-Holzblöcke unterhalb des Stammfußes werden ebenfalls entfernt. Für diese Positionen merkt sich Civ vor dem Fällen einen passenden häufigen Nicht-Holz-Nachbarblock und setzt ihn nach dem Abbau zurück, sofern die Position leer und weiterhin ungeschützt ist. Dadurch soll der Holzfäller Wurzellöcher schließen, ohne selbst in sie hinabzusteigen.
 8. Danach wird die Reservierung freigegeben und der Holzfäller sucht den nächsten Baum.
 
@@ -117,7 +117,7 @@ Ein Rechtsklick auf ein fertig gebautes Farmgebäude innerhalb seiner `building_
 
 Beim Development-Bootstrap werden die vier Seeds als ein nativer ItemStack angefordert und die NPC-Inventarbereiche Storage, Hotbar und Backpack nacheinander verwendet. Ein Seed gilt nur dann als ausgegeben, wenn Hytale die Einlagerung bestätigt; lehnt ein Inventarbereich das Item ab, wird der nächste Bereich versucht.\n\n### Farmer-Test-Saatgut
 
-Bis die allgemeine Materialbeschaffung umgesetzt ist, erhält ein Bewohner beim Wechsel in den Beruf Bauer vorläufig vier native Hytale-`Plant_Seeds_Wheat`-Seed-Bags in sein NPC-Inventar. Der Bauer verwendet diese jetzt tatsächlich auf dem fertig gebauten Weizenfeld: Der native Crop-Block wird auf der freien Position direkt über dem Ackerboden gesetzt, Hytale übernimmt den nativen Wachstumszyklus und reife Pflanzen werden über Hytales Farming-Ernte geerntet. Der dadurch real im NPC-Inventar ankommende Weizen wird anschließend zum Farmcontainer gebracht. Beim Wechsel aus dem Beruf Bauer werden bis zu vier verbliebene Bootstrap-Seed-Bags wieder entfernt. Nur die automatische Ausgabe der vier Seed-Bags ist Development-Bootstrap; Säen, Wachstum und Ernte sind der aktuelle Farmablauf.
+Bis die allgemeine Materialbeschaffung umgesetzt ist, erhält ein Bewohner beim Wechsel in den Beruf Bauer vorläufig vier native Hytale-`Plant_Seeds_Wheat`-Seed-Bags in sein NPC-Inventar. Der Bauer verwendet diese jetzt tatsächlich auf dem fertig gebauten Weizenfeld: Der native Crop-Block wird auf der freien Position direkt über dem Ackerboden gesetzt, Hytale übernimmt den nativen Wachstumszyklus und reife Pflanzen werden über Hytales Farming-Ernte geerntet; der dadurch real im NPC-Inventar ankommende Weizen wird anschließend zum Farmcontainer gebracht. Beim Wechsel aus dem Beruf Bauer werden bis zu vier verbliebene Bootstrap-Seed-Bags wieder entfernt. Nur die automatische Ausgabe der vier Seed-Bags ist Development-Bootstrap; Säen, Wachstum und Ernte sind der aktuelle Farmablauf.
 
 
 ### Gemeinsamer Gebäude-Lifecycle
