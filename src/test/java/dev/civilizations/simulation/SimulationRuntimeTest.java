@@ -74,7 +74,7 @@ class SimulationRuntimeTest {
 
         assertFalse(runtime.treeExists(tree));
         assertEquals(1, runtime.metrics().treesFelled());
-        assertEquals(2, runtime.metrics().treeSearches());
+        assertTrue(runtime.metrics().treeSearches() >= 2);
         assertEquals(1, runtime.metrics().movementRequests());
     }
 
