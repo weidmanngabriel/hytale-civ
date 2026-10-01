@@ -1,34 +1,44 @@
 package dev.civilizations.hytale;
 
 import com.hypixel.hytale.component.CommandBuffer;
+import com.hypixel.hytale.component.ComponentAccessor;
 import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.protocol.PlayerSkin;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.entity.Dirty;
 import com.hypixel.hytale.server.core.entity.nameplate.Nameplate;
 import com.hypixel.hytale.server.core.modules.entity.component.DisplayNameComponent;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentDisplayName;
+import com.hypixel.hytale.server.core.modules.entity.player.PlayerSkinComponent;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import com.hypixel.hytale.server.npc.role.support.DisplayNameSupport;
+import dev.civilizations.core.Gender;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.VikingNameGenerator;
 
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.random.RandomGenerator;
 
 /**
  * Owns persistent Civ inhabitant state independently from RTS input/session state.
  */
 public final class CivInhabitantService {
+    private static final String PLAYER_APPEARANCE = "Player";
 
     private final ComponentType<EntityStore, CivInhabitantData> inhabitantDataType;
     private final VikingNameGenerator nameGenerator;
+    private final VikingAppearanceGenerator appearanceGenerator;
 
     public CivInhabitantService(
         ComponentType<EntityStore, CivInhabitantData> inhabitantDataType,
-        VikingNameGenerator nameGenerator
+        VikingNameGenerator nameGenerator,
+        VikingAppearanceGenerator appearanceGenerator
     ) {
         this.inhabitantDataType = inhabitantDataType;
         this.nameGenerator = nameGenerator;
+        this.appearanceGenerator = appearanceGenerator;
     }
 
     public CivInhabitantData ensureInhabitant(Ref<EntityStore> ref) {
@@ -37,36 +47,8 @@ public final class CivInhabitantService {
         }
 
         CivInhabitantData data = ref.getStore().ensureAndGetComponent(ref, inhabitantDataType);
-        if (!data.hasIdentity()) {
-            VikingNameGenerator.GeneratedName generated =
-                nameGenerator.generate(ThreadLocalRandom.current());
-            data.setIdentity(
-                generated.gender(),
-                generated.firstName(),
-                generated.middleName(),
-                generated.lastName()
-            );
-            data.setProfession(Profession.UNEMPLOYED);
-        }
-
-        Message displayName = Message.raw(data.fullName());
-        ref.getStore().putComponent(
-            ref,
-            PersistentDisplayName.getComponentType(),
-            new PersistentDisplayName(displayName)
-        );
-        // HydrateDisplayName only creates the runtime component when an entity is added.
-        // Claims happen on an already loaded NPC, so update the runtime component now too.
-        ref.getStore().putComponent(
-            ref,
-            DisplayNameComponent.getComponentType(),
-            new DisplayNameComponent(displayName)
-        );
-        ref.getStore().putComponent(
-            ref,
-            Nameplate.getComponentType(),
-            new Nameplate(data.fullName())
-        );
+        initializeMissingPersistentData(data);
+        applyPresentation(ref, data, ref.getStore());
         markDirty(ref);
         return data;
     }
@@ -82,42 +64,77 @@ public final class CivInhabitantService {
         CivInhabitantData data = commandBuffer.getComponent(ref, inhabitantDataType);
         if (data == null) {
             data = new CivInhabitantData();
-            initializeIdentity(data);
+            initializeMissingPersistentData(data);
             commandBuffer.putComponent(ref, inhabitantDataType, data);
-        } else if (!data.hasIdentity()) {
-            initializeIdentity(data);
+        } else {
+            initializeMissingPersistentData(data);
         }
 
-        Message displayName = Message.raw(data.fullName());
-        commandBuffer.putComponent(
-            ref,
-            PersistentDisplayName.getComponentType(),
-            new PersistentDisplayName(displayName)
-        );
-        commandBuffer.putComponent(
-            ref,
-            DisplayNameComponent.getComponentType(),
-            new DisplayNameComponent(displayName)
-        );
-        commandBuffer.putComponent(
-            ref,
-            Nameplate.getComponentType(),
-            new Nameplate(data.fullName())
-        );
+        applyPresentation(ref, data, commandBuffer);
         markDirty(ref, commandBuffer);
         return data;
     }
 
-    private void initializeIdentity(CivInhabitantData data) {
-        VikingNameGenerator.GeneratedName generated =
-            nameGenerator.generate(ThreadLocalRandom.current());
-        data.setIdentity(
-            generated.gender(),
-            generated.firstName(),
-            generated.middleName(),
-            generated.lastName()
+    private void initializeMissingPersistentData(CivInhabitantData data) {
+        RandomGenerator random = ThreadLocalRandom.current();
+        if (!data.hasIdentity()) {
+            VikingNameGenerator.GeneratedName generated = nameGenerator.generate(random);
+            data.setIdentity(
+                generated.gender(),
+                generated.firstName(),
+                generated.middleName(),
+                generated.lastName()
+            );
+            data.setProfession(Profession.UNEMPLOYED);
+        }
+
+        if (!data.hasAppearance()) {
+            Gender gender = data.gender();
+            if (gender == null) {
+                throw new IllegalStateException("Civ inhabitant has no valid gender for appearance generation");
+            }
+            VikingAppearanceGenerator.GeneratedAppearance appearance =
+                appearanceGenerator.generate(gender, random);
+            data.setAppearance(appearance.ageStage(), appearance.playerSkin());
+        }
+    }
+
+    private static void applyPresentation(
+        Ref<EntityStore> ref,
+        CivInhabitantData data,
+        ComponentAccessor<EntityStore> accessor
+    ) {
+        Message displayName = Message.raw(data.fullName());
+        accessor.putComponent(
+            ref,
+            PersistentDisplayName.getComponentType(),
+            new PersistentDisplayName(displayName)
         );
-        data.setProfession(Profession.UNEMPLOYED);
+        // HydrateDisplayName only creates the runtime component when an entity is added.
+        // Claims happen on an already loaded NPC, so update the runtime component now too.
+        accessor.putComponent(
+            ref,
+            DisplayNameComponent.getComponentType(),
+            new DisplayNameComponent(displayName)
+        );
+        accessor.putComponent(
+            ref,
+            Nameplate.getComponentType(),
+            new Nameplate(data.fullName())
+        );
+
+        PlayerSkin skin = data.playerSkin();
+        if (skin == null) {
+            throw new IllegalStateException("Civ inhabitant appearance is not initialized");
+        }
+        if (!NPCEntity.setAppearance(ref, PLAYER_APPEARANCE, accessor)) {
+            throw new IllegalStateException("Hytale Player appearance is unavailable");
+        }
+        accessor.putComponent(
+            ref,
+            PlayerSkinComponent.getComponentType(),
+            new PlayerSkinComponent(skin)
+        );
     }
 
     public boolean releaseInhabitant(Ref<EntityStore> ref) {
@@ -125,8 +142,9 @@ public final class CivInhabitantService {
             return false;
         }
 
-        ref.getStore().removeComponent(ref, inhabitantDataType);
+        restoreNativeAppearance(ref, ref.getStore());
         restoreNativeDisplayName(ref, ref.getStore());
+        ref.getStore().removeComponent(ref, inhabitantDataType);
         markDirty(ref);
         return true;
     }
@@ -139,15 +157,30 @@ public final class CivInhabitantService {
             return false;
         }
 
-        commandBuffer.removeComponent(ref, inhabitantDataType);
+        restoreNativeAppearance(ref, commandBuffer);
         restoreNativeDisplayName(ref, commandBuffer);
+        commandBuffer.removeComponent(ref, inhabitantDataType);
         markDirty(ref, commandBuffer);
         return true;
     }
 
+    private static void restoreNativeAppearance(
+        Ref<EntityStore> ref,
+        ComponentAccessor<EntityStore> accessor
+    ) {
+        NPCEntity npc = accessor.getComponent(ref, NPCEntity.getComponentType());
+        if (npc != null && npc.getRole() != null) {
+            String appearance = npc.getRole().getAppearanceName();
+            if (appearance != null && !appearance.isBlank()) {
+                NPCEntity.setAppearance(ref, appearance, accessor);
+            }
+        }
+        accessor.tryRemoveComponent(ref, PlayerSkinComponent.getComponentType());
+    }
+
     private static void restoreNativeDisplayName(
         Ref<EntityStore> ref,
-        com.hypixel.hytale.component.ComponentAccessor<EntityStore> accessor
+        ComponentAccessor<EntityStore> accessor
     ) {
         DisplayNameSupport support = accessor.getComponent(ref, DisplayNameSupport.getComponentType());
         if (support != null) {
@@ -180,6 +213,9 @@ public final class CivInhabitantService {
         CivInhabitantData data = get(ref);
         if (data != null) {
             data.setProfession(profession);
+            if (profession == null || profession == Profession.UNEMPLOYED) {
+                data.setWorkplaceId(null);
+            }
             markDirty(ref);
         }
     }

@@ -194,6 +194,12 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
         }
     }
 
+    public void forgetRuntime(Ref<EntityStore> ref) {
+        if (ref != null) {
+            forgetFarmRuntime(unitRegistry.keyOf(ref));
+        }
+    }
+
     private void walkToField(
         Ref<EntityStore> ref,
         CivUnitRegistry.UnitKey key,

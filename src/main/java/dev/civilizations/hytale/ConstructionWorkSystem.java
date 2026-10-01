@@ -359,6 +359,12 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         runtime.decisions.scheduleRetry(0.25);
     }
 
+    public void forgetRuntime(Ref<EntityStore> ref) {
+        if (ref != null) {
+            releaseWorker(unitRegistry.keyOf(ref));
+        }
+    }
+
     private void releaseWorker(CivUnitRegistry.UnitKey key) {
         WorkerRuntime runtime = workers.remove(key);
         if (runtime != null) {

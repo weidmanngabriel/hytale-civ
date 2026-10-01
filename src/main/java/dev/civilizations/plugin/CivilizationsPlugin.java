@@ -18,6 +18,7 @@ import dev.civilizations.hytale.CivBuildingBlockProtectionSystem;
 import dev.civilizations.hytale.CivBuildingDataResource;
 import dev.civilizations.hytale.CivBuildingPersistenceService;
 import dev.civilizations.hytale.CivInhabitantData;
+import dev.civilizations.hytale.CivInhabitantLifecycleSystem;
 import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivInhabitantUseSystem;
 import dev.civilizations.hytale.CivManualMovementSystem;
@@ -33,6 +34,7 @@ import dev.civilizations.hytale.FarmNpcWorkSystem;
 import dev.civilizations.hytale.PrefabPlacementService;
 import dev.civilizations.hytale.RtsCameraController;
 import dev.civilizations.hytale.RtsInteractionController;
+import dev.civilizations.hytale.VikingAppearanceGenerator;
 import dev.civilizations.hytale.WoodcutterScanDiagnostics;
 import dev.civilizations.hytale.WoodcutterWorkSystem;
 
@@ -65,7 +67,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
 
         CivInhabitantService inhabitantService = new CivInhabitantService(
             inhabitantDataType,
-            new VikingNameGenerator()
+            new VikingNameGenerator(),
+            new VikingAppearanceGenerator()
         );
         CivUnitRegistry unitRegistry = new CivUnitRegistry(inhabitantService);
         CivPathDebugService pathDebugService = new CivPathDebugService(inhabitantDataType);
@@ -100,13 +103,12 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getEntityStoreRegistry().registerSystem(
             new CivManualMovementSystem(unitRegistry, activityRegistry)
         );
+
         FarmNpcWorkSystem farmNpcWorkSystem =
             new FarmNpcWorkSystem(unitRegistry, activityRegistry, farmRegistry, fieldRegistry);
-        getEntityStoreRegistry().registerSystem(farmNpcWorkSystem);
-        getEntityStoreRegistry().registerSystem(
-            new WoodcutterWorkSystem(unitRegistry, activityRegistry, woodcutterScanDiagnostics)
-        );
-        getEntityStoreRegistry().registerSystem(
+        WoodcutterWorkSystem woodcutterWorkSystem =
+            new WoodcutterWorkSystem(unitRegistry, activityRegistry, woodcutterScanDiagnostics);
+        ConstructionWorkSystem constructionWorkSystem =
             new ConstructionWorkSystem(
                 unitRegistry,
                 activityRegistry,
@@ -115,8 +117,24 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 buildingRegistry,
                 prefabPlacementService,
                 buildingPersistence
+            );
+
+        getEntityStoreRegistry().registerSystem(farmNpcWorkSystem);
+        getEntityStoreRegistry().registerSystem(woodcutterWorkSystem);
+        getEntityStoreRegistry().registerSystem(constructionWorkSystem);
+        getEntityStoreRegistry().registerSystem(
+            new CivInhabitantLifecycleSystem(
+                inhabitantDataType,
+                inhabitantService,
+                unitRegistry,
+                activityRegistry,
+                farmRegistry,
+                farmNpcWorkSystem,
+                woodcutterWorkSystem,
+                constructionWorkSystem
             )
         );
+
         CivNameplateStatusSystem nameplateStatusSystem =
             new CivNameplateStatusSystem(unitRegistry, activityRegistry);
         getEntityStoreRegistry().registerSystem(nameplateStatusSystem);
