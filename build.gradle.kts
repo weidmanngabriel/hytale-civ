@@ -32,6 +32,9 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("com.fasterxml.jackson.core:jackson-databind:2.19.2")
+    // Hytale remains compileOnly for the shipped plugin; tests need the same API at compile/runtime
+    // to verify persistent PlayerSkin and CharacterCreator-backed configuration contracts.
+    testImplementation("com.hypixel.hytale:Server:$hytaleServerVersion")
 }
 
 java {
