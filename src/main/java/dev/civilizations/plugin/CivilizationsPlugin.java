@@ -98,7 +98,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
             new FarmNpcWorkSystem(unitRegistry, activityRegistry, farmRegistry, fieldRegistry);
         getEntityStoreRegistry().registerSystem(farmNpcWorkSystem);
         getEntityStoreRegistry().registerSystem(
-            new WoodcutterWorkSystem(unitRegistry, activityRegistry)
+            new WoodcutterWorkSystem(unitRegistry, activityRegistry, buildingRegistry)
         );
         getEntityStoreRegistry().registerSystem(
             new ConstructionWorkSystem(
