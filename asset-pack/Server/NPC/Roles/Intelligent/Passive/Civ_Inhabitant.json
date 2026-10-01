@@ -6,7 +6,7 @@
   ],
   "DefaultNPCAttitude": "Ignore",
   "DefaultPlayerAttitude": "Neutral",
-  "Appearance": "Klops_Merchant",
+  "Appearance": "Player",
   "MaxHealth": 74,
   "DisableDamageGroups": [
     "Self"
