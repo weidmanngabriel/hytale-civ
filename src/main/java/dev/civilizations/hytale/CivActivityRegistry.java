@@ -1,6 +1,7 @@
 package dev.civilizations.hytale;
 
 import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.InhabitantActivity;
 import dev.civilizations.core.MovementIntent;
@@ -63,8 +64,9 @@ public final class CivActivityRegistry {
         return activity != null && activity.cancelManualMove();
     }
 
-    public List<ActivityDebugEntry> debugSnapshots() {
+    public List<ActivityDebugEntry> debugSnapshots(Store<EntityStore> store) {
         return activities.entrySet().stream()
+            .filter(entry -> entry.getKey().store() == store)
             .map(entry -> new ActivityDebugEntry(
                 entry.getKey().entityIndex(),
                 entry.getValue().snapshot()
