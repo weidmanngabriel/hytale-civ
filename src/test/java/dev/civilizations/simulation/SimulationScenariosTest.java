@@ -33,7 +33,7 @@ class SimulationScenariosTest {
         assertNotSame(first, second);
         assertEquals(first.worldSnapshot(), second.worldSnapshot());
 
-        first.runForSeconds(4.0);
+        first.runForSeconds(6.0);
 
         assertEquals(0, second.tickCount());
         assertEquals(3, second.worldSnapshot().trees().size());
