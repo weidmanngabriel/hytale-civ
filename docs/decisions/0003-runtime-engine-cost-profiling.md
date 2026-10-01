@@ -22,9 +22,12 @@ The measured fields are:
 - tree bases found,
 - tree structures collected,
 - wood blocks contained in collected tree structures,
-- work-position searches performed.
+- trees rejected by building protection or another worker's reservation,
+- work-position searches performed,
+- trees rejected because no stand position exists,
+- usable tree candidates.
 
-The profiler does not trigger additional gameplay searches. When disabled, the normal search path only performs the cheap enabled check and does not allocate per-scan counters.
+The profiler does not trigger additional gameplay searches. The prior full second scan used only for `no-target` diagnostics is removed; rejection counters are collected during the authoritative gameplay search instead. When profiling is disabled, the normal search path only performs the cheap enabled check and does not allocate per-scan counters.
 
 ## Consequences
 
