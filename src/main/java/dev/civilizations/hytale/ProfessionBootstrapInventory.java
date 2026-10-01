@@ -71,7 +71,18 @@ public final class ProfessionBootstrapInventory {
     }
 
     private void enterWoodcutter(Ref<EntityStore> ref) {
-        InventoryHelper.useItem(ref, WOODCUTTER_AXE_ITEM_ID, ref.getStore());
+        byte slot = InventoryHelper.findHotbarSlotWithItem(
+            ref,
+            ref.getStore(),
+            WOODCUTTER_AXE_ITEM_ID
+        );
+        if (slot < 0) {
+            slot = InventoryHelper.findHotbarEmptySlot(ref, ref.getStore());
+        }
+        if (slot < 0) {
+            return;
+        }
+        InventoryHelper.useItem(ref, WOODCUTTER_AXE_ITEM_ID, slot, ref.getStore());
     }
 
     private void leaveWoodcutter(Ref<EntityStore> ref) {
