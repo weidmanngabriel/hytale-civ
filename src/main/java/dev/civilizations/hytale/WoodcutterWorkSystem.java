@@ -58,6 +58,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     private static final int TREE_MAX_BELOW_BASE = 6;
     private static final int MAX_TREE_BLOCKS = 512;
     private static final int WORK_POSITION_RADIUS = 3;
+    private static final int DIAGNOSTIC_SAMPLE_LIMIT = 8;
     private static final double ARRIVAL_DISTANCE = 0.6;
     private static final double RETRY_SECONDS = 1.0;
     private static final float FELL_DAMAGE_SCALE = 100_000.0f;
@@ -130,9 +131,17 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         }
 
         WorkerRuntime runtime = workers.computeIfAbsent(key, ignored -> new WorkerRuntime());
+        runtime.diagnosticElapsed += dt;
         if (!activityRegistry.autonomousWorkAllowed(ref)) {
             stopChopAnimation(ref, store);
             runtime.animationStarted = false;
+            if (runtime.diagnosticElapsed >= RETRY_SECONDS) {
+                System.out.println(
+                    "[CivWoodcutterDiag] worker=" + key
+                        + " state=autonomous-work-blocked"
+                );
+                runtime.diagnosticElapsed = 0.0;
+            }
             return;
         }
 
@@ -212,11 +221,17 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         TreeCandidate candidate = findNearestTarget(world, position, key);
         if (candidate == null) {
             unitRegistry.clearMoveTarget(ref);
+            logSearchDiagnostics(world, position, key);
+            runtime.diagnosticElapsed = 0.0;
             runtime.decisions.scheduleRetry(RETRY_SECONDS);
             return;
         }
 
         if (!reserveTree(key, candidate.tree())) {
+            System.out.println(
+                "[CivWoodcutterDiag] worker=" + key
+                    + " state=reservation-race base=" + candidate.tree().base()
+            );
             runtime.decisions.requestImmediate();
             return;
         }
@@ -231,11 +246,21 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             candidate.tree().blocks().size()
         );
         if (!runtime.job.assignTarget(target)) {
+            System.out.println(
+                "[CivWoodcutterDiag] worker=" + key
+                    + " state=target-assignment-rejected base=" + candidate.tree().base()
+            );
             releaseTree(key, candidate.tree());
             return;
         }
 
         runtime.tree = candidate.tree();
+        System.out.println(
+            "[CivWoodcutterDiag] worker=" + key
+                + " state=target-assigned base=" + candidate.tree().base()
+                + " blocks=" + candidate.tree().blocks().size()
+                + " interaction=" + candidate.interactionPoint()
+        );
         WoodcutterJob.Intent nextIntent = runtime.job.intent();
         if (nextIntent instanceof WoodcutterJob.MoveToTreeIntent moveIntent) {
             unitRegistry.setMoveTarget(ref, toVector(moveIntent.movement().destination()));
@@ -314,6 +339,92 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         }
 
         return nearest;
+    }
+
+    private void logSearchDiagnostics(
+        World world,
+        Vector3d position,
+        CivUnitRegistry.UnitKey worker
+    ) {
+        int centerX = (int) Math.floor(position.x);
+        int centerY = (int) Math.floor(position.y);
+        int centerZ = (int) Math.floor(position.z);
+        int woodBlocks = 0;
+        int trunkNamedBlocks = 0;
+        int treeBases = 0;
+        int emptyTrees = 0;
+        int protectedTrees = 0;
+        int reservedTrees = 0;
+        int noStandPositionTrees = 0;
+        int usableTrees = 0;
+        List<String> samples = new ArrayList<>();
+
+        for (int x = centerX - SEARCH_RADIUS; x <= centerX + SEARCH_RADIUS; x++) {
+            for (int z = centerZ - SEARCH_RADIUS; z <= centerZ + SEARCH_RADIUS; z++) {
+                int dx = x - centerX;
+                int dz = z - centerZ;
+                if (dx * dx + dz * dz > SEARCH_RADIUS * SEARCH_RADIUS) {
+                    continue;
+                }
+
+                for (
+                    int y = centerY - SEARCH_VERTICAL_RADIUS;
+                    y <= centerY + SEARCH_VERTICAL_RADIUS;
+                    y++
+                ) {
+                    BlockType type = getLoadedBlockType(world, x, y, z);
+                    if (isWoodStructureBlock(type)) {
+                        woodBlocks++;
+                        if (samples.size() < DIAGNOSTIC_SAMPLE_LIMIT) {
+                            BlockGathering gathering = type.getGathering();
+                            BlockBreakingDropType breaking =
+                                gathering == null ? null : gathering.getBreaking();
+                            samples.add(
+                                type.getId() + "@" + x + "," + y + "," + z
+                                    + ":gather="
+                                    + (breaking == null ? "null" : breaking.getGatherType())
+                            );
+                        }
+                    }
+                    if (isTreeTrunk(type)) {
+                        trunkNamedBlocks++;
+                    }
+
+                    BlockPosition base = new BlockPosition(x, y, z);
+                    if (!isTreeBase(world, base)) {
+                        continue;
+                    }
+                    treeBases++;
+                    TreeStructure tree = collectTree(world, base);
+                    if (tree.blocks().isEmpty()) {
+                        emptyTrees++;
+                    } else if (treeTouchesProtectedVolume(world, tree)) {
+                        protectedTrees++;
+                    } else if (isReservedByOther(tree, worker)) {
+                        reservedTrees++;
+                    } else if (findWorkTarget(world, position, tree) == null) {
+                        noStandPositionTrees++;
+                    } else {
+                        usableTrees++;
+                    }
+                }
+            }
+        }
+
+        System.out.println(
+            "[CivWoodcutterDiag] worker=" + worker
+                + " state=no-target"
+                + " pos=" + centerX + "," + centerY + "," + centerZ
+                + " woods=" + woodBlocks
+                + " trunkNamed=" + trunkNamedBlocks
+                + " treeBases=" + treeBases
+                + " emptyTrees=" + emptyTrees
+                + " protected=" + protectedTrees
+                + " reserved=" + reservedTrees
+                + " noStand=" + noStandPositionTrees
+                + " usable=" + usableTrees
+                + " samples=" + samples
+        );
     }
 
     private static boolean isTreeBase(World world, BlockPosition position) {
@@ -690,5 +801,6 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         private final WorkDecisionSchedule decisions = new WorkDecisionSchedule();
         private TreeStructure tree;
         private boolean animationStarted;
+        private double diagnosticElapsed;
     }
 }
