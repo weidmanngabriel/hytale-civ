@@ -1,0 +1,14 @@
+{
+  "Parent": "Axe",
+  "Animations": {
+    "SwingDown": {
+      "ThirdPerson": "Characters/Animations/Items/Main_Handed/Axe/Attacks/Swing_Down/Swing_Down.blockyanim",
+      "ThirdPersonMoving": "Characters/Animations/Items/Main_Handed/Axe/Attacks/Swing_Down/Swing_Down_Moving.blockyanim",
+      "ThirdPersonFace": "Characters/Animations/Expressions/Angry.blockyanim",
+      "FirstPerson": "Characters/Animations/Items/Main_Handed/Axe/Attacks/Swing_Down/Swing_Down_FPS.blockyanim",
+      "KeepPreviousFirstPersonAnimation": true,
+      "Speed": 0.75,
+      "Looping": true
+    }
+  }
+}
