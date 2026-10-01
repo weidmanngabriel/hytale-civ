@@ -128,6 +128,7 @@ public final class BuildingPlacementRegistry {
         if (worldId == null) {
             return;
         }
+        reservations.remove(worldId);
         buildings.put(worldId, List.copyOf(restored == null ? List.of() : restored));
     }
 

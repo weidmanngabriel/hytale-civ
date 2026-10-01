@@ -42,6 +42,7 @@ Vor neuer Hytale-spezifischer Arbeit zuerst diese Übersicht und die relevante T
 
 - [Verifikation und API-Recherche](verification.md)
 - [Threading und World-Ausführung](threading.md)
+- [Lifecycle und Runtime-Zustand](lifecycle-runtime-state.md)
 - [UI und Interaktion](ui-interaction.md)
 - [NPCs und Navigation](npc-navigation.md)
 - [ECS und Persistenz](ecs-persistence.md)

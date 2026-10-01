@@ -4,12 +4,12 @@ import com.hypixel.hytale.component.ComponentType;
 import com.hypixel.hytale.component.ResourceType;
 import com.hypixel.hytale.builtin.triggervolumes.event.TriggerVolumeEvent;
 import com.hypixel.hytale.builtin.triggervolumes.effect.TriggerEventType;
-import com.hypixel.hytale.server.core.event.events.player.AddPlayerToWorldEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseMotionEvent;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
 import com.hypixel.hytale.server.core.plugin.JavaPluginInit;
+import com.hypixel.hytale.server.core.universe.world.events.StartWorldEvent;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.VikingNameGenerator;
 import dev.civilizations.hytale.CivActivityRegistry;
@@ -158,7 +158,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
             )
         );
 
-        getEventRegistry().registerGlobal(AddPlayerToWorldEvent.class, event -> rtsInteractionController.handleWorldJoin(event.getWorld()));
+        getEventRegistry().registerGlobal(StartWorldEvent.class, event -> rtsInteractionController.handleWorldJoin(event.getWorld()));
         getEventRegistry().registerGlobal(TriggerVolumeEvent.class, event -> {
             if (event.getTriggerEventType() == TriggerEventType.ENTER) {
                 farmNpcWorkSystem.handleTriggerEnter(event.getEntityRef(), event.getVolumeId());
