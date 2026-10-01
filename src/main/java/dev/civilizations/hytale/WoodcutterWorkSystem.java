@@ -49,6 +49,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore> {
 
     private static final String WOOD_GATHER_TYPE = "Woods";
+    private static final String CIV_TYPE_TAG = "civ.type";
+    private static final String BUILDING_BOUNDS_TAG = "building_bounds";
     private static final int SEARCH_RADIUS = 16;
     private static final int SEARCH_VERTICAL_RADIUS = 4;
     private static final int TREE_HORIZONTAL_RADIUS = 8;
@@ -545,6 +547,10 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             block.z() + 0.5
         );
         for (VolumeEntry volume : volumes.getVolumes()) {
+            Map<String, String> tags = volume.getRawTags();
+            if (tags == null || !BUILDING_BOUNDS_TAG.equals(tags.get(CIV_TYPE_TAG))) {
+                continue;
+            }
             if (volume.getShape() != null
                 && volume.getPosition() != null
                 && volume.getShape().contains(volume.getPosition(), blockCenter)) {
