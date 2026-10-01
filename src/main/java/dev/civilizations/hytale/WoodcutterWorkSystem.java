@@ -66,14 +66,12 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     // can replace it without changing woodcutter gameplay logic.
     private static final String WOODCUTTING_ANIMATION = "Alerted";
 
-    private static final int[][] CONNECTED_OFFSETS = {
-        {1, 0, 0},
-        {-1, 0, 0},
-        {0, 1, 0},
-        {0, -1, 0},
-        {0, 0, 1},
-        {0, 0, -1}
-    };
+    /**
+     * A Hytale tree can contain diagonally touching branches and roots. Treat all 26 adjacent
+     * positions in the surrounding 3x3x3 cube as connected, while the existing tree bounds and
+     * MAX_TREE_BLOCKS limit still cap how far one target may spread.
+     */
+    private static final int[][] TREE_CONNECTED_OFFSETS = createTreeConnectedOffsets();
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
@@ -297,6 +295,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             "[CivWoodcutterDiag] worker=" + key.entityIndex()
                 + " state=target-assigned base=" + candidate.tree().base()
                 + " blocks=" + candidate.tree().blocks().size()
+                + " groundFill=" + candidate.tree().rootFillBlocks().size()
                 + " interaction=" + candidate.interactionPoint()
         );
         WoodcutterJob.Intent nextIntent = runtime.job.intent();
@@ -367,7 +366,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
                         counters.treesCollected++;
                     }
 
-                    TreeStructure tree = collectTree(world, base);
+                    TreeStructure tree = collectTree(world, base, centerY);
                     if (counters != null) {
                         counters.treeBlocksCollected += tree.blocks().size();
                     }
@@ -430,7 +429,11 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         return !isTreeTrunk(getLoadedBlockType(world, x, y - 1, z));
     }
 
-    private static TreeStructure collectTree(World world, BlockPosition base) {
+    private static TreeStructure collectTree(
+        World world,
+        BlockPosition base,
+        int fillBelowY
+    ) {
         ArrayDeque<BlockPosition> queue = new ArrayDeque<>();
         Set<BlockPosition> visited = new HashSet<>();
         List<BlockPosition> blocks = new ArrayList<>();
@@ -452,14 +455,17 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             }
 
             blocks.add(current);
-            if (current.y() < base.y()) {
+            // Only wood positions Civ is about to remove can be restored. Using the worker's
+            // standing Y as the cutoff catches roots and buried trunk pieces without filling
+            // unrelated pre-existing air pockets around the tree.
+            if (current.y() < fillBelowY) {
                 Integer fillBlock = findNaturalFillBlock(world, current);
                 if (fillBlock != null) {
                     rootFillBlocks.put(current, fillBlock);
                 }
             }
 
-            for (int[] offset : CONNECTED_OFFSETS) {
+            for (int[] offset : TREE_CONNECTED_OFFSETS) {
                 queue.addLast(new BlockPosition(
                     current.x() + offset[0],
                     current.y() + offset[1],
@@ -698,7 +704,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
 
     private static Integer findNaturalFillBlock(World world, BlockPosition root) {
         Map<Integer, Integer> counts = new HashMap<>();
-        for (int[] offset : CONNECTED_OFFSETS) {
+        for (int[] offset : TREE_CONNECTED_OFFSETS) {
             int x = root.x() + offset[0];
             int y = root.y() + offset[1];
             int z = root.z() + offset[2];
@@ -810,6 +816,25 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
 
     private static double squared(double value) {
         return value * value;
+    }
+
+    private static int[][] createTreeConnectedOffsets() {
+        int[][] offsets = new int[26][3];
+        int index = 0;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    if (dx == 0 && dy == 0 && dz == 0) {
+                        continue;
+                    }
+                    offsets[index][0] = dx;
+                    offsets[index][1] = dy;
+                    offsets[index][2] = dz;
+                    index++;
+                }
+            }
+        }
+        return offsets;
     }
 
     private record TreeCandidate(TreeStructure tree, Vector3d interactionPoint) {
