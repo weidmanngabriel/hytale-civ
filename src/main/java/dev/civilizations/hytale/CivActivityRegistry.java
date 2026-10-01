@@ -1,11 +1,14 @@
 package dev.civilizations.hytale;
 
 import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.InhabitantActivity;
 import dev.civilizations.core.MovementIntent;
 import dev.civilizations.core.WorldPosition;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -39,6 +42,13 @@ public final class CivActivityRegistry {
         return activity == null ? null : activity.manualMovementIntent();
     }
 
+    public void advance(Ref<EntityStore> ref, double deltaSeconds) {
+        InhabitantActivity activity = activities.get(unitRegistry.keyOf(ref));
+        if (activity != null) {
+            activity.advance(deltaSeconds);
+        }
+    }
+
     public boolean autonomousWorkAllowed(Ref<EntityStore> ref) {
         InhabitantActivity activity = activities.get(unitRegistry.keyOf(ref));
         return activity == null || activity.autonomousWorkAllowed();
@@ -54,6 +64,17 @@ public final class CivActivityRegistry {
         return activity != null && activity.cancelManualMove();
     }
 
+    public List<ActivityDebugEntry> debugSnapshots(Store<EntityStore> store) {
+        return activities.entrySet().stream()
+            .filter(entry -> entry.getKey().store() == store)
+            .map(entry -> new ActivityDebugEntry(
+                entry.getKey().entityIndex(),
+                entry.getValue().snapshot()
+            ))
+            .sorted(Comparator.comparingInt(ActivityDebugEntry::entityIndex))
+            .toList();
+    }
+
     public void forget(Ref<EntityStore> ref) {
         activities.remove(unitRegistry.keyOf(ref));
     }
@@ -63,5 +84,11 @@ public final class CivActivityRegistry {
             unitRegistry.keyOf(ref),
             ignored -> new InhabitantActivity()
         );
+    }
+
+    public record ActivityDebugEntry(
+        int entityIndex,
+        InhabitantActivity.ActivitySnapshot snapshot
+    ) {
     }
 }

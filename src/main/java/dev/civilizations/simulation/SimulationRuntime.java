@@ -249,11 +249,18 @@ public final class SimulationRuntime {
     }
 
     private void tickResident(Resident resident) {
+        resident.activity.advance(tickSeconds);
+
         MovementIntent manual = resident.activity.manualMovementIntent();
         if (manual != null) {
             if (advanceMovement(resident, manual.destination())) {
                 resident.activity.completeManualMove();
             }
+            return;
+        }
+
+        if (!resident.activity.autonomousWorkAllowed()) {
+            clearMovement(resident);
             return;
         }
 
@@ -572,8 +579,12 @@ public final class SimulationRuntime {
     }
 
     private static String stateName(Resident resident) {
-        if (resident.activity.manualMovementIntent() != null) {
+        InhabitantActivity.ActivityMode activityMode = resident.activity.snapshot().mode();
+        if (activityMode == InhabitantActivity.ActivityMode.MANUAL_MOVE) {
             return "MANUAL_MOVE";
+        }
+        if (activityMode == InhabitantActivity.ActivityMode.RESUME_DELAY) {
+            return "RESUME_DELAY";
         }
         return autonomousStateName(resident);
     }

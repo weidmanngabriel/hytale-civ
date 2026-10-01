@@ -18,7 +18,8 @@ import org.joml.Vector3d;
  */
 public final class CivManualMovementSystem extends EntityTickingSystem<EntityStore> {
 
-    private static final double ARRIVAL_DISTANCE = 0.6;
+    private static final double ARRIVAL_HORIZONTAL_DISTANCE = 1.0;
+    private static final double ARRIVAL_VERTICAL_DISTANCE = 2.0;
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
@@ -56,6 +57,10 @@ public final class CivManualMovementSystem extends EntityTickingSystem<EntitySto
             return;
         }
 
+        // The shared Core activity state owns the post-command resume delay, so every profession
+        // gets identical interruption behavior without profession-specific timers.
+        activityRegistry.advance(ref, dt);
+
         MovementIntent intent = activityRegistry.manualMovementIntent(ref);
         if (intent == null) {
             return;
@@ -88,6 +93,11 @@ public final class CivManualMovementSystem extends EntityTickingSystem<EntitySto
     }
 
     private static boolean hasArrived(Vector3d position, Vector3d target) {
-        return position.distanceSquared(target) <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
+        double dx = position.x - target.x;
+        double dz = position.z - target.z;
+        double horizontalDistanceSquared = dx * dx + dz * dz;
+        return horizontalDistanceSquared
+            <= ARRIVAL_HORIZONTAL_DISTANCE * ARRIVAL_HORIZONTAL_DISTANCE
+            && Math.abs(position.y - target.y) <= ARRIVAL_VERTICAL_DISTANCE;
     }
 }

@@ -12,9 +12,13 @@ Der aktuelle Produkt-Meilenstein ist ein RTS-Prototyp mit steuerbaren NPCs zusä
 
 Für Entwicklung und Balancing besitzt die Hytale-unabhängige Simulation mehrere auswählbare Start-Szenarien. Der Desktop-Simulator startet standardmäßig mit <strong>Demo Settlement</strong>; weitere kleine Szenarien isolieren Holzfäller, Bauarbeiter, Bauer sowie absichtlich wartende Arbeiter. Ein Szenariowechsel oder Reset startet den jeweiligen definierten Weltzustand wieder bei Tick 0.
 
-<code>/civtest</code> zeigt, dass das Plugin geladen ist.\n\n<code>/civdebug</code> ist ein vorläufiger, rein lesender Entwicklungsbefehl. Er zeigt für die aktuelle Welt die Anzahl der Laufzeit- und persistent gespeicherten Civ-Gebäude sowie pro persistentem Gebäude ID, Typ, Anzahl gespeicherter Snapshot-Blöcke und semantische Trigger-Volume-Typen. Er verändert keinen Spielzustand und soll vor einem fertigen Release wieder entfernt oder deaktiviert werden.
+<code>/civtest</code> zeigt, dass das Plugin geladen ist.
+
+<code>/civdebug</code> ist ein vorläufiger, rein lesender Entwicklungsbefehl. Er zeigt für die aktuelle Welt die Anzahl der Laufzeit- und persistent gespeicherten Civ-Gebäude sowie pro persistentem Gebäude ID, Typ, Anzahl gespeicherter Snapshot-Blöcke und semantische Trigger-Volume-Typen. Er verändert keinen Spielzustand und soll vor einem fertigen Release wieder entfernt oder deaktiviert werden.
 
 <code>/civdebug path</code> schaltet für die aktuell geladenen Civ-Bewohner Hytales native NPC-Pfadvisualisierung <code>VisPath</code> ein beziehungsweise wieder aus. Die Darstellung stammt aus Hytales tatsächlichem Navigationspfad; Civ berechnet dafür keinen eigenen Debug-Pfad. Bereits gesetzte andere NPC-Debug-Flags bleiben erhalten. Beim Ausschalten entfernt Civ <code>VisPath</code> nur bei Bewohnern, bei denen Civ den Flag zuvor selbst gesetzt hat. Dieser Slice dient zunächst der Runtime-Verifikation und gilt nur für die beim Umschalten aktuell geladenen Civ-Bewohner.
+
+<code>/civdebug activity</code> zeigt für die in der aktuellen Welt bereits verfolgten Civ-Bewohner den gemeinsamen Aktivitätszustand für manuelle Bewegung und autonome Berufsarbeit. Angezeigt werden Entity-Index, Zustand (<code>MANUAL_MOVE</code>, <code>RESUME_DELAY</code> oder <code>AUTONOMOUS</code>), Freigabe der autonomen Arbeit, verbleibende Wiederanlaufzeit und das aktuelle manuelle Ziel. Der Befehl ist rein lesend und dient dazu, Unterbrechung und automatische Wiederaufnahme direkt im Spiel zu prüfen.
 
 <code>/civrtstest</code> schaltet eine feste, schräge RTS-Kamera mit sichtbarem Mauszeiger ein oder aus. Der Spieler wechselt dabei nicht in den Spectator-Modus.
 
@@ -29,7 +33,7 @@ Während der RTS-Modus aktiv ist:
 - Nicht beanspruchte Einheiten können nicht ausgewählt werden.
 - Ein Rechtsklick auf den aktuell ausgewählten Civ-Bewohner öffnet dessen Aktionsmenü.
 - Die erste verfügbare Aktion weist den Beruf Holzfäller zu.
-- Ein Rechtsklick auf einen Bodenblock gibt dem ausgewählten Bewohner ein direktes Bewegungsziel. Dieser manuelle Befehl pausiert seine automatische Berufsarbeit bis zum Erreichen des Ziels; danach nimmt er sie wieder auf.
+- Ein Rechtsklick auf einen Bodenblock gibt dem ausgewählten Bewohner ein direktes Bewegungsziel. Dieser manuelle Befehl pausiert seine automatische Berufsarbeit. Sobald der Bewohner das Ziel erreicht hat, endet der manuelle Auftrag; nach einer gemeinsamen Wiederanlaufpause von zwei Sekunden darf der bereits zugewiesene Beruf automatisch mit seinem unveränderten Zustand weiterarbeiten. Der Beruf muss nicht erneut zugewiesen werden.
 - <code>/civbuild</code> öffnet den Gebäudekatalog. Solange dieser geöffnet ist, sind normale RTS-Interaktionen mit der Welt pausiert.
 - <code>/civwiki</code> öffnet das Ingame-Wiki.
 - Gebäude im Katalog sind alphabetisch nach ihrem Anzeigenamen sortiert.
@@ -88,7 +92,12 @@ Wird das Wiki während einer aktiven Farm-Platzierung geöffnet, wird die Platzi
 ### Farm und Feld bauen
 
 Der Spieler platziert Farmgebäude und Weizenfeld getrennt über das Gebäudemenü. Beide verwenden denselben Vorschau-, Validierungs- und Platzierungsablauf. Das Feld wird nicht automatisch durch die Farm erzeugt. Fertig gebaute Felder werden über ihren Prefab-Marker `civ.building=farm` und `civ.type=field` als Farmfelder registriert. Dieser Trigger-Marker bestimmt zugleich das Arbeitsziel des Bauern; Civ berechnet dafür keine Position mehr aus der Feldgeometrie. Der erste Farmer-Loop verwendet automatisch das nächstgelegene fertige Feld zur zugewiesenen Farm; eine manuelle Farm-Feld-Verknüpfung gibt es in diesem Build noch nicht.
-\n\n### Baustellen statt Sofortbau\n\nDie funktionierende native Paste-Tool-Vorschau bleibt die Platzierungsoberfläche. Beim Bestätigen einer von Civ gestarteten Farm- oder Feldplatzierung soll das fertige Prefab jedoch nicht sofort in die Welt eingefügt werden. Der aktuelle Baustellen-Slice bricht den nativen Paste vor der Weltmutation ab und setzt an der bestätigten Position eine persistente Hytale-Prefab-Vorschau als Baustelle. Die eigentliche schrittweise Materialisierung durch Bau-NPCs ist der nächste Slice und wird nicht durch einen sofortigen versteckten Paste simuliert.\n
+
+
+### Baustellen statt Sofortbau
+
+Die funktionierende native Paste-Tool-Vorschau bleibt die Platzierungsoberfläche. Beim Bestätigen einer von Civ gestarteten Farm- oder Feldplatzierung soll das fertige Prefab jedoch nicht sofort in die Welt eingefügt werden. Der aktuelle Baustellen-Slice bricht den nativen Paste vor der Weltmutation ab und setzt an der bestätigten Position eine persistente Hytale-Prefab-Vorschau als Baustelle. Die eigentliche schrittweise Materialisierung durch Bau-NPCs ist der nächste Slice und wird nicht durch einen sofortigen versteckten Paste simuliert.
+
 
 A confirmed Civ building is initially represented as a construction blueprint rather than a finished functional building. The blueprint must be cancellable and must not activate the building's trigger volumes. Trigger volumes become active only when construction is completed. The current construction spike does not yet implement NPC-driven progressive block placement.
 
@@ -113,9 +122,15 @@ Funktionsbereiche wie `workplace_access` oder `output_storage` bleiben eigene Tr
 ### Gebäude abreißen
 
 Ein Rechtsklick auf ein fertig gebautes Farmgebäude innerhalb seiner `building_bounds` öffnet die Gebäudeaktionen, wenn kein Civ-Bewohner ausgewählt ist. Ist ein Bewohner ausgewählt, hat die Arbeitsplatzzuweisung Vorrang und das Gebäude-Interface öffnet sich nicht. Über **Abreißen** und eine separate Bestätigung kann die Farm vollständig entfernt werden. Civ entfernt dabei die Prefab-Blöcke und Trigger Volumes, stellt jede vom Farm-Prefab überschriebene Position auf ihren Zustand vor dem Bau zurück und gibt die Fläche im Gebäuderegister wieder frei. Das separat platzierte Weizenfeld gehört nicht zum Farmabriss und bleibt bestehen.
-\n\nFertige Farmgebäude und der für einen späteren Abriss benötigte ursprüngliche Boden bleiben über Welt-/Server-Neustarts erhalten. Beim erneuten Betreten der Welt werden Schutz, Gebäudeinteraktion und Farm-Arbeitsplatz aus den gespeicherten Gebäudedaten rekonstruiert.\n
 
-Beim Development-Bootstrap werden die vier Seeds als ein nativer ItemStack angefordert und die NPC-Inventarbereiche Storage, Hotbar und Backpack nacheinander verwendet. Ein Seed gilt nur dann als ausgegeben, wenn Hytale die Einlagerung bestätigt; lehnt ein Inventarbereich das Item ab, wird der nächste Bereich versucht.\n\n### Farmer-Test-Saatgut
+
+Fertige Farmgebäude und der für einen späteren Abriss benötigte ursprüngliche Boden bleiben über Welt-/Server-Neustarts erhalten. Beim erneuten Betreten der Welt werden Schutz, Gebäudeinteraktion und Farm-Arbeitsplatz aus den gespeicherten Gebäudedaten rekonstruiert.
+
+
+Beim Development-Bootstrap werden die vier Seeds als ein nativer ItemStack angefordert und die NPC-Inventarbereiche Storage, Hotbar und Backpack nacheinander verwendet. Ein Seed gilt nur dann als ausgegeben, wenn Hytale die Einlagerung bestätigt; lehnt ein Inventarbereich das Item ab, wird der nächste Bereich versucht.
+
+
+### Farmer-Test-Saatgut
 
 Bis die allgemeine Materialbeschaffung umgesetzt ist, erhält ein Bewohner beim Wechsel in den Beruf Bauer vorläufig vier native Hytale-`Plant_Seeds_Wheat`-Seed-Bags in sein NPC-Inventar. Der Bauer verwendet diese jetzt tatsächlich auf dem fertig gebauten Weizenfeld: Der native Crop-Block wird auf der freien Position direkt über dem Ackerboden gesetzt, Hytale übernimmt den nativen Wachstumszyklus und reife Pflanzen werden über Hytales Farming-Ernte geerntet; der dadurch real im NPC-Inventar ankommende Weizen wird anschließend zum Farmcontainer gebracht. Beim Wechsel aus dem Beruf Bauer werden bis zu vier verbliebene Bootstrap-Seed-Bags wieder entfernt. Nur die automatische Ausgabe der vier Seed-Bags ist Development-Bootstrap; Säen, Wachstum und Ernte sind der aktuelle Farmablauf.
 
