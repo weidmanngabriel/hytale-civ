@@ -41,6 +41,7 @@ Vor neuer Hytale-spezifischer Arbeit zuerst diese Übersicht und die relevante T
 ## Themen
 
 - [Verifikation und API-Recherche](verification.md)
+- [Threading und World-Ausführung](threading.md)
 - [UI und Interaktion](ui-interaction.md)
 - [NPCs und Navigation](npc-navigation.md)
 - [ECS und Persistenz](ecs-persistence.md)
