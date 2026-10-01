@@ -15,9 +15,13 @@ Die Werte bedeuten:
 - `treeBases`: als Stammfuß erkannte Positionen,
 - `treesCollected`: ausgeführte Zusammenfassung einer Baumstruktur,
 - `treeBlocks`: Summe der Holzblöcke in diesen gesammelten Baumstrukturen,
-- `workTargetChecks`: Bäume, für die anschließend ein begehbarer Arbeitsstandplatz gesucht wurde.
+- `protected`: wegen Civ-Gebäudeschutz verworfene Bäume,
+- `reserved`: wegen einer Reservierung durch einen anderen Holzfäller verworfene Bäume,
+- `workTargetChecks`: Bäume, für die anschließend ein begehbarer Arbeitsstandplatz gesucht wurde,
+- `noStand`: Bäume ohne gültigen Arbeitsstandplatz,
+- `usable`: Bäume, die nach allen Prüfungen als nutzbare Kandidaten übrig blieben.
 
-Die Messung zählt den vorhandenen Gameplay-Suchpfad; sie startet keine zusätzlichen Baumsuchen. Die ältere `CivWoodcutterDiag`-Ausgabe bei erfolgloser Zielsuche ist davon getrennt und kann selbst zusätzliche Diagnosearbeit verursachen.
+Die Messung zählt ausschließlich den vorhandenen Gameplay-Suchpfad und startet keine zusätzlichen Baumsuchen. Die früher verwendete vollständige zweite Diagnose-Suche bei `no-target` wurde entfernt; die entsprechenden Ablehnungsgründe werden jetzt während derselben echten Suche mitgezählt.
 
 ### Manueller Test
 
