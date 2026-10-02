@@ -179,7 +179,7 @@ Als nächste hochwertige Runtime-Szenarien bieten sich an:
 
 ## Sicherheits- und CI-Grenze
 
-Der Self-Hosted-Runner greift auf lokale lizenzierte Hytale-Dateien zu. Er soll deshalb nicht für beliebigen fremden PR-Code verwendet werden. Der Runtime-Workflow muss vor einer Übernahme nach `main` auf vertrauenswürdige beziehungsweise bewusst ausgelöste Läufe beschränkt werden. Der aktuelle automatische Push-Trigger ist Spike-spezifisch.
+Der Self-Hosted-Runner greift auf lokale lizenzierte Hytale-Dateien zu. Er soll deshalb nicht für beliebigen fremden PR-Code verwendet werden. Der Runtime-Workflow ist deshalb ausschließlich über `workflow_dispatch` manuell auslösbar und hat keinen automatischen `push`- oder `pull_request`-Trigger.
 
 Normale Unit-, Simulations-, Build-, API- und Bare-Probe-Checks bleiben auf GitHub-hosted Runnern. Der lokale Rechner wird nur für Tests benötigt, die die echte Hytale-Runtime und `Assets.zip` brauchen. Ein ausgeschalteter lokaler Runner darf normale PRs und Releases nicht blockieren.
 
