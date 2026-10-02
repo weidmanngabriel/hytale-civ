@@ -74,11 +74,12 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
-          $runtimeDir = Join-Path $PWD 'build\hytale-local-runtime'
+          $runtimeDir = Join-Path $env:RUNNER_TEMP ("hciv-" + $env:GITHUB_RUN_ID + "-" + $env:GITHUB_RUN_ATTEMPT)
           $modsDir = Join-Path $runtimeDir 'mods'
+          "HYTALE_RUNTIME_DIR=$runtimeDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
           if (Test-Path -LiteralPath $runtimeDir) {
-            Remove-Item -LiteralPath $runtimeDir -Recurse -Force
+            cmd /c "rd /s /q \"\\?\$runtimeDir\"" | Out-Null
           }
           New-Item -ItemType Directory -Path $modsDir -Force | Out-Null
 
@@ -92,7 +93,7 @@ jobs:
           Copy-Item -LiteralPath $pluginJar.FullName -Destination $modsDir -Force
           Copy-Item -LiteralPath 'asset-pack' -Destination (Join-Path $modsDir 'hytale-civ-assets') -Recurse -Force
 
-          Write-Host 'Isolated runtime prepared.'
+          Write-Host 'Isolated runtime prepared outside the repository worktree.'
           Write-Host 'Civ plugin and asset pack installed into runtime mods directory.'
 
       - name: Run real Hytale gameplay probe
@@ -100,7 +101,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
-          $runtimeDir = Join-Path $PWD 'build\hytale-local-runtime'
+          $runtimeDir = $env:HYTALE_RUNTIME_DIR
           $stdoutLog = Join-Path $runtimeDir 'server.stdout.log'
           $stderrLog = Join-Path $runtimeDir 'server.stderr.log'
 
@@ -138,6 +139,9 @@ jobs:
           if ($combined.Contains('CIV_RUNTIME_PROBE_FAIL')) {
             throw 'The Civ gameplay runtime probe reported failure.'
           }
+          if ($combined.Contains("Entity has moved into a chunk that isn't currently loaded!")) {
+            throw 'The gameplay runtime probe spawned or moved its entity before the target chunk was loaded.'
+          }
 
           $requiredEvidence = @(
             'Loaded pack: Hytale:Hytale from Assets.zip',
@@ -163,4 +167,12 @@ jobs:
             throw "Hytale server exited with code $($process.ExitCode)."
           }
 
-          Write-Host 'Real Hytale gameplay probe spawned a Civ inhabitant, claimed it, advanced through real world ticks, completed a manual movement activity, and shut down cleanly.'
+          Write-Host 'Real Hytale gameplay probe spawned a Civ inhabitant in a loaded chunk, claimed it, advanced through real world ticks, completed a manual movement activity, and shut down cleanly.'
+
+      - name: Clean isolated Hytale runtime
+        if: always()
+        shell: powershell
+        run: |
+          if (-not [string]::IsNullOrWhiteSpace($env:HYTALE_RUNTIME_DIR) -and (Test-Path -LiteralPath $env:HYTALE_RUNTIME_DIR)) {
+            cmd /c "rd /s /q \"\\?\$env:HYTALE_RUNTIME_DIR\"" | Out-Null
+          }
