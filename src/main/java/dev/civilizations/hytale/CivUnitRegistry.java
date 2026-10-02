@@ -10,7 +10,10 @@ import com.hypixel.hytale.server.npc.role.support.MarkedEntitySupport;
 import dev.civilizations.core.Profession;
 import org.joml.Vector3d;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -24,7 +27,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class CivUnitRegistry {
 
     private static final String CIV_INHABITANT_ROLE = "Civ_Inhabitant";
-    // Civ_Inhabitant declares exactly one ReadPosition slot: CivMoveTarget.
     private static final int CIV_MOVE_POSITION_SLOT = 0;
 
     private final CivInhabitantService inhabitantService;
@@ -107,6 +109,37 @@ public final class CivUnitRegistry {
 
     public void forget(Ref<EntityStore> ref) {
         units.remove(keyOf(ref));
+    }
+
+    public List<Ref<EntityStore>> workersAt(UUID buildingId) {
+        if (buildingId == null) {
+            return List.of();
+        }
+        String workplaceId = buildingId.toString();
+        List<Ref<EntityStore>> result = new ArrayList<>();
+        for (Map.Entry<UnitKey, UnitState> entry : units.entrySet()) {
+            UnitState state = entry.getValue();
+            Ref<EntityStore> ref = state.ref();
+            if (ref == null || !ref.isValid()) {
+                units.remove(entry.getKey(), state);
+                continue;
+            }
+            CivInhabitantData data = inhabitantService.get(ref);
+            if (data != null && workplaceId.equals(data.workplaceId())) {
+                result.add(ref);
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    public void assignWorkplace(Ref<EntityStore> ref, UUID buildingId) {
+        if (isClaimed(ref)) {
+            inhabitantService.assignWorkplace(ref, buildingId);
+        }
+    }
+
+    public void clearWorkplace(Ref<EntityStore> ref) {
+        assignWorkplace(ref, null);
     }
 
     public Vector3d getMoveTarget(Ref<EntityStore> ref) {
