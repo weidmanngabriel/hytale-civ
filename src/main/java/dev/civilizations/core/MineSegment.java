@@ -103,23 +103,13 @@ public record MineSegment(
     }
 
     public HorizontalBounds horizontalBounds() {
-        List<BlockPosition> floor = new ArrayList<>();
-        for (int depth = 0; depth < MineTuning.SEGMENT_LENGTH_BLOCKS; depth++) {
-            for (int width = 0; width < MineTuning.TUNNEL_WIDTH_BLOCKS; width++) {
-                floor.add(blockAt(depth, width, 0));
-            }
-        }
-        int minX = floor.stream().mapToInt(BlockPosition::x).min().orElseThrow();
-        int minZ = floor.stream().mapToInt(BlockPosition::z).min().orElseThrow();
-        int maxX = floor.stream().mapToInt(BlockPosition::x).max().orElseThrow();
-        int maxZ = floor.stream().mapToInt(BlockPosition::z).max().orElseThrow();
-        return new HorizontalBounds(minX, minZ, maxX, maxZ);
+        return horizontalBounds(0, MineTuning.SEGMENT_LENGTH_BLOCKS);
     }
 
     /**
      * Starts the next segment. A straight segment starts immediately after the end face.
-     * A turn reuses the last four tunnel cells as its junction, so the new side opening is
-     * naturally four blocks wide. Collision checks may therefore ignore overlap with parent.
+     * A 90-degree turn reuses the parent's final tunnel-width-by-tunnel-width area as a
+     * full-height junction, so the worker has a continuous walkable corner before mining outward.
      */
     public BlockPosition nextStart(MineDirection nextDirection) {
         if (nextDirection == opposite(direction)) {
@@ -135,28 +125,28 @@ public record MineSegment(
             };
         }
 
+        int junctionDepth = MineTuning.SEGMENT_LENGTH_BLOCKS - MineTuning.TUNNEL_WIDTH_BLOCKS;
+        HorizontalBounds junction = horizontalBounds(junctionDepth, MineTuning.SEGMENT_LENGTH_BLOCKS);
         return switch (nextDirection) {
-            case EAST -> new BlockPosition(
-                b.maxX() + 1,
-                start.y(),
-                direction == MineDirection.SOUTH ? b.maxZ() - 3 : b.minZ()
-            );
-            case WEST -> new BlockPosition(
-                b.minX() - 1,
-                start.y(),
-                direction == MineDirection.SOUTH ? b.maxZ() - 3 : b.minZ()
-            );
-            case SOUTH -> new BlockPosition(
-                direction == MineDirection.EAST ? b.maxX() - 3 : b.minX(),
-                start.y(),
-                b.maxZ() + 1
-            );
-            case NORTH -> new BlockPosition(
-                direction == MineDirection.EAST ? b.maxX() - 3 : b.minX(),
-                start.y(),
-                b.minZ() - 1
-            );
+            case EAST -> new BlockPosition(junction.minX(), start.y(), junction.minZ());
+            case WEST -> new BlockPosition(junction.maxX(), start.y(), junction.maxZ());
+            case SOUTH -> new BlockPosition(junction.maxX(), start.y(), junction.minZ());
+            case NORTH -> new BlockPosition(junction.minX(), start.y(), junction.maxZ());
         };
+    }
+
+    private HorizontalBounds horizontalBounds(int fromDepthInclusive, int toDepthExclusive) {
+        List<BlockPosition> floor = new ArrayList<>();
+        for (int depth = fromDepthInclusive; depth < toDepthExclusive; depth++) {
+            for (int width = 0; width < MineTuning.TUNNEL_WIDTH_BLOCKS; width++) {
+                floor.add(blockAt(depth, width, 0));
+            }
+        }
+        int minX = floor.stream().mapToInt(BlockPosition::x).min().orElseThrow();
+        int minZ = floor.stream().mapToInt(BlockPosition::z).min().orElseThrow();
+        int maxX = floor.stream().mapToInt(BlockPosition::x).max().orElseThrow();
+        int maxZ = floor.stream().mapToInt(BlockPosition::z).max().orElseThrow();
+        return new HorizontalBounds(minX, minZ, maxX, maxZ);
     }
 
     private BlockPosition blockAt(int depth, int width, int vertical) {
