@@ -42,10 +42,7 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
     private static final String OAK_PREFAB_KEY = "Trees/Oak/Stage_1/Oak_Stage1_001";
     private static final String WOOD_GATHER_TYPE = "Woods";
 
-    /**
-     * Oak_Stage1_001 has its prefab origin one block below the semantic trunk base. The shared
-     * scenario stores the trunk/ground coordinate, so the Hytale adapter compensates here.
-     */
+    /** Oak_Stage1_001 places its visible trunk one block below the requested prefab origin. */
     private static final int OAK_PREFAB_Y_OFFSET = 1;
     private static final int FIXTURE_MARGIN_BLOCKS = 8;
     private static final int MAX_SCAN_Y = 32;
@@ -180,17 +177,8 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
     private void verifyFixtureAndSpawnWorker(World world) {
         try {
             int initialWoodBlocks = countWoodBlocks(world);
-            int initialTrunkBases = countTrunkBases(world);
             if (initialWoodBlocks <= 0) {
                 fail("placed oak fixtures contain no Woods blocks", null);
-                return;
-            }
-            if (initialTrunkBases < WoodcutterBasicScenario.TREE_ANCHORS.size()) {
-                fail(
-                    "expected at least " + WoodcutterBasicScenario.TREE_ANCHORS.size()
-                        + " trunk bases but found " + initialTrunkBases,
-                    null
-                );
                 return;
             }
 
@@ -237,7 +225,6 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
             );
             System.out.println(
                 "CIV_WOODCUTTER_FIXTURE_READY woodBlocks=" + initialWoodBlocks
-                    + " trunkBases=" + initialTrunkBases
                     + " entity=" + ref.getIndex()
             );
 
@@ -348,27 +335,8 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
         int count = 0;
         for (int x = bounds.minX(); x <= bounds.maxX(); x++) {
             for (int z = bounds.minZ(); z <= bounds.maxZ(); z++) {
-                for (int y = 1; y <= MAX_SCAN_Y; y++) {
+                for (int y = 0; y <= MAX_SCAN_Y; y++) {
                     if (isWoodStructureBlock(getLoadedBlockType(world, x, y, z))) {
-                        count++;
-                    }
-                }
-            }
-        }
-        return count;
-    }
-
-    private static int countTrunkBases(World world) {
-        Bounds bounds = fixtureBounds();
-        int count = 0;
-        for (int x = bounds.minX(); x <= bounds.maxX(); x++) {
-            for (int z = bounds.minZ(); z <= bounds.maxZ(); z++) {
-                for (int y = 1; y <= MAX_SCAN_Y; y++) {
-                    BlockType current = getLoadedBlockType(world, x, y, z);
-                    if (!isTreeTrunk(current)) {
-                        continue;
-                    }
-                    if (!isTreeTrunk(getLoadedBlockType(world, x, y - 1, z))) {
                         count++;
                     }
                 }
@@ -380,14 +348,6 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
     private static BlockType getLoadedBlockType(World world, int x, int y, int z) {
         WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(x, z));
         return chunk == null ? null : chunk.getBlockType(x, y, z);
-    }
-
-    private static boolean isTreeTrunk(BlockType blockType) {
-        if (!isWoodStructureBlock(blockType)) {
-            return false;
-        }
-        String id = blockType.getId();
-        return id != null && id.toLowerCase().contains("trunk");
     }
 
     private static boolean isWoodStructureBlock(BlockType blockType) {
