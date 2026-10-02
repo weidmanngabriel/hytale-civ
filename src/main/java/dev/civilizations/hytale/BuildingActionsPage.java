@@ -23,6 +23,7 @@ public final class BuildingActionsPage extends InteractiveCustomUIPage<BuildingA
     private static final String CANCEL = "cancel";
     private static final String CLOSE = "close";
     private static final String WORKER_PREFIX = "worker:";
+    private static final int STATIC_WORKER_SLOTS = 3;
 
     private final String buildingName;
     private final int phase;
@@ -54,28 +55,33 @@ public final class BuildingActionsPage extends InteractiveCustomUIPage<BuildingA
         commands.set("#BuildingMeta.Text", "Phase " + phase);
         commands.set("#WorkerSummary.Text", "Arbeiter " + workers.size() + "/" + workerCapacity);
 
-        int visibleSlots = Math.max(workerCapacity, workers.size());
-        if (visibleSlots == 0) {
-            commands.appendInline("#WorkerList",
-                "Label { Text: \"Keine Arbeitsplätze\"; Style: (FontSize: 16, TextColor: #a9a9a9); Anchor: (Bottom: 10); }");
-        }
+        int visibleSlots = Math.min(STATIC_WORKER_SLOTS, Math.max(workerCapacity, workers.size()));
+        commands.set("#NoWorkerSlots.Visible", visibleSlots == 0);
 
-        for (int index = 0; index < visibleSlots; index++) {
-            if (index < workers.size()) {
+        for (int index = 0; index < STATIC_WORKER_SLOTS; index++) {
+            boolean slotVisible = index < visibleSlots;
+            boolean hasWorker = index < workers.size();
+
+            commands.set("#WorkerSlot" + index + ".Visible", slotVisible);
+            if (!slotVisible) {
+                continue;
+            }
+
+            String labelSelector = "#WorkerLabel" + index;
+            String buttonSelector = "#WorkerButton" + index;
+            if (hasWorker) {
                 WorkerOption worker = workers.get(index);
-                String selector = "#Worker" + index;
-                commands.appendInline("#WorkerList",
-                    "$C.@TextButton " + selector + " { @Text = \"" + escapeUi(worker.label())
-                        + "\"; Anchor: (Width: 400, Height: 42, Bottom: 8); }");
+                commands.set(labelSelector + ".Text", worker.label());
+                commands.set(buttonSelector + ".Visible", true);
                 events.addEventBinding(
                     CustomUIEventBindingType.Activating,
-                    selector,
+                    buttonSelector,
                     EventData.of("Action", WORKER_PREFIX + index),
                     false
                 );
             } else {
-                commands.appendInline("#WorkerList",
-                    "Label { Text: \"+ Freier Arbeitsplatz\"; Style: (FontSize: 16, TextColor: #a9a9a9); Anchor: (Height: 34, Bottom: 6); }");
+                commands.set(labelSelector + ".Text", "+ Freier Arbeitsplatz");
+                commands.set(buttonSelector + ".Visible", false);
             }
         }
 
@@ -131,10 +137,6 @@ public final class BuildingActionsPage extends InteractiveCustomUIPage<BuildingA
         commands.set("#ConfirmationPanel.Visible", false);
         commands.set("#ActionsPanel.Visible", true);
         sendUpdate(commands, false);
-    }
-
-    private static String escapeUi(String value) {
-        return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     public record WorkerOption(String label, Runnable select) {

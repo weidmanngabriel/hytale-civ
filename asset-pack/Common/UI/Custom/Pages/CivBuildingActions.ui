@@ -38,9 +38,61 @@ $C.@DecoratedContainer {
         Anchor: (Bottom: 10);
       }
 
-      Group #WorkerList {
+      Label #NoWorkerSlots {
+        Text: "Keine Arbeitsplätze";
+        Style: (FontSize: 16, TextColor: #a9a9a9);
+        Anchor: (Bottom: 10);
+      }
+
+      Group #WorkerSlot0 {
+        Visible: false;
         LayoutMode: Top;
-        Anchor: (Bottom: 18);
+        Anchor: (Bottom: 8);
+
+        Label #WorkerLabel0 {
+          Text: "Bewohner";
+          Style: (FontSize: 16, TextColor: #ffffff);
+          Anchor: (Bottom: 4);
+        }
+
+        $C.@TextButton #WorkerButton0 {
+          @Text = "Auswählen";
+          Anchor: (Width: 180, Height: 38);
+        }
+      }
+
+      Group #WorkerSlot1 {
+        Visible: false;
+        LayoutMode: Top;
+        Anchor: (Bottom: 8);
+
+        Label #WorkerLabel1 {
+          Text: "Bewohner";
+          Style: (FontSize: 16, TextColor: #ffffff);
+          Anchor: (Bottom: 4);
+        }
+
+        $C.@TextButton #WorkerButton1 {
+          @Text = "Auswählen";
+          Anchor: (Width: 180, Height: 38);
+        }
+      }
+
+      Group #WorkerSlot2 {
+        Visible: false;
+        LayoutMode: Top;
+        Anchor: (Bottom: 8);
+
+        Label #WorkerLabel2 {
+          Text: "Bewohner";
+          Style: (FontSize: 16, TextColor: #ffffff);
+          Anchor: (Bottom: 4);
+        }
+
+        $C.@TextButton #WorkerButton2 {
+          @Text = "Auswählen";
+          Anchor: (Width: 180, Height: 38);
+        }
       }
 
       Label {
