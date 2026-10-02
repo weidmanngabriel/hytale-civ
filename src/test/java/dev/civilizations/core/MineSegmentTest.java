@@ -15,7 +15,7 @@ final class MineSegmentTest {
     @Test
     void phaseOneSegmentContainsExactly128UniqueBlocks() {
         assertEquals(128, MineTuning.blocksPerSegment());
-        assertEquals(600.0 / 128.0, MineTuning.secondsPerBlock(), 0.000001);
+        assertEquals(MineTuning.SEGMENT_TARGET_SECONDS / 128.0, MineTuning.secondsPerBlock(), 0.000001);
 
         for (MineDirection direction : MineDirection.values()) {
             MineSegment segment = segment(direction);
