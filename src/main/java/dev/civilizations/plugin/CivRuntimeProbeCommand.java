@@ -4,6 +4,7 @@ import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Rotation3f;
 import com.hypixel.hytale.server.core.HytaleServer;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
@@ -32,18 +33,14 @@ final class CivRuntimeProbeCommand extends CommandBase {
     private static final long MINIMUM_WORLD_TICKS = 2L;
     private static final double MINIMUM_MOVED_DISTANCE = 2.0;
     private static final double MAXIMUM_TARGET_DISTANCE = 1.25;
-    private static final int TARGET_DISTANCE_BLOCKS = 5;
-    private static final int MAXIMUM_GROUND_STEP = 1;
+    private static final int MAXIMUM_TARGET_DISTANCE_BLOCKS = 5;
+    private static final int MINIMUM_TARGET_DISTANCE_BLOCKS = 3;
 
-    private static final int[][] TARGET_OFFSETS = {
-        {TARGET_DISTANCE_BLOCKS, 0},
-        {-TARGET_DISTANCE_BLOCKS, 0},
-        {0, TARGET_DISTANCE_BLOCKS},
-        {0, -TARGET_DISTANCE_BLOCKS},
-        {4, 4},
-        {-4, 4},
-        {4, -4},
-        {-4, -4}
+    private static final int[][] CARDINAL_DIRECTIONS = {
+        {1, 0},
+        {-1, 0},
+        {0, 1},
+        {0, -1}
     };
 
     private final CivUnitRegistry unitRegistry;
@@ -142,7 +139,7 @@ final class CivRuntimeProbeCommand extends CommandBase {
             Vector3d startPosition = new Vector3d(transform.getPosition());
             WorldPosition destination = findNearbyWalkableDestination(spawnChunk, startPosition);
             if (destination == null) {
-                fail("NO_SAFE_TARGET: no nearby same-chunk target with compatible ground height", null);
+                fail("NO_SAFE_TARGET: no flat same-chunk corridor with solid floor and clear headroom", null);
                 return;
             }
 
@@ -180,33 +177,85 @@ final class CivRuntimeProbeCommand extends CommandBase {
     ) {
         int startBlockX = (int) Math.floor(startPosition.x);
         int startBlockZ = (int) Math.floor(startPosition.z);
-        int startLocalX = ChunkUtil.localCoordinate(startBlockX);
-        int startLocalZ = ChunkUtil.localCoordinate(startBlockZ);
-        int startGroundY = chunk.getHeight(startLocalX, startLocalZ);
+        int feetY = (int) Math.floor(startPosition.y + 0.01);
         long startChunkIndex = chunk.getIndex();
 
-        for (int[] offset : TARGET_OFFSETS) {
-            int targetBlockX = startBlockX + offset[0];
-            int targetBlockZ = startBlockZ + offset[1];
-            if (ChunkUtil.indexChunkFromBlock(targetBlockX, targetBlockZ) != startChunkIndex) {
-                continue;
-            }
+        if (!isWalkableColumn(chunk, startBlockX, feetY, startBlockZ)) {
+            return null;
+        }
 
-            int targetLocalX = ChunkUtil.localCoordinate(targetBlockX);
-            int targetLocalZ = ChunkUtil.localCoordinate(targetBlockZ);
-            int targetGroundY = chunk.getHeight(targetLocalX, targetLocalZ);
-            if (Math.abs(targetGroundY - startGroundY) > MAXIMUM_GROUND_STEP) {
-                continue;
-            }
+        for (int distance = MAXIMUM_TARGET_DISTANCE_BLOCKS;
+             distance >= MINIMUM_TARGET_DISTANCE_BLOCKS;
+             distance--) {
+            for (int[] direction : CARDINAL_DIRECTIONS) {
+                if (!isStraightWalkableCorridor(
+                    chunk,
+                    startChunkIndex,
+                    startBlockX,
+                    feetY,
+                    startBlockZ,
+                    direction[0],
+                    direction[1],
+                    distance
+                )) {
+                    continue;
+                }
 
-            return new WorldPosition(
-                targetBlockX + 0.5,
-                targetGroundY + 1.0,
-                targetBlockZ + 0.5
-            );
+                int targetBlockX = startBlockX + direction[0] * distance;
+                int targetBlockZ = startBlockZ + direction[1] * distance;
+                return new WorldPosition(
+                    targetBlockX + 0.5,
+                    startPosition.y,
+                    targetBlockZ + 0.5
+                );
+            }
         }
 
         return null;
+    }
+
+    private static boolean isStraightWalkableCorridor(
+        WorldChunk chunk,
+        long expectedChunkIndex,
+        int startBlockX,
+        int feetY,
+        int startBlockZ,
+        int dx,
+        int dz,
+        int distance
+    ) {
+        for (int step = 1; step <= distance; step++) {
+            int blockX = startBlockX + dx * step;
+            int blockZ = startBlockZ + dz * step;
+            if (ChunkUtil.indexChunkFromBlock(blockX, blockZ) != expectedChunkIndex) {
+                return false;
+            }
+            if (!isWalkableColumn(chunk, blockX, feetY, blockZ)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isWalkableColumn(
+        WorldChunk chunk,
+        int blockX,
+        int feetY,
+        int blockZ
+    ) {
+        if (feetY <= 0 || feetY >= 319) {
+            return false;
+        }
+
+        int localX = ChunkUtil.localCoordinate(blockX);
+        int localZ = ChunkUtil.localCoordinate(blockZ);
+        int floor = chunk.getBlock(localX, feetY - 1, localZ);
+        int feet = chunk.getBlock(localX, feetY, localZ);
+        int head = chunk.getBlock(localX, feetY + 1, localZ);
+
+        return floor != BlockType.EMPTY_ID
+            && feet == BlockType.EMPTY_ID
+            && head == BlockType.EMPTY_ID;
     }
 
     private void assertProbe(
