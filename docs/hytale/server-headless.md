@@ -33,18 +33,29 @@ HYTALE_ASSETS_PATH
 
 Maschinenspezifische Pfade, `HytaleServer.jar` und `Assets.zip` werden nicht committed und nicht als CI-Artefakte veröffentlicht.
 
-Der Workflow:
+Runtime-Tests werden unabhängig von einem Pull Request über Kommentare in der festen GitHub-Issue `#126 Hytale Runtime Test Requests` angefordert. Das Format lautet:
 
-1. prüft beide lokalen Hytale-Dateien,
-2. prüft Java 25,
-3. baut das Civ-Plugin,
-4. erstellt pro Lauf ein isoliertes Runtime-Verzeichnis unter `RUNNER_TEMP` außerhalb des Git-Worktrees,
-5. installiert dort nur Civ-Plugin und Civ-Asset-Pack,
-6. startet den echten Server mit `--assets <Assets.zip>` und `--auth-mode offline`,
-7. aktiviert test-only Runtime-Commands über `-Dcivilizations.runtimeProbe=true`,
-8. startet den gewählten Probe als Hytale-Boot-Command,
-9. wertet den echten Serverlog und reale Weltzustände als Assertions aus,
-10. fährt den Server aus dem Probe selbst sauber herunter.
+~~~text
+/hytale-test <szenarien> <commit-sha>
+~~~
+
+Der angegebene Commit darf jeder Commit des eigenen Repositories sein, also auch ein Spike ohne Pull Request. Mehrere Szenarien werden mit `-` getrennt. Szenarionamen selbst enthalten keine Bindestriche; zusammengesetzte Begriffe werden zusammengeschrieben. `all` steht allein und expandiert auf alle in `scripts/hytale-runtime-scenarios.json` registrierten Szenarien. Bis zu acht Szenarien können explizit angefordert werden.
+
+Die Ausführung ist absichtlich vor der lokalen Codeausführung abgesichert:
+
+1. `.github/workflows/hytale-local.yml` reagiert auf neu erstellte `issue_comment`-Events und stammt dabei aus dem vertrauenswürdigen Default-Branch.
+2. Ein GitHub-hosted Autorisierungsjob prüft zuerst, dass der Kommentar aus Issue `#126` stammt und Event-Aktor, Kommentarautor sowie Sender ausdrücklich erlaubt sind.
+3. Der Befehl muss exakt der erlaubten Syntax entsprechen. Der angegebene 7- bis 40-stellige SHA wird über die GitHub-API im eigenen Repository auf einen vollständigen 40-stelligen Commit-SHA aufgelöst und muss mit dem angegebenen Präfix übereinstimmen.
+4. Die Szenario-Registry wird aus genau diesem zu testenden Commit geladen. Unbekannte oder doppelte Szenarien sowie mehr als acht explizite Szenarien werden abgelehnt; `all` expandiert auf die vollständige Registry.
+5. Nur bei erfolgreicher Autorisierung startet der Self-Hosted-Job. Er erhält lediglich `contents: read`, checkt exakt den autorisierten Commit-SHA mit `persist-credentials: false` aus und verifiziert den Checkout erneut.
+6. Tests und Civ-Plugin werden einmal gebaut.
+7. `scripts/hytale-runtime-tests.ps1` führt nur die autorisierte Szenarioliste aus und erzeugt für jedes Szenario ein eigenes isoliertes Runtime-Verzeichnis unter `RUNNER_TEMP` außerhalb des Git-Worktrees.
+8. Dort werden nur Civ-Plugin und Civ-Asset-Pack installiert.
+9. Der echte Server startet mit `--assets <Assets.zip>` und `--auth-mode offline`.
+10. Test-only Runtime-Commands werden über `-Dcivilizations.runtimeProbe=true` aktiviert.
+11. Das jeweilige Szenario wertet echten Serverlog und reale Weltzustände als Assertions aus und fährt den Server aus dem Probe sauber herunter.
+
+Aktuell ist `weidmanngabriel` der einzige ausdrücklich erlaubte Runtime-Test-Anforderer. Der lokale Runner selbst besitzt keine Repository-Schreibrechte. Der Kommentartext wird niemals ungeprüft als Shell-Befehl verwendet; Commit und Szenarien werden vor dem Checkout beziehungsweise der Ausführung in strukturierte, validierte Werte übersetzt.
 
 Das Runtime-Verzeichnis liegt absichtlich außerhalb des Git-Worktrees. Hytales Prefab-Cache kann unter Windows sehr tiefe Pfade erzeugen; ein früher Spike-Lauf konnte dadurch späteres Git-Cleanup mit `Filename too long` stören. Cleanup des isolierten Temp-Verzeichnisses ist deshalb zeitlich begrenzt und Best-Effort. Ein langsames Dateibaum-Cleanup darf keinen bereits erfolgreichen Gameplay-Vertrag in einen Fehltest verwandeln.
 
@@ -179,9 +190,13 @@ Als nächste hochwertige Runtime-Szenarien bieten sich an:
 
 ## Sicherheits- und CI-Grenze
 
-Der Self-Hosted-Runner greift auf lokale lizenzierte Hytale-Dateien zu. Er soll deshalb nicht für beliebigen fremden PR-Code verwendet werden. Der Runtime-Workflow ist deshalb ausschließlich über `workflow_dispatch` manuell auslösbar und hat keinen automatischen `push`- oder `pull_request`-Trigger.
+Der Self-Hosted-Runner greift auf lokale lizenzierte Hytale-Dateien zu und darf deshalb keinen unautorisierten Repository-Code ausführen. Die Steuerung erfolgt deshalb ausschließlich über den `issue_comment`-Workflow auf dem vertrauenswürdigen Default-Branch und nicht über Workflow-Dateien aus dem zu testenden Commit.
 
-Normale Unit-, Simulations-, Build-, API- und Bare-Probe-Checks bleiben auf GitHub-hosted Runnern. Der lokale Rechner wird nur für Tests benötigt, die die echte Hytale-Runtime und `Assets.zip` brauchen. Ein ausgeschalteter lokaler Runner darf normale PRs und Releases nicht blockieren.
+Der GitHub-hosted Autorisierungsjob erlaubt aktuell ausschließlich `weidmanngabriel`, akzeptiert nur Befehle aus Issue `#126`, löst den angegebenen Commit innerhalb des eigenen Repositories auf einen exakten SHA auf und validiert jedes angeforderte Szenario gegen die Registry aus genau diesem Commit. Erst danach darf der Self-Hosted-Runner diesen exakten SHA auschecken. Das Checkout speichert keine GitHub-Credentials, und der lokale Job besitzt nur Leserechte.
+
+Das Szenario-Harness selbst stammt absichtlich aus dem getesteten Commit, weil neue Runtime-Verträge gemeinsam mit dem zu prüfenden Feature entwickelt werden müssen. Die Sicherheitsgrenze liegt deshalb nicht darin, diesen Code als vertrauenswürdig anzusehen, sondern darin, dass ausschließlich ein ausdrücklich autorisierter Benutzer einen konkreten Repository-Commit zur Ausführung freigeben kann. Der Kommentartext wird niemals ungeprüft als Shell-Befehl verwendet.
+
+Normale Unit-, Simulations-, Build-, API- und Bare-Probe-Checks bleiben auf GitHub-hosted Runnern. Der lokale Rechner wird nur für ausdrücklich angeforderte Tests benötigt, die die echte Hytale-Runtime und `Assets.zip` brauchen. Ein ausgeschalteter lokaler Runner darf normale PRs und Releases nicht blockieren.
 
 ## Bekannte Runtime-Eigenheiten
 
