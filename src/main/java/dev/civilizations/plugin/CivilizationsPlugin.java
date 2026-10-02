@@ -140,6 +140,11 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getEntityStoreRegistry().registerSystem(nameplateStatusSystem);
 
         getCommandRegistry().registerCommand(new CivTestCommand());
+        if (Boolean.getBoolean("civilizations.runtimeProbe")) {
+            getCommandRegistry().registerCommand(
+                new CivRuntimeProbeCommand(unitRegistry, activityRegistry)
+            );
+        }
         getCommandRegistry().registerCommand(new CivRtsTestCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivClaimCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivFarmCommand(rtsInteractionController));
