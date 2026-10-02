@@ -1,0 +1,23 @@
+name: Hytale Runtime Request
+
+on:
+  push:
+    tags:
+      - 'hytale-test/**'
+
+permissions: {}
+
+jobs:
+  record-request:
+    name: Record unprivileged runtime request
+    if: github.event.deleted == false
+    runs-on: ubuntu-latest
+    permissions: {}
+
+    steps:
+      - name: Record request metadata
+        shell: bash
+        run: |
+          echo "Hytale runtime tag request received."
+          echo "Ref: ${GITHUB_REF_NAME}"
+          echo "Commit: ${GITHUB_SHA}"
