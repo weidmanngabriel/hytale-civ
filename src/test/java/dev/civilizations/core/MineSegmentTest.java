@@ -3,6 +3,7 @@ package dev.civilizations.core;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,6 +39,40 @@ final class MineSegmentTest {
             HashSet<BlockPosition> overlap = new HashSet<>(parent.blocks());
             overlap.retainAll(child.blocks());
             assertTrue(overlap.isEmpty(), direction.name());
+        }
+    }
+
+    @Test
+    void turningContinuationsReuseCompleteFourByFourByFourJunction() {
+        int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
+        int junctionBlocks = MineTuning.TUNNEL_WIDTH_BLOCKS * faceSize;
+
+        for (MineDirection direction : MineDirection.values()) {
+            MineSegment parent = segment(direction);
+            for (MineDirection turn : List.of(direction.left(), direction.right())) {
+                MineSegment child = MineSegment.reserved(
+                    UUID.randomUUID(),
+                    parent.mineId(),
+                    parent.id(),
+                    parent.nextStart(turn),
+                    turn
+                );
+
+                HashSet<BlockPosition> overlap = new HashSet<>(parent.blocks());
+                overlap.retainAll(child.blocks());
+                assertEquals(junctionBlocks, overlap.size(), direction + " -> " + turn);
+
+                for (int index = 0; index < junctionBlocks; index++) {
+                    assertTrue(
+                        overlap.contains(child.blockAtIndex(index)),
+                        direction + " -> " + turn + " child junction block " + index
+                    );
+                }
+                assertFalse(
+                    overlap.contains(child.blockAtIndex(junctionBlocks)),
+                    direction + " -> " + turn + " must continue beyond the junction"
+                );
+            }
         }
     }
 
