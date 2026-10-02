@@ -21,11 +21,14 @@ public final class WoodcutterBasicScenario {
     /** Flat-world ground occupies y=0; entities stand at y=1. */
     public static final WorldPosition WOODCUTTER_START = new WorldPosition(0.5, 1.0, 0.5);
 
-    /** Trunk bases for the deterministic fixture. */
-    public static final List<BlockPosition> TREE_BASES = List.of(
+    /**
+     * Shared tree fixture anchors. The simulator treats each anchor as one abstract tree while
+     * the Hytale adapter pastes a real tree prefab at the same coordinate.
+     */
+    public static final List<BlockPosition> TREE_ANCHORS = List.of(
         new BlockPosition(6, 1, 0),
-        new BlockPosition(10, 1, 4),
-        new BlockPosition(14, 1, -3)
+        new BlockPosition(12, 1, 6),
+        new BlockPosition(12, 1, -6)
     );
 
     private WoodcutterBasicScenario() {
