@@ -63,6 +63,9 @@ public final class CivInhabitantLifecycleSystem extends RefSystem<EntityStore> {
     ) {
         // LOAD and SPAWN both need the runtime Player presentation rebuilt from persisted Civ data.
         inhabitantService.ensureInhabitant(ref, commandBuffer);
+        // The persistent component is the authority for Civ membership. Re-register every loaded
+        // inhabitant so workplace lookups do not depend on a player interacting with it first.
+        unitRegistry.trackLoaded(ref);
     }
 
     @Override
