@@ -54,7 +54,7 @@ public final class CivUnitRegistry {
         if (data == null) {
             return false;
         }
-        units.putIfAbsent(keyOf(ref), new UnitState(ref, null));
+        trackLoaded(ref);
         return true;
     }
 
@@ -74,8 +74,15 @@ public final class CivUnitRegistry {
         if (data == null) {
             return new ClaimResult(false, null);
         }
-        units.putIfAbsent(keyOf(ref), new UnitState(ref, null));
+        trackLoaded(ref);
         return new ClaimResult(true, data);
+    }
+
+    public void trackLoaded(Ref<EntityStore> ref) {
+        if (ref == null || !ref.isValid()) {
+            return;
+        }
+        units.putIfAbsent(keyOf(ref), new UnitState(ref, null));
     }
 
     public CivInhabitantData getInhabitantData(Ref<EntityStore> ref) {
@@ -102,7 +109,7 @@ public final class CivUnitRegistry {
         }
 
         if (state == null) {
-            units.put(key, new UnitState(ref, null));
+            trackLoaded(ref);
         }
         return true;
     }
