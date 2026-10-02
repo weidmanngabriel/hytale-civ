@@ -154,6 +154,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
             getCommandRegistry().registerCommand(
                 new CivWoodcutterFixtureProbeCommand(unitRegistry)
             );
+            getCommandRegistry().registerCommand(
+                new CivPersistenceProbeCommand(unitRegistry)
+            );
         }
         getCommandRegistry().registerCommand(
             new CivRtsTestCommand(rtsInteractionController, selectedNpcHudController)
