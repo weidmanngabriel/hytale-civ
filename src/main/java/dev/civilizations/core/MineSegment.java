@@ -107,32 +107,50 @@ public record MineSegment(
     }
 
     /**
-     * Starts the next segment. A straight segment starts immediately after the end face.
-     * A 90-degree turn reuses the parent's final tunnel-width-by-tunnel-width area as a
-     * full-height junction, so the worker has a continuous walkable corner before mining outward.
+     * Starts the next segment using the parent's oriented tunnel basis rather than world-axis
+     * min/max bounds. Straight continuations therefore remain exactly in the same 4x4 lane.
+     * A 90-degree continuation reuses the parent's final 4x4 area as a walkable junction and
+     * exits through the matching left or right edge without any diagonal offset.
      */
     public BlockPosition nextStart(MineDirection nextDirection) {
         if (nextDirection == opposite(direction)) {
             throw new IllegalArgumentException("Mine segments cannot immediately reverse.");
         }
-        HorizontalBounds b = horizontalBounds();
+
+        int forwardX = direction.dx();
+        int forwardZ = direction.dz();
+        int rightX = -direction.dz();
+        int rightZ = direction.dx();
+
         if (nextDirection == direction) {
-            return switch (direction) {
-                case NORTH -> new BlockPosition(b.minX(), start.y(), b.minZ() - 1);
-                case SOUTH -> new BlockPosition(b.minX(), start.y(), b.maxZ() + 1);
-                case EAST -> new BlockPosition(b.maxX() + 1, start.y(), b.minZ());
-                case WEST -> new BlockPosition(b.minX() - 1, start.y(), b.minZ());
-            };
+            return new BlockPosition(
+                start.x() + forwardX * MineTuning.SEGMENT_LENGTH_BLOCKS,
+                start.y(),
+                start.z() + forwardZ * MineTuning.SEGMENT_LENGTH_BLOCKS
+            );
         }
 
         int junctionDepth = MineTuning.SEGMENT_LENGTH_BLOCKS - MineTuning.TUNNEL_WIDTH_BLOCKS;
-        HorizontalBounds junction = horizontalBounds(junctionDepth, MineTuning.SEGMENT_LENGTH_BLOCKS);
-        return switch (nextDirection) {
-            case EAST -> new BlockPosition(junction.minX(), start.y(), junction.minZ());
-            case WEST -> new BlockPosition(junction.maxX(), start.y(), junction.maxZ());
-            case SOUTH -> new BlockPosition(junction.maxX(), start.y(), junction.minZ());
-            case NORTH -> new BlockPosition(junction.minX(), start.y(), junction.maxZ());
-        };
+        int junctionX = start.x() + forwardX * junctionDepth;
+        int junctionZ = start.z() + forwardZ * junctionDepth;
+        int lastWidthOffset = MineTuning.TUNNEL_WIDTH_BLOCKS - 1;
+
+        if (nextDirection == direction.left()) {
+            return new BlockPosition(
+                junctionX + rightX * lastWidthOffset,
+                start.y(),
+                junctionZ + rightZ * lastWidthOffset
+            );
+        }
+        if (nextDirection == direction.right()) {
+            return new BlockPosition(
+                junctionX + forwardX * lastWidthOffset,
+                start.y(),
+                junctionZ + forwardZ * lastWidthOffset
+            );
+        }
+
+        throw new IllegalArgumentException("Unsupported mine continuation direction.");
     }
 
     private HorizontalBounds horizontalBounds(int fromDepthInclusive, int toDepthExclusive) {
