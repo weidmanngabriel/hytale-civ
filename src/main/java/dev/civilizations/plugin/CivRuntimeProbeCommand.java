@@ -107,7 +107,7 @@ final class CivRuntimeProbeCommand extends CommandBase {
     ) {
         try {
             if (!buildArena(chunk)) {
-                fail("deterministic movement arena could not be built", null);
+                fail("deterministic movement arena could not be verified after block updates", null);
                 return;
             }
 
@@ -143,24 +143,25 @@ final class CivRuntimeProbeCommand extends CommandBase {
     private static boolean buildArena(WorldChunk chunk) {
         for (int localX = ARENA_MIN_LOCAL_X; localX <= ARENA_MAX_LOCAL_X; localX++) {
             for (int localZ = ARENA_MIN_LOCAL_Z; localZ <= ARENA_MAX_LOCAL_Z; localZ++) {
-                if (!chunk.setBlock(localX, ARENA_FLOOR_Y, localZ, BlockType.DEBUG_CUBE)) {
-                    return false;
-                }
+                // setBlock returns whether the block changed, not whether the resulting state is valid.
+                // The arena may already contain empty cells, so always verify the final state below.
+                chunk.setBlock(localX, ARENA_FLOOR_Y, localZ, BlockType.DEBUG_CUBE);
                 for (int dy = 1; dy <= ARENA_CLEARANCE_BLOCKS; dy++) {
-                    if (!chunk.setBlock(localX, ARENA_FLOOR_Y + dy, localZ, BlockType.EMPTY)) {
-                        return false;
-                    }
+                    chunk.setBlock(localX, ARENA_FLOOR_Y + dy, localZ, BlockType.EMPTY);
                 }
             }
         }
 
-        for (int localX = START_LOCAL_X; localX <= TARGET_LOCAL_X; localX++) {
-            if (chunk.getBlock(localX, ARENA_FLOOR_Y, START_LOCAL_Z) != BlockType.DEBUG_CUBE_ID) {
-                return false;
-            }
-            if (chunk.getBlock(localX, ARENA_FLOOR_Y + 1, START_LOCAL_Z) != BlockType.EMPTY_ID
-                || chunk.getBlock(localX, ARENA_FLOOR_Y + 2, START_LOCAL_Z) != BlockType.EMPTY_ID) {
-                return false;
+        for (int localX = ARENA_MIN_LOCAL_X; localX <= ARENA_MAX_LOCAL_X; localX++) {
+            for (int localZ = ARENA_MIN_LOCAL_Z; localZ <= ARENA_MAX_LOCAL_Z; localZ++) {
+                if (chunk.getBlock(localX, ARENA_FLOOR_Y, localZ) != BlockType.DEBUG_CUBE_ID) {
+                    return false;
+                }
+                for (int dy = 1; dy <= ARENA_CLEARANCE_BLOCKS; dy++) {
+                    if (chunk.getBlock(localX, ARENA_FLOOR_Y + dy, localZ) != BlockType.EMPTY_ID) {
+                        return false;
+                    }
+                }
             }
         }
         return true;
