@@ -52,6 +52,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw 'java -version failed.'
           }
-          if ($versionOutput -notmatch 'version "25\.') {
+          if (-not $versionOutput.Contains('version "25.')) {
             throw 'The self-hosted runner must expose Java 25 on PATH for the Hytale runtime test.'
           }
