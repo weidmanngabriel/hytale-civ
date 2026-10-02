@@ -111,7 +111,7 @@ public final class SimulationScenarios {
     private static SimulationRuntime createWoodcutterBasic() {
         SimulationRuntime runtime = new SimulationRuntime();
         runtime.addWoodcutter("woodcutter-1", WoodcutterBasicScenario.WOODCUTTER_START);
-        for (BlockPosition tree : WoodcutterBasicScenario.TREE_BASES) {
+        for (BlockPosition tree : WoodcutterBasicScenario.TREE_ANCHORS) {
             runtime.addTree(tree);
         }
         return runtime;
