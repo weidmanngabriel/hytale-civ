@@ -171,6 +171,116 @@ function Run-WoodcutterScenario {
     Write-Host 'Real Hytale woodcutter scenario passed.'
 }
 
+function Run-PersistenceScenario {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $RuntimeDir
+    )
+
+    $prepareStdoutLog = Join-Path $RuntimeDir 'persistence.prepare.stdout.log'
+    $prepareStderrLog = Join-Path $RuntimeDir 'persistence.prepare.stderr.log'
+
+    $prepare = Start-Process -FilePath 'java' `
+        -ArgumentList @(
+            '-Dcivilizations.runtimeProbe=true',
+            '-Dcivilizations.persistenceProbeStage=prepare',
+            '-jar',
+            $env:HYTALE_SERVER_JAR,
+            '--assets', $env:HYTALE_ASSETS_PATH,
+            '--auth-mode', 'offline',
+            '--disable-sentry',
+            '--boot-command', 'civpersistenceprobe'
+        ) `
+        -WorkingDirectory $RuntimeDir `
+        -RedirectStandardOutput $prepareStdoutLog `
+        -RedirectStandardError $prepareStderrLog `
+        -Wait `
+        -PassThru
+
+    $prepareStdout = if (Test-Path -LiteralPath $prepareStdoutLog) { Get-Content -LiteralPath $prepareStdoutLog -Raw } else { '' }
+    $prepareStderr = if (Test-Path -LiteralPath $prepareStderrLog) { Get-Content -LiteralPath $prepareStderrLog -Raw } else { '' }
+    $prepareCombined = $prepareStdout + [Environment]::NewLine + $prepareStderr
+
+    Write-Host '----- Hytale persistence prepare output -----'
+    Write-Host $prepareCombined
+    Write-Host '----- end Hytale persistence prepare output -----'
+    Write-Host "Persistence prepare exit code: $($prepare.ExitCode)"
+
+    if ($prepareCombined.Contains('CIV_PERSISTENCE_PROBE_FAIL')) {
+        throw 'The persistence prepare stage reported failure.'
+    }
+    foreach ($evidence in @('CIV_PERSISTENCE_PREPARED uuid=', 'CIV_PERSISTENCE_PREPARE_PASS', 'Shutdown completed!')) {
+        if (-not $prepareCombined.Contains($evidence)) {
+            throw "Expected persistence prepare evidence was not found: $evidence"
+        }
+    }
+    if ($prepare.ExitCode -ne 0) {
+        throw "Persistence prepare server exited with code $($prepare.ExitCode)."
+    }
+
+    $uuidMatch = [regex]::Match(
+        $prepareCombined,
+        'CIV_PERSISTENCE_PREPARED uuid=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})'
+    )
+    if (-not $uuidMatch.Success) {
+        throw 'Could not extract the prepared Civ inhabitant UUID from server output.'
+    }
+    $entityUuid = $uuidMatch.Groups[1].Value
+    Write-Host "Prepared persistent Civ inhabitant UUID: $entityUuid"
+
+    $restoreStdoutLog = Join-Path $RuntimeDir 'persistence.restore.stdout.log'
+    $restoreStderrLog = Join-Path $RuntimeDir 'persistence.restore.stderr.log'
+
+    $restore = Start-Process -FilePath 'java' `
+        -ArgumentList @(
+            '-Dcivilizations.runtimeProbe=true',
+            '-Dcivilizations.persistenceProbeStage=restore',
+            "-Dcivilizations.persistenceProbeEntityUuid=$entityUuid",
+            '-jar',
+            $env:HYTALE_SERVER_JAR,
+            '--assets', $env:HYTALE_ASSETS_PATH,
+            '--auth-mode', 'offline',
+            '--disable-sentry',
+            '--boot-command', 'civpersistenceprobe'
+        ) `
+        -WorkingDirectory $RuntimeDir `
+        -RedirectStandardOutput $restoreStdoutLog `
+        -RedirectStandardError $restoreStderrLog `
+        -Wait `
+        -PassThru
+
+    $restoreStdout = if (Test-Path -LiteralPath $restoreStdoutLog) { Get-Content -LiteralPath $restoreStdoutLog -Raw } else { '' }
+    $restoreStderr = if (Test-Path -LiteralPath $restoreStderrLog) { Get-Content -LiteralPath $restoreStderrLog -Raw } else { '' }
+    $restoreCombined = $restoreStdout + [Environment]::NewLine + $restoreStderr
+
+    Write-Host '----- Hytale persistence restore output -----'
+    Write-Host $restoreCombined
+    Write-Host '----- end Hytale persistence restore output -----'
+    Write-Host "Persistence restore exit code: $($restore.ExitCode)"
+
+    if ($restoreCombined.Contains('CIV_PERSISTENCE_PROBE_FAIL')) {
+        throw 'The persistence restore stage reported failure.'
+    }
+    foreach ($evidence in @(
+        "CIV_PERSISTENCE_RESTORED uuid=$entityUuid",
+        'name=Persist_Runtime_Probe',
+        'profession=CONSTRUCTION_WORKER',
+        'xp=37',
+        'workplace=runtime-probe-workplace',
+        'CIV_PERSISTENCE_RESTORE_PASS',
+        'Shutdown completed!'
+    )) {
+        if (-not $restoreCombined.Contains($evidence)) {
+            throw "Expected persistence restore evidence was not found: $evidence"
+        }
+    }
+    if ($restore.ExitCode -ne 0) {
+        throw "Persistence restore server exited with code $($restore.ExitCode)."
+    }
+
+    Write-Host 'Real Hytale persistence scenario passed across two separate server processes.'
+}
+
 if ([string]::IsNullOrWhiteSpace($env:HYTALE_SERVER_JAR) -or -not (Test-Path -LiteralPath $env:HYTALE_SERVER_JAR -PathType Leaf)) {
     throw 'HYTALE_SERVER_JAR is missing or invalid.'
 }
@@ -201,6 +311,9 @@ foreach ($scenario in $Scenarios) {
         switch ($scenario) {
             'woodcutter' {
                 Run-WoodcutterScenario -RuntimeDir $runtimeDir
+            }
+            'persistence' {
+                Run-PersistenceScenario -RuntimeDir $runtimeDir
             }
             default {
                 throw "No runtime implementation exists for registered scenario: $scenario"
