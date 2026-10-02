@@ -33,23 +33,29 @@ HYTALE_ASSETS_PATH
 
 Maschinenspezifische Pfade, `HytaleServer.jar` und `Assets.zip` werden nicht committed und nicht als CI-Artefakte veröffentlicht.
 
-Runtime-Tests werden über temporäre Lightweight-Tags im Format `hytale-test/<szenarien>/<short-sha>` angefordert. Der Tag darf auf jeden Commit im Repository zeigen, also auch auf einen Spike ohne Pull Request. Mehrere Szenarien werden im Tagnamen mit `-` getrennt. Szenarionamen selbst enthalten keine Bindestriche; zusammengesetzte Begriffe werden zusammengeschrieben. `all` steht allein und expandiert auf alle in `scripts/hytale-runtime-scenarios.json` registrierten Szenarien.
+Runtime-Tests werden unabhängig von einem Pull Request über Kommentare in der festen GitHub-Issue `#126 Hytale Runtime Test Requests` angefordert. Das Format lautet:
 
-Die Ausführung ist zweistufig:
+~~~text
+/hytale-test <szenarien> <commit-sha>
+~~~
 
-1. `.github/workflows/hytale-runtime-request.yml` reagiert auf `hytale-test/**` ausschließlich auf einem GitHub-hosted Runner, besitzt keine Berechtigungen und checkt keinen Repository-Code aus.
-2. Erst nach Abschluss dieses unprivilegierten Request-Workflows startet `.github/workflows/hytale-local.yml` über `workflow_run` aus dem vertrauenswürdigen Default-Branch-Kontext.
-3. Ein GitHub-hosted Autorisierungsjob prüft Repository, Request-Workflow-Pfad, explizit erlaubten Anforderer, Tag-Syntax, Lightweight-Tag, vollständigen Commit-SHA, sichtbaren Short-SHA und die Szenario-Registry aus genau diesem Commit.
-4. Nur bei erfolgreicher Autorisierung startet der Self-Hosted-Job. Er erhält lediglich `contents: read`, checkt exakt den autorisierten Commit-SHA mit deaktivierter Credential-Persistenz aus und verifiziert den Checkout erneut.
-5. Tests und Civ-Plugin werden einmal gebaut.
-6. `scripts/hytale-runtime-tests.ps1` führt nur die autorisierte Szenarioliste aus und erzeugt für jedes Szenario ein eigenes isoliertes Runtime-Verzeichnis unter `RUNNER_TEMP` außerhalb des Git-Worktrees.
-7. Dort werden nur Civ-Plugin und Civ-Asset-Pack installiert.
-8. Der echte Server startet mit `--assets <Assets.zip>` und `--auth-mode offline`.
-9. Test-only Runtime-Commands werden über `-Dcivilizations.runtimeProbe=true` aktiviert.
-10. Das jeweilige Szenario wertet echten Serverlog und reale Weltzustände als Assertions aus und fährt den Server aus dem Probe sauber herunter.
-11. Ein separater GitHub-hosted Cleanup-Job entfernt anschließend den temporären Test-Tag, solange er weiterhin auf exakt denselben autorisierten Commit zeigt.
+Der angegebene Commit darf jeder Commit des eigenen Repositories sein, also auch ein Spike ohne Pull Request. Mehrere Szenarien werden mit `-` getrennt. Szenarionamen selbst enthalten keine Bindestriche; zusammengesetzte Begriffe werden zusammengeschrieben. `all` steht allein und expandiert auf alle in `scripts/hytale-runtime-scenarios.json` registrierten Szenarien. Bis zu acht Szenarien können explizit angefordert werden.
 
-Aktuell ist `weidmanngabriel` der einzige ausdrücklich erlaubte Runtime-Test-Anforderer. Unbekannte oder doppelte Szenarien, mehr als acht explizite Szenarien, ein nicht direkt auf einen Commit zeigender Tag oder ein veränderter beziehungsweise bereits gelöschter Tag erreichen den Self-Hosted-Runner nicht. Der lokale Runner selbst besitzt keine Repository-Schreibrechte.
+Die Ausführung ist absichtlich vor der lokalen Codeausführung abgesichert:
+
+1. `.github/workflows/hytale-local.yml` reagiert auf neu erstellte `issue_comment`-Events und stammt dabei aus dem vertrauenswürdigen Default-Branch.
+2. Ein GitHub-hosted Autorisierungsjob prüft zuerst, dass der Kommentar aus Issue `#126` stammt und Event-Aktor, Kommentarautor sowie Sender ausdrücklich erlaubt sind.
+3. Der Befehl muss exakt der erlaubten Syntax entsprechen. Der angegebene 7- bis 40-stellige SHA wird über die GitHub-API im eigenen Repository auf einen vollständigen 40-stelligen Commit-SHA aufgelöst und muss mit dem angegebenen Präfix übereinstimmen.
+4. Die Szenario-Registry wird aus genau diesem zu testenden Commit geladen. Unbekannte oder doppelte Szenarien sowie mehr als acht explizite Szenarien werden abgelehnt; `all` expandiert auf die vollständige Registry.
+5. Nur bei erfolgreicher Autorisierung startet der Self-Hosted-Job. Er erhält lediglich `contents: read`, checkt exakt den autorisierten Commit-SHA mit `persist-credentials: false` aus und verifiziert den Checkout erneut.
+6. Tests und Civ-Plugin werden einmal gebaut.
+7. `scripts/hytale-runtime-tests.ps1` führt nur die autorisierte Szenarioliste aus und erzeugt für jedes Szenario ein eigenes isoliertes Runtime-Verzeichnis unter `RUNNER_TEMP` außerhalb des Git-Worktrees.
+8. Dort werden nur Civ-Plugin und Civ-Asset-Pack installiert.
+9. Der echte Server startet mit `--assets <Assets.zip>` und `--auth-mode offline`.
+10. Test-only Runtime-Commands werden über `-Dcivilizations.runtimeProbe=true` aktiviert.
+11. Das jeweilige Szenario wertet echten Serverlog und reale Weltzustände als Assertions aus und fährt den Server aus dem Probe sauber herunter.
+
+Aktuell ist `weidmanngabriel` der einzige ausdrücklich erlaubte Runtime-Test-Anforderer. Der lokale Runner selbst besitzt keine Repository-Schreibrechte. Der Kommentartext wird niemals ungeprüft als Shell-Befehl verwendet; Commit und Szenarien werden vor dem Checkout beziehungsweise der Ausführung in strukturierte, validierte Werte übersetzt.
 
 Das Runtime-Verzeichnis liegt absichtlich außerhalb des Git-Worktrees. Hytales Prefab-Cache kann unter Windows sehr tiefe Pfade erzeugen; ein früher Spike-Lauf konnte dadurch späteres Git-Cleanup mit `Filename too long` stören. Cleanup des isolierten Temp-Verzeichnisses ist deshalb zeitlich begrenzt und Best-Effort. Ein langsames Dateibaum-Cleanup darf keinen bereits erfolgreichen Gameplay-Vertrag in einen Fehltest verwandeln.
 
@@ -184,13 +190,13 @@ Als nächste hochwertige Runtime-Szenarien bieten sich an:
 
 ## Sicherheits- und CI-Grenze
 
-Der Self-Hosted-Runner greift auf lokale lizenzierte Hytale-Dateien zu und darf deshalb keinen unautorisierten Repository-Code ausführen. Ein Test-Tag ist nur die sichtbare Anfrage; er gibt dem getaggten Commit keine Kontrolle über die privilegierte Autorisierung.
+Der Self-Hosted-Runner greift auf lokale lizenzierte Hytale-Dateien zu und darf deshalb keinen unautorisierten Repository-Code ausführen. Die Steuerung erfolgt deshalb ausschließlich über den `issue_comment`-Workflow auf dem vertrauenswürdigen Default-Branch und nicht über Workflow-Dateien aus dem zu testenden Commit.
 
-Der vorgeschaltete Tag-Request läuft ohne Repository-Berechtigungen auf GitHub-hosted Infrastruktur. Der anschließend über `workflow_run` gestartete Controller stammt aus dem Default-Branch. Er erlaubt aktuell ausschließlich `weidmanngabriel`, löst den Tag auf einen exakten Commit-SHA auf, akzeptiert nur direkte Lightweight-Tags, prüft den Short-SHA im Namen und validiert jedes angeforderte Szenario gegen die Registry aus genau diesem Commit. Erst danach darf der Self-Hosted-Runner den exakten SHA auschecken. Das Checkout speichert keine GitHub-Credentials, und der lokale Job besitzt nur Leserechte.
+Der GitHub-hosted Autorisierungsjob erlaubt aktuell ausschließlich `weidmanngabriel`, akzeptiert nur Befehle aus Issue `#126`, löst den angegebenen Commit innerhalb des eigenen Repositories auf einen exakten SHA auf und validiert jedes angeforderte Szenario gegen die Registry aus genau diesem Commit. Erst danach darf der Self-Hosted-Runner diesen exakten SHA auschecken. Das Checkout speichert keine GitHub-Credentials, und der lokale Job besitzt nur Leserechte.
 
-Das Szenario-Harness selbst stammt absichtlich aus dem getesteten Commit, weil neue Runtime-Verträge gemeinsam mit dem zu prüfenden Feature entwickelt werden müssen. Die Sicherheitsgrenze liegt deshalb nicht darin, diesen Code als vertrauenswürdig anzusehen, sondern darin, dass ausschließlich ein ausdrücklich autorisierter Benutzer einen konkreten Repository-Commit zur Ausführung freigeben kann. Der Kommentar- oder Tagtext wird niemals ungeprüft als Shell-Befehl verwendet.
+Das Szenario-Harness selbst stammt absichtlich aus dem getesteten Commit, weil neue Runtime-Verträge gemeinsam mit dem zu prüfenden Feature entwickelt werden müssen. Die Sicherheitsgrenze liegt deshalb nicht darin, diesen Code als vertrauenswürdig anzusehen, sondern darin, dass ausschließlich ein ausdrücklich autorisierter Benutzer einen konkreten Repository-Commit zur Ausführung freigeben kann. Der Kommentartext wird niemals ungeprüft als Shell-Befehl verwendet.
 
-Normale Unit-, Simulations-, Build-, API- und Bare-Probe-Checks bleiben auf GitHub-hosted Runnern. Der lokale Rechner wird nur für ausdrücklich angeforderte Tests benötigt, die die echte Hytale-Runtime und `Assets.zip` brauchen. Ein ausgeschalteter lokaler Runner darf normale PRs und Releases nicht blockieren. Nach einem autorisierten Runtime-Lauf entfernt ein GitHub-hosted Cleanup-Job den temporären Test-Tag; damit halten Runtime-Anfragen Zwischen-Commits nach einem späteren Squash-Merge nicht dauerhaft über Tags erreichbar.
+Normale Unit-, Simulations-, Build-, API- und Bare-Probe-Checks bleiben auf GitHub-hosted Runnern. Der lokale Rechner wird nur für ausdrücklich angeforderte Tests benötigt, die die echte Hytale-Runtime und `Assets.zip` brauchen. Ein ausgeschalteter lokaler Runner darf normale PRs und Releases nicht blockieren.
 
 ## Bekannte Runtime-Eigenheiten
 
