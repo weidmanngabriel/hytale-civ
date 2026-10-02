@@ -27,7 +27,7 @@ Stützen stehen zunächst alle 4 Tunnelblöcke. Ein 8-Blöcke-Segment erhält da
 
 Civ entscheidet über Segmentwahl, Reservierung, Timing, Fortschritt und Persistenz. Hytale bleibt zuständig für NPC-Navigation, Block-Harvest und Drops, Werkzeugdarstellung, Animation sowie Prefab-Platzierung.
 
-Die Arbeitsanimation verwendet direkt Hytales natives Pickaxe-Animationsset `Pickaxe` mit der Mining-Animation `Mine`. Die Animation wird für die Arbeitsphase gestartet und beim Verlassen der Arbeitsphase gestoppt.
+Die Arbeitsanimation folgt demselben Muster wie beim Holzfäller: Civ startet für die Arbeitsphase das ItemPlayerAnimations-Set `Civ_Miner_Pickaxe` mit `SwingDown` im `Action`-Slot und stoppt es beim Verlassen der Arbeitsphase. Das Civ-Set erbt von Hytales Pickaxe-Basis `Pickaxe_Animations` und verweist auf die nativen Third-Person-Mining-Dateien `Mine.blockyanim` beziehungsweise `Mine_Moving.blockyanim`.
 
 ## Bewusst noch nicht enthalten
 
