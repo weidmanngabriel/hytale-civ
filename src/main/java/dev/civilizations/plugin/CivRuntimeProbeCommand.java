@@ -2,6 +2,7 @@ package dev.civilizations.plugin;
 
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.util.ChunkUtil;
+import com.hypixel.hytale.math.vector.Rotation3f;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase;
@@ -62,7 +63,7 @@ final class CivRuntimeProbeCommand extends CommandBase {
                 return;
             }
 
-            var position = spawn.getPosition();
+            Vector3d position = spawn.getPosition();
             long chunkIndex = ChunkUtil.indexChunkFromBlock(position.x, position.z);
             world.getChunkAsync(chunkIndex).whenComplete((chunk, throwable) ->
                 world.execute(() -> {
@@ -78,7 +79,7 @@ final class CivRuntimeProbeCommand extends CommandBase {
         }
     }
 
-    private void startProbe(World world, Vector3d spawnPosition, org.joml.Vector3f spawnRotation) {
+    private void startProbe(World world, Vector3d spawnPosition, Rotation3f spawnRotation) {
         try {
             var spawned = NPCPlugin.get().spawnNPC(
                 world.getEntityStore().getStore(),
