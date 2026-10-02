@@ -3,15 +3,18 @@ package dev.civilizations.plugin;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.asset.type.buildertool.config.PrefabListAsset;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase;
-import com.hypixel.hytale.server.core.prefab.PrefabStore;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
 import dev.civilizations.scenario.WoodcutterBasicScenario;
 
+import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Temporary headless discovery probe for the deterministic woodcutter fixture.
@@ -74,29 +77,47 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
                         return;
                     }
 
-                    List<String> treeCandidates = PrefabStore.get().listBrowsablePrefabKeys().stream()
-                        .filter(key -> {
-                            String lower = key.toLowerCase(Locale.ROOT);
-                            return lower.contains("tree") || lower.contains("oak");
-                        })
-                        .sorted()
-                        .limit(120)
-                        .toList();
+                    List<Map.Entry<String, PrefabListAsset>> treeLists =
+                        PrefabListAsset.getAssetMap().getAssetMap().entrySet().stream()
+                            .filter(entry -> {
+                                String lower = entry.getKey().toLowerCase(Locale.ROOT);
+                                return lower.startsWith("trees_") || lower.contains("tree");
+                            })
+                            .sorted(Map.Entry.comparingByKey())
+                            .toList();
 
                     System.out.println(
                         "CIV_WOODCUTTER_FLAT_WORLD_READY ground=" + ground.getId()
                             + " feet=" + (feet == null ? "null" : feet.getId())
                     );
-                    System.out.println(
-                        "CIV_TREE_PREFAB_CANDIDATES count=" + treeCandidates.size()
-                            + " keys=" + String.join("|", treeCandidates)
-                    );
 
-                    if (treeCandidates.isEmpty()) {
-                        fail("no tree-like prefab keys were found in loaded asset packs", null);
+                    int pathCount = 0;
+                    for (Map.Entry<String, PrefabListAsset> entry : treeLists) {
+                        Path[] paths = entry.getValue().getPrefabPaths();
+                        List<String> sortedPaths = paths == null
+                            ? List.of()
+                            : java.util.Arrays.stream(paths)
+                                .map(Path::toString)
+                                .sorted(Comparator.naturalOrder())
+                                .limit(40)
+                                .toList();
+                        pathCount += sortedPaths.size();
+                        System.out.println(
+                            "CIV_TREE_PREFAB_LIST id=" + entry.getKey()
+                                + " count=" + sortedPaths.size()
+                                + " paths=" + String.join("|", sortedPaths)
+                        );
+                    }
+
+                    if (treeLists.isEmpty() || pathCount == 0) {
+                        fail("no tree prefab lists with concrete prefab paths were found", null);
                         return;
                     }
 
+                    System.out.println(
+                        "CIV_TREE_PREFAB_LISTS_READY lists=" + treeLists.size()
+                            + " paths=" + pathCount
+                    );
                     System.out.println("CIV_WOODCUTTER_FIXTURE_DISCOVERY_PASS");
                     HytaleServer.get().shutdownServer();
                 })
