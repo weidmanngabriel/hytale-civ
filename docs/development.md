@@ -174,6 +174,19 @@ Nach dem final validierten Zustand dürfen keine zusätzlichen Änderungen auf d
 
 Pull Requests führen Tests und einen vollständigen Java-25-Gradle-Build für Feature-Branches aus. Normale Pushes auf Nicht-Main-Branches starten keinen zweiten, doppelten Workflow. Pushes auf <code>main</code> und Tags mit Präfix <code>v</code> führen weiterhin CI aus, weil sie Development- und Stable-Releases erzeugen. Wird derselbe Pull Request beziehungsweise Branch mit einem neueren Commit aktualisiert, bricht GitHub Actions den älteren laufenden Workflow ab, sodass nur die neueste Revision weiterläuft. Das Release-Bundle-ZIP wird als Actions-Artefakt hochgeladen. Fehlgeschlagene Testberichte werden zur Analyse ebenfalls hochgeladen.
 
+Der lokale Hytale-Runtime-Workflow <code>.github/workflows/hytale-local.yml</code> kann weiterhin manuell gestartet werden und reagiert zusätzlich auf PR-Kommentare der Form <code>/hytale-test &lt;szenario...&gt;</code>. Unterstützte Szenarien werden im Workflow über eine feste Allowlist definiert; <code>all</code> expandiert auf alle aktuell registrierten Runtime-Szenarien. Ein GitHub-hosted Autorisierungsjob prüft vor jeder Self-Hosted-Ausführung, dass der Kommentar von einem ausdrücklich erlaubten Benutzer stammt, zu einem offenen PR gegen <code>main</code> gehört und der PR-Branch direkt aus <code>weidmanngabriel/hytale-civ</code> statt aus einem Fork kommt. Erst danach wird der exakte aktuelle PR-Head-SHA an den Windows-Self-Hosted-Runner übergeben. Der Runner checkt ausschließlich diesen SHA aus; unvalidierter Kommentartext wird nicht als Shell-Eingabe verwendet. Mehrere Kommentare erzeugen getrennte Runs, sodass ein PR nach weiteren Commits gezielt erneut getestet werden kann.
+
+Beispiele:
+
+~~~text
+/hytale-test all
+/hytale-test woodcutter
+/hytale-test persistence
+/hytale-test woodcutter persistence
+~~~
+
+Der Self-Hosted-Runner benötigt weiterhin die lokale Hytale-Installation sowie die lizenzierten Basisassets. Der Workflow protokolliert PR-Nummer, getesteten Commit-SHA, anfordernden Benutzer und ausgewählte Szenarien, bevor Hytale gestartet wird.
+
 Jeder erfolgreiche Push auf <code>main</code> erzeugt ein SemVer-kompatibles Development-Pre-Release. Die Basisversion stammt aus <code>projectVersion</code> in <code>gradle.properties</code>. Der Workflow entfernt <code>-SNAPSHOT</code> und hängt die GitHub-Actions-Run-Nummer an:
 
 ~~~text
