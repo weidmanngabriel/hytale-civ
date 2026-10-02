@@ -46,12 +46,12 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          $versionOutput = (& cmd /c "java -version 2^>^&1") | Out-String
-          Write-Host $versionOutput
+          $javacVersion = (& javac -version | Out-String).Trim()
+          Write-Host $javacVersion
 
           if ($LASTEXITCODE -ne 0) {
-            throw 'java -version failed.'
+            throw 'javac -version failed.'
           }
-          if (-not $versionOutput.Contains('version "25.')) {
+          if (-not $javacVersion.StartsWith('javac 25')) {
             throw 'The self-hosted runner must expose Java 25 on PATH for the Hytale runtime test.'
           }
