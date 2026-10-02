@@ -2,21 +2,19 @@ package dev.civilizations.hytale;
 
 import com.hypixel.hytale.builtin.buildertools.BuilderToolsPlugin;
 import com.hypixel.hytale.builtin.buildertools.utils.PasteToolUtil;
+import com.hypixel.hytale.builtin.triggervolumes.TriggerVolumesPlugin;
+import com.hypixel.hytale.builtin.triggervolumes.component.TriggerVolume;
+import com.hypixel.hytale.builtin.triggervolumes.manager.TriggerVolumeManager;
+import com.hypixel.hytale.builtin.triggervolumes.manager.VolumeEntry;
+import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.RemoveReason;
 import com.hypixel.hytale.component.Store;
-import com.hypixel.hytale.component.ComponentAccessor;
-import com.hypixel.hytale.component.CommandBuffer;
-import com.hypixel.hytale.math.vector.Rotation3f;
 import com.hypixel.hytale.math.util.ChunkUtil;
+import com.hypixel.hytale.math.vector.Rotation3f;
+import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentPrefabPreview;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
-import com.hypixel.hytale.builtin.triggervolumes.TriggerVolumesPlugin;
-import com.hypixel.hytale.builtin.triggervolumes.manager.TriggerVolumeManager;
-import com.hypixel.hytale.builtin.triggervolumes.manager.VolumeEntry;
-import com.hypixel.hytale.server.core.Message;
-import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
-import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.prefab.PrefabStore;
 import com.hypixel.hytale.server.core.prefab.selection.standard.BlockSelection;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
@@ -30,23 +28,28 @@ import org.joml.Vector3i;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Shared placement boundary for Civ prefabs.
  *
- * <p>The creator owns the prefab geometry. Civ only applies the common terrain
- * convention, validates occupied cells, previews the exact prefab and pastes it.
+ * <p>The creator owns prefab geometry. Civ derives authored semantics such as
+ * construction ground level and reservation bounds from trigger-volume tags instead
+ * of relying on fixed prefab dimensions or coordinates.</p>
  */
 @SuppressWarnings("deprecation")
 public final class PrefabPlacementService {
+
+    private static final String TYPE_TAG = "civ.type";
+    private static final String BUILDING_BOUNDS = "building_bounds";
+    private static final String CONSTRUCTION_GROUND_LEVEL = "construction_ground_level";
 
     private final Map<UUID, ActiveConstructionPreview> activeConstructionPreviews =
         new ConcurrentHashMap<>();
@@ -57,6 +60,12 @@ public final class PrefabPlacementService {
         "farm",
         "Farm",
         "Civilizations/Farm/Farm_01",
+        1
+    );
+    public static final PlacementDefinition MINE = new PlacementDefinition(
+        "mine",
+        "Mine",
+        "Civilizations/Mine/Mine_01",
         1
     );
     public static final PlacementDefinition WHEAT_FIELD = new PlacementDefinition(
@@ -84,14 +93,18 @@ public final class PrefabPlacementService {
          */
         BlockSelection source = requireSource(definition);
         Vector3i anchor = placementAnchor(pointedBlock, definition);
+        Vector3i placementOrigin = enginePlacementOrigin(definition, anchor);
         List<PrefabCell> cells = readCells(source);
-        List<PrefabCell> floorCells = cells.stream()
-            .filter(cell -> cell.y() <= source.getAnchorY())
-            .toList();
-        PlacementFootprint footprint = footprintFor(source, anchor, floorCells);
+
+        PlacementFootprint footprint = semanticFootprint(source, placementOrigin);
+        if (footprint == null) {
+            List<PrefabCell> floorCells = cells.stream()
+                .filter(cell -> cell.y() <= source.getAnchorY())
+                .toList();
+            footprint = footprintFor(source, anchor, floorCells);
+        }
 
         Map<BlockPosition, Integer> replacedBlocks = new LinkedHashMap<>();
-        Vector3i placementOrigin = enginePlacementOrigin(definition, anchor);
         for (PrefabCell cell : cells) {
             Vector3i position = worldPosition(source, placementOrigin, cell);
             WorldChunk chunk = loadedChunk(world, position.x, position.z);
@@ -142,7 +155,7 @@ public final class PrefabPlacementService {
             return false;
         }
 
-        BlockSelection source = new BlockSelection(requireSource(definition));
+        BlockSelection source = requireSource(definition);
         source.setAnchor(
             source.getAnchorX(),
             source.getAnchorY() + definition.groundSinkBlocks(),
@@ -167,10 +180,10 @@ public final class PrefabPlacementService {
             throw new IllegalStateException("Player entity unavailable.");
         }
         Store<EntityStore> store = playerEntityRef.getStore();
-        Vector3i placementOrigin = enginePlacementOrigin(candidate);
+        Vector3i previewOrigin = persistentPreviewOrigin(candidate);
         Ref<EntityStore> previewRef = PersistentPrefabPreview.spawn(
             store,
-            new org.joml.Vector3d(placementOrigin.x, placementOrigin.y, placementOrigin.z),
+            new Vector3d(previewOrigin.x, previewOrigin.y, previewOrigin.z),
             new Rotation3f(),
             candidate.definition().prefabKey(),
             Integer.MAX_VALUE
@@ -224,12 +237,12 @@ public final class PrefabPlacementService {
         }
         Store<EntityStore> store = playerEntityRef.getStore();
         Ref<EntityStore> previewRef = active.previewRef();
-        Vector3i anchor = candidate.anchor();
+        Vector3i previewOrigin = persistentPreviewOrigin(candidate);
 
         if (previewRef == null || !previewRef.isValid()) {
             previewRef = PersistentPrefabPreview.spawn(
                 store,
-                new org.joml.Vector3d(anchor.x, anchor.y, anchor.z),
+                new Vector3d(previewOrigin.x, previewOrigin.y, previewOrigin.z),
                 new Rotation3f(),
                 active.definition().prefabKey(),
                 Integer.MAX_VALUE
@@ -251,7 +264,11 @@ public final class PrefabPlacementService {
             TransformComponent.getComponentType()
         );
         if (transform != null) {
-            transform.setPosition(new org.joml.Vector3d(anchor.x, anchor.y, anchor.z));
+            transform.setPosition(new Vector3d(
+                previewOrigin.x,
+                previewOrigin.y,
+                previewOrigin.z
+            ));
         }
     }
 
@@ -309,10 +326,7 @@ public final class PrefabPlacementService {
     }
 
     public int constructionLayerCount(ConstructionSite site) {
-        BlockSelection source = requireSource(site.definition());
-        TreeSet<Integer> layers = new TreeSet<>();
-        source.forEachBlock((x, y, z, blockHolder) -> layers.add(y));
-        return layers.size();
+        return constructionLayers(requireSource(site.definition())).size();
     }
 
     /**
@@ -325,7 +339,7 @@ public final class PrefabPlacementService {
         CommandBuffer<EntityStore> commandBuffer
     ) {
         BlockSelection source = requireSource(site.definition());
-        List<Integer> layers = occupiedLayers(source);
+        List<Integer> layers = constructionLayers(source);
         if (layerIndex < 0 || layerIndex >= layers.size()) {
             return false;
         }
@@ -405,10 +419,102 @@ public final class PrefabPlacementService {
         return world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(blockX, blockZ));
     }
 
-    private static List<Integer> occupiedLayers(BlockSelection source) {
-        TreeSet<Integer> layers = new TreeSet<>();
-        source.forEachBlock((x, y, z, blockHolder) -> layers.add(y));
-        return List.copyOf(layers);
+    private static List<Integer> constructionLayers(BlockSelection source) {
+        TreeSet<Integer> occupied = new TreeSet<>();
+        source.forEachBlock((x, y, z, blockHolder) -> occupied.add(y));
+        return PrefabConstructionOrder.order(occupied, constructionGroundSourceY(source));
+    }
+
+    private static Integer constructionGroundSourceY(BlockSelection source) {
+        List<AuthoredMarker> groundMarkers = authoredMarkers(source).stream()
+            .filter(marker -> marker.hasTag(TYPE_TAG, CONSTRUCTION_GROUND_LEVEL))
+            .toList();
+        if (groundMarkers.isEmpty()) {
+            return null;
+        }
+        if (groundMarkers.size() != 1) {
+            throw new IllegalStateException(
+                "Prefab must define exactly one civ.type=construction_ground_level marker."
+            );
+        }
+        return (int) Math.floor(groundMarkers.getFirst().bounds().minY());
+    }
+
+    private static PlacementFootprint semanticFootprint(
+        BlockSelection source,
+        Vector3i placementOrigin
+    ) {
+        List<AuthoredMarker> boundsMarkers = authoredMarkers(source).stream()
+            .filter(marker -> marker.hasTag(TYPE_TAG, BUILDING_BOUNDS))
+            .toList();
+        if (boundsMarkers.isEmpty()) {
+            return null;
+        }
+
+        double localMinX = boundsMarkers.stream()
+            .mapToDouble(marker -> marker.bounds().minX())
+            .min()
+            .orElseThrow();
+        double localMinZ = boundsMarkers.stream()
+            .mapToDouble(marker -> marker.bounds().minZ())
+            .min()
+            .orElseThrow();
+        double localMaxX = boundsMarkers.stream()
+            .mapToDouble(marker -> marker.bounds().maxX())
+            .max()
+            .orElseThrow();
+        double localMaxZ = boundsMarkers.stream()
+            .mapToDouble(marker -> marker.bounds().maxZ())
+            .max()
+            .orElseThrow();
+
+        int minX = (int) Math.floor(
+            placementOrigin.x + localMinX - source.getAnchorX()
+        );
+        int minZ = (int) Math.floor(
+            placementOrigin.z + localMinZ - source.getAnchorZ()
+        );
+        int maxX = (int) Math.ceil(
+            placementOrigin.x + localMaxX - source.getAnchorX()
+        ) - 1;
+        int maxZ = (int) Math.ceil(
+            placementOrigin.z + localMaxZ - source.getAnchorZ()
+        ) - 1;
+
+        Integer groundY = constructionGroundSourceY(source);
+        int floorY = groundY == null
+            ? placementOrigin.y
+            : (int) Math.floor(placementOrigin.y + groundY - source.getAnchorY());
+        return new PlacementFootprint(minX, minZ, maxX, maxZ, floorY);
+    }
+
+    private static List<AuthoredMarker> authoredMarkers(BlockSelection source) {
+        List<AuthoredMarker> markers = new ArrayList<>();
+        source.forEachEntity(holder -> {
+            TriggerVolume trigger = holder.getComponent(
+                TriggerVolumesPlugin.get().getTriggerVolumeComponentType()
+            );
+            TransformComponent transform = holder.getComponent(
+                TransformComponent.getComponentType()
+            );
+            if (trigger == null || transform == null || trigger.getShape() == null) {
+                return;
+            }
+
+            Vector3d min = new Vector3d();
+            Vector3d max = new Vector3d();
+            trigger.getShape().getWorldAABB(transform.getPosition(), min, max);
+            VolumeEntry entry = trigger.toVolumeEntry(
+                "civ-prefab-inspection",
+                "civ-prefab-inspection",
+                transform.getPosition()
+            );
+            markers.add(new AuthoredMarker(
+                entry.getRawTags(),
+                new BuildingBounds(min.x, min.y, min.z, max.x, max.y, max.z)
+            ));
+        });
+        return List.copyOf(markers);
     }
 
     private static void removeConstructionPreview(
@@ -440,7 +546,7 @@ public final class PrefabPlacementService {
         TriggerVolumeManager volumeManager = triggerVolumeManager(world);
         Set<String> existingVolumeIds = new HashSet<>(volumeManager.getVolumesMap().keySet());
 
-        BlockSelection prefab = new BlockSelection(requireSource(candidate.definition()));
+        BlockSelection prefab = requireSource(candidate.definition());
         prefab.place(
             playerRef,
             world,
@@ -522,8 +628,7 @@ public final class PrefabPlacementService {
 
     /**
      * Converts Civ's terrain-relative anchor into the origin expected by Hytale's
-     * prefab preview and BlockSelection placement APIs. The sink is part of the
-     * Civ terrain convention; Hytale then applies the prefab's own internal anchor.
+     * prefab placement APIs. The sink is part of the Civ terrain convention.
      */
     private static Vector3i enginePlacementOrigin(PlacementCandidate candidate) {
         return enginePlacementOrigin(candidate.definition(), candidate.anchor());
@@ -540,6 +645,24 @@ public final class PrefabPlacementService {
         );
     }
 
+    /**
+     * PersistentPrefabPreview loads the authored prefab key directly and therefore uses
+     * the authored anchor rather than Civ's semantic construction-ground anchor. Apply
+     * only the anchor delta to the preview entity so it renders where the prepared
+     * BlockSelection will eventually be placed.
+     */
+    private static Vector3i persistentPreviewOrigin(PlacementCandidate candidate) {
+        BlockSelection raw = requireRawSource(candidate.definition());
+        Integer groundY = constructionGroundSourceY(raw);
+        int effectiveAnchorY = groundY == null ? raw.getAnchorY() : groundY;
+        Vector3i placementOrigin = enginePlacementOrigin(candidate);
+        return new Vector3i(
+            placementOrigin.x,
+            placementOrigin.y + raw.getAnchorY() - effectiveAnchorY,
+            placementOrigin.z
+        );
+    }
+
     private static List<PrefabCell> readCells(BlockSelection source) {
         List<PrefabCell> cells = new ArrayList<>();
         source.forEachBlock((x, y, z, blockHolder) ->
@@ -548,7 +671,20 @@ public final class PrefabPlacementService {
         return List.copyOf(cells);
     }
 
+    /**
+     * Returns a detached prefab selection whose Y anchor follows the semantic authored
+     * construction ground level when present. No fixed mine depth or height is encoded.
+     */
     private static BlockSelection requireSource(PlacementDefinition definition) {
+        BlockSelection source = new BlockSelection(requireRawSource(definition));
+        Integer groundY = constructionGroundSourceY(source);
+        if (groundY != null) {
+            source.setAnchor(source.getAnchorX(), groundY, source.getAnchorZ());
+        }
+        return source;
+    }
+
+    private static BlockSelection requireRawSource(PlacementDefinition definition) {
         PrefabStore prefabStore = PrefabStore.get();
         java.nio.file.Path prefabPath =
             prefabStore.findBrowsablePrefabPath(definition.prefabKey());
@@ -562,6 +698,16 @@ public final class PrefabPlacementService {
     }
 
     private record PrefabCell(int x, int y, int z) {
+    }
+
+    private record AuthoredMarker(Map<String, String> tags, BuildingBounds bounds) {
+        private AuthoredMarker {
+            tags = Map.copyOf(tags);
+        }
+
+        private boolean hasTag(String key, String value) {
+            return value.equals(tags.get(key));
+        }
     }
 
     public record PlacementDefinition(

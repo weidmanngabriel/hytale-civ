@@ -23,15 +23,18 @@ public final class BuildingMenuPage
     extends InteractiveCustomUIPage<BuildingMenuPage.ActionData> {
 
     private static final String ACTION_FARM = "farm";
+    private static final String ACTION_MINE = "mine";
     private static final String ACTION_FIELD = "field";
     private static final String ACTION_CLOSE = "close";
 
     private final Runnable selectFarm;
+    private final Runnable selectMine;
     private final Runnable selectField;
 
     public BuildingMenuPage(
         PlayerRef playerRef,
         Runnable selectFarm,
+        Runnable selectMine,
         Runnable selectField
     ) {
         super(
@@ -40,6 +43,7 @@ public final class BuildingMenuPage
             ActionData.CODEC
         );
         this.selectFarm = selectFarm;
+        this.selectMine = selectMine;
         this.selectField = selectField;
     }
 
@@ -55,6 +59,12 @@ public final class BuildingMenuPage
             CustomUIEventBindingType.Activating,
             "#FarmButton",
             EventData.of("Action", ACTION_FARM),
+            false
+        );
+        events.addEventBinding(
+            CustomUIEventBindingType.Activating,
+            "#MineButton",
+            EventData.of("Action", ACTION_MINE),
             false
         );
         events.addEventBinding(
@@ -79,6 +89,11 @@ public final class BuildingMenuPage
     ) {
         if (ACTION_FARM.equals(data.action)) {
             selectFarm.run();
+            close();
+            return;
+        }
+        if (ACTION_MINE.equals(data.action)) {
+            selectMine.run();
             close();
             return;
         }

@@ -204,6 +204,7 @@ public final class RtsInteractionController {
             new BuildingMenuPage(
                 playerRef,
                 () -> startPlacement(playerRef, session, PrefabPlacementService.FARM),
+                () -> startPlacement(playerRef, session, PrefabPlacementService.MINE),
                 () -> startPlacement(playerRef, session, PrefabPlacementService.WHEAT_FIELD)
             )
         );
@@ -732,7 +733,7 @@ public final class RtsInteractionController {
                 playerRef.sendMessage(Message.raw("That NPC is already assigned to this farm."));
             case OCCUPIED ->
                 playerRef.sendMessage(Message.raw("That farm already has a Farmer."));
-                    }
+        }
     }
 
     private void assignFarmerProfession(
