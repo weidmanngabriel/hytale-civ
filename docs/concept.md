@@ -36,11 +36,23 @@ Während der RTS-Modus aktiv ist:
 - Ein Rechtsklick auf den aktuell ausgewählten Civ-Bewohner öffnet dessen Aktionsmenü.
 - Die erste verfügbare Aktion weist den Beruf Holzfäller zu.
 - Ein Rechtsklick auf einen Bodenblock gibt dem ausgewählten Bewohner ein direktes Bewegungsziel. Dieser manuelle Befehl pausiert seine automatische Berufsarbeit. Sobald der Bewohner das Ziel erreicht hat, endet der manuelle Auftrag; nach einer gemeinsamen Wiederanlaufpause von zwei Sekunden darf der bereits zugewiesene Beruf automatisch mit seinem unveränderten Zustand weiterarbeiten. Der Beruf muss nicht erneut zugewiesen werden.
+- Ein Rechtsklick auf ein fertig gebautes Civ-Gebäude öffnet dessen Gebäude-Interface, sofern nicht der bestehende Farm-Zuweisungsmodus eines ausgewählten Bauern greift.
+- Das Gebäude-Interface zeigt Gebäudename, Phase sowie die aktuelle Arbeiterbelegung als `X/Y`. Zugeordnete Bewohner erscheinen als auswählbare Einträge; nicht belegte Kapazität erscheint als freier Arbeitsplatz.
+- Ein Klick auf einen zugeordneten Bewohner schließt das Gebäude-Interface und übernimmt ihn in dieselbe RTS-Auswahl wie ein direkter Linksklick auf den Bewohner. Ein anschließender Rechtsklick auf den Boden verwendet den normalen manuellen Bewegungsbefehl. Die Arbeitsplatzzuweisung bleibt dabei bestehen.
+- Die angezeigte Arbeiterkapazität ist in diesem Slice nur Metadaten. Sie verhindert oder validiert noch keine Arbeitsplatzzuweisung.
 - <code>/civbuild</code> öffnet den Gebäudekatalog. Solange dieser geöffnet ist, sind normale RTS-Interaktionen mit der Welt pausiert.
 - <code>/civwiki</code> öffnet das Ingame-Wiki.
 - Gebäude im Katalog sind alphabetisch nach ihrem Anzeigenamen sortiert.
 
-RTS ist eine Bedienungsart und keine Voraussetzung für die Civ-Simulation. Bewohnerzugehörigkeit, Identität und Berufsdaten sind unabhängig von einer RTS-Session persistent. Auswahl, Bewegungsziele und laufende Arbeitsausführung bleiben vorläufige Laufzeitzustände.
+RTS ist eine Bedienungsart und keine Voraussetzung für die Civ-Simulation. Bewohnerzugehörigkeit, Identität, Berufsdaten und eine optionale Arbeitsplatz-ID sind unabhängig von einer RTS-Session persistent. Auswahl, Bewegungsziele und laufende Arbeitsausführung bleiben vorläufige Laufzeitzustände.
+
+## Gebäudephasen und Arbeiterkapazität
+
+Fertige Civ-Gebäude besitzen neben ihrer stabilen Gebäude-ID und ihrem Typ eine persistente Phase. Neue Gebäude starten aktuell in Phase 1. Das eigentliche Upgrade-Gameplay ist noch nicht umgesetzt.
+
+Die Arbeiterkapazität wird aus Gebäudetyp und Phase abgeleitet und nicht im UI als Sonderregel hinterlegt. Für die Mine gilt bereits als Produktvorgabe: **Phase 1 = 1 Abbauer, Phase 2 = 2 Abbauer, Phase 3 = 3 Abbauer**. Dadurch kann das Gebäude-Interface später automatisch mit der Ausbaustufe mitwachsen, ohne dass die UI die Minenregeln selbst kennen muss.
+
+Farm und Weizenfeld führen für den aktuellen Prototyp ebenfalls Kapazitätsmetadaten (Farm Phase 1: 1; Weizenfeld: 0). Diese beiden Werte sind keine Festlegung einer späteren Ausbaukurve.
 
 ## Holzfäller-Vertical-Slice
 
@@ -59,7 +71,7 @@ Der aktuelle Arbeitsablauf fällt einen erkannten Baum als zusammenhängende Hol
 
 Die Baumerkennung beginnt weiterhin bei einem Hytale-Holzblock mit Gather-Type `Woods`, dessen Asset-ID `trunk` enthält, und sammelt anschließend direkt zusammenhängende `Woods`-Blöcke innerhalb begrenzter Baumdimensionen. Eine öffentliche native Hytale-API zum serverseitigen vollständigen Fällen eines ganzen Baums ist für die aktuell gepinnte Runtime nicht verifiziert; deshalb grenzt Civ die zu bearbeitende Holzstruktur selbst ab, delegiert den eigentlichen Blockabbau aber weiterhin an Hytale.
 
-Das Einsammeln der Holz-Drops ins Bewohnerinventar, eine größenabhängig balancierte Holzausbeute, das Tragen zu einem gemeinsamen Ablage-/Lagerort, Arbeitsbereiche und eine dauerhafte Arbeitsplatzzuweisung sind noch nicht Teil dieses Schritts.
+Das Einsammeln der Holz-Drops ins Bewohnerinventar, eine größenabhängig balancierte Holzausbeute, das Tragen zu einem gemeinsamen Ablage-/Lagerort und Arbeitsbereiche sind noch nicht Teil dieses Schritts.
 
 ## Farm-Vertical-Slice
 
@@ -69,7 +81,7 @@ Im RTS-Modus öffnet <code>/civbuild</code> den Gebäudekatalog. Wird **Farm** a
 
 Die Creator-Prefabs werden ohne zusätzlichen Civ-Höhenoffset an das native Paste Tool übergeben; dessen Anchor-Position ist für die sichtbare Platzierung maßgeblich. Eigene Civ-Platzierungsregeln dürfen erst wieder vor den Commit geschaltet werden, wenn der native Paste-Commit zuverlässig abgefangen beziehungsweise validiert werden kann.
 
-Nach dem Platzieren kann ein beanspruchter Civ-NPC ausgewählt und über den Arbeitsbereich der Farm als Bauer zugewiesen werden. Gibt es mehrere mögliche Zugänge, wird aktuell der zum Bewohner nächstgelegene verwendet.
+Nach dem Platzieren kann ein beanspruchter Civ-NPC ausgewählt und über den Arbeitsbereich der Farm als Bauer zugewiesen werden. Gibt es mehrere mögliche Zugänge, wird aktuell der zum Bewohner nächstgelegene verwendet. Bei erfolgreicher Zuweisung speichert der Bewohner zusätzlich die stabile Building-ID der Farm als Arbeitsplatz.
 
 Der erste zusammenhängende Produktionsablauf verwendet eine fertig gebaute Farm und ein separat fertig gebautes Weizenfeld. Das automatische Pflanzen durch den Bauer ist im aktuellen Hytale-Runtime-Stand vorläufig pausiert, weil dafür noch kein verifizierter nativer serverseitiger NPC-Pflanzpfad verfügbar ist; die Civ-Farm baut Hytales Seed-Placement nicht nach.
 
@@ -90,16 +102,13 @@ Das Wiki beschreibt nur bereits umgesetztes Civ-Verhalten und verknüpft verwand
 
 Wird das Wiki während einer aktiven Farm-Platzierung geöffnet, wird die Platzierung vorher abgebrochen.
 
-
 ### Farm und Feld bauen
 
 Der Spieler platziert Farmgebäude und Weizenfeld getrennt über das Gebäudemenü. Beide verwenden denselben Vorschau-, Validierungs- und Platzierungsablauf. Das Feld wird nicht automatisch durch die Farm erzeugt. Fertig gebaute Felder werden über ihren Prefab-Marker `civ.building=farm` und `civ.type=field` als Farmfelder registriert. Dieser Trigger-Marker bestimmt zugleich das Arbeitsziel des Bauern; Civ berechnet dafür keine Position mehr aus der Feldgeometrie. Der erste Farmer-Loop verwendet automatisch das nächstgelegene fertige Feld zur zugewiesenen Farm; eine manuelle Farm-Feld-Verknüpfung gibt es in diesem Build noch nicht.
 
-
 ### Baustellen statt Sofortbau
 
 Die funktionierende native Paste-Tool-Vorschau bleibt die Platzierungsoberfläche. Beim Bestätigen einer von Civ gestarteten Farm- oder Feldplatzierung soll das fertige Prefab jedoch nicht sofort in die Welt eingefügt werden. Der aktuelle Baustellen-Slice bricht den nativen Paste vor der Weltmutation ab und setzt an der bestätigten Position eine persistente Hytale-Prefab-Vorschau als Baustelle. Die eigentliche schrittweise Materialisierung durch Bau-NPCs ist der nächste Slice und wird nicht durch einen sofortigen versteckten Paste simuliert.
-
 
 A confirmed Civ building is initially represented as a construction blueprint rather than a finished functional building. The blueprint must be cancellable and must not activate the building's trigger volumes. Trigger volumes become active only when construction is completed. The current construction spike does not yet implement NPC-driven progressive block placement.
 
@@ -111,8 +120,7 @@ Der Bauarbeiter läuft mit Hytales nativer NPC-Wegfindung zu einem freien Arbeit
 
 Das Gebäude materialisiert sich währenddessen schrittweise von unten nach oben. Ein Bauschritt entspricht im aktuellen Engine-Validierungsprototyp einer belegten Y-Ebene des Prefabs und dauert eine Sekunde. Die echte Prefab-Geometrie ersetzt dabei auch die vorgesehenen Bodenblöcke. Nach der letzten Ebene führt Civ einmal den vollständigen nativen Prefab-Placement-Pfad aus, damit Prefab-Entities und Trigger Volumes erst für das fertige Gebäude entstehen. Danach sucht der Bauarbeiter die nächste freie Baustelle.
 
-Baumaterialien, Bauarbeiter-XP, mehrere Arbeiter an derselben Baustelle, individuelle Block-Arbeitspositionen und eine dauerhafte Baustellen-/Arbeitsplatzzuweisung sind noch nicht Teil von Construction v1.
-
+Baumaterialien, Bauarbeiter-XP, mehrere Arbeiter an derselben Baustelle, individuelle Block-Arbeitspositionen und eine dauerhafte Baustellenzuweisung sind noch nicht Teil von Construction v1.
 
 ### Gebäude-Bounds
 
@@ -120,32 +128,29 @@ Ein fertiges Civ-Gebäude besitzt eine vom Creator im Hytale Trigger Volume Tool
 
 Funktionsbereiche wie `workplace_access` oder `output_storage` bleiben eigene Trigger Volumes. Bei der Farm kann dadurch ein Rechtsklick auf einen beliebigen Block innerhalb der Gebäudezone die Farm treffen; der Arbeitszugang bleibt trotzdem das Ziel, zu dem der Bauer läuft. Das separat platzierte Feld verwendet weiterhin sein vorhandenes `civ.type=field`-Volume.
 
+### Gebäudeaktionen und Abriss
 
-### Gebäude abreißen
+Ein Rechtsklick auf ein fertig gebautes Civ-Gebäude innerhalb seiner `building_bounds` öffnet grundsätzlich die Gebäudeaktionen. Die bestehende Farm-Zuweisung bleibt vorläufig eine Ausnahme: Ist ein Bewohner ausgewählt und wird eine Farm rechtsgeklickt, hat die Arbeitsplatzzuweisung aktuell Vorrang.
 
-Ein Rechtsklick auf ein fertig gebautes Farmgebäude innerhalb seiner `building_bounds` öffnet die Gebäudeaktionen, wenn kein Civ-Bewohner ausgewählt ist. Ist ein Bewohner ausgewählt, hat die Arbeitsplatzzuweisung Vorrang und das Gebäude-Interface öffnet sich nicht. Über **Abreißen** und eine separate Bestätigung kann die Farm vollständig entfernt werden. Civ entfernt dabei die Prefab-Blöcke und Trigger Volumes, stellt jede vom Farm-Prefab überschriebene Position auf ihren Zustand vor dem Bau zurück und gibt die Fläche im Gebäuderegister wieder frei. Das separat platzierte Weizenfeld gehört nicht zum Farmabriss und bleibt bestehen.
+Das Gebäude-Interface zeigt die persistente Phase und die aus dem Gebäudetyp abgeleitete Arbeiterkapazität. Bereits zugeordnete, aktuell geladene Bewohner werden über ihre persistente Workplace-ID angezeigt und können direkt ausgewählt werden. Die Kapazitätsanzeige ist derzeit ausdrücklich keine Gameplay-Grenze.
 
+Über **Abreißen** und eine separate Bestätigung kann ein Gebäude vollständig entfernt werden. Civ entfernt dabei die Prefab-Blöcke und Trigger Volumes, stellt jede vom Prefab überschriebene Position auf ihren Zustand vor dem Bau zurück und gibt die Fläche im Gebäuderegister wieder frei. Arbeitsplatzreferenzen aktuell geladener Bewohner auf das abgerissene Gebäude werden dabei entfernt. Separat platzierte Gebäude wie ein Weizenfeld gehören nicht automatisch zum Abriss eines anderen Gebäudes.
 
-Fertige Farmgebäude und der für einen späteren Abriss benötigte ursprüngliche Boden bleiben über Welt-/Server-Neustarts erhalten. Beim erneuten Betreten der Welt werden Schutz, Gebäudeinteraktion und Farm-Arbeitsplatz aus den gespeicherten Gebäudedaten rekonstruiert.
-
+Fertige Civ-Gebäude und der für einen späteren Abriss benötigte ursprüngliche Boden bleiben über Welt-/Server-Neustarts erhalten. Beim erneuten Betreten der Welt werden Schutz, Gebäudeinteraktion und gebäudespezifische Laufzeitindizes aus den gespeicherten Gebäudedaten rekonstruiert.
 
 Beim Development-Bootstrap werden die vier Seeds als ein nativer ItemStack angefordert und die NPC-Inventarbereiche Storage, Hotbar und Backpack nacheinander verwendet. Ein Seed gilt nur dann als ausgegeben, wenn Hytale die Einlagerung bestätigt; lehnt ein Inventarbereich das Item ab, wird der nächste Bereich versucht.
-
 
 ### Farmer-Test-Saatgut
 
 Bis die allgemeine Materialbeschaffung umgesetzt ist, erhält ein Bewohner beim Wechsel in den Beruf Bauer vorläufig vier native Hytale-`Plant_Seeds_Wheat`-Seed-Bags in sein NPC-Inventar. Der Bauer verwendet diese jetzt tatsächlich auf dem fertig gebauten Weizenfeld: Der native Crop-Block wird auf der freien Position direkt über dem Ackerboden gesetzt, Hytale übernimmt den nativen Wachstumszyklus und reife Pflanzen werden über Hytales Farming-Ernte geerntet; der dadurch real im NPC-Inventar ankommende Weizen wird anschließend zum Farmcontainer gebracht. Beim Wechsel aus dem Beruf Bauer werden bis zu vier verbliebene Bootstrap-Seed-Bags wieder entfernt. Nur die automatische Ausgabe der vier Seed-Bags ist Development-Bootstrap; Säen, Wachstum und Ernte sind der aktuelle Farmablauf.
 
-
 ### Gemeinsamer Gebäude-Lifecycle
 
-Farm und Weizenfeld sind gleichermaßen persistente Civ-Gebäude. Beide werden nach Fertigstellung über dieselbe stabile Building-ID, Bounds/Footprint, semantische Volumes und Terrain-Snapshot gespeichert. Der Feld-Registry ist nur ein Runtime-Arbeitsindex und wird nach Weltbeitritt aus den persistenten Gebäudedaten rekonstruiert. Schutz und Abriss laufen über dieselbe Building-Infrastruktur; Abriss stellt den gespeicherten ursprünglichen Boden wieder her. Der Schutz des fertigen Weizenfelds verhindert weiterhin sämtliche direkten Spieler-Abbauversuche am geschützten Konstrukt sowie Änderungen am Feldboden und fremde Blockplatzierung. Normales Pflanzen von Weizensamen oberhalb des Feldbodens bleibt erlaubt.
-
+Farm und Weizenfeld sind gleichermaßen persistente Civ-Gebäude. Beide werden nach Fertigstellung über dieselbe stabile Building-ID, Gebäudetyp, Phase, Bounds/Footprint, semantische Volumes und Terrain-Snapshot gespeichert. Der Feld-Registry ist nur ein Runtime-Arbeitsindex und wird nach Weltbeitritt aus den persistenten Gebäudedaten rekonstruiert. Schutz und Abriss laufen über dieselbe Building-Infrastruktur; Abriss stellt den gespeicherten ursprünglichen Boden wieder her. Der Schutz des fertigen Weizenfelds verhindert weiterhin sämtliche direkten Spieler-Abbauversuche am geschützten Konstrukt sowie Änderungen am Feldboden und fremde Blockplatzierung. Normales Pflanzen von Weizensamen oberhalb des Feldbodens bleibt erlaubt.
 
 ### Weizenfeld als eigenständiges Gebäude
 
 Das Weizenfeld besitzt einen eigenen `wheat_field`-Gebäudebereich für Auswahl, Schutz, Persistenz und Abriss. Sein `field`-Marker ist davon getrennt und dient ausschließlich als Arbeitsziel für Farmer. Terrain-Snapshots für den Abriss speichern stabile Block-Asset-IDs, damit ein Neustart keine laufzeitabhängigen numerischen Block-IDs als falsche Blöcke wiederherstellt.
-
 
 ### Bewohnerinventar ansehen
 
