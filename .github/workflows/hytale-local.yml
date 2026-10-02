@@ -72,15 +72,11 @@ jobs:
 
           $runtimeDir = Join-Path $PWD 'build\hytale-local-runtime'
           $modsDir = Join-Path $runtimeDir 'mods'
-          $runtimeAssets = Join-Path $runtimeDir 'Assets.zip'
 
           if (Test-Path -LiteralPath $runtimeDir) {
             Remove-Item -LiteralPath $runtimeDir -Recurse -Force
           }
           New-Item -ItemType Directory -Path $modsDir -Force | Out-Null
-
-          # Assets.zip is several GB. A hard link keeps the licensed file local and avoids copying it.
-          New-Item -ItemType HardLink -Path $runtimeAssets -Target $env:HYTALE_ASSETS_PATH | Out-Null
 
           $pluginJar = Get-ChildItem -Path 'build\libs' -Filter 'hytale-civ-*.jar' |
             Sort-Object LastWriteTime -Descending |
@@ -108,6 +104,7 @@ jobs:
             -ArgumentList @(
               '-jar',
               $env:HYTALE_SERVER_JAR,
+              '--assets', $env:HYTALE_ASSETS_PATH,
               '--auth-mode', 'offline',
               '--disable-sentry',
               '--boot-command', 'stop'
@@ -128,13 +125,16 @@ jobs:
           Write-Host "Hytale server exit code: $($process.ExitCode)"
 
           if ($combined.Contains('client.disconnection.shutdownReason.missingAssets.failedToLoad')) {
-            throw 'Hytale still reports missing assets even though the local Assets.zip is linked into the runtime.'
+            throw 'Hytale still reports missing assets while using --assets with the local Assets.zip.'
           }
           if (-not $combined.Contains('Civilizations:HytaleCiv')) {
             throw 'Hytale did not discover the Civ plugin.'
+          }
+          if (-not $combined.Contains('Added world ''default''')) {
+            throw 'Hytale did not finish creating/loading the default world before shutdown.'
           }
           if ($process.ExitCode -ne 0) {
             throw "Hytale server exited with code $($process.ExitCode)."
           }
 
-          Write-Host 'Real Hytale server started with local assets and discovered Civ successfully.'
+          Write-Host 'Real Hytale server started with local assets, discovered Civ, loaded the default world, and shut down cleanly.'
