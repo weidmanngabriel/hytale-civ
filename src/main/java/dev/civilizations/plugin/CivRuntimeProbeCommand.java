@@ -1,6 +1,7 @@
 package dev.civilizations.plugin;
 
 import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
 import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase;
@@ -48,10 +49,10 @@ final class CivRuntimeProbeCommand extends CommandBase {
             return;
         }
 
-        world.execute(() -> startProbe(world));
+        world.execute(() -> loadSpawnChunkAndStart(world));
     }
 
-    private void startProbe(World world) {
+    private void loadSpawnChunkAndStart(World world) {
         try {
             var spawn = world.getWorldConfig()
                 .getSpawnProvider()
@@ -61,12 +62,30 @@ final class CivRuntimeProbeCommand extends CommandBase {
                 return;
             }
 
+            var position = spawn.getPosition();
+            long chunkIndex = ChunkUtil.indexChunkFromBlock(position.x, position.z);
+            world.getChunkAsync(chunkIndex).whenComplete((chunk, throwable) ->
+                world.execute(() -> {
+                    if (throwable != null || chunk == null) {
+                        fail("spawn chunk could not be loaded", throwable);
+                        return;
+                    }
+                    startProbe(world, spawn.getPosition(), spawn.getRotation());
+                })
+            );
+        } catch (Throwable throwable) {
+            fail("spawn chunk setup threw an exception", throwable);
+        }
+    }
+
+    private void startProbe(World world, Vector3d spawnPosition, org.joml.Vector3f spawnRotation) {
+        try {
             var spawned = NPCPlugin.get().spawnNPC(
                 world.getEntityStore().getStore(),
                 ROLE,
                 null,
-                spawn.getPosition(),
-                spawn.getRotation()
+                spawnPosition,
+                spawnRotation
             );
             if (spawned == null || spawned.first() == null) {
                 fail("Hytale could not spawn Civ_Inhabitant", null);
