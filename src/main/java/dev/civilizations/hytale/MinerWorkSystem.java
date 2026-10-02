@@ -12,6 +12,7 @@ import com.hypixel.hytale.math.Axis;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.protocol.AnimationSlot;
 import com.hypixel.hytale.protocol.BlockMaterial;
+import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockBreakingDropType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockGathering;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
@@ -35,6 +36,8 @@ import org.joml.Vector3d;
 import org.joml.Vector3i;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -52,8 +55,15 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
     private static final String MINING_ITEM_ANIMATIONS = "Civ_Miner_Pickaxe";
     private static final String MINING_ANIMATION = "SwingDown";
     private static final String SUPPORT_PREFAB_KEY = "Civilizations/Mine/Mine_Support_01";
+    private static final String SUPPORT_POST_BLOCK = "Wood_Fir_Branch_Long";
+    private static final String SUPPORT_BEAM_BLOCK = "Wood_Fir_Trunk";
     private static final double ARRIVAL_DISTANCE = 1.1;
     private static final double RETRY_SECONDS = 1.0;
+    private static final double MAX_MINING_REACH = 3.25;
+    private static final double WORKER_EYE_HEIGHT = 1.5;
+    private static final double PATH_PROGRESS_DISTANCE = 0.15;
+    private static final double PATH_RECOMPUTE_AFTER_SECONDS = 3.0;
+    private static final double PATH_RETRY_AFTER_FAILURE_SECONDS = 4.0;
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
@@ -135,11 +145,13 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         if (!runtime.enteredMine && entrance != null && entrance.bounds() != null) {
             Vector3d target = center(entrance.bounds(), entrance.bounds().minY());
             if (!arrived(position, target)) {
-                unitRegistry.setMoveTarget(ref, target);
+                navigateTo(ref, world, position, target, runtime, dt);
                 stopMiningAnimation(ref, store);
+                runtime.animationStarted = false;
                 return;
             }
             runtime.enteredMine = true;
+            runtime.navigationArrived();
         }
 
         MineSegment segment = resolveSegment(world, mine, connector, runtime);
@@ -155,6 +167,26 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         }
         runtime.retryElapsed = 0.0;
 
+        segment = reconcileSegmentWithWorld(world, segment);
+        if (segment == null) {
+            unitRegistry.clearMoveTarget(ref);
+            stopMiningAnimation(ref, store);
+            return;
+        }
+        tunnelRegistry.put(world, segment);
+        runtime.segmentId = segment.id();
+
+        if (segment.status() == MineSegment.Status.COMPLETE) {
+            stopMiningAnimation(ref, store);
+            runtime.animationStarted = false;
+            runtime.workElapsed = 0.0;
+            MineSegment next = existingChild(worldId, segment.id());
+            if (next == null) next = chooseNext(world, mine, segment);
+            runtime.segmentId = next == null ? null : next.id();
+            runtime.navigationArrived();
+            return;
+        }
+
         if (segment.status() == MineSegment.Status.RESERVED) {
             segment = segment.withStatus(MineSegment.Status.MINING);
             tunnelRegistry.put(world, segment);
@@ -162,11 +194,12 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
 
         Vector3d workTarget = workTarget(segment);
         if (!arrived(position, workTarget)) {
-            unitRegistry.setMoveTarget(ref, workTarget);
+            navigateTo(ref, world, position, workTarget, runtime, dt);
             stopMiningAnimation(ref, store);
             runtime.animationStarted = false;
             return;
         }
+        runtime.navigationArrived();
         unitRegistry.clearMoveTarget(ref);
 
         if (!runtime.animationStarted) {
@@ -183,7 +216,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         runtime.workElapsed += dt;
         while (runtime.workElapsed >= MineTuning.secondsPerBlock()) {
             runtime.workElapsed -= MineTuning.secondsPerBlock();
-            segment = advanceOneBlock(world, ref, store, mine, segment);
+            segment = advanceOneBlock(world, ref, store, mine, segment, position);
             if (segment == null) {
                 stopMiningAnimation(ref, store);
                 runtime.animationStarted = false;
@@ -195,7 +228,8 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
                 stopMiningAnimation(ref, store);
                 runtime.animationStarted = false;
                 runtime.workElapsed = 0.0;
-                MineSegment next = chooseNext(world, mine, segment);
+                MineSegment next = existingChild(worldId, segment.id());
+                if (next == null) next = chooseNext(world, mine, segment);
                 runtime.segmentId = next == null ? null : next.id();
                 return;
             }
@@ -228,10 +262,16 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         WorkerRuntime runtime
     ) {
         UUID worldId = world.getWorldConfig().getUuid();
+
+        MineSegment reopened = earliestReopenedCompletedSegment(world, mine.id());
+        if (reopened != null) {
+            runtime.segmentId = reopened.id();
+            return reopened;
+        }
+
         if (runtime.segmentId != null) {
             MineSegment existing = tunnelRegistry.get(worldId, runtime.segmentId);
-            if (existing != null && existing.status() != MineSegment.Status.COMPLETE
-                && existing.status() != MineSegment.Status.BLOCKED) {
+            if (existing != null && existing.status() != MineSegment.Status.BLOCKED) {
                 return existing;
             }
         }
@@ -260,21 +300,99 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         return initial;
     }
 
+    private MineSegment earliestReopenedCompletedSegment(World world, UUID mineId) {
+        UUID worldId = world.getWorldConfig().getUuid();
+        List<MineSegment> segments = tunnelRegistry.segmentsForMine(worldId, mineId);
+        if (segments.isEmpty()) return null;
+
+        Map<UUID, MineSegment> byId = new HashMap<>();
+        for (MineSegment segment : segments) byId.put(segment.id(), segment);
+
+        return segments.stream()
+            .filter(segment -> segment.status() == MineSegment.Status.COMPLETE)
+            .sorted(Comparator.comparingInt(segment -> ancestryDepth(segment, byId)))
+            .map(segment -> reconcileSegmentWithWorld(world, segment))
+            .filter(segment -> segment != null && segment.status() != MineSegment.Status.COMPLETE)
+            .findFirst()
+            .orElse(null);
+    }
+
+    private static int ancestryDepth(MineSegment segment, Map<UUID, MineSegment> byId) {
+        int depth = 0;
+        UUID parentId = segment.parentId();
+        while (parentId != null && depth < byId.size()) {
+            MineSegment parent = byId.get(parentId);
+            if (parent == null) break;
+            depth++;
+            parentId = parent.parentId();
+        }
+        return depth;
+    }
+
+    private MineSegment reconcileSegmentWithWorld(World world, MineSegment segment) {
+        int firstSolid = firstExcavationIndex(world, segment);
+        if (firstSolid < 0) return null;
+
+        MineSegment reconciled = segment.withProgress(firstSolid);
+        if (firstSolid >= MineTuning.blocksPerSegment()) {
+            return reconciled.withStatus(MineSegment.Status.COMPLETE);
+        }
+        return reconciled.withStatus(MineSegment.Status.MINING);
+    }
+
+    private int firstExcavationIndex(World world, MineSegment segment) {
+        for (int index = 0; index < MineTuning.blocksPerSegment(); index++) {
+            BlockPosition block = segment.blockAtIndex(index);
+            BlockType type = loadedBlockType(world, block);
+            if (type == null) return -1;
+            if (isEmpty(type) || isExpectedSupportBlock(segment, index, type)) continue;
+            return index;
+        }
+        return MineTuning.blocksPerSegment();
+    }
+
+    private static boolean isExpectedSupportBlock(MineSegment segment, int index, BlockType type) {
+        if (segment.supportsPlaced() <= 0 || type == null || type.getId() == null) return false;
+
+        int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
+        int depth = index / faceSize;
+        int oneBasedDepth = depth + 1;
+        if (oneBasedDepth % MineTuning.SUPPORT_SPACING_BLOCKS != 0) return false;
+
+        int supportNumber = oneBasedDepth / MineTuning.SUPPORT_SPACING_BLOCKS;
+        if (supportNumber > segment.supportsPlaced()) return false;
+
+        int inFace = index % faceSize;
+        int y = inFace / MineTuning.TUNNEL_WIDTH_BLOCKS;
+        int width = inFace % MineTuning.TUNNEL_WIDTH_BLOCKS;
+        String blockId = type.getId();
+        if (y == MineTuning.TUNNEL_HEIGHT_BLOCKS - 1) {
+            return SUPPORT_BEAM_BLOCK.equals(blockId);
+        }
+        boolean sidePost = width == 0 || width == MineTuning.TUNNEL_WIDTH_BLOCKS - 1;
+        return sidePost && SUPPORT_POST_BLOCK.equals(blockId);
+    }
+
     private MineSegment advanceOneBlock(
         World world,
         Ref<EntityStore> worker,
         Store<EntityStore> entityStore,
         BuildingPlacementRegistry.BuildingInstance mine,
-        MineSegment segment
+        MineSegment segment,
+        Vector3d workerPosition
     ) {
         int index = segment.nextBlockIndex();
-        if (index >= MineTuning.blocksPerSegment()) return finishSegment(world, segment);
+        if (index >= MineTuning.blocksPerSegment()) return finishSegment(segment);
 
         BlockPosition target = segment.blockAtIndex(index);
         if (!safeBlock(world, mine, target)) {
             MineSegment blocked = segment.withStatus(MineSegment.Status.BLOCKED);
             tunnelRegistry.put(world, blocked);
             return null;
+        }
+
+        if (!withinMiningReach(workerPosition, target)) {
+            return segment;
         }
 
         BlockType type = loadedBlockType(world, target);
@@ -295,7 +413,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
 
         MineSegment updated = segment.withProgress(index + 1);
         updated = placeDueSupports(world, updated);
-        if (updated.complete()) updated = finishSegment(world, updated);
+        if (updated.complete()) updated = finishSegment(updated);
         tunnelRegistry.put(world, updated);
         return updated;
     }
@@ -305,7 +423,8 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         int completedDepth = segment.nextBlockIndex() / faceSize;
         int due = completedDepth / MineTuning.SUPPORT_SPACING_BLOCKS;
         MineSegment updated = segment;
-        while (updated.supportsPlaced() < due && updated.supportsPlaced() < 2) {
+        int supportsPerSegment = MineTuning.SEGMENT_LENGTH_BLOCKS / MineTuning.SUPPORT_SPACING_BLOCKS;
+        while (updated.supportsPlaced() < due && updated.supportsPlaced() < supportsPerSegment) {
             int supportDepth = (updated.supportsPlaced() + 1) * MineTuning.SUPPORT_SPACING_BLOCKS;
             placeSupport(world, updated, supportDepth);
             updated = updated.withSupportsPlaced(updated.supportsPlaced() + 1);
@@ -313,9 +432,16 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         return updated;
     }
 
-    private static MineSegment finishSegment(World world, MineSegment segment) {
+    private static MineSegment finishSegment(MineSegment segment) {
         return segment.withStatus(MineSegment.Status.COMPLETE)
             .withProgress(MineTuning.blocksPerSegment());
+    }
+
+    private MineSegment existingChild(UUID worldId, UUID parentId) {
+        return tunnelRegistry.segments(worldId).stream()
+            .filter(segment -> parentId.equals(segment.parentId()))
+            .findFirst()
+            .orElse(null);
     }
 
     private MineSegment chooseNext(
@@ -452,6 +578,69 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         );
     }
 
+    private void navigateTo(
+        Ref<EntityStore> ref,
+        World world,
+        Vector3d position,
+        Vector3d target,
+        WorkerRuntime runtime,
+        float dt
+    ) {
+        if (runtime.pathRetryRemaining > 0.0) {
+            runtime.pathRetryRemaining = Math.max(0.0, runtime.pathRetryRemaining - dt);
+            if (runtime.pathRetryRemaining > 0.0) return;
+            runtime.navigationTarget = null;
+            runtime.pathRecomputeAttempts = 0;
+            runtime.pathStallElapsed = 0.0;
+        }
+
+        if (runtime.navigationTarget == null
+            || runtime.navigationTarget.distanceSquared(target) > 0.0001) {
+            runtime.beginNavigation(position, target);
+            unitRegistry.setMoveTarget(ref, target);
+            return;
+        }
+
+        if (runtime.lastNavigationPosition == null
+            || runtime.lastNavigationPosition.distanceSquared(position)
+                >= PATH_PROGRESS_DISTANCE * PATH_PROGRESS_DISTANCE) {
+            runtime.lastNavigationPosition = new Vector3d(position);
+            runtime.pathStallElapsed = 0.0;
+            runtime.pathRecomputeAttempts = 0;
+            runtime.pathFailureNotified = false;
+            return;
+        }
+
+        runtime.pathStallElapsed += dt;
+        if (runtime.pathStallElapsed < PATH_RECOMPUTE_AFTER_SECONDS) return;
+
+        if (runtime.pathRecomputeAttempts == 0) {
+            unitRegistry.clearMoveTarget(ref);
+            unitRegistry.setMoveTarget(ref, target);
+            runtime.pathRecomputeAttempts = 1;
+            runtime.pathStallElapsed = 0.0;
+            runtime.lastNavigationPosition = new Vector3d(position);
+            return;
+        }
+
+        unitRegistry.clearMoveTarget(ref);
+        if (!runtime.pathFailureNotified) {
+            world.sendMessage(Message.raw(
+                "[Civilizations] Ein Minenabbauer findet keinen Weg zu seiner Arbeitsstelle."
+            ));
+            runtime.pathFailureNotified = true;
+        }
+        runtime.pathRetryRemaining = PATH_RETRY_AFTER_FAILURE_SECONDS;
+        runtime.pathStallElapsed = 0.0;
+    }
+
+    private static boolean withinMiningReach(Vector3d workerPosition, BlockPosition target) {
+        double dx = target.x() + 0.5 - workerPosition.x;
+        double dy = target.y() + 0.5 - (workerPosition.y + WORKER_EYE_HEIGHT);
+        double dz = target.z() + 0.5 - workerPosition.z;
+        return dx * dx + dy * dy + dz * dz <= MAX_MINING_REACH * MAX_MINING_REACH;
+    }
+
     private static PrefabPlacementService.PlacedMarker marker(
         World world,
         BuildingPlacementRegistry.BuildingInstance building,
@@ -516,9 +705,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
     }
 
     private static boolean arrived(Vector3d position, Vector3d target) {
-        double dx = position.x - target.x;
-        double dz = position.z - target.z;
-        return dx * dx + dz * dz <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
+        return position.distanceSquared(target) <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
     }
 
     private static void stopMiningAnimation(Ref<EntityStore> ref, Store<EntityStore> store) {
@@ -535,6 +722,29 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         private boolean animationStarted;
         private double workElapsed;
         private double retryElapsed;
+        private Vector3d navigationTarget;
+        private Vector3d lastNavigationPosition;
+        private double pathStallElapsed;
+        private int pathRecomputeAttempts;
+        private double pathRetryRemaining;
+        private boolean pathFailureNotified;
+
+        private void beginNavigation(Vector3d position, Vector3d target) {
+            navigationTarget = new Vector3d(target);
+            lastNavigationPosition = new Vector3d(position);
+            pathStallElapsed = 0.0;
+            pathRecomputeAttempts = 0;
+            pathRetryRemaining = 0.0;
+        }
+
+        private void navigationArrived() {
+            navigationTarget = null;
+            lastNavigationPosition = null;
+            pathStallElapsed = 0.0;
+            pathRecomputeAttempts = 0;
+            pathRetryRemaining = 0.0;
+            pathFailureNotified = false;
+        }
 
         private void reset(UUID nextMineId) {
             mineId = nextMineId;
@@ -543,6 +753,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             animationStarted = false;
             workElapsed = 0.0;
             retryElapsed = 0.0;
+            navigationArrived();
         }
     }
 }
