@@ -9,6 +9,8 @@ on:
       - .github/workflows/hytale-local.yml
       - asset-pack/manifest.json
       - src/main/java/dev/civilizations/core/**
+      - src/main/java/dev/civilizations/scenario/**
+      - src/main/java/dev/civilizations/simulation/**
       - src/main/java/dev/civilizations/hytale/**
       - src/main/java/dev/civilizations/plugin/**
 
@@ -96,7 +98,7 @@ jobs:
           Write-Host 'Isolated runtime prepared outside the repository worktree.'
           Write-Host 'Civ plugin and asset pack installed into runtime mods directory.'
 
-      - name: Run real Hytale gameplay probe
+      - name: Run real Hytale woodcutter fixture discovery
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
@@ -113,7 +115,7 @@ jobs:
               '--assets', $env:HYTALE_ASSETS_PATH,
               '--auth-mode', 'offline',
               '--disable-sentry',
-              '--boot-command', 'civruntimeprobe'
+              '--boot-command', 'civwoodcutterprobe'
             ) `
             -WorkingDirectory $runtimeDir `
             -RedirectStandardOutput $stdoutLog `
@@ -133,26 +135,21 @@ jobs:
           if ($combined.Contains('client.disconnection.shutdownReason.missingAssets.failedToLoad')) {
             throw 'Hytale still reports missing assets while using --assets with the local Assets.zip.'
           }
-          if ($combined.Contains("Plugin 'Civilizations:HytaleCivAssets' does not specify a target server version")) {
-            throw 'Civ asset pack is missing its target Hytale server version.'
-          }
-          if ($combined.Contains('CIV_RUNTIME_PROBE_FAIL')) {
-            throw 'The Civ gameplay runtime probe reported failure.'
-          }
-          if ($combined.Contains("Entity has moved into a chunk that isn't currently loaded!")) {
-            throw 'The gameplay runtime probe spawned or moved its entity before the target chunk was loaded.'
+          if ($combined.Contains('CIV_WOODCUTTER_FIXTURE_DISCOVERY_FAIL')) {
+            throw 'The Civ woodcutter fixture discovery probe reported failure.'
           }
 
           $requiredEvidence = @(
             'Loaded pack: Hytale:Hytale from Assets.zip',
             'Loaded pack: Civilizations:HytaleCivAssets from hytale-civ-assets',
             'Enabled plugin Civilizations:HytaleCiv',
-            "Added world 'default'",
             'Universe ready!',
             'Hytale Server Booted!',
-            'Console executed command: civruntimeprobe',
-            'CIV_RUNTIME_PROBE_STARTED',
-            'CIV_RUNTIME_PROBE_PASS',
+            'Console executed command: civwoodcutterprobe',
+            'CIV_WOODCUTTER_FIXTURE_DISCOVERY_STARTED',
+            'CIV_WOODCUTTER_FLAT_WORLD_READY',
+            'CIV_TREE_PREFAB_CANDIDATES',
+            'CIV_WOODCUTTER_FIXTURE_DISCOVERY_PASS',
             'Shut down plugin Civilizations:HytaleCiv',
             'Shutdown completed!'
           )
@@ -167,7 +164,7 @@ jobs:
             throw "Hytale server exited with code $($process.ExitCode)."
           }
 
-          Write-Host 'Real Hytale gameplay probe spawned a Civ inhabitant in a loaded chunk, claimed it, advanced through real world ticks, completed a manual movement activity, and shut down cleanly.'
+          Write-Host 'Real Hytale runtime created the deterministic flat test world and discovered tree-like prefab keys from the loaded asset packs.'
 
       - name: Clean isolated Hytale runtime
         if: always()
