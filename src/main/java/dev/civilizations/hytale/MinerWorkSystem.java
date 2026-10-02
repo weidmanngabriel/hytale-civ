@@ -406,7 +406,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
     }
 
     private void placeSupport(World world, MineSegment segment, int depth) {
-        BlockSelection raw = PrefabStore.get().getAssetPrefab(SUPPORT_PREFAB_KEY);
+        BlockSelection raw = PrefabStore.get().getAssetPrefabFromAnyPack(SUPPORT_PREFAB_KEY);
         if (raw == null) {
             System.err.println("[Civ Mine] Missing support prefab " + SUPPORT_PREFAB_KEY);
             return;
