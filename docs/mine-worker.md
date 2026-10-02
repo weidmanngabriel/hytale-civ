@@ -10,7 +10,7 @@ Dieser Slice beschreibt den ersten autonomen Abbauer einer fertigen Mine.
 - Als Development-Bootstrap erhält der Minenabbauer eine native Hytale-Eisenspitzhacke (`Tool_Pickaxe_Iron`). Eine spätere Werkzeugbeschaffung ist nicht Teil dieses Slices.
 - Der Bewohner läuft zuerst über `workplace_access` und arbeitet anschließend am `mine_tunnel_connector`.
 - Ein Tunnelabschnitt ist 4 Blöcke breit, 4 Blöcke hoch und 8 Blöcke lang. Das sind 128 mögliche Abbaublöcke.
-- Die Zielzeit eines vollständig gefüllten Abschnitts beträgt zunächst 600 Sekunden. Balancewerte liegen zentral in `MineTuning`.
+- Für die aktuelle Testphase beträgt die Zielzeit eines vollständig gefüllten Abschnitts 60 Sekunden. Balancewerte liegen zentral in `MineTuning`; vor dem finalen Balancing kann dieser Wert wieder erhöht werden.
 - Bereits leere Blöcke werden übersprungen. Normale abbaubare Blöcke werden über Hytales nativen Harvest-Pfad abgebaut. Die entstehenden Drops bleiben in der Welt und können normal despawnen.
 - Vor Reservierung eines Abschnitts prüft Civ, ob dessen Raum mit geschützten Civ-Gebäuden oder bereits reservierten beziehungsweise bestehenden Minensegmenten kollidiert. Direkt vor einem einzelnen Abbau bleibt zusätzlich ein Schutzcheck bestehen.
 - Nach einem fertigen Abschnitt entscheidet der Abbauer selbst zwischen geradeaus, links und rechts. Ungültige Richtungen fallen aus der Auswahl. Geradeaus wird zunächst mit 60 %, links und rechts jeweils mit 20 % gewichtet. Ein direktes Umdrehen ist ausgeschlossen.
@@ -27,7 +27,7 @@ Stützen stehen zunächst alle 4 Tunnelblöcke. Ein 8-Blöcke-Segment erhält da
 
 Civ entscheidet über Segmentwahl, Reservierung, Timing, Fortschritt und Persistenz. Hytale bleibt zuständig für NPC-Navigation, Block-Harvest und Drops, Werkzeugdarstellung, Animation sowie Prefab-Platzierung.
 
-Die Arbeitsanimation verwendet das Civ-Animationset `Civ_Miner_Pickaxe` mit `SwingDown`, das auf Hytales vorhandene Pickaxe-Mining-Animationen verweist. Wie beim Holzfäller wird die Animation für die Arbeitsphase gestartet und beim Verlassen der Arbeitsphase gestoppt.
+Die Arbeitsanimation verwendet direkt Hytales natives Pickaxe-Animationsset `Pickaxe` mit der Mining-Animation `Mine`. Die Animation wird für die Arbeitsphase gestartet und beim Verlassen der Arbeitsphase gestoppt.
 
 ## Bewusst noch nicht enthalten
 
