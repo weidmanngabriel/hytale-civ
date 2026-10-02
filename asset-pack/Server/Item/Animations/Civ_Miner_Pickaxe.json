@@ -1,5 +1,5 @@
 {
-  "Parent": "Pickaxe",
+  "Parent": "Pickaxe_Animations",
   "Animations": {
     "SwingDown": {
       "ThirdPerson": "Characters/Animations/Items/Main_Handed/Pickaxe/Attacks/Mine/Mine.blockyanim",
