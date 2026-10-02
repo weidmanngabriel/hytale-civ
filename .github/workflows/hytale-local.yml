@@ -2,17 +2,6 @@ name: Hytale Local Runtime Probe
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - agent/headless-server-spike
-    paths:
-      - .github/workflows/hytale-local.yml
-      - asset-pack/manifest.json
-      - src/main/java/dev/civilizations/core/**
-      - src/main/java/dev/civilizations/scenario/**
-      - src/main/java/dev/civilizations/simulation/**
-      - src/main/java/dev/civilizations/hytale/**
-      - src/main/java/dev/civilizations/plugin/**
 
 permissions:
   contents: read
