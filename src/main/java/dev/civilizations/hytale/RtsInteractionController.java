@@ -423,7 +423,7 @@ public final class RtsInteractionController {
             if (session.selected != null && farm != null) {
                 assignSelectedFarmer(playerRef, session, farm);
             } else {
-                openBuildingActions(event, playerRef, building);
+                openBuildingActions(event, playerRef, session, building);
             }
             return;
         }
@@ -450,18 +450,52 @@ public final class RtsInteractionController {
     private void openBuildingActions(
         PlayerMouseButtonEvent event,
         PlayerRef playerRef,
+        Session session,
         BuildingPlacementRegistry.BuildingInstance building
     ) {
         Ref<EntityStore> playerEntityRef = event.getPlayerRef();
         Store<EntityStore> store = playerEntityRef.getStore();
+        List<BuildingActionsPage.WorkerOption> workers = unitRegistry.workersAt(building.id()).stream()
+            .map(worker -> {
+                CivInhabitantData data = unitRegistry.getInhabitantData(worker);
+                String name = data == null || !data.hasIdentity() ? "Bewohner" : data.fullName();
+                String profession = data == null ? "" : professionDisplayName(data.profession());
+                String label = profession.isBlank() ? name : name + " — " + profession;
+                return new BuildingActionsPage.WorkerOption(
+                    label,
+                    () -> selectWorkerFromBuilding(playerRef, session, worker)
+                );
+            })
+            .toList();
         event.getPlayer().getPageManager().openCustomPage(
             playerEntityRef,
             store,
             new BuildingActionsPage(
                 playerRef,
+                buildingDisplayName(building),
+                building.phase(),
+                building.workerCapacity(),
+                workers,
                 () -> demolishBuilding(playerRef, building.id())
             )
         );
+    }
+
+    private void selectWorkerFromBuilding(
+        PlayerRef playerRef,
+        Session session,
+        Ref<EntityStore> worker
+    ) {
+        if (worker == null || !worker.isValid() || !unitRegistry.isClaimed(worker)) {
+            playerRef.sendMessage(Message.raw("Der Arbeiter ist nicht mehr verfügbar."));
+            return;
+        }
+        session.selected = worker;
+        CivInhabitantData data = unitRegistry.getInhabitantData(worker);
+        String name = data == null || !data.hasIdentity() ? "Civ-Bewohner" : data.fullName();
+        playerRef.sendMessage(Message.raw(
+            name + " ausgewählt. Rechtsklick auf den Boden gibt einen manuellen Bewegungsbefehl."
+        ));
     }
 
     private void demolishBuilding(PlayerRef playerRef, UUID buildingId) {
@@ -481,6 +515,7 @@ public final class RtsInteractionController {
             return;
         }
 
+        unitRegistry.workersAt(buildingId).forEach(unitRegistry::clearWorkplace);
         farmRegistry.removeByBuildingInstance(worldId, buildingId);
         fieldRegistry.removeByBuildingInstance(worldId, buildingId);
         placementRegistry.remove(worldId, buildingId);
@@ -590,6 +625,18 @@ public final class RtsInteractionController {
             return building.placement().definition().displayName();
         }
         return "Gebäude";
+    }
+
+    private static String professionDisplayName(Profession profession) {
+        if (profession == null) {
+            return "";
+        }
+        return switch (profession) {
+            case UNEMPLOYED -> "Arbeitslos";
+            case FARMER -> "Bauer";
+            case WOODCUTTER -> "Holzfäller";
+            case CONSTRUCTION_WORKER -> "Bauarbeiter";
+        };
     }
 
     public boolean isClaimed(Ref<EntityStore> target) {
@@ -724,6 +771,7 @@ public final class RtsInteractionController {
                 activityRegistry.cancelManualMove(farmer);
                 unitRegistry.cancelMoveTarget(farmer);
                 unitRegistry.assignProfession(farmer, Profession.FARMER);
+                unitRegistry.assignWorkplace(farmer, farm.buildingInstanceId());
                 unitRegistry.setMoveTarget(farmer, farm.entranceTarget());
                 playerRef.sendMessage(Message.raw(
                     "Bauer zugewiesen. Er läuft von der Farm zum nächsten Weizenfeld, arbeitet dort und kehrt zur Farm zurück."
@@ -746,6 +794,7 @@ public final class RtsInteractionController {
         }
 
         farmRegistry.unassignFarmer(selected);
+        unitRegistry.clearWorkplace(selected);
         activityRegistry.cancelManualMove(selected);
         unitRegistry.cancelMoveTarget(selected);
         unitRegistry.assignProfession(selected, Profession.FARMER);
@@ -761,6 +810,7 @@ public final class RtsInteractionController {
         }
 
         farmRegistry.unassignFarmer(selected);
+        unitRegistry.clearWorkplace(selected);
         activityRegistry.cancelManualMove(selected);
         unitRegistry.cancelMoveTarget(selected);
         unitRegistry.assignProfession(selected, Profession.WOODCUTTER);
@@ -779,6 +829,7 @@ public final class RtsInteractionController {
         }
 
         farmRegistry.unassignFarmer(selected);
+        unitRegistry.clearWorkplace(selected);
         activityRegistry.cancelManualMove(selected);
         unitRegistry.cancelMoveTarget(selected);
         unitRegistry.assignProfession(selected, Profession.CONSTRUCTION_WORKER);
