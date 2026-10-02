@@ -1,5 +1,6 @@
 package dev.civilizations.simulation;
 
+import dev.civilizations.scenario.WoodcutterBasicScenario;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
@@ -26,18 +27,34 @@ class SimulationScenariosTest {
     }
 
     @Test
-    void scenarioCreatesFreshWorldStateForEveryRun() {
+    void sharedWoodcutterScenarioFellsTreeAndKeepsWorking() {
         SimulationRuntime first = SimulationScenarios.WOODCUTTER_BASIC.createRuntime();
         SimulationRuntime second = SimulationScenarios.WOODCUTTER_BASIC.createRuntime();
 
         assertNotSame(first, second);
         assertEquals(first.worldSnapshot(), second.worldSnapshot());
+        assertEquals(WoodcutterBasicScenario.ID, SimulationScenarios.WOODCUTTER_BASIC.id());
+        assertEquals(
+            WoodcutterBasicScenario.TREE_ANCHORS.size(),
+            first.worldSnapshot().trees().size()
+        );
 
         first.runForSeconds(6.0);
 
         assertEquals(0, second.tickCount());
-        assertEquals(3, second.worldSnapshot().trees().size());
+        assertEquals(
+            WoodcutterBasicScenario.TREE_ANCHORS.size(),
+            second.worldSnapshot().trees().size()
+        );
         assertTrue(first.metrics().treesFelled() > 0);
+        assertTrue(
+            first.worldSnapshot().trees().size() < WoodcutterBasicScenario.TREE_ANCHORS.size(),
+            "shared woodcutter fixture should lose at least one tree"
+        );
+        assertTrue(
+            first.metrics().treeSearches() > 1,
+            "woodcutter should search again after completing its first tree"
+        );
     }
 
     @Test

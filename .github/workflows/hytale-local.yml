@@ -1,0 +1,187 @@
+name: Hytale Local Runtime Probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-runtime-probe:
+    name: Verify local Hytale gameplay runtime
+    runs-on: [self-hosted, Windows, X64, hytale-local]
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify runner environment
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if ([string]::IsNullOrWhiteSpace($env:HYTALE_SERVER_JAR)) {
+            throw 'HYTALE_SERVER_JAR is not available to the runner process.'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:HYTALE_ASSETS_PATH)) {
+            throw 'HYTALE_ASSETS_PATH is not available to the runner process.'
+          }
+          if (-not (Test-Path -LiteralPath $env:HYTALE_SERVER_JAR -PathType Leaf)) {
+            throw 'HYTALE_SERVER_JAR does not point to an existing file.'
+          }
+          if (-not (Test-Path -LiteralPath $env:HYTALE_ASSETS_PATH -PathType Leaf)) {
+            throw 'HYTALE_ASSETS_PATH does not point to an existing file.'
+          }
+
+          Write-Host 'Hytale server JAR: OK'
+          Write-Host 'Hytale Assets.zip: OK'
+
+      - name: Verify Java 25
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $javacVersion = (& javac -version | Out-String).Trim()
+          Write-Host $javacVersion
+
+          if ($LASTEXITCODE -ne 0) {
+            throw 'javac -version failed.'
+          }
+          if (-not $javacVersion.StartsWith('javac 25')) {
+            throw 'The self-hosted runner must expose Java 25 on PATH for the Hytale runtime test.'
+          }
+
+      - name: Run tests and build Civ plugin
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\gradlew.bat test jar --no-daemon
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Gradle tests or jar build failed.'
+          }
+
+      - name: Prepare isolated Hytale runtime
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $runtimeDir = Join-Path $env:RUNNER_TEMP ("hciv-" + $env:GITHUB_RUN_ID + "-" + $env:GITHUB_RUN_ATTEMPT)
+          $modsDir = Join-Path $runtimeDir 'mods'
+          "HYTALE_RUNTIME_DIR=$runtimeDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          if (Test-Path -LiteralPath $runtimeDir) {
+            cmd /c "rd /s /q \"\\?\$runtimeDir\"" | Out-Null
+          }
+          New-Item -ItemType Directory -Path $modsDir -Force | Out-Null
+
+          $pluginJar = Get-ChildItem -Path 'build\libs' -Filter 'hytale-civ-*.jar' |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+          if ($null -eq $pluginJar) {
+            throw 'Built Civ plugin JAR was not found in build\libs.'
+          }
+
+          Copy-Item -LiteralPath $pluginJar.FullName -Destination $modsDir -Force
+          Copy-Item -LiteralPath 'asset-pack' -Destination (Join-Path $modsDir 'hytale-civ-assets') -Recurse -Force
+
+          Write-Host 'Isolated runtime prepared outside the repository worktree.'
+          Write-Host 'Civ plugin and asset pack installed into runtime mods directory.'
+
+      - name: Run real Hytale woodcutter scenario
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $runtimeDir = $env:HYTALE_RUNTIME_DIR
+          $stdoutLog = Join-Path $runtimeDir 'server.stdout.log'
+          $stderrLog = Join-Path $runtimeDir 'server.stderr.log'
+
+          $process = Start-Process -FilePath 'java' `
+            -ArgumentList @(
+              '-Dcivilizations.runtimeProbe=true',
+              '-jar',
+              $env:HYTALE_SERVER_JAR,
+              '--assets', $env:HYTALE_ASSETS_PATH,
+              '--auth-mode', 'offline',
+              '--disable-sentry',
+              '--boot-command', 'civwoodcutterprobe'
+            ) `
+            -WorkingDirectory $runtimeDir `
+            -RedirectStandardOutput $stdoutLog `
+            -RedirectStandardError $stderrLog `
+            -Wait `
+            -PassThru
+
+          $stdout = if (Test-Path -LiteralPath $stdoutLog) { Get-Content -LiteralPath $stdoutLog -Raw } else { '' }
+          $stderr = if (Test-Path -LiteralPath $stderrLog) { Get-Content -LiteralPath $stderrLog -Raw } else { '' }
+          $combined = $stdout + [Environment]::NewLine + $stderr
+
+          Write-Host '----- Hytale server output -----'
+          Write-Host $combined
+          Write-Host '----- end Hytale server output -----'
+          Write-Host "Hytale server exit code: $($process.ExitCode)"
+
+          if ($combined.Contains('client.disconnection.shutdownReason.missingAssets.failedToLoad')) {
+            throw 'Hytale still reports missing assets while using --assets with the local Assets.zip.'
+          }
+          if ($combined.Contains('CIV_WOODCUTTER_RUNTIME_FAIL')) {
+            throw 'The Civ woodcutter runtime scenario reported failure.'
+          }
+          if ($combined.Contains("chunk isn't currently loaded")) {
+            throw 'The Civ woodcutter runtime scenario touched an unloaded chunk.'
+          }
+
+          $requiredEvidence = @(
+            'Loaded pack: Hytale:Hytale from Assets.zip',
+            'Loaded pack: Civilizations:HytaleCivAssets from hytale-civ-assets',
+            'Enabled plugin Civilizations:HytaleCiv',
+            'Universe ready!',
+            'Hytale Server Booted!',
+            'Console executed command: civwoodcutterprobe',
+            'CIV_WOODCUTTER_RUNTIME_STARTED',
+            'CIV_WOODCUTTER_FLAT_WORLD_READY',
+            'CIV_WOODCUTTER_FIXTURE_READY',
+            'state=target-assigned',
+            'state=chopping',
+            'state=fell-success',
+            'CIV_WOODCUTTER_TREE_FELLED',
+            'CIV_WOODCUTTER_REENGAGED',
+            'CIV_WOODCUTTER_RUNTIME_PASS',
+            'Shut down plugin Civilizations:HytaleCiv',
+            'Shutdown completed!'
+          )
+
+          foreach ($evidence in $requiredEvidence) {
+            if (-not $combined.Contains($evidence)) {
+              throw "Expected Hytale runtime evidence was not found: $evidence"
+            }
+          }
+
+          if ($process.ExitCode -ne 0) {
+            throw "Hytale server exited with code $($process.ExitCode)."
+          }
+
+          Write-Host 'Real Hytale runtime completed the shared deterministic woodcutter scenario: flat world, real oak prefab, autonomous target search, navigation, chopping, felling and re-engagement.'
+
+      - name: Clean isolated Hytale runtime
+        if: always()
+        shell: powershell
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:HYTALE_RUNTIME_DIR) -or -not (Test-Path -LiteralPath $env:HYTALE_RUNTIME_DIR)) {
+            exit 0
+          }
+
+          $cleanupCommand = 'rd /s /q "\\?\' + $env:HYTALE_RUNTIME_DIR + '"'
+          $cleanup = Start-Process -FilePath 'cmd.exe' `
+            -ArgumentList @('/d', '/c', $cleanupCommand) `
+            -WindowStyle Hidden `
+            -PassThru
+
+          if (-not $cleanup.WaitForExit(10000)) {
+            Stop-Process -Id $cleanup.Id -Force -ErrorAction SilentlyContinue
+            Write-Warning 'Hytale runtime cleanup exceeded 10 seconds. The isolated temp directory was left for runner maintenance; gameplay probe result remains valid.'
+          } elseif ($cleanup.ExitCode -ne 0) {
+            Write-Warning "Hytale runtime cleanup exited with code $($cleanup.ExitCode). The gameplay probe result remains valid."
+          } else {
+            Write-Host 'Isolated Hytale runtime cleaned.'
+          }
