@@ -3,12 +3,12 @@ $C = "../Common.ui";
 $C.@PageOverlay {}
 
 $C.@DecoratedContainer {
-  Anchor: (Left: 170, Width: 520, Height: 300);
+  Anchor: (Left: 170, Width: 560, Height: 500);
 
   #Title {
     Group {
       $C.@Title {
-        @Text = "Farm";
+        @Text = "Gebäude";
       }
     }
   }
@@ -20,10 +20,33 @@ $C.@DecoratedContainer {
     Group #ActionsPanel {
       LayoutMode: Top;
 
+      Label #BuildingName {
+        Text: "Gebäude";
+        Style: (FontSize: 22, TextColor: #ffffff);
+        Anchor: (Bottom: 4);
+      }
+
+      Label #BuildingMeta {
+        Text: "Phase 1";
+        Style: (FontSize: 15, TextColor: #b9b9b9);
+        Anchor: (Bottom: 18);
+      }
+
+      Label #WorkerSummary {
+        Text: "Arbeiter 0/0";
+        Style: (FontSize: 18, TextColor: #ffffff);
+        Anchor: (Bottom: 10);
+      }
+
+      Group #WorkerList {
+        LayoutMode: Top;
+        Anchor: (Bottom: 18);
+      }
+
       Label {
         Text: "Gebäudeaktionen";
         Style: (FontSize: 18, TextColor: #ffffff);
-        Anchor: (Bottom: 18);
+        Anchor: (Bottom: 10);
       }
 
       $C.@TextButton #DemolishButton {
@@ -36,8 +59,8 @@ $C.@DecoratedContainer {
       Visible: false;
       LayoutMode: Top;
 
-      Label {
-        Text: "Farm wirklich abreißen?";
+      Label #ConfirmationText {
+        Text: "Gebäude wirklich abreißen?";
         Style: (FontSize: 18, TextColor: #ffffff);
         Anchor: (Bottom: 18);
       }

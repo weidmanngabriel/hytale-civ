@@ -19,7 +19,7 @@ import java.util.UUID;
 
 /**
  * Persists the Civ-owned metadata that native prefab/trigger-volume persistence does not contain:
- * stable building id, placement transform and the terrain snapshot required for demolition.
+ * stable building id, type/phase, placement transform and the terrain snapshot required for demolition.
  */
 public final class CivBuildingPersistenceService {
 
@@ -85,6 +85,7 @@ public final class CivBuildingPersistenceService {
         return String.join("|",
             building.id().toString(),
             b64(building.buildingType() == null ? "" : building.buildingType()),
+            Integer.toString(building.phase()),
             b64(building.boundsVolumeId()),
             placement.definition().id(),
             placement.anchor().x + "," + placement.anchor().y + "," + placement.anchor().z,
@@ -97,23 +98,28 @@ public final class CivBuildingPersistenceService {
 
     private BuildingPlacementRegistry.BuildingInstance decode(UUID worldId, String encoded) {
         String[] parts = encoded.split("\\|", -1);
-        if (parts.length != 9) {
+        boolean legacy = parts.length == 9;
+        if (!legacy && parts.length != 10) {
             throw new IllegalArgumentException("unexpected field count");
         }
+
         UUID id = UUID.fromString(parts[0]);
         String buildingType = unb64(parts[1]);
-        String boundsVolumeId = unb64(parts[2]);
-        PrefabPlacementService.PlacementDefinition definition = switch (parts[3]) {
+        int phase = legacy ? 1 : Integer.parseInt(parts[2]);
+        int offset = legacy ? 0 : 1;
+        String boundsVolumeId = unb64(parts[2 + offset]);
+        PrefabPlacementService.PlacementDefinition definition = switch (parts[3 + offset]) {
             case "farm" -> PrefabPlacementService.FARM;
+            case "mine" -> PrefabPlacementService.MINE;
             case "wheat_field" -> PrefabPlacementService.WHEAT_FIELD;
-            default -> throw new IllegalArgumentException("unknown prefab " + parts[3]);
+            default -> throw new IllegalArgumentException("unknown prefab " + parts[3 + offset]);
         };
-        int[] anchor = ints(parts[4], 3);
-        int[] fp = ints(parts[5], 5);
-        double[] bounds = doubles(parts[6], 6);
+        int[] anchor = ints(parts[4 + offset], 3);
+        int[] fp = ints(parts[5 + offset], 5);
+        double[] bounds = doubles(parts[6 + offset], 6);
 
         Map<BlockPosition, Integer> floor = new LinkedHashMap<>();
-        String floorText = unb64(parts[7]);
+        String floorText = unb64(parts[7 + offset]);
         if (!floorText.isEmpty()) {
             for (String entry : floorText.split(";")) {
                 String[] values = entry.split(",", -1);
@@ -125,7 +131,6 @@ public final class CivBuildingPersistenceService {
                 int z = Integer.parseInt(values[2]);
                 int blockId;
                 try {
-                    // Backward compatibility for snapshots written before stable block keys.
                     blockId = Integer.parseInt(values[3]);
                 } catch (NumberFormatException ignored) {
                     String blockKey = unb64(values[3]);
@@ -139,7 +144,7 @@ public final class CivBuildingPersistenceService {
         }
 
         List<PrefabPlacementService.PlacedMarker> markers = new ArrayList<>();
-        String markerText = unb64(parts[8]);
+        String markerText = unb64(parts[8 + offset]);
         if (!markerText.isEmpty()) {
             for (String entry : markerText.split(";")) {
                 String[] values = entry.split(",", -1);
@@ -169,6 +174,7 @@ public final class CivBuildingPersistenceService {
             id,
             worldId,
             buildingType,
+            phase,
             boundsVolumeId,
             new BuildingBounds(bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]),
             markers,

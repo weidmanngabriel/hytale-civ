@@ -2,6 +2,7 @@ package dev.civilizations.hytale;
 
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
+import dev.civilizations.core.BuildingTypes;
 import org.joml.Vector3i;
 
 import java.util.ArrayList;
@@ -92,6 +93,7 @@ public final class BuildingPlacementRegistry {
             siteId,
             worldId,
             buildingType,
+            1,
             boundsMarker.id(),
             boundsMarker.bounds(),
             semanticVolumes,
@@ -161,13 +163,33 @@ public final class BuildingPlacementRegistry {
         UUID id,
         UUID worldId,
         String buildingType,
+        int phase,
         String boundsVolumeId,
         BuildingBounds bounds,
         List<PrefabPlacementService.PlacedMarker> semanticVolumes,
         PrefabPlacementService.PlacementCandidate placement
     ) {
         public BuildingInstance {
+            if (phase < 1) {
+                throw new IllegalArgumentException("Building phase must be at least 1.");
+            }
             semanticVolumes = List.copyOf(semanticVolumes);
+        }
+
+        public BuildingInstance(
+            UUID id,
+            UUID worldId,
+            String buildingType,
+            String boundsVolumeId,
+            BuildingBounds bounds,
+            List<PrefabPlacementService.PlacedMarker> semanticVolumes,
+            PrefabPlacementService.PlacementCandidate placement
+        ) {
+            this(id, worldId, buildingType, 1, boundsVolumeId, bounds, semanticVolumes, placement);
+        }
+
+        public int workerCapacity() {
+            return BuildingTypes.workerCapacity(buildingType, phase);
         }
     }
 }

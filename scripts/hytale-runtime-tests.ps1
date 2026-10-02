@@ -209,7 +209,12 @@ function Run-PersistenceScenario {
     if ($prepareCombined.Contains('CIV_PERSISTENCE_PROBE_FAIL')) {
         throw 'The persistence prepare stage reported failure.'
     }
-    foreach ($evidence in @('CIV_PERSISTENCE_PREPARED uuid=', 'CIV_PERSISTENCE_PREPARE_PASS', 'Shutdown completed!')) {
+    foreach ($evidence in @(
+        'CIV_PERSISTENCE_PREPARED uuid=',
+        'CIV_PERSISTENCE_WORKPLACE_INDEXED_PREPARE',
+        'CIV_PERSISTENCE_PREPARE_PASS',
+        'Shutdown completed!'
+    )) {
         if (-not $prepareCombined.Contains($evidence)) {
             throw "Expected persistence prepare evidence was not found: $evidence"
         }
@@ -266,7 +271,8 @@ function Run-PersistenceScenario {
         'name=Persist_Runtime_Probe',
         'profession=CONSTRUCTION_WORKER',
         'xp=37',
-        'workplace=runtime-probe-workplace',
+        'workplace=00000000-0000-0000-0000-000000000002',
+        'CIV_PERSISTENCE_WORKPLACE_INDEXED_RESTORE',
         'CIV_PERSISTENCE_RESTORE_PASS',
         'Shutdown completed!'
     )) {

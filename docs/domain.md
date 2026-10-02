@@ -10,19 +10,20 @@ Unbekanntes Verhalten bleibt unbekannt, bis es entschieden oder verifiziert wurd
 
 Das Projekt befindet sich noch in einem Engine-Validierungs-Meilenstein. Viele geplante Simulationsbereiche wie dauerhafte Bewohner, Bedürfnisse, allgemeine Inventare, Logistik, Familien und Wirtschaft besitzen noch keine vollständig umgesetzten Domänenregeln. Farm und Holzfäller sind die ersten umgesetzten Berufsausschnitte.
 
-Der aktuelle Anspruchs- und Bewegungszustand von NPCs ist bewusst nur ein vorläufiger Integrationstest und noch kein dauerhaftes Civ-Besitzsystem oder vollständiger Bewohner-Lebenszyklus. Berufsdaten sind der erste Bewohnerzustand, der direkt an einer einzelnen Einheit dauerhaft gespeichert wird.
+Der aktuelle Anspruchs- und Bewegungszustand von NPCs ist bewusst nur ein vorläufiger Integrationstest und noch kein dauerhaftes Civ-Besitzsystem oder vollständiger Bewohner-Lebenszyklus. Berufsdaten und eine optionale Arbeitsplatzzuweisung sind Bewohnerzustände, die direkt an einer einzelnen Einheit dauerhaft gespeichert werden.
 
 ## Bewohner
 
 - Ein Civ-Bewohner trägt seine dauerhaften Bewohnerdaten direkt an seiner Hytale-Entität. Die native persistente Hytale-UUID ist seine technische Entity-Identität; Civ führt dafür keine zweite UUID ein.
 - Aktuell existiert genau eine Civ-Fraktion: Wikinger. Solange keine zweite Fraktion existiert, wird keine zusätzliche Fraktions-ID pro Bewohner gespeichert.
 - Jeder neu initialisierte Bewohner erhält genau ein Geschlecht (männlich oder weiblich) sowie genau einen Vor-, Mittel- und Nachnamen aus dem dazugehörigen Wikinger-Namenspool. Diese konkreten Namen werden gespeichert und bei späteren Claims nicht neu ausgewürfelt.
-- Ein Bewohner besitzt immer einen aktiven Berufszustand. Der initiale Zustand ist ARBEITSLOS (<code>UNEMPLOYED</code>).
+- Ein Bewohner besitzt immer einen aktiven Berufszustand. Der initiale Zustand ist ARBEITSLOS (`UNEMPLOYED`).
 - ARBEITSLOS besitzt keine Berufserfahrung. Bauer und Holzfäller behalten ihre jeweilige eigene, nichtnegative Berufserfahrung auch nach einem Berufswechsel.
 - Bewohneridentität und Berufsdaten sind unabhängig davon, ob ein Spieler First Person oder RTS verwendet.
 - Ein bewusstes Freigeben entfernt die Civ-Bewohnerzugehörigkeit wieder; der NPC kehrt in seinen nativen NPC-Zustand zurück.
 - Ein manueller RTS-Bewegungsbefehl hat Vorrang vor automatischer Berufsbewegung. Nach Erreichen des manuellen Ziels darf die Berufsautomatik wieder übernehmen.
-- Eine dauerhafte Arbeitsplatzidentität ist noch keine Domänenregel, weil platzierte Civ-Gebäude noch keine stabile dauerhafte Identität besitzen.
+- Ein Bewohner kann optional die stabile ID genau eines Civ-Gebäudes als Arbeitsplatz referenzieren. Diese Arbeitsplatz-ID ist persistent und dient unter anderem dazu, den Bewohner im Gebäude-Interface als dort angestellten Arbeiter aufzulisten.
+- Das Auswählen eines Arbeiters im Gebäude-Interface und ein anschließender manueller Bewegungsbefehl lösen die Arbeitsplatzzuweisung nicht automatisch. Der Bewohner bleibt dem Gebäude zugeordnet; der manuelle Befehl unterbricht nur vorübergehend die autonome Arbeit.
 
 ## Geplante Domänenbereiche
 
@@ -49,7 +50,7 @@ Die Detailregeln dieser Bereiche werden nicht vorab festgelegt, bevor das zugeh�
 - Der Holzfäller läuft neben den Baum, bevor er mit der Arbeit beginnt.
 - Das Fällen muss Hytales normales Ernte- und Physikverhalten verwenden, statt den Baum nur in Civ-eigenem Simulationszustand zu löschen.
 - Nach dem Fällen sucht der Holzfäller einen weiteren Baum in der Nähe.
-- Arbeitsbereiche, Holztransport, Lagerlieferung, Werkzeuge, Erfahrung und dauerhafte Arbeitsplatzspeicherung sind noch keine Domänenregeln.
+- Arbeitsbereiche, Holztransport, Lagerlieferung, Werkzeuge und Erfahrung sind noch keine vollständigen Domänenregeln.
 
 ## Gebäudeplatzierung
 
@@ -58,7 +59,18 @@ Die Detailregeln dieser Bereiche werden nicht vorab festgelegt, bevor das zugeh�
 - Die Civ-Bauposition liegt für die aktuellen Creator-Prefabs einen Block unter der vom nativen Paste Tool gemeldeten Cursorposition, damit die fertige Bodenebene bündig in das Gelände eingelassen werden kann.
 - Die aktuellen Platzierungsregeln verlangen durchgehend gestützten Boden, keine Flüssigkeiten oder Löcher in der ersetzten Bodenschicht, freien benötigten Gebäuderaum, freie Zugänge und keine Überschneidung mit einem vorhandenen Civ-Gebäude.
 - Jede platzierte Gebäudeinstanz muss die ursprünglichen Weltblöcke behalten, die durch ihren eingelassenen Boden ersetzt wurden, damit ein späterer Abriss das vorherige Gelände wiederherstellen kann.
-- Dieser Geländeschnappschuss besitzt dieselbe Lebensdauer wie das platzierte Gebäude. Solange Gebäude nicht dauerhaft gespeichert werden, ist auch der Schnappschuss nur laufzeitgebunden.
+- Dieser Geländeschnappschuss besitzt dieselbe Lebensdauer wie das platzierte Gebäude und wird zusammen mit der Civ-Gebäudeinstanz gespeichert.
+
+## Gebäude, Phasen und Arbeiterplätze
+
+- Jedes fertiggestellte Civ-Gebäude besitzt eine stabile Civ-Gebäude-ID, einen Gebäudetyp und eine aktuelle Phase. Diese Daten werden persistent gespeichert.
+- Neue Gebäude starten aktuell in Phase 1. Das eigentliche Upgrade-Gameplay ist noch nicht umgesetzt.
+- Eigenschaften, die vom Gebäudetyp und der Phase abhängen, werden aus einer gemeinsamen Gebäudetyp-Definition gelesen und nicht als UI-Sonderregeln pro Gebäudeart verdoppelt.
+- `workerCapacity` ist eine solche Typ-/Phasen-Eigenschaft. In diesem Slice ist sie ausschließlich Metadaten: sie wird gespeichert beziehungsweise abgeleitet und im Interface angezeigt, aber noch nicht zur Begrenzung oder Validierung von Arbeitsplatzzuweisungen verwendet.
+- Für die Mine gilt als Produktregel: Phase 1 besitzt 1 Abbauerplatz, Phase 2 besitzt 2 Abbauerplätze, Phase 3 besitzt 3 Abbauerplätze.
+- Für bereits vorhandene Prototyp-Gebäude werden derzeit passende Metadaten mitgeführt (Farm: 1 Arbeiterplatz in Phase 1; Weizenfeld: 0). Diese Werte beschreiben den aktuellen Slice und sind nicht automatisch eine endgültige Ausbaukurve dieser Gebäudetypen.
+- Das Gebäude-Interface erzeugt seine sichtbaren Arbeiterplätze aus `workerCapacity`. Zugeordnete Bewohner werden über ihre persistente Arbeitsplatz-ID ermittelt und können dort ausgewählt werden.
+- Wird ein Gebäude abgerissen, dürfen Bewohner keine tote Arbeitsplatz-ID auf das entfernte Gebäude behalten.
 
 ## Gebäude und lokale Waren
 
@@ -66,7 +78,7 @@ Die Detailregeln dieser Bereiche werden nicht vorab festgelegt, bevor das zugeh�
 - Die aktuelle Serverversion besitzt serialisierbare Block-Container im ChunkStore. Damit ist ein echter Hytale-Container der bevorzugte Kandidat für beispielsweise lokal bei einer Farm gelagerten Weizen.
 - Räumliche Gebäudefunktionen sollen nach Möglichkeit im Prefab mit nativen Hytale-Mechanismen beschrieben werden. Trigger Volumes dürfen dafür Civ-Tags tragen, können aber zusätzlich native Volume-Logik nutzen.
 - Die allgemeine räumliche Grenze eines fertigen Civ-Gebäudes wird vom Creator als natives Trigger Volume mit `civ.type=building_bounds` und `civ.building=<Gebäudetyp>` im Prefab festgelegt. Diese Zone ist nach Fertigstellung die maßgebliche Runtime-Fläche für Gebäude-Picking und Schutz; semantische Volumes wie `workplace_access` bleiben davon getrennte Funktionsbereiche.
-- Eine dauerhafte allgemeine Gebäudeidentität und eine persistente Bewohner-zu-Gebäude-Zuweisung sind noch nicht als Domänenmodell entschieden. Hytale stellt persistente Referenz-, Meta- und ECS-Infrastruktur bereit; der konkrete Lifecycle für Civ-Gebäude muss jedoch noch praktisch validiert werden.
+- Die stabile Civ-Gebäude-ID verbindet persistente Gebäudedaten mit Bewohner-Arbeitsplatzreferenzen. Hytale-eigene Trigger-Volumes, Container und Prefab-Geometrie bleiben weiterhin Engine-Integration und nicht die Domänenidentität des Gebäudes.
 
 ## Farm
 
@@ -90,13 +102,17 @@ Nur aktueller Prototyp, **keine dauerhafte Domänenregel**:
 
 Diese Punkte bleiben als Beschreibung des derzeit laufenden Codes relevant, dürfen aber ohne erneute Produktentscheidung nicht als Zielverhalten für die nächste Farm-Iteration verwendet werden. Das in `civilizations-poc` vorhandene Modell mit sichtbarer Feldarbeit, Feldentwicklung, Ernte und Rücktransport ist eine Referenz für die weitere Produktentscheidung, nicht automatisch eine Regel dieses Projekts.
 
-
 ## Civ-Prefab-Platzierung
 
 Farmgebäude und Felder sind getrennte, vom Spieler platzierte Civ-Bauobjekte. Ein Feld wird nicht automatisch zusammen mit einer Farm erzeugt. Die Geometrie einschließlich semantischer Trigger-Volumes gehört vollständig zum jeweiligen Hytale-Prefab. Civ verschiebt solche Marker nicht unabhängig vom Prefab.
 
 Für die aktuellen Creator-Prefabs gilt die gemeinsame Geländekonvention: Der Prefab-Anker wird bei der Platzierung um einen Block gegenüber dem anvisierten Gelände abgesenkt, damit die im Prefab definierte Bodenebene im Spiel bündig mit der Geländeoberfläche abschließt. Diese Konvention gilt für Gebäude und Felder gleichermaßen und ist kein farmspezifischer Sonderfall.
-\n\n## Baustellen\n\n- Das Bestätigen einer Civ-Gebäudeplatzierung soll nicht unmittelbar das fertige Gebäude erzeugen. Es entsteht zunächst eine Baustelle an der bestätigten Position.\n- Die Baustelle darf Hytales native Prefab-Preview als visuelle Darstellung der geplanten Struktur verwenden; diese Vorschau ist noch kein gebautes Gebäude.\n- Baufortschritt durch Bewohner, benötigte Materialien, Baugeschwindigkeit und Auswahl beziehungsweise Zuweisung von Bauarbeitern sind noch nicht als Domänenregeln festgelegt und werden im nächsten Vertical Slice entschieden.\n
+
+## Baustellen
+
+- Das Bestätigen einer Civ-Gebäudeplatzierung soll nicht unmittelbar das fertige Gebäude erzeugen. Es entsteht zunächst eine Baustelle an der bestätigten Position.
+- Die Baustelle darf Hytales native Prefab-Preview als visuelle Darstellung der geplanten Struktur verwenden; diese Vorschau ist noch kein gebautes Gebäude.
+- Baufortschritt durch Bewohner, benötigte Materialien, Baugeschwindigkeit und Auswahl beziehungsweise Zuweisung von Bauarbeitern sind noch nicht als Domänenregeln festgelegt und werden im nächsten Vertical Slice entschieden.
 
 ## Bau / Construction v1
 
@@ -110,7 +126,6 @@ Für die aktuellen Creator-Prefabs gilt die gemeinsame Geländekonvention: Der P
 - Die derzeitige Dauer von einer Sekunde pro Ebene und die generische Action-Animation sind Prototypwerte bzw. Platzhalter und keine dauerhaften Balancing-Regeln.
 - Baumaterialien, mehrere Bauarbeiter pro Baustelle, Bauarbeiter-Erfahrung und persistente Baustellenzuweisungen sind noch keine Domänenregeln.
 
-
 ## Allgemeine Produktion und spätere Materialbeschaffung
 
 - Produktionsrezepte beschreiben Inputs, Outputs und Grundarbeitszeit unabhängig vom konkreten Beruf.
@@ -118,7 +133,6 @@ Für die aktuellen Creator-Prefabs gilt die gemeinsame Geländekonvention: Der P
 - Ein Produktionsarbeiter mit Inputs darf nicht voraussetzen, dass diese bereits am Arbeitsplatz liegen.
 - Die spätere Warenlogistik entscheidet, aus welcher zulässigen Quelle benötigte Güter kommen (z. B. lokaler Arbeitsplatzcontainer, anderes Gebäude/Lager oder physische Weltware), reserviert sie und organisiert den Transport.
 - Produktion entscheidet **was** benötigt und erzeugt wird; Logistik entscheidet **woher** die Güter kommen. Diese Trennung soll spätere Trägerlieferungen ermöglichen, ohne Müller, Steinmetz oder andere Produzenten neu zu modellieren.
-
 
 ### Temporärer Farmer-Bootstrap
 

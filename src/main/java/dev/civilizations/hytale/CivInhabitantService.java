@@ -18,6 +18,7 @@ import dev.civilizations.core.Gender;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.VikingNameGenerator;
 
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.random.RandomGenerator;
 
@@ -110,8 +111,6 @@ public final class CivInhabitantService {
             PersistentDisplayName.getComponentType(),
             new PersistentDisplayName(displayName)
         );
-        // HydrateDisplayName only creates the runtime component when an entity is added.
-        // Claims happen on an already loaded NPC, so update the runtime component now too.
         accessor.putComponent(
             ref,
             DisplayNameComponent.getComponentType(),
@@ -212,12 +211,22 @@ public final class CivInhabitantService {
     public void assignProfession(Ref<EntityStore> ref, Profession profession) {
         CivInhabitantData data = get(ref);
         if (data != null) {
-            data.setProfession(profession);
-            if (profession == null || profession == Profession.UNEMPLOYED) {
+            Profession next = profession == null ? Profession.UNEMPLOYED : profession;
+            if (data.profession() != next) {
                 data.setWorkplaceId(null);
             }
+            data.setProfession(next);
             markDirty(ref);
         }
+    }
+
+    public void assignWorkplace(Ref<EntityStore> ref, UUID buildingId) {
+        CivInhabitantData data = get(ref);
+        if (data == null) {
+            return;
+        }
+        data.setWorkplaceId(buildingId == null ? null : buildingId.toString());
+        markDirty(ref);
     }
 
     private static void markDirty(Ref<EntityStore> ref) {

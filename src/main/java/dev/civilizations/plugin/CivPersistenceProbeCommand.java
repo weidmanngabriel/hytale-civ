@@ -37,6 +37,8 @@ final class CivPersistenceProbeCommand extends CommandBase {
 
     private static final UUID FIXED_SPAWN_PROBE_UUID =
         UUID.fromString("00000000-0000-0000-0000-000000000001");
+    private static final UUID EXPECTED_WORKPLACE_UUID =
+        UUID.fromString("00000000-0000-0000-0000-000000000002");
     private static final String EXPECTED_FIRST_NAME = "Persist";
     private static final String EXPECTED_MIDDLE_NAME = "Runtime";
     private static final String EXPECTED_LAST_NAME = "Probe";
@@ -44,7 +46,7 @@ final class CivPersistenceProbeCommand extends CommandBase {
         EXPECTED_FIRST_NAME + " " + EXPECTED_MIDDLE_NAME + " " + EXPECTED_LAST_NAME;
     private static final Profession EXPECTED_PROFESSION = Profession.CONSTRUCTION_WORKER;
     private static final int EXPECTED_PROFESSION_XP = 37;
-    private static final String EXPECTED_WORKPLACE_ID = "runtime-probe-workplace";
+    private static final String EXPECTED_WORKPLACE_ID = EXPECTED_WORKPLACE_UUID.toString();
 
     private static final long PREPARE_SETTLE_MILLIS = 500L;
     private static final long RESTORE_RETRY_MILLIS = 250L;
@@ -141,8 +143,8 @@ final class CivPersistenceProbeCommand extends CommandBase {
                 EXPECTED_LAST_NAME
             );
             data.setProfessionXp(EXPECTED_PROFESSION, EXPECTED_PROFESSION_XP);
-            data.setWorkplaceId(EXPECTED_WORKPLACE_ID);
             unitRegistry.assignProfession(ref, EXPECTED_PROFESSION);
+            unitRegistry.assignWorkplace(ref, EXPECTED_WORKPLACE_UUID);
 
             UUIDComponent uuidComponent = ref.getStore()
                 .getComponent(ref, UUIDComponent.getComponentType());
@@ -174,6 +176,10 @@ final class CivPersistenceProbeCommand extends CommandBase {
                 fail("persistence-probe data changed before shutdown", null);
                 return;
             }
+            if (!unitRegistry.workersAt(EXPECTED_WORKPLACE_UUID).contains(ref)) {
+                fail("persistence-probe workplace was not projected before shutdown", null);
+                return;
+            }
 
             System.out.println(
                 "CIV_PERSISTENCE_PREPARED uuid=" + entityUuid
@@ -182,6 +188,7 @@ final class CivPersistenceProbeCommand extends CommandBase {
                     + " xp=" + data.professionXp(EXPECTED_PROFESSION)
                     + " workplace=" + data.workplaceId()
             );
+            System.out.println("CIV_PERSISTENCE_WORKPLACE_INDEXED_PREPARE");
             System.out.println("CIV_PERSISTENCE_PREPARE_PASS");
             HytaleServer.get().shutdownServer();
         } catch (Throwable throwable) {
@@ -268,6 +275,18 @@ final class CivPersistenceProbeCommand extends CommandBase {
                 fail("restored Civ inhabitant presentation was not rehydrated", null);
                 return;
             }
+            if (!unitRegistry.workersAt(EXPECTED_WORKPLACE_UUID).contains(ref)) {
+                if (System.nanoTime() < deadlineNanos) {
+                    world.scheduleAfter(
+                        () -> assertRestored(world, expectedUuid, deadlineNanos),
+                        RESTORE_RETRY_MILLIS,
+                        TimeUnit.MILLISECONDS
+                    );
+                    return;
+                }
+                fail("restored workplace was not rehydrated into CivUnitRegistry", null);
+                return;
+            }
 
             System.out.println(
                 "CIV_PERSISTENCE_RESTORED uuid=" + expectedUuid
@@ -276,6 +295,7 @@ final class CivPersistenceProbeCommand extends CommandBase {
                     + " xp=" + data.professionXp(EXPECTED_PROFESSION)
                     + " workplace=" + data.workplaceId()
             );
+            System.out.println("CIV_PERSISTENCE_WORKPLACE_INDEXED_RESTORE");
             System.out.println("CIV_PERSISTENCE_RESTORE_PASS");
             HytaleServer.get().shutdownServer();
         } catch (Throwable throwable) {
