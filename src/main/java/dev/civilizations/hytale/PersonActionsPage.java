@@ -16,18 +16,17 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 
 import javax.annotation.Nonnull;
 
-/**
- * Small first-person action page opened by Hytale's standard Use action (F).
- */
-public final class PersonActionsPage
-    extends InteractiveCustomUIPage<PersonActionsPage.ActionData> {
+/** Small first-person action page opened by Hytale's standard Use action (F). */
+public final class PersonActionsPage extends InteractiveCustomUIPage<PersonActionsPage.ActionData> {
 
     private static final String ACTION_WOODCUTTER = "woodcutter";
+    private static final String ACTION_MINER = "miner";
     private static final String ACTION_CONSTRUCTION_WORKER = "construction_worker";
     private static final String ACTION_FARMER = "farmer";
     private static final String ACTION_INVENTORY = "inventory";
 
     private final Runnable assignWoodcutter;
+    private final Runnable assignMiner;
     private final Runnable assignConstructionWorker;
     private final Runnable assignFarmer;
     private final Runnable openInventory;
@@ -35,16 +34,14 @@ public final class PersonActionsPage
     public PersonActionsPage(
         PlayerRef playerRef,
         Runnable assignWoodcutter,
+        Runnable assignMiner,
         Runnable assignConstructionWorker,
         Runnable assignFarmer,
         Runnable openInventory
     ) {
-        super(
-            playerRef,
-            CustomPageLifetime.CanDismissOrCloseThroughInteraction,
-            ActionData.CODEC
-        );
+        super(playerRef, CustomPageLifetime.CanDismissOrCloseThroughInteraction, ActionData.CODEC);
         this.assignWoodcutter = assignWoodcutter;
+        this.assignMiner = assignMiner;
         this.assignConstructionWorker = assignConstructionWorker;
         this.assignFarmer = assignFarmer;
         this.openInventory = openInventory;
@@ -58,30 +55,11 @@ public final class PersonActionsPage
         @Nonnull Store<EntityStore> store
     ) {
         commands.append("Pages/CivPersonActions.ui");
-        events.addEventBinding(
-            CustomUIEventBindingType.Activating,
-            "#WoodcutterButton",
-            EventData.of("Action", ACTION_WOODCUTTER),
-            false
-        );
-        events.addEventBinding(
-            CustomUIEventBindingType.Activating,
-            "#FarmerButton",
-            EventData.of("Action", ACTION_FARMER),
-            false
-        );
-        events.addEventBinding(
-            CustomUIEventBindingType.Activating,
-            "#InventoryButton",
-            EventData.of("Action", ACTION_INVENTORY),
-            false
-        );
-        events.addEventBinding(
-            CustomUIEventBindingType.Activating,
-            "#ConstructionWorkerButton",
-            EventData.of("Action", ACTION_CONSTRUCTION_WORKER),
-            false
-        );
+        events.addEventBinding(CustomUIEventBindingType.Activating, "#WoodcutterButton", EventData.of("Action", ACTION_WOODCUTTER), false);
+        events.addEventBinding(CustomUIEventBindingType.Activating, "#MinerButton", EventData.of("Action", ACTION_MINER), false);
+        events.addEventBinding(CustomUIEventBindingType.Activating, "#FarmerButton", EventData.of("Action", ACTION_FARMER), false);
+        events.addEventBinding(CustomUIEventBindingType.Activating, "#InventoryButton", EventData.of("Action", ACTION_INVENTORY), false);
+        events.addEventBinding(CustomUIEventBindingType.Activating, "#ConstructionWorkerButton", EventData.of("Action", ACTION_CONSTRUCTION_WORKER), false);
     }
 
     @Override
@@ -96,6 +74,9 @@ public final class PersonActionsPage
         } else if (ACTION_WOODCUTTER.equals(data.action)) {
             assignWoodcutter.run();
             close();
+        } else if (ACTION_MINER.equals(data.action)) {
+            assignMiner.run();
+            close();
         } else if (ACTION_CONSTRUCTION_WORKER.equals(data.action)) {
             assignConstructionWorker.run();
             close();
@@ -108,14 +89,10 @@ public final class PersonActionsPage
     public static final class ActionData {
         public static final BuilderCodec<ActionData> CODEC =
             BuilderCodec.builder(ActionData.class, ActionData::new)
-                .append(
-                    new KeyedCodec<>("Action", Codec.STRING),
-                    (data, value) -> data.action = value,
-                    data -> data.action
-                )
+                .append(new KeyedCodec<>("Action", Codec.STRING),
+                    (data, value) -> data.action = value, data -> data.action)
                 .add()
                 .build();
-
         private String action;
     }
 }

@@ -1,0 +1,13 @@
+{
+  "Parent": "Pickaxe",
+  "Animations": {
+    "SwingDown": {
+      "ThirdPerson": "Characters/Animations/Items/Main_Handed/Pickaxe/Attacks/Mine/Mine.blockyanim",
+      "ThirdPersonMoving": "Characters/Animations/Items/Main_Handed/Pickaxe/Attacks/Mine/Mine_Moving.blockyanim",
+      "ThirdPersonFace": "Characters/Animations/Expressions/Frown.blockyanim",
+      "KeepPreviousFirstPersonAnimation": true,
+      "Speed": 0.75,
+      "Looping": true
+    }
+  }
+}
