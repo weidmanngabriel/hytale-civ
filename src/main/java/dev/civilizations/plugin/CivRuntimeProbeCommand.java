@@ -24,24 +24,31 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Headless-only integration probe. Registered only when civilizations.runtimeProbe=true.
+ *
+ * <p>The probe builds a tiny deterministic arena inside an already loaded real Hytale chunk.
+ * That keeps the test focused on the Civ -> Hytale NPC movement contract instead of random
+ * world-generation terrain around the default spawn.</p>
  */
 final class CivRuntimeProbeCommand extends CommandBase {
 
     private static final String ROLE = "Civ_Inhabitant";
+    private static final long ARENA_SETTLE_MILLIS = 500L;
     private static final long ASSERT_INTERVAL_MILLIS = 250L;
     private static final long PROBE_TIMEOUT_MILLIS = 10_000L;
     private static final long MINIMUM_WORLD_TICKS = 2L;
     private static final double MINIMUM_MOVED_DISTANCE = 2.0;
     private static final double MAXIMUM_TARGET_DISTANCE = 1.25;
-    private static final int MAXIMUM_TARGET_DISTANCE_BLOCKS = 5;
-    private static final int MINIMUM_TARGET_DISTANCE_BLOCKS = 3;
 
-    private static final int[][] CARDINAL_DIRECTIONS = {
-        {1, 0},
-        {-1, 0},
-        {0, 1},
-        {0, -1}
-    };
+    private static final int ARENA_FLOOR_Y = 200;
+    private static final int ARENA_MIN_LOCAL_X = 8;
+    private static final int ARENA_MAX_LOCAL_X = 23;
+    private static final int ARENA_MIN_LOCAL_Z = 13;
+    private static final int ARENA_MAX_LOCAL_Z = 19;
+    private static final int ARENA_CLEARANCE_BLOCKS = 4;
+    private static final int START_LOCAL_X = 12;
+    private static final int START_LOCAL_Z = 16;
+    private static final int TARGET_LOCAL_X = 18;
+    private static final int TARGET_LOCAL_Z = 16;
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
@@ -64,10 +71,10 @@ final class CivRuntimeProbeCommand extends CommandBase {
             return;
         }
 
-        world.execute(() -> loadSpawnChunkAndStart(world));
+        world.execute(() -> loadArenaChunkAndStart(world));
     }
 
-    private void loadSpawnChunkAndStart(World world) {
+    private void loadArenaChunkAndStart(World world) {
         try {
             var spawn = world.getWorldConfig()
                 .getSpawnProvider()
@@ -77,34 +84,100 @@ final class CivRuntimeProbeCommand extends CommandBase {
                 return;
             }
 
-            Vector3d position = spawn.getPosition();
-            long chunkIndex = ChunkUtil.indexChunkFromBlock(position.x, position.z);
+            Vector3d spawnPosition = spawn.getPosition();
+            long chunkIndex = ChunkUtil.indexChunkFromBlock(spawnPosition.x, spawnPosition.z);
             world.getChunkAsync(chunkIndex).whenComplete((chunk, throwable) ->
                 world.execute(() -> {
                     if (throwable != null || chunk == null) {
-                        fail("spawn chunk could not be loaded", throwable);
+                        fail("arena chunk could not be loaded", throwable);
                         return;
                     }
-                    startProbe(world, chunk, spawn.getPosition(), spawn.getRotation());
+                    prepareArenaAndScheduleProbe(world, chunk, spawn.getRotation());
                 })
             );
         } catch (Throwable throwable) {
-            fail("spawn chunk setup threw an exception", throwable);
+            fail("arena chunk setup threw an exception", throwable);
         }
+    }
+
+    private void prepareArenaAndScheduleProbe(
+        World world,
+        WorldChunk chunk,
+        Rotation3f spawnRotation
+    ) {
+        try {
+            if (!buildArena(chunk)) {
+                fail("deterministic movement arena could not be built", null);
+                return;
+            }
+
+            int chunkMinX = ChunkUtil.minBlock(chunk.getX());
+            int chunkMinZ = ChunkUtil.minBlock(chunk.getZ());
+            Vector3d startPosition = new Vector3d(
+                chunkMinX + START_LOCAL_X + 0.5,
+                ARENA_FLOOR_Y + 1.0,
+                chunkMinZ + START_LOCAL_Z + 0.5
+            );
+            WorldPosition destination = new WorldPosition(
+                chunkMinX + TARGET_LOCAL_X + 0.5,
+                ARENA_FLOOR_Y + 1.0,
+                chunkMinZ + TARGET_LOCAL_Z + 0.5
+            );
+
+            System.out.println(
+                "CIV_RUNTIME_ARENA_READY floor=" + BlockType.DEBUG_CUBE.getId()
+                    + " start=" + format(startPosition)
+                    + " target=" + format(destination)
+            );
+
+            world.scheduleAfter(
+                () -> startProbe(world, startPosition, spawnRotation, destination),
+                ARENA_SETTLE_MILLIS,
+                TimeUnit.MILLISECONDS
+            );
+        } catch (Throwable throwable) {
+            fail("arena preparation threw an exception", throwable);
+        }
+    }
+
+    private static boolean buildArena(WorldChunk chunk) {
+        for (int localX = ARENA_MIN_LOCAL_X; localX <= ARENA_MAX_LOCAL_X; localX++) {
+            for (int localZ = ARENA_MIN_LOCAL_Z; localZ <= ARENA_MAX_LOCAL_Z; localZ++) {
+                if (!chunk.setBlock(localX, ARENA_FLOOR_Y, localZ, BlockType.DEBUG_CUBE)) {
+                    return false;
+                }
+                for (int dy = 1; dy <= ARENA_CLEARANCE_BLOCKS; dy++) {
+                    if (!chunk.setBlock(localX, ARENA_FLOOR_Y + dy, localZ, BlockType.EMPTY)) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        for (int localX = START_LOCAL_X; localX <= TARGET_LOCAL_X; localX++) {
+            if (chunk.getBlock(localX, ARENA_FLOOR_Y, START_LOCAL_Z) != BlockType.DEBUG_CUBE_ID) {
+                return false;
+            }
+            if (chunk.getBlock(localX, ARENA_FLOOR_Y + 1, START_LOCAL_Z) != BlockType.EMPTY_ID
+                || chunk.getBlock(localX, ARENA_FLOOR_Y + 2, START_LOCAL_Z) != BlockType.EMPTY_ID) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void startProbe(
         World world,
-        WorldChunk spawnChunk,
-        Vector3d spawnPosition,
-        Rotation3f spawnRotation
+        Vector3d requestedStartPosition,
+        Rotation3f spawnRotation,
+        WorldPosition destination
     ) {
         try {
             var spawned = NPCPlugin.get().spawnNPC(
                 world.getEntityStore().getStore(),
                 ROLE,
                 null,
-                spawnPosition,
+                requestedStartPosition,
                 spawnRotation
             );
             if (spawned == null || spawned.first() == null) {
@@ -137,9 +210,9 @@ final class CivRuntimeProbeCommand extends CommandBase {
             }
 
             Vector3d startPosition = new Vector3d(transform.getPosition());
-            WorldPosition destination = findNearbyWalkableDestination(spawnChunk, startPosition);
-            if (destination == null) {
-                fail("NO_SAFE_TARGET: no flat same-chunk corridor with solid floor and clear headroom", null);
+            if (horizontalDistance(startPosition, requestedStartPosition) > 0.75
+                || Math.abs(startPosition.y - requestedStartPosition.y) > 1.0) {
+                fail("NPC spawned outside the deterministic arena start position: " + format(startPosition), null);
                 return;
             }
 
@@ -169,93 +242,6 @@ final class CivRuntimeProbeCommand extends CommandBase {
         } catch (Throwable throwable) {
             fail("probe setup threw an exception", throwable);
         }
-    }
-
-    private static WorldPosition findNearbyWalkableDestination(
-        WorldChunk chunk,
-        Vector3d startPosition
-    ) {
-        int startBlockX = (int) Math.floor(startPosition.x);
-        int startBlockZ = (int) Math.floor(startPosition.z);
-        int feetY = (int) Math.floor(startPosition.y + 0.01);
-        long startChunkIndex = chunk.getIndex();
-
-        if (!isWalkableColumn(chunk, startBlockX, feetY, startBlockZ)) {
-            return null;
-        }
-
-        for (int distance = MAXIMUM_TARGET_DISTANCE_BLOCKS;
-             distance >= MINIMUM_TARGET_DISTANCE_BLOCKS;
-             distance--) {
-            for (int[] direction : CARDINAL_DIRECTIONS) {
-                if (!isStraightWalkableCorridor(
-                    chunk,
-                    startChunkIndex,
-                    startBlockX,
-                    feetY,
-                    startBlockZ,
-                    direction[0],
-                    direction[1],
-                    distance
-                )) {
-                    continue;
-                }
-
-                int targetBlockX = startBlockX + direction[0] * distance;
-                int targetBlockZ = startBlockZ + direction[1] * distance;
-                return new WorldPosition(
-                    targetBlockX + 0.5,
-                    startPosition.y,
-                    targetBlockZ + 0.5
-                );
-            }
-        }
-
-        return null;
-    }
-
-    private static boolean isStraightWalkableCorridor(
-        WorldChunk chunk,
-        long expectedChunkIndex,
-        int startBlockX,
-        int feetY,
-        int startBlockZ,
-        int dx,
-        int dz,
-        int distance
-    ) {
-        for (int step = 1; step <= distance; step++) {
-            int blockX = startBlockX + dx * step;
-            int blockZ = startBlockZ + dz * step;
-            if (ChunkUtil.indexChunkFromBlock(blockX, blockZ) != expectedChunkIndex) {
-                return false;
-            }
-            if (!isWalkableColumn(chunk, blockX, feetY, blockZ)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static boolean isWalkableColumn(
-        WorldChunk chunk,
-        int blockX,
-        int feetY,
-        int blockZ
-    ) {
-        if (feetY <= 0 || feetY >= 319) {
-            return false;
-        }
-
-        int localX = ChunkUtil.localCoordinate(blockX);
-        int localZ = ChunkUtil.localCoordinate(blockZ);
-        int floor = chunk.getBlock(localX, feetY - 1, localZ);
-        int feet = chunk.getBlock(localX, feetY, localZ);
-        int head = chunk.getBlock(localX, feetY + 1, localZ);
-
-        return floor != BlockType.EMPTY_ID
-            && feet == BlockType.EMPTY_ID
-            && head == BlockType.EMPTY_ID;
     }
 
     private void assertProbe(
@@ -321,7 +307,8 @@ final class CivRuntimeProbeCommand extends CommandBase {
                         + ", moved=" + String.format("%.2f", movedDistance)
                         + ", targetDistance=" + String.format("%.2f", targetDistance)
                         + ", activityComplete=" + activityComplete
-                        + ", nativeTargetCleared=" + nativeTargetCleared,
+                        + ", nativeTargetCleared=" + nativeTargetCleared
+                        + ", end=" + format(currentPosition),
                     null
                 );
                 return;
