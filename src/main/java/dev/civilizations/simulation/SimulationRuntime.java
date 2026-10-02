@@ -268,7 +268,7 @@ public final class SimulationRuntime {
             case WOODCUTTER -> tickWoodcutter(resident);
             case CONSTRUCTION_WORKER -> tickBuilder(resident);
             case FARMER -> tickFarmer(resident);
-            case UNEMPLOYED -> clearMovement(resident);
+            case MINER, UNEMPLOYED -> clearMovement(resident);
         }
     }
 
@@ -283,11 +283,8 @@ public final class SimulationRuntime {
 
         WoodcutterJob.Intent intent = job.intent();
         if (intent instanceof WoodcutterJob.FindTreeIntent) {
-            WorkDecisionSchedule.DecisionKind decision =
-                resident.workDecisions.advance(tickSeconds);
-            if (decision == WorkDecisionSchedule.DecisionKind.NONE) {
-                return;
-            }
+            WorkDecisionSchedule.DecisionKind decision = resident.workDecisions.advance(tickSeconds);
+            if (decision == WorkDecisionSchedule.DecisionKind.NONE) return;
             metrics.recordDecision(decision);
             metrics.recordTreeSearch();
             TreeState tree = nearestAvailableTree(resident.position);
@@ -297,7 +294,6 @@ public final class SimulationRuntime {
                 resident.workDecisions.scheduleRetry(DEFAULT_RETRY_SECONDS);
                 return;
             }
-
             tree.reservedBy = resident.id;
             WorldPosition interactionPoint = interactionPoint(tree.position, resident.position);
             if (!job.assignTarget(new WoodcutterJob.WorkTarget(tree.position, interactionPoint))) {
@@ -305,26 +301,19 @@ public final class SimulationRuntime {
             }
             return;
         }
-
         if (intent instanceof WoodcutterJob.MoveToTreeIntent moveIntent) {
-            if (advanceMovement(resident, moveIntent.movement().destination())) {
-                job.movementArrived();
-            }
+            if (advanceMovement(resident, moveIntent.movement().destination())) job.movementArrived();
             return;
         }
-
         if (intent instanceof WoodcutterJob.ChopTreeIntent) {
             clearMovement(resident);
             job.advanceWork(tickSeconds);
             return;
         }
-
         if (intent instanceof WoodcutterJob.FellTreeIntent fellIntent) {
             clearMovement(resident);
             TreeState removed = trees.remove(fellIntent.tree());
-            if (removed != null) {
-                metrics.recordTreeFelled();
-            }
+            if (removed != null) metrics.recordTreeFelled();
             job.fellingCompleted();
             resident.workDecisions.scheduleRetry(0.25);
         }
@@ -345,11 +334,8 @@ public final class SimulationRuntime {
 
         ConstructionJob.Intent intent = job.intent();
         if (intent instanceof ConstructionJob.FindConstructionSiteIntent) {
-            WorkDecisionSchedule.DecisionKind decision =
-                resident.workDecisions.advance(tickSeconds);
-            if (decision == WorkDecisionSchedule.DecisionKind.NONE) {
-                return;
-            }
+            WorkDecisionSchedule.DecisionKind decision = resident.workDecisions.advance(tickSeconds);
+            if (decision == WorkDecisionSchedule.DecisionKind.NONE) return;
             metrics.recordDecision(decision);
             metrics.recordConstructionSearch();
             ConstructionSiteState site = nearestAvailableConstructionSite(resident.position);
@@ -359,27 +345,19 @@ public final class SimulationRuntime {
                 resident.workDecisions.scheduleRetry(DEFAULT_RETRY_SECONDS);
                 return;
             }
-
             site.reservedBy = resident.id;
-            if (!job.assignTarget(site.target)) {
-                site.reservedBy = null;
-            }
+            if (!job.assignTarget(site.target)) site.reservedBy = null;
             return;
         }
-
         if (intent instanceof ConstructionJob.MoveToConstructionSiteIntent moveIntent) {
-            if (advanceMovement(resident, moveIntent.movement().destination())) {
-                job.movementArrived();
-            }
+            if (advanceMovement(resident, moveIntent.movement().destination())) job.movementArrived();
             return;
         }
-
         if (intent instanceof ConstructionJob.BuildIntent) {
             clearMovement(resident);
             job.advanceWork(tickSeconds);
             return;
         }
-
         if (intent instanceof ConstructionJob.CompleteConstructionIntent completeIntent) {
             clearMovement(resident);
             ConstructionSiteState site = constructionSites.get(completeIntent.siteId());
@@ -398,9 +376,7 @@ public final class SimulationRuntime {
         switch (farm.workState()) {
             case WAITING_FOR_FARMER, WAITING_FOR_INPUTS -> clearMovement(resident);
             case WALKING_TO_FARM -> {
-                if (advanceMovement(resident, blockCenter(farm.entranceBlock()))) {
-                    farm.arriveAtFarm();
-                }
+                if (advanceMovement(resident, blockCenter(farm.entranceBlock()))) farm.arriveAtFarm();
             }
             case WALKING_TO_FIELD -> tickFarmerFieldTravel(resident);
             case SOWING_FIELD -> {
@@ -421,9 +397,7 @@ public final class SimulationRuntime {
                 farm.fieldCycleFinished();
             }
             case RETURNING_TO_STORAGE -> {
-                if (advanceMovement(resident, blockCenter(farm.exitBlock()))) {
-                    farm.arriveAtFarm();
-                }
+                if (advanceMovement(resident, blockCenter(farm.exitBlock()))) farm.arriveAtFarm();
             }
             case STORING_OUTPUT -> {
                 clearMovement(resident);
@@ -437,11 +411,8 @@ public final class SimulationRuntime {
 
     private void tickFarmerFieldTravel(Resident resident) {
         if (resident.fieldTarget == null) {
-            WorkDecisionSchedule.DecisionKind decision =
-                resident.fieldDecisions.advance(tickSeconds);
-            if (decision == WorkDecisionSchedule.DecisionKind.NONE) {
-                return;
-            }
+            WorkDecisionSchedule.DecisionKind decision = resident.fieldDecisions.advance(tickSeconds);
+            if (decision == WorkDecisionSchedule.DecisionKind.NONE) return;
             metrics.recordDecision(decision);
             metrics.recordFieldSearch();
             resident.fieldTarget = nearestField(resident.farm.id(), resident.position);
@@ -452,19 +423,14 @@ public final class SimulationRuntime {
                 return;
             }
         }
-
-        if (advanceMovement(resident, resident.fieldTarget)) {
-            resident.farm.arriveAtField();
-        }
+        if (advanceMovement(resident, resident.fieldTarget)) resident.farm.arriveAtField();
     }
 
     private TreeState nearestAvailableTree(WorldPosition position) {
         TreeState best = null;
         double bestDistance = Double.POSITIVE_INFINITY;
         for (TreeState tree : trees.values()) {
-            if (tree.reservedBy != null) {
-                continue;
-            }
+            if (tree.reservedBy != null) continue;
             double distance = distanceSquared(position, blockCenter(tree.position));
             if (distance < bestDistance) {
                 best = tree;
@@ -478,9 +444,7 @@ public final class SimulationRuntime {
         ConstructionSiteState best = null;
         double bestDistance = Double.POSITIVE_INFINITY;
         for (ConstructionSiteState site : constructionSites.values()) {
-            if (site.completed || site.reservedBy != null) {
-                continue;
-            }
+            if (site.completed || site.reservedBy != null) continue;
             double distance = distanceSquared(position, site.target.workPoint());
             if (distance < bestDistance) {
                 best = site;
@@ -508,19 +472,16 @@ public final class SimulationRuntime {
             resident.movementTarget = target;
             metrics.recordMovementRequest();
         }
-
         double dx = target.x() - resident.position.x();
         double dy = target.y() - resident.position.y();
         double dz = target.z() - resident.position.z();
         double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
         double step = moveSpeed * tickSeconds;
-
         if (distance <= step + EPSILON) {
             resident.position = target;
             resident.movementTarget = null;
             return true;
         }
-
         double scale = step / distance;
         resident.position = new WorldPosition(
             resident.position.x() + dx * scale,
@@ -530,37 +491,22 @@ public final class SimulationRuntime {
         return false;
     }
 
-    private static WorldPosition interactionPoint(
-        BlockPosition tree,
-        WorldPosition worker
-    ) {
+    private static WorldPosition interactionPoint(BlockPosition tree, WorldPosition worker) {
         double centerX = tree.x() + 0.5;
         double centerZ = tree.z() + 0.5;
         double dx = worker.x() - centerX;
         double dz = worker.z() - centerZ;
-
         if (Math.abs(dx) >= Math.abs(dz)) {
-            return new WorldPosition(
-                centerX + (dx < 0.0 ? -1.0 : 1.0),
-                tree.y(),
-                centerZ
-            );
+            return new WorldPosition(centerX + (dx < 0.0 ? -1.0 : 1.0), tree.y(), centerZ);
         }
-        return new WorldPosition(
-            centerX,
-            tree.y(),
-            centerZ + (dz < 0.0 ? -1.0 : 1.0)
-        );
+        return new WorldPosition(centerX, tree.y(), centerZ + (dz < 0.0 ? -1.0 : 1.0));
     }
 
     private static WorldPosition blockCenter(BlockPosition block) {
         return new WorldPosition(block.x() + 0.5, block.y(), block.z() + 0.5);
     }
 
-    private static double distanceSquared(
-        WorldPosition first,
-        WorldPosition second
-    ) {
+    private static double distanceSquared(WorldPosition first, WorldPosition second) {
         double dx = first.x() - second.x();
         double dy = first.y() - second.y();
         double dz = first.z() - second.z();
@@ -569,9 +515,7 @@ public final class SimulationRuntime {
 
     private void releaseConstructionReservation(String siteId, String residentId) {
         ConstructionSiteState site = constructionSites.get(siteId);
-        if (site != null && residentId.equals(site.reservedBy)) {
-            site.reservedBy = null;
-        }
+        if (site != null && residentId.equals(site.reservedBy)) site.reservedBy = null;
     }
 
     private static void clearMovement(Resident resident) {
@@ -580,12 +524,8 @@ public final class SimulationRuntime {
 
     private static String stateName(Resident resident) {
         InhabitantActivity.ActivityMode activityMode = resident.activity.snapshot().mode();
-        if (activityMode == InhabitantActivity.ActivityMode.MANUAL_MOVE) {
-            return "MANUAL_MOVE";
-        }
-        if (activityMode == InhabitantActivity.ActivityMode.RESUME_DELAY) {
-            return "RESUME_DELAY";
-        }
+        if (activityMode == InhabitantActivity.ActivityMode.MANUAL_MOVE) return "MANUAL_MOVE";
+        if (activityMode == InhabitantActivity.ActivityMode.RESUME_DELAY) return "RESUME_DELAY";
         return autonomousStateName(resident);
     }
 
@@ -594,7 +534,7 @@ public final class SimulationRuntime {
             case WOODCUTTER -> resident.woodcutterJob.state().name();
             case CONSTRUCTION_WORKER -> resident.constructionJob.state().name();
             case FARMER -> resident.farm.workState().name();
-            case UNEMPLOYED -> "IDLE";
+            case MINER, UNEMPLOYED -> "IDLE";
         };
     }
 
@@ -626,10 +566,7 @@ public final class SimulationRuntime {
     ) {
     }
 
-    public record TreeSnapshot(
-        BlockPosition position,
-        String reservedBy
-    ) {
+    public record TreeSnapshot(BlockPosition position, String reservedBy) {
     }
 
     public record ConstructionSiteSnapshot(
@@ -641,14 +578,10 @@ public final class SimulationRuntime {
     ) {
     }
 
-    public record FarmFieldSnapshot(
-        String farmId,
-        WorldPosition position
-    ) {
+    public record FarmFieldSnapshot(String farmId, WorldPosition position) {
     }
 
     private static final class Resident {
-
         private final String id;
         private final Profession profession;
         private final InhabitantActivity activity = new InhabitantActivity();
@@ -670,9 +603,7 @@ public final class SimulationRuntime {
             ConstructionJob constructionJob,
             FarmBuilding farm
         ) {
-            if (id == null || id.isBlank()) {
-                throw new IllegalArgumentException("id cannot be blank");
-            }
+            if (id == null || id.isBlank()) throw new IllegalArgumentException("id cannot be blank");
             this.id = id;
             this.profession = profession;
             this.position = Objects.requireNonNull(position, "position");
@@ -682,24 +613,12 @@ public final class SimulationRuntime {
         }
 
         static Resident woodcutter(String id, WorldPosition position) {
-            return new Resident(
-                id,
-                Profession.WOODCUTTER,
-                position,
-                new WoodcutterJob(),
-                null,
-                null
-            );
+            return new Resident(id, Profession.WOODCUTTER, position, new WoodcutterJob(), null, null);
         }
 
         static Resident builder(String id, WorldPosition position) {
             return new Resident(
-                id,
-                Profession.CONSTRUCTION_WORKER,
-                position,
-                null,
-                new ConstructionJob(),
-                null
+                id, Profession.CONSTRUCTION_WORKER, position, null, new ConstructionJob(), null
             );
         }
 
@@ -709,7 +628,6 @@ public final class SimulationRuntime {
     }
 
     private static final class TreeState {
-
         private final BlockPosition position;
         private String reservedBy;
 
@@ -719,7 +637,6 @@ public final class SimulationRuntime {
     }
 
     private static final class ConstructionSiteState {
-
         private final ConstructionJob.WorkTarget target;
         private String reservedBy;
         private boolean completed;
