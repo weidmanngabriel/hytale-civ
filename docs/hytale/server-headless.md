@@ -128,6 +128,27 @@ Im echten Produktionslog wurden dabei nacheinander unter anderem `state=target-a
 
 Der Lauf wurde ohne Codeänderung erneut ausgeführt und war wieder grün. Das Setup ist damit nicht nur als einmaliger erfolgreicher Start verifiziert.
 
+## Verifizierter Persistence-Restart-Vertrag
+
+Das Runtime-Szenario `persistence` prüft die Civ-Bewohner-Persistenz über zwei echte, getrennte Hytale-Serverprozesse. Beide Prozesse verwenden dasselbe isolierte Runtime-Verzeichnis und damit denselben gespeicherten Weltzustand.
+
+Ablauf:
+
+1. erster Hytale-Prozess startet mit `civilizations.persistenceProbeStage=prepare`,
+2. ein echter `Civ_Inhabitant` wird gespawnt und geclaimt,
+3. Name, Beruf `CONSTRUCTION_WORKER`, Berufs-XP `37` und Workplace-ID `runtime-probe-workplace` werden deterministisch gesetzt,
+4. die native Entity-UUID aus `UUIDComponent` wird protokolliert,
+5. Hytale fährt über den normalen `shutdownServer()`-Pfad sauber herunter,
+6. ein zweiter Hytale-Prozess startet im selben Runtime-Verzeichnis mit der protokollierten UUID,
+7. der relevante Chunk wird geladen und `World.getEntityRef(uuid)` muss dieselbe Entity wiederfinden,
+8. Claimzustand, Name, Beruf, XP, Workplace-ID und Appearance müssen unverändert vorhanden sein,
+9. `PersistentDisplayName` und `DisplayNameComponent` müssen wieder rehydriert sein,
+10. erst dann wird `CIV_PERSISTENCE_RESTORE_PASS` ausgegeben und auch der zweite Prozess sauber beendet.
+
+Im verifizierten Lauf wurde dieselbe UUID im Prepare- und Restore-Prozess wiedergefunden. Beide Prozesse endeten mit Exit-Code `0`; anschließend lief auch `all` mit `woodcutter` und `persistence` im gemeinsamen Harness erfolgreich durch.
+
+Dieser Test belegt den normalen Save-/Shutdown-/Restart-Vertrag. Ein harter Prozessabbruch oder Crash-Szenario ist davon ausdrücklich nicht abgedeckt.
+
 ## Vanilla-Baum-Metadaten
 
 Für den verwendeten Oak wurden in Hytale `0.6.8` reale `Woods`-Blocktypen wie `Wood_Oak_Trunk`, `Wood_Oak_Trunk_Full` und `Wood_Oak_Branch_Long` beobachtet. Der bestehende produktive Woodcutter-Classifier für Stammblöcke (`Woods` plus Block-ID mit `trunk`) passt damit zum getesteten Vanilla-Oak.
@@ -151,6 +172,8 @@ Für die konkret verwendete Hytale-0.6.8-Runtime ist automatisiert belegt:
 - ein realer Holzfäller kann autonom einen Vanilla-Baum finden, hinlaufen, arbeiten und ihn fällen,
 - die native Weltmutation ist über reale Blockzustände beobachtbar,
 - der Holzfäller nimmt danach autonom einen weiteren Baum als Arbeit auf,
+- ein geclaimter Civ-Bewohner wird über einen sauberen Hytale-Shutdown und einen separaten zweiten Serverprozess unter derselben nativen Entity-UUID wiederhergestellt,
+- persistierte Civ-Felder wie Name, Beruf, Berufs-XP, Workplace-ID und Appearance bleiben dabei erhalten,
 - Civ und Hytale fahren anschließend sauber mit Exitcode `0` herunter.
 
 Das Civ-Asset-Pack deklariert dieselbe Server-Kompatibilität wie das Java-Plugin: `ServerVersion: ^0.6.0`.
@@ -163,7 +186,7 @@ Die vorhandenen Runtime-Tests beweisen noch nicht:
 - Transport von Ressourcen durch einen Bewohner,
 - Ablieferung in einer Siedlungs-/Gebäudelagerung,
 - Inventargrenzen und volle Lager,
-- Save → Shutdown → zweiter Serverstart → Restore desselben Gameplay-Zustands,
+- Crash-/Hard-Kill-Recovery ohne normalen Shutdown,
 - mehrere konkurrierende Holzfäller und Reservierungsraces unter echter Runtime-Last,
 - Spieler-spezifischen Event-Dispatch,
 - Client-UI, Kamera oder Mausinteraktion,
@@ -183,7 +206,6 @@ Gemeinsame Szenariodaten dürfen von Simulator und Hytale-Runner geteilt werden.
 
 Als nächste hochwertige Runtime-Szenarien bieten sich an:
 
-- Persistenz über zwei echte Serverstarts,
 - mehrere Holzfäller mit Baumreservierung,
 - ein Construction-End-to-End-Szenario,
 - später Wood-Logistics, sobald Einsammeln und Abliefern als echtes Gameplay implementiert sind.
