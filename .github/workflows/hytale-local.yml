@@ -15,7 +15,7 @@ jobs:
   local-runtime-probe:
     name: Verify local Hytale runtime
     runs-on: [self-hosted, Windows, X64, hytale-local]
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: Check out repository
@@ -55,3 +55,86 @@ jobs:
           if (-not $javacVersion.StartsWith('javac 25')) {
             throw 'The self-hosted runner must expose Java 25 on PATH for the Hytale runtime test.'
           }
+
+      - name: Build Civ plugin
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\gradlew.bat jar --no-daemon
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Gradle jar build failed.'
+          }
+
+      - name: Prepare isolated Hytale runtime
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $runtimeDir = Join-Path $PWD 'build\hytale-local-runtime'
+          $modsDir = Join-Path $runtimeDir 'mods'
+          $runtimeAssets = Join-Path $runtimeDir 'Assets.zip'
+
+          if (Test-Path -LiteralPath $runtimeDir) {
+            Remove-Item -LiteralPath $runtimeDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $modsDir -Force | Out-Null
+
+          # Assets.zip is several GB. A hard link keeps the licensed file local and avoids copying it.
+          New-Item -ItemType HardLink -Path $runtimeAssets -Target $env:HYTALE_ASSETS_PATH | Out-Null
+
+          $pluginJar = Get-ChildItem -Path 'build\libs' -Filter 'hytale-civ-*.jar' |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+          if ($null -eq $pluginJar) {
+            throw 'Built Civ plugin JAR was not found in build\libs.'
+          }
+
+          Copy-Item -LiteralPath $pluginJar.FullName -Destination $modsDir -Force
+          Copy-Item -LiteralPath 'asset-pack' -Destination (Join-Path $modsDir 'hytale-civ-assets') -Recurse -Force
+
+          Write-Host 'Isolated runtime prepared.'
+          Write-Host 'Civ plugin and asset pack installed into runtime mods directory.'
+
+      - name: Start real Hytale server
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $runtimeDir = Join-Path $PWD 'build\hytale-local-runtime'
+          $stdoutLog = Join-Path $runtimeDir 'server.stdout.log'
+          $stderrLog = Join-Path $runtimeDir 'server.stderr.log'
+
+          $process = Start-Process -FilePath 'java' `
+            -ArgumentList @(
+              '-jar',
+              $env:HYTALE_SERVER_JAR,
+              '--auth-mode', 'offline',
+              '--disable-sentry',
+              '--boot-command', 'stop'
+            ) `
+            -WorkingDirectory $runtimeDir `
+            -RedirectStandardOutput $stdoutLog `
+            -RedirectStandardError $stderrLog `
+            -Wait `
+            -PassThru
+
+          $stdout = if (Test-Path -LiteralPath $stdoutLog) { Get-Content -LiteralPath $stdoutLog -Raw } else { '' }
+          $stderr = if (Test-Path -LiteralPath $stderrLog) { Get-Content -LiteralPath $stderrLog -Raw } else { '' }
+          $combined = $stdout + [Environment]::NewLine + $stderr
+
+          Write-Host '----- Hytale server output -----'
+          Write-Host $combined
+          Write-Host '----- end Hytale server output -----'
+          Write-Host "Hytale server exit code: $($process.ExitCode)"
+
+          if ($combined.Contains('client.disconnection.shutdownReason.missingAssets.failedToLoad')) {
+            throw 'Hytale still reports missing assets even though the local Assets.zip is linked into the runtime.'
+          }
+          if (-not $combined.Contains('Civilizations:HytaleCiv')) {
+            throw 'Hytale did not discover the Civ plugin.'
+          }
+          if ($process.ExitCode -ne 0) {
+            throw "Hytale server exited with code $($process.ExitCode)."
+          }
+
+          Write-Host 'Real Hytale server started with local assets and discovered Civ successfully.'
