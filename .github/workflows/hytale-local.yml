@@ -173,6 +173,21 @@ jobs:
         if: always()
         shell: powershell
         run: |
-          if (-not [string]::IsNullOrWhiteSpace($env:HYTALE_RUNTIME_DIR) -and (Test-Path -LiteralPath $env:HYTALE_RUNTIME_DIR)) {
-            cmd /c "rd /s /q \"\\?\$env:HYTALE_RUNTIME_DIR\"" | Out-Null
+          if ([string]::IsNullOrWhiteSpace($env:HYTALE_RUNTIME_DIR) -or -not (Test-Path -LiteralPath $env:HYTALE_RUNTIME_DIR)) {
+            exit 0
+          }
+
+          $cleanupCommand = 'rd /s /q "\\?\' + $env:HYTALE_RUNTIME_DIR + '"'
+          $cleanup = Start-Process -FilePath 'cmd.exe' `
+            -ArgumentList @('/d', '/c', $cleanupCommand) `
+            -WindowStyle Hidden `
+            -PassThru
+
+          if (-not $cleanup.WaitForExit(10000)) {
+            Stop-Process -Id $cleanup.Id -Force -ErrorAction SilentlyContinue
+            Write-Warning 'Hytale runtime cleanup exceeded 10 seconds. The isolated temp directory was left for runner maintenance; gameplay probe result remains valid.'
+          } elseif ($cleanup.ExitCode -ne 0) {
+            Write-Warning "Hytale runtime cleanup exited with code $($cleanup.ExitCode). The gameplay probe result remains valid."
+          } else {
+            Write-Host 'Isolated Hytale runtime cleaned.'
           }
