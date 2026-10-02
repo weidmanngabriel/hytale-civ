@@ -1,157 +1,190 @@
 name: Hytale Local Runtime Probe
 
 on:
-  workflow_dispatch:
-    inputs:
-      pr_number:
-        description: Pull request number to test
-        required: true
-        type: string
-      scenarios:
-        description: "Runtime scenarios: all, woodcutter, persistence, or a space-separated list"
-        required: true
-        default: all
-        type: string
-  issue_comment:
-    types: [created]
+  workflow_run:
+    workflows: ["Hytale Runtime Request"]
+    types: [completed]
 
 permissions:
   contents: read
-  pull-requests: read
-  issues: read
 
 jobs:
   authorize:
     name: Authorize Hytale runtime request
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && startsWith(github.event.comment.body, '/hytale-test'))
     runs-on: ubuntu-latest
     outputs:
-      pr_number: ${{ steps.gate.outputs.pr_number }}
+      authorized: ${{ steps.gate.outputs.authorized }}
+      tag_name: ${{ steps.gate.outputs.tag_name }}
       head_sha: ${{ steps.gate.outputs.head_sha }}
       requested_by: ${{ steps.gate.outputs.requested_by }}
       scenarios: ${{ steps.gate.outputs.scenarios }}
-      scenarios_json: ${{ steps.gate.outputs.scenarios_json }}
 
     steps:
-      - name: Validate request and resolve exact PR head
+      - name: Validate tag request
         id: gate
         uses: actions/github-script@v7
         with:
           script: |
+            core.setOutput('authorized', 'false');
+
+            const upstream = context.payload.workflow_run;
             const allowedActors = new Set(['weidmanngabriel']);
-            const allowedScenarios = ['woodcutter', 'persistence'];
+            const expectedRepository = `${context.repo.owner}/${context.repo.repo}`;
+            const expectedWorkflowPath = '.github/workflows/hytale-runtime-request.yml';
+            const tagPattern = /^hytale-test\/([a-z0-9]+(?:-[a-z0-9]+)*)\/([0-9a-f]{7,12})$/;
 
-            const actor = context.actor;
-            if (!allowedActors.has(actor)) {
-              core.setFailed(`User ${actor} is not authorized to start Hytale runtime tests.`);
+            if (!upstream || upstream.event !== 'push') {
+              console.log('Ignoring runtime request because the upstream workflow was not triggered by push.');
               return;
             }
 
-            let prNumber;
-            let scenarioTokens;
-
-            if (context.eventName === 'issue_comment') {
-              if (!context.payload.issue?.pull_request) {
-                core.setFailed('The /hytale-test command is only accepted on pull requests.');
-                return;
-              }
-
-              const commentAuthor = context.payload.comment?.user?.login;
-              if (commentAuthor !== actor || !allowedActors.has(commentAuthor)) {
-                core.setFailed('The comment author is not authorized to start Hytale runtime tests.');
-                return;
-              }
-
-              const command = (context.payload.comment?.body ?? '').trim();
-              const tokens = command.split(/\s+/).filter(Boolean);
-              if (tokens[0] !== '/hytale-test') {
-                core.setFailed('Runtime command must start with exactly /hytale-test.');
-                return;
-              }
-
-              prNumber = context.payload.issue.number;
-              scenarioTokens = tokens.slice(1).map(value => value.toLowerCase());
-            } else {
-              prNumber = Number(context.payload.inputs?.pr_number);
-              scenarioTokens = (context.payload.inputs?.scenarios ?? '')
-                .trim()
-                .split(/\s+/)
-                .filter(Boolean)
-                .map(value => value.toLowerCase());
-            }
-
-            if (!Number.isInteger(Number(prNumber)) || Number(prNumber) <= 0) {
-              core.setFailed('A valid pull request number is required.');
-              return;
-            }
-            prNumber = Number(prNumber);
-
-            if (scenarioTokens.length === 0) {
-              core.setFailed(`No runtime scenario was requested. Allowed: all, ${allowedScenarios.join(', ')}.`);
+            if (upstream.head_repository?.full_name !== expectedRepository) {
+              core.setFailed(`Upstream workflow repository is not trusted: ${upstream.head_repository?.full_name ?? 'unknown'}.`);
               return;
             }
 
-            if (scenarioTokens.includes('all') && scenarioTokens.length !== 1) {
-              core.setFailed('Use either all or an explicit scenario list, not both.');
+            const workflowPath = (upstream.path ?? '').split('@')[0];
+            if (workflowPath !== expectedWorkflowPath) {
+              core.setFailed(`Upstream workflow path is not trusted: ${workflowPath || 'missing'}.`);
               return;
             }
 
-            const unknown = scenarioTokens.filter(value => value !== 'all' && !allowedScenarios.includes(value));
-            if (unknown.length > 0) {
-              core.setFailed(`Unknown runtime scenario(s): ${[...new Set(unknown)].join(', ')}. Allowed: all, ${allowedScenarios.join(', ')}.`);
+            const actor = upstream.actor?.login;
+            const triggeringActor = upstream.triggering_actor?.login;
+            if (!allowedActors.has(actor) || !allowedActors.has(triggeringActor)) {
+              core.setFailed('Runtime tests may only be requested by an explicitly authorized actor.');
               return;
             }
 
-            const selectedScenarios = scenarioTokens[0] === 'all'
-              ? allowedScenarios
-              : [...new Set(scenarioTokens)];
+            const tagName = upstream.head_branch ?? '';
+            const match = tagName.match(tagPattern);
+            if (!match) {
+              console.log(`Ignoring upstream workflow because its ref is not a valid hytale-test tag: ${tagName || 'missing'}.`);
+              return;
+            }
+
+            const scenarioPart = match[1];
+            const shortSha = match[2].toLowerCase();
+            const headSha = (upstream.head_sha ?? '').toLowerCase();
+            if (!/^[0-9a-f]{40}$/.test(headSha)) {
+              core.setFailed('Upstream workflow returned an invalid commit SHA.');
+              return;
+            }
+            if (!headSha.startsWith(shortSha)) {
+              core.setFailed(`Tag SHA suffix ${shortSha} does not match upstream commit ${headSha}.`);
+              return;
+            }
 
             const { owner, repo } = context.repo;
-            const { data: pr } = await github.rest.pulls.get({
+            let tagRef;
+            try {
+              const response = await github.rest.git.getRef({
+                owner,
+                repo,
+                ref: `tags/${tagName}`,
+              });
+              tagRef = response.data;
+            } catch (error) {
+              if (error.status === 404) {
+                console.log(`Ignoring stale runtime request because refs/tags/${tagName} no longer exists.`);
+                return;
+              }
+              throw error;
+            }
+
+            if (tagRef.object?.type !== 'commit') {
+              core.setFailed('Only lightweight hytale-test tags that point directly to a commit are accepted.');
+              return;
+            }
+            if ((tagRef.object?.sha ?? '').toLowerCase() !== headSha) {
+              core.setFailed('The runtime test tag no longer points to the exact commit that triggered the request.');
+              return;
+            }
+
+            const registryResponse = await github.rest.repos.getContent({
               owner,
               repo,
-              pull_number: prNumber,
+              path: 'scripts/hytale-runtime-scenarios.json',
+              ref: headSha,
             });
-
-            if (pr.state !== 'open') {
-              core.setFailed(`PR #${prNumber} is not open.`);
-              return;
-            }
-            if (pr.base.ref !== 'main') {
-              core.setFailed(`PR #${prNumber} targets ${pr.base.ref}; Hytale runtime tests only run for PRs targeting main.`);
-              return;
-            }
-            if (pr.head.repo?.full_name !== `${owner}/${repo}`) {
-              core.setFailed(`PR #${prNumber} comes from ${pr.head.repo?.full_name ?? 'an unknown repository'}; fork code is never executed on the self-hosted Hytale runner.`);
-              return;
-            }
-            if (!/^[0-9a-f]{40}$/i.test(pr.head.sha)) {
-              core.setFailed('GitHub returned an invalid PR head SHA.');
+            if (Array.isArray(registryResponse.data) || !registryResponse.data.content) {
+              core.setFailed('Runtime scenario registry is missing or is not a file.');
               return;
             }
 
-            core.setOutput('pr_number', String(prNumber));
-            core.setOutput('head_sha', pr.head.sha);
+            let registry;
+            try {
+              const decoded = Buffer.from(registryResponse.data.content, 'base64').toString('utf8');
+              registry = JSON.parse(decoded);
+            } catch (error) {
+              core.setFailed(`Runtime scenario registry is not valid JSON: ${error.message}`);
+              return;
+            }
+
+            if (registry?.version !== 1 || !Array.isArray(registry?.scenarios) || registry.scenarios.length === 0) {
+              core.setFailed('Runtime scenario registry has an unsupported shape.');
+              return;
+            }
+
+            const scenarioNamePattern = /^[a-z][a-z0-9]{0,31}$/;
+            const registered = [];
+            for (const scenario of registry.scenarios) {
+              if (typeof scenario !== 'string' || !scenarioNamePattern.test(scenario) || scenario === 'all') {
+                core.setFailed(`Runtime scenario registry contains an invalid name: ${String(scenario)}.`);
+                return;
+              }
+              if (registered.includes(scenario)) {
+                core.setFailed(`Runtime scenario registry contains a duplicate: ${scenario}.`);
+                return;
+              }
+              registered.push(scenario);
+            }
+
+            let selected;
+            if (scenarioPart === 'all') {
+              selected = registered;
+            } else {
+              const requested = scenarioPart.split('-');
+              if (requested.length > 8) {
+                core.setFailed('At most 8 explicit runtime scenarios may be requested; use all for larger suites.');
+                return;
+              }
+              if (new Set(requested).size !== requested.length) {
+                core.setFailed('Runtime scenario list contains duplicates.');
+                return;
+              }
+
+              const unknown = requested.filter(scenario => !registered.includes(scenario));
+              if (unknown.length > 0) {
+                core.setFailed(`Unknown runtime scenario(s): ${unknown.join(', ')}. Registered: ${registered.join(', ')}.`);
+                return;
+              }
+              selected = requested;
+            }
+
+            core.setOutput('authorized', 'true');
+            core.setOutput('tag_name', tagName);
+            core.setOutput('head_sha', headSha);
             core.setOutput('requested_by', actor);
-            core.setOutput('scenarios', selectedScenarios.join(' '));
-            core.setOutput('scenarios_json', JSON.stringify(selectedScenarios));
+            core.setOutput('scenarios', selected.join(','));
 
-            console.log(`Authorized Hytale runtime request`);
-            console.log(`PR: #${prNumber}`);
-            console.log(`Commit: ${pr.head.sha}`);
+            console.log('Authorized Hytale runtime request');
+            console.log(`Tag: ${tagName}`);
+            console.log(`Commit: ${headSha}`);
             console.log(`Requested by: ${actor}`);
-            console.log(`Scenarios: ${selectedScenarios.join(', ')}`);
+            console.log(`Scenarios: ${selected.join(', ')}`);
 
   local-runtime-probe:
     name: Verify local Hytale gameplay runtime
     needs: authorize
+    if: needs.authorize.outputs.authorized == 'true'
     runs-on: [self-hosted, Windows, X64, hytale-local]
-    timeout-minutes: 20
+    timeout-minutes: 30
+    permissions:
+      contents: read
 
     steps:
-      - name: Check out exact authorized PR revision
+      - name: Check out exact authorized revision
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.authorize.outputs.head_sha }}
@@ -162,7 +195,7 @@ jobs:
         shell: powershell
         env:
           EXPECTED_SHA: ${{ needs.authorize.outputs.head_sha }}
-          PR_NUMBER: ${{ needs.authorize.outputs.pr_number }}
+          REQUEST_TAG: ${{ needs.authorize.outputs.tag_name }}
           REQUESTED_BY: ${{ needs.authorize.outputs.requested_by }}
           REQUESTED_SCENARIOS: ${{ needs.authorize.outputs.scenarios }}
         run: |
@@ -173,7 +206,7 @@ jobs:
           }
 
           Write-Host 'Hytale Runtime Test'
-          Write-Host "PR: #$($env:PR_NUMBER)"
+          Write-Host "Tag: $($env:REQUEST_TAG)"
           Write-Host "Commit: $actualSha"
           Write-Host "Requested by: $($env:REQUESTED_BY)"
           Write-Host "Scenarios: $($env:REQUESTED_SCENARIOS)"
@@ -196,22 +229,14 @@ jobs:
             throw 'HYTALE_ASSETS_PATH does not point to an existing file.'
           }
 
-          Write-Host 'Hytale server JAR: OK'
-          Write-Host 'Hytale Assets.zip: OK'
-
-      - name: Verify Java 25
-        shell: powershell
-        run: |
-          $ErrorActionPreference = 'Stop'
           $javacVersion = (& javac -version | Out-String).Trim()
           Write-Host $javacVersion
-
-          if ($LASTEXITCODE -ne 0) {
-            throw 'javac -version failed.'
-          }
-          if (-not $javacVersion.StartsWith('javac 25')) {
+          if ($LASTEXITCODE -ne 0 -or -not $javacVersion.StartsWith('javac 25')) {
             throw 'The self-hosted runner must expose Java 25 on PATH for the Hytale runtime test.'
           }
+
+          Write-Host 'Hytale server JAR: OK'
+          Write-Host 'Hytale Assets.zip: OK'
 
       - name: Run tests and build Civ plugin
         shell: powershell
@@ -222,239 +247,68 @@ jobs:
             throw 'Gradle tests or jar build failed.'
           }
 
-      - name: Prepare isolated Hytale runtime
+      - name: Run selected Hytale scenarios
         shell: powershell
+        env:
+          REQUESTED_SCENARIOS: ${{ needs.authorize.outputs.scenarios }}
         run: |
           $ErrorActionPreference = 'Stop'
-
-          $runtimeDir = Join-Path $env:RUNNER_TEMP ("hciv-" + $env:GITHUB_RUN_ID + "-" + $env:GITHUB_RUN_ATTEMPT)
-          $modsDir = Join-Path $runtimeDir 'mods'
-          "HYTALE_RUNTIME_DIR=$runtimeDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-          if (Test-Path -LiteralPath $runtimeDir) {
-            cmd /c "rd /s /q \"\\?\$runtimeDir\"" | Out-Null
+          $scenarios = $env:REQUESTED_SCENARIOS.Split(',', [System.StringSplitOptions]::RemoveEmptyEntries)
+          if ($scenarios.Count -eq 0) {
+            throw 'Authorized runtime scenario list is empty.'
           }
-          New-Item -ItemType Directory -Path $modsDir -Force | Out-Null
+          .\scripts\hytale-runtime-tests.ps1 -Scenarios $scenarios
 
-          $pluginJar = Get-ChildItem -Path 'build\libs' -Filter 'hytale-civ-*.jar' |
-            Sort-Object LastWriteTime -Descending |
-            Select-Object -First 1
-          if ($null -eq $pluginJar) {
-            throw 'Built Civ plugin JAR was not found in build\libs.'
-          }
+  cleanup-runtime-tag:
+    name: Remove temporary Hytale runtime tag
+    needs: [authorize, local-runtime-probe]
+    if: always() && needs.authorize.outputs.authorized == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
-          Copy-Item -LiteralPath $pluginJar.FullName -Destination $modsDir -Force
-          Copy-Item -LiteralPath 'asset-pack' -Destination (Join-Path $modsDir 'hytale-civ-assets') -Recurse -Force
+    steps:
+      - name: Delete exact temporary tag
+        uses: actions/github-script@v7
+        env:
+          TAG_NAME: ${{ needs.authorize.outputs.tag_name }}
+          EXPECTED_SHA: ${{ needs.authorize.outputs.head_sha }}
+        with:
+          script: |
+            const tagName = process.env.TAG_NAME ?? '';
+            const expectedSha = (process.env.EXPECTED_SHA ?? '').toLowerCase();
+            const tagPattern = /^hytale-test\/[a-z0-9]+(?:-[a-z0-9]+)*\/[0-9a-f]{7,12}$/;
 
-          Write-Host 'Isolated runtime prepared outside the repository worktree.'
-          Write-Host 'Civ plugin and asset pack installed into runtime mods directory.'
-
-      - name: Run real Hytale woodcutter scenario
-        if: contains(fromJSON(needs.authorize.outputs.scenarios_json), 'woodcutter')
-        shell: powershell
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          $runtimeDir = $env:HYTALE_RUNTIME_DIR
-          $stdoutLog = Join-Path $runtimeDir 'server.stdout.log'
-          $stderrLog = Join-Path $runtimeDir 'server.stderr.log'
-
-          $process = Start-Process -FilePath 'java' `
-            -ArgumentList @(
-              '-Dcivilizations.runtimeProbe=true',
-              '-jar',
-              $env:HYTALE_SERVER_JAR,
-              '--assets', $env:HYTALE_ASSETS_PATH,
-              '--auth-mode', 'offline',
-              '--disable-sentry',
-              '--boot-command', 'civwoodcutterprobe'
-            ) `
-            -WorkingDirectory $runtimeDir `
-            -RedirectStandardOutput $stdoutLog `
-            -RedirectStandardError $stderrLog `
-            -Wait `
-            -PassThru
-
-          $stdout = if (Test-Path -LiteralPath $stdoutLog) { Get-Content -LiteralPath $stdoutLog -Raw } else { '' }
-          $stderr = if (Test-Path -LiteralPath $stderrLog) { Get-Content -LiteralPath $stderrLog -Raw } else { '' }
-          $combined = $stdout + [Environment]::NewLine + $stderr
-
-          Write-Host '----- Hytale server output -----'
-          Write-Host $combined
-          Write-Host '----- end Hytale server output -----'
-          Write-Host "Hytale server exit code: $($process.ExitCode)"
-
-          if ($combined.Contains('client.disconnection.shutdownReason.missingAssets.failedToLoad')) {
-            throw 'Hytale still reports missing assets while using --assets with the local Assets.zip.'
-          }
-          if ($combined.Contains('CIV_WOODCUTTER_RUNTIME_FAIL')) {
-            throw 'The Civ woodcutter runtime scenario reported failure.'
-          }
-          if ($combined.Contains("chunk isn't currently loaded")) {
-            throw 'The Civ woodcutter runtime scenario touched an unloaded chunk.'
-          }
-
-          $requiredEvidence = @(
-            'Loaded pack: Hytale:Hytale from Assets.zip',
-            'Loaded pack: Civilizations:HytaleCivAssets from hytale-civ-assets',
-            'Enabled plugin Civilizations:HytaleCiv',
-            'Universe ready!',
-            'Hytale Server Booted!',
-            'Console executed command: civwoodcutterprobe',
-            'CIV_WOODCUTTER_RUNTIME_STARTED',
-            'CIV_WOODCUTTER_FLAT_WORLD_READY',
-            'CIV_WOODCUTTER_FIXTURE_READY',
-            'state=target-assigned',
-            'state=chopping',
-            'state=fell-success',
-            'CIV_WOODCUTTER_TREE_FELLED',
-            'CIV_WOODCUTTER_REENGAGED',
-            'CIV_WOODCUTTER_RUNTIME_PASS',
-            'Shut down plugin Civilizations:HytaleCiv',
-            'Shutdown completed!'
-          )
-
-          foreach ($evidence in $requiredEvidence) {
-            if (-not $combined.Contains($evidence)) {
-              throw "Expected Hytale runtime evidence was not found: $evidence"
+            if (!tagPattern.test(tagName) || !/^[0-9a-f]{40}$/.test(expectedSha)) {
+              core.setFailed('Refusing to delete a runtime tag because validated cleanup inputs are malformed.');
+              return;
             }
-          }
 
-          if ($process.ExitCode -ne 0) {
-            throw "Hytale server exited with code $($process.ExitCode)."
-          }
-
-          Write-Host 'Real Hytale runtime completed the shared deterministic woodcutter scenario: flat world, real oak prefab, autonomous target search, navigation, chopping, felling and re-engagement.'
-
-      - name: Run real Hytale persistence restart scenario
-        if: contains(fromJSON(needs.authorize.outputs.scenarios_json), 'persistence')
-        shell: powershell
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          $runtimeDir = $env:HYTALE_RUNTIME_DIR
-          $prepareStdoutLog = Join-Path $runtimeDir 'persistence.prepare.stdout.log'
-          $prepareStderrLog = Join-Path $runtimeDir 'persistence.prepare.stderr.log'
-
-          $prepare = Start-Process -FilePath 'java' `
-            -ArgumentList @(
-              '-Dcivilizations.runtimeProbe=true',
-              '-Dcivilizations.persistenceProbeStage=prepare',
-              '-jar',
-              $env:HYTALE_SERVER_JAR,
-              '--assets', $env:HYTALE_ASSETS_PATH,
-              '--auth-mode', 'offline',
-              '--disable-sentry',
-              '--boot-command', 'civpersistenceprobe'
-            ) `
-            -WorkingDirectory $runtimeDir `
-            -RedirectStandardOutput $prepareStdoutLog `
-            -RedirectStandardError $prepareStderrLog `
-            -Wait `
-            -PassThru
-
-          $prepareStdout = if (Test-Path -LiteralPath $prepareStdoutLog) { Get-Content -LiteralPath $prepareStdoutLog -Raw } else { '' }
-          $prepareStderr = if (Test-Path -LiteralPath $prepareStderrLog) { Get-Content -LiteralPath $prepareStderrLog -Raw } else { '' }
-          $prepareCombined = $prepareStdout + [Environment]::NewLine + $prepareStderr
-
-          Write-Host '----- Hytale persistence prepare output -----'
-          Write-Host $prepareCombined
-          Write-Host '----- end Hytale persistence prepare output -----'
-          Write-Host "Persistence prepare exit code: $($prepare.ExitCode)"
-
-          if ($prepareCombined.Contains('CIV_PERSISTENCE_PROBE_FAIL')) {
-            throw 'The persistence prepare stage reported failure.'
-          }
-          foreach ($evidence in @('CIV_PERSISTENCE_PREPARED uuid=', 'CIV_PERSISTENCE_PREPARE_PASS', 'Shutdown completed!')) {
-            if (-not $prepareCombined.Contains($evidence)) {
-              throw "Expected persistence prepare evidence was not found: $evidence"
+            const { owner, repo } = context.repo;
+            let tagRef;
+            try {
+              const response = await github.rest.git.getRef({
+                owner,
+                repo,
+                ref: `tags/${tagName}`,
+              });
+              tagRef = response.data;
+            } catch (error) {
+              if (error.status === 404) {
+                console.log(`Temporary runtime tag ${tagName} is already absent.`);
+                return;
+              }
+              throw error;
             }
-          }
-          if ($prepare.ExitCode -ne 0) {
-            throw "Persistence prepare server exited with code $($prepare.ExitCode)."
-          }
 
-          $uuidMatch = [regex]::Match(
-            $prepareCombined,
-            'CIV_PERSISTENCE_PREPARED uuid=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})'
-          )
-          if (-not $uuidMatch.Success) {
-            throw 'Could not extract the prepared Civ inhabitant UUID from server output.'
-          }
-          $entityUuid = $uuidMatch.Groups[1].Value
-          Write-Host "Prepared persistent Civ inhabitant UUID: $entityUuid"
-
-          $restoreStdoutLog = Join-Path $runtimeDir 'persistence.restore.stdout.log'
-          $restoreStderrLog = Join-Path $runtimeDir 'persistence.restore.stderr.log'
-
-          $restore = Start-Process -FilePath 'java' `
-            -ArgumentList @(
-              '-Dcivilizations.runtimeProbe=true',
-              '-Dcivilizations.persistenceProbeStage=restore',
-              "-Dcivilizations.persistenceProbeEntityUuid=$entityUuid",
-              '-jar',
-              $env:HYTALE_SERVER_JAR,
-              '--assets', $env:HYTALE_ASSETS_PATH,
-              '--auth-mode', 'offline',
-              '--disable-sentry',
-              '--boot-command', 'civpersistenceprobe'
-            ) `
-            -WorkingDirectory $runtimeDir `
-            -RedirectStandardOutput $restoreStdoutLog `
-            -RedirectStandardError $restoreStderrLog `
-            -Wait `
-            -PassThru
-
-          $restoreStdout = if (Test-Path -LiteralPath $restoreStdoutLog) { Get-Content -LiteralPath $restoreStdoutLog -Raw } else { '' }
-          $restoreStderr = if (Test-Path -LiteralPath $restoreStderrLog) { Get-Content -LiteralPath $restoreStderrLog -Raw } else { '' }
-          $restoreCombined = $restoreStdout + [Environment]::NewLine + $restoreStderr
-
-          Write-Host '----- Hytale persistence restore output -----'
-          Write-Host $restoreCombined
-          Write-Host '----- end Hytale persistence restore output -----'
-          Write-Host "Persistence restore exit code: $($restore.ExitCode)"
-
-          if ($restoreCombined.Contains('CIV_PERSISTENCE_PROBE_FAIL')) {
-            throw 'The persistence restore stage reported failure.'
-          }
-          foreach ($evidence in @(
-            "CIV_PERSISTENCE_RESTORED uuid=$entityUuid",
-            'name=Persist_Runtime_Probe',
-            'profession=CONSTRUCTION_WORKER',
-            'xp=37',
-            'workplace=runtime-probe-workplace',
-            'CIV_PERSISTENCE_RESTORE_PASS',
-            'Shutdown completed!'
-          )) {
-            if (-not $restoreCombined.Contains($evidence)) {
-              throw "Expected persistence restore evidence was not found: $evidence"
+            if (tagRef.object?.type !== 'commit' || (tagRef.object?.sha ?? '').toLowerCase() !== expectedSha) {
+              core.setFailed('Refusing to delete the runtime tag because it no longer points to the authorized commit.');
+              return;
             }
-          }
-          if ($restore.ExitCode -ne 0) {
-            throw "Persistence restore server exited with code $($restore.ExitCode)."
-          }
 
-          Write-Host 'Real Hytale persistence contract passed across two separate server processes: same entity UUID, Civ component data, appearance and presentation rehydration survived a clean shutdown/restart.'
-
-      - name: Clean isolated Hytale runtime
-        if: always()
-        shell: powershell
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:HYTALE_RUNTIME_DIR) -or -not (Test-Path -LiteralPath $env:HYTALE_RUNTIME_DIR)) {
-            exit 0
-          }
-
-          $cleanupCommand = 'rd /s /q "\\?\' + $env:HYTALE_RUNTIME_DIR + '"'
-          $cleanup = Start-Process -FilePath 'cmd.exe' `
-            -ArgumentList @('/d', '/c', $cleanupCommand) `
-            -WindowStyle Hidden `
-            -PassThru
-
-          if (-not $cleanup.WaitForExit(10000)) {
-            Stop-Process -Id $cleanup.Id -Force -ErrorAction SilentlyContinue
-            Write-Warning 'Hytale runtime cleanup exceeded 10 seconds. The isolated temp directory was left for runner maintenance; gameplay probe result remains valid.'
-          } elseif ($cleanup.ExitCode -ne 0) {
-            Write-Warning "Hytale runtime cleanup exited with code $($cleanup.ExitCode). The gameplay probe result remains valid."
-          } else {
-            Write-Host 'Isolated Hytale runtime cleaned.'
-          }
+            await github.rest.git.deleteRef({
+              owner,
+              repo,
+              ref: `tags/${tagName}`,
+            });
+            console.log(`Deleted temporary runtime tag ${tagName}.`);
