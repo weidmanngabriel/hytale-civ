@@ -62,13 +62,13 @@ jobs:
             throw 'The self-hosted runner must expose Java 25 on PATH for the Hytale runtime test.'
           }
 
-      - name: Build Civ plugin
+      - name: Run tests and build Civ plugin
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          .\gradlew.bat jar --no-daemon
+          .\gradlew.bat test jar --no-daemon
           if ($LASTEXITCODE -ne 0) {
-            throw 'Gradle jar build failed.'
+            throw 'Gradle tests or jar build failed.'
           }
 
       - name: Prepare isolated Hytale runtime
