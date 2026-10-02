@@ -1,9 +1,8 @@
 name: Hytale Local Runtime Probe
 
 on:
-  workflow_run:
-    workflows: ["Hytale Runtime Request"]
-    types: [completed]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
@@ -11,93 +10,67 @@ permissions:
 jobs:
   authorize:
     name: Authorize Hytale runtime request
+    if: github.event.issue.number == 126
     runs-on: ubuntu-latest
     outputs:
       authorized: ${{ steps.gate.outputs.authorized }}
-      tag_name: ${{ steps.gate.outputs.tag_name }}
       head_sha: ${{ steps.gate.outputs.head_sha }}
       requested_by: ${{ steps.gate.outputs.requested_by }}
       scenarios: ${{ steps.gate.outputs.scenarios }}
 
     steps:
-      - name: Validate tag request
+      - name: Validate runtime request
         id: gate
         uses: actions/github-script@v7
         with:
           script: |
             core.setOutput('authorized', 'false');
 
-            const upstream = context.payload.workflow_run;
+            const requestIssue = 126;
             const allowedActors = new Set(['weidmanngabriel']);
-            const expectedRepository = `${context.repo.owner}/${context.repo.repo}`;
-            const expectedWorkflowPath = '.github/workflows/hytale-runtime-request.yml';
-            const tagPattern = /^hytale-test\/([a-z0-9]+(?:-[a-z0-9]+)*)\/([0-9a-f]{7,12})$/;
+            const commandPattern = /^\/hytale-test\s+([a-z0-9]+(?:-[a-z0-9]+)*)\s+([0-9a-f]{7,40})$/;
+            const scenarioNamePattern = /^[a-z][a-z0-9]{0,31}$/;
 
-            if (!upstream || upstream.event !== 'push') {
-              console.log('Ignoring runtime request because the upstream workflow was not triggered by push.');
+            if (context.payload.issue?.number !== requestIssue) {
+              console.log('Ignoring comment outside the dedicated Hytale runtime request issue.');
               return;
             }
 
-            if (upstream.head_repository?.full_name !== expectedRepository) {
-              core.setFailed(`Upstream workflow repository is not trusted: ${upstream.head_repository?.full_name ?? 'unknown'}.`);
-              return;
-            }
-
-            const workflowPath = (upstream.path ?? '').split('@')[0];
-            if (workflowPath !== expectedWorkflowPath) {
-              core.setFailed(`Upstream workflow path is not trusted: ${workflowPath || 'missing'}.`);
-              return;
-            }
-
-            const actor = upstream.actor?.login;
-            const triggeringActor = upstream.triggering_actor?.login;
-            if (!allowedActors.has(actor) || !allowedActors.has(triggeringActor)) {
+            const actor = context.actor;
+            const commentAuthor = context.payload.comment?.user?.login;
+            const sender = context.payload.sender?.login;
+            if (!allowedActors.has(actor) || !allowedActors.has(commentAuthor) || !allowedActors.has(sender)) {
               core.setFailed('Runtime tests may only be requested by an explicitly authorized actor.');
               return;
             }
 
-            const tagName = upstream.head_branch ?? '';
-            const match = tagName.match(tagPattern);
+            const body = (context.payload.comment?.body ?? '').trim();
+            const match = body.match(commandPattern);
             if (!match) {
-              console.log(`Ignoring upstream workflow because its ref is not a valid hytale-test tag: ${tagName || 'missing'}.`);
+              console.log('Ignoring comment because it is not a valid /hytale-test command.');
               return;
             }
 
             const scenarioPart = match[1];
-            const shortSha = match[2].toLowerCase();
-            const headSha = (upstream.head_sha ?? '').toLowerCase();
-            if (!/^[0-9a-f]{40}$/.test(headSha)) {
-              core.setFailed('Upstream workflow returned an invalid commit SHA.');
-              return;
-            }
-            if (!headSha.startsWith(shortSha)) {
-              core.setFailed(`Tag SHA suffix ${shortSha} does not match upstream commit ${headSha}.`);
-              return;
-            }
-
+            const requestedRef = match[2].toLowerCase();
             const { owner, repo } = context.repo;
-            let tagRef;
+
+            let targetCommit;
             try {
-              const response = await github.rest.git.getRef({
+              const response = await github.rest.repos.getCommit({
                 owner,
                 repo,
-                ref: `tags/${tagName}`,
+                ref: requestedRef,
               });
-              tagRef = response.data;
+              targetCommit = response.data;
             } catch (error) {
-              if (error.status === 404) {
-                console.log(`Ignoring stale runtime request because refs/tags/${tagName} no longer exists.`);
-                return;
-              }
-              throw error;
-            }
-
-            if (tagRef.object?.type !== 'commit') {
-              core.setFailed('Only lightweight hytale-test tags that point directly to a commit are accepted.');
+              core.setFailed(`Could not resolve requested commit ${requestedRef}: ${error.message}`);
               return;
             }
-            if ((tagRef.object?.sha ?? '').toLowerCase() !== headSha) {
-              core.setFailed('The runtime test tag no longer points to the exact commit that triggered the request.');
+
+            const headSha = (targetCommit.sha ?? '').toLowerCase();
+            if (!/^[0-9a-f]{40}$/.test(headSha) || !headSha.startsWith(requestedRef)) {
+              core.setFailed(`Requested commit ${requestedRef} did not resolve to a matching exact repository SHA.`);
               return;
             }
 
@@ -108,7 +81,7 @@ jobs:
               ref: headSha,
             });
             if (Array.isArray(registryResponse.data) || !registryResponse.data.content) {
-              core.setFailed('Runtime scenario registry is missing or is not a file.');
+              core.setFailed('Runtime scenario registry is missing or is not a file in the requested commit.');
               return;
             }
 
@@ -126,7 +99,6 @@ jobs:
               return;
             }
 
-            const scenarioNamePattern = /^[a-z][a-z0-9]{0,31}$/;
             const registered = [];
             for (const scenario of registry.scenarios) {
               if (typeof scenario !== 'string' || !scenarioNamePattern.test(scenario) || scenario === 'all') {
@@ -163,13 +135,12 @@ jobs:
             }
 
             core.setOutput('authorized', 'true');
-            core.setOutput('tag_name', tagName);
             core.setOutput('head_sha', headSha);
             core.setOutput('requested_by', actor);
             core.setOutput('scenarios', selected.join(','));
 
             console.log('Authorized Hytale runtime request');
-            console.log(`Tag: ${tagName}`);
+            console.log(`Request issue: #${requestIssue}`);
             console.log(`Commit: ${headSha}`);
             console.log(`Requested by: ${actor}`);
             console.log(`Scenarios: ${selected.join(', ')}`);
@@ -195,7 +166,6 @@ jobs:
         shell: powershell
         env:
           EXPECTED_SHA: ${{ needs.authorize.outputs.head_sha }}
-          REQUEST_TAG: ${{ needs.authorize.outputs.tag_name }}
           REQUESTED_BY: ${{ needs.authorize.outputs.requested_by }}
           REQUESTED_SCENARIOS: ${{ needs.authorize.outputs.scenarios }}
         run: |
@@ -206,7 +176,6 @@ jobs:
           }
 
           Write-Host 'Hytale Runtime Test'
-          Write-Host "Tag: $($env:REQUEST_TAG)"
           Write-Host "Commit: $actualSha"
           Write-Host "Requested by: $($env:REQUESTED_BY)"
           Write-Host "Scenarios: $($env:REQUESTED_SCENARIOS)"
@@ -258,57 +227,3 @@ jobs:
             throw 'Authorized runtime scenario list is empty.'
           }
           .\scripts\hytale-runtime-tests.ps1 -Scenarios $scenarios
-
-  cleanup-runtime-tag:
-    name: Remove temporary Hytale runtime tag
-    needs: [authorize, local-runtime-probe]
-    if: always() && needs.authorize.outputs.authorized == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Delete exact temporary tag
-        uses: actions/github-script@v7
-        env:
-          TAG_NAME: ${{ needs.authorize.outputs.tag_name }}
-          EXPECTED_SHA: ${{ needs.authorize.outputs.head_sha }}
-        with:
-          script: |
-            const tagName = process.env.TAG_NAME ?? '';
-            const expectedSha = (process.env.EXPECTED_SHA ?? '').toLowerCase();
-            const tagPattern = /^hytale-test\/[a-z0-9]+(?:-[a-z0-9]+)*\/[0-9a-f]{7,12}$/;
-
-            if (!tagPattern.test(tagName) || !/^[0-9a-f]{40}$/.test(expectedSha)) {
-              core.setFailed('Refusing to delete a runtime tag because validated cleanup inputs are malformed.');
-              return;
-            }
-
-            const { owner, repo } = context.repo;
-            let tagRef;
-            try {
-              const response = await github.rest.git.getRef({
-                owner,
-                repo,
-                ref: `tags/${tagName}`,
-              });
-              tagRef = response.data;
-            } catch (error) {
-              if (error.status === 404) {
-                console.log(`Temporary runtime tag ${tagName} is already absent.`);
-                return;
-              }
-              throw error;
-            }
-
-            if (tagRef.object?.type !== 'commit' || (tagRef.object?.sha ?? '').toLowerCase() !== expectedSha) {
-              core.setFailed('Refusing to delete the runtime tag because it no longer points to the authorized commit.');
-              return;
-            }
-
-            await github.rest.git.deleteRef({
-              owner,
-              repo,
-              ref: `tags/${tagName}`,
-            });
-            console.log(`Deleted temporary runtime tag ${tagName}.`);
