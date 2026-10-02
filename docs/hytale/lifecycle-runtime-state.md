@@ -19,7 +19,7 @@ Der Civ-Plugin-Bootstrap registriert deshalb den Wiederaufbau von Gebäuden, Far
 | Zustand | Autorität | Lifecycle |
 |---|---|---|
 | `CivInhabitantData` | persistente Hytale-ECS-Komponente auf der Bewohner-Entity | bleibt über normale Entity-Speicherung erhalten |
-| `CivUnitRegistry` | Runtime-Cache für aktuell geladene Bewohner und Engine-Zielzustand | keine persistente Autorität; Einträge werden bei Entity-Nutzung validiert |
+| `CivUnitRegistry` | Runtime-Cache für aktuell geladene Bewohner und Engine-Zielzustand | keine persistente Autorität; Eintrag wird beim Entity-Add aus `CivInhabitantData` rehydriert und beim Remove verworfen |
 | `CivActivityRegistry` | Runtime-Zustand für aktuelle Civ-Aktivität und Intents | nicht persistent; an die geladene Entity gebunden |
 | fertige Civ-Gebäude | `CivBuildingDataResource` über `CivBuildingPersistenceService` | persistente Welt-Autorität |
 | `BuildingPlacementRegistry.buildings` | Runtime-Projektion der persistenten Gebäude | wird beim Weltstart vollständig aus Persistenz wiederhergestellt |
@@ -33,9 +33,18 @@ Der Civ-Plugin-Bootstrap registriert deshalb den Wiederaufbau von Gebäuden, Far
 
 1. Persistente Civ-Weltzustände werden unabhängig von Spielerbeitritten aufgebaut.
 2. Fertige Gebäude werden beim `StartWorldEvent` aus `CivBuildingDataResource` geladen und die Runtime-Projektionen daraus neu erzeugt.
-3. Nicht persistente Baustellen-Reservierungen dürfen einen World-Restore nicht überleben. `BuildingPlacementRegistry.restoreWorld(...)` entfernt deshalb zuerst alle Reservierungen für diese Welt.
-4. Runtime-Registries sind keine zweite Persistenzquelle. Wenn ein persistenter und ein runtimegebundener Zustand widersprechen, wird die Runtime-Projektion aus der persistenten Autorität neu aufgebaut.
-5. Player-Session-Zustand wird beim Disconnect vollständig entfernt und darf nicht als Weltzustand missverstanden werden.
+3. Persistente Civ-Bewohner werden beim Entity-Add über `CivInhabitantLifecycleSystem` wieder in den Runtime-Cache aufgenommen. Ein Feature darf nicht verlangen, dass der Spieler die Entity nach einem Load erst anklickt, bevor persistente Daten wie die Arbeitsplatz-ID wieder auffindbar sind.
+4. Nicht persistente Baustellen-Reservierungen dürfen einen World-Restore nicht überleben. `BuildingPlacementRegistry.restoreWorld(...)` entfernt deshalb zuerst alle Reservierungen für diese Welt.
+5. Runtime-Registries sind keine zweite Persistenzquelle. Wenn ein persistenter und ein runtimegebundener Zustand widersprechen, wird die Runtime-Projektion aus der persistenten Autorität neu aufgebaut.
+6. Player-Session-Zustand wird beim Disconnect vollständig entfernt und darf nicht als Weltzustand missverstanden werden.
+
+## Bewohner-Entity-Lifecycle
+
+`CivInhabitantLifecycleSystem` fragt ausschließlich Entities ab, die sowohl `CivInhabitantData` als auch `NPCEntity` besitzen. Beim `onEntityAdded` wird die persistente Präsentation aus `CivInhabitantData` wiederhergestellt und die Entity mit `CivUnitRegistry.trackLoaded(...)` als aktuell geladene Civ-Einheit registriert. Beim `onEntityRemove` wird dieser Runtime-Eintrag wieder entfernt.
+
+Dieser Rehydrierungsschritt ist insbesondere für Beziehungen wichtig, die als persistente IDs am Bewohner liegen. Das Gebäude-Interface sucht zugeordnete Arbeiter über `CivInhabitantData.WorkplaceId`. Ohne Entity-Add-Rehydrierung könnte ein geladener Bewohner nach einem Chunk-Unload/Reload persistent korrekt zugeordnet sein, aber bis zur nächsten direkten Interaktion in der laufzeitgebundenen Worker-Suche fehlen.
+
+Die Registry bleibt trotzdem nur Projektion: Claimstatus und Arbeitsplatzbeziehung werden nicht durch den Cache definiert, sondern durch die persistente Bewohnerkomponente.
 
 ## Audit-Befunde
 
@@ -47,13 +56,15 @@ Der Restore löscht diese Reservierungen jetzt explizit. Ein Regressionstest ste
 
 Der Wiederaufbau der persistenten Gebäude-/Farm-/Feld-Projektionen wurde außerdem vom Spieler-Beitritt auf `StartWorldEvent` verschoben. Damit entsteht die Runtime-Welt unabhängig davon, wann oder ob ein Spieler beitritt.
 
+Persistente Bewohner wurden bei einem Entity-Add bereits über `CivInhabitantService` für Name und Appearance rehydriert, der zugehörige `CivUnitRegistry`-Eintrag entstand jedoch erst bei späterer direkter Nutzung. Der Lifecycle registriert geladene Civ-Bewohner jetzt unmittelbar wieder im Runtime-Cache, damit persistente Beziehungen wie `WorkplaceId` direkt nach dem Laden projizierbar sind.
+
 ### Bereits sauber
 
 `RtsInteractionController` entfernt beim `PlayerDisconnectEvent` die RTS-Session und den Claim-Zustand, räumt die aktive Placement-Preview auf und bricht spielereigene Baustellen ab. Dieser Zustand ist damit klar spielergebunden.
 
 ### Noch offen
 
-`CivUnitRegistry` und `CivActivityRegistry` halten Runtime-Referenzen auf geladene Entity-Stores und entfernen veraltete Entity-Slots bei Nutzung beziehungsweise über bestehende Entity-Lifecycle-Pfade. Für einen vollständigen World-Unload ist jedoch noch kein von Civ verifizierter, nicht abbrechbarer Post-Removal-Hook dokumentiert, an dem alte World-/Store-Referenzen garantiert und zentral entfernt werden können.
+`CivUnitRegistry` und `CivActivityRegistry` halten Runtime-Referenzen auf geladene Entity-Stores und entfernen Entity-Einträge über bestehende Entity-Lifecycle-Pfade. Für einen vollständigen World-Unload ist jedoch noch kein von Civ verifizierter, nicht abbrechbarer Post-Removal-Hook dokumentiert, an dem alte World-/Store-Referenzen garantiert und zentral entfernt werden können.
 
 `RemoveWorldEvent` reicht dafür nicht als alleinige Grundlage: Das Event gehört zum Removal-Vorgang und ist abbrechbar. Civ darf daher nicht im Voraus seine gesamte Runtime-Projektion löschen und anschließend annehmen, dass die Welt garantiert entfernt wurde.
 
