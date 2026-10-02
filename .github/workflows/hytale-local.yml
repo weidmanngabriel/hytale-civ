@@ -46,7 +46,7 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          $versionOutput = & java -version 2>&1 | Out-String
+          $versionOutput = (& cmd /c "java -version 2^>^&1") | Out-String
           Write-Host $versionOutput
 
           if ($LASTEXITCODE -ne 0) {
