@@ -1,6 +1,7 @@
 {
   "version": 1,
   "scenarios": [
-    "woodcutter"
+    "woodcutter",
+    "persistence"
   ]
 }
