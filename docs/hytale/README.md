@@ -41,6 +41,7 @@ Vor neuer Hytale-spezifischer Arbeit zuerst diese Übersicht und die relevante T
 ## Themen
 
 - [Verifikation und API-Recherche](verification.md)
+- [Headless-Server und Runtime-Probe](server-headless.md)
 - [Threading und World-Ausführung](threading.md)
 - [Lifecycle und Runtime-Zustand](lifecycle-runtime-state.md)
 - [UI und Interaktion](ui-interaction.md)
