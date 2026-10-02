@@ -21,12 +21,14 @@ public final class ProfessionBootstrapInventory {
     static final String WHEAT_SEED_ITEM_ID = "Plant_Seeds_Wheat";
     static final int FARMER_SEED_COUNT = 4;
     static final String WOODCUTTER_AXE_ITEM_ID = "Weapon_Axe_Iron";
+    static final String MINER_PICKAXE_ITEM_ID = "Tool_Pickaxe_Iron";
 
     public void enterProfession(Ref<EntityStore> ref, Profession profession) {
         if (profession == null) return;
         switch (profession) {
             case FARMER -> enterFarmer(ref);
-            case WOODCUTTER -> enterWoodcutter(ref);
+            case WOODCUTTER -> enterToolProfession(ref, WOODCUTTER_AXE_ITEM_ID);
+            case MINER -> enterToolProfession(ref, MINER_PICKAXE_ITEM_ID);
             default -> {
             }
         }
@@ -36,7 +38,8 @@ public final class ProfessionBootstrapInventory {
         if (profession == null) return;
         switch (profession) {
             case FARMER -> leaveFarmer(ref);
-            case WOODCUTTER -> leaveWoodcutter(ref);
+            case WOODCUTTER -> leaveToolProfession(ref, WOODCUTTER_AXE_ITEM_ID);
+            case MINER -> leaveToolProfession(ref, MINER_PICKAXE_ITEM_ID);
             default -> {
             }
         }
@@ -50,48 +53,24 @@ public final class ProfessionBootstrapInventory {
     }
 
     private void leaveFarmer(Ref<EntityStore> ref) {
-        removeFrom(
-            ref,
-            InventoryComponent.Storage.getComponentType(),
-            WHEAT_SEED_ITEM_ID,
-            FARMER_SEED_COUNT
-        );
-        removeFrom(
-            ref,
-            InventoryComponent.Hotbar.getComponentType(),
-            WHEAT_SEED_ITEM_ID,
-            FARMER_SEED_COUNT
-        );
-        removeFrom(
-            ref,
-            InventoryComponent.Backpack.getComponentType(),
-            WHEAT_SEED_ITEM_ID,
-            FARMER_SEED_COUNT
-        );
+        removeFrom(ref, InventoryComponent.Storage.getComponentType(), WHEAT_SEED_ITEM_ID, FARMER_SEED_COUNT);
+        removeFrom(ref, InventoryComponent.Hotbar.getComponentType(), WHEAT_SEED_ITEM_ID, FARMER_SEED_COUNT);
+        removeFrom(ref, InventoryComponent.Backpack.getComponentType(), WHEAT_SEED_ITEM_ID, FARMER_SEED_COUNT);
     }
 
-    private void enterWoodcutter(Ref<EntityStore> ref) {
-        byte slot = InventoryHelper.findHotbarSlotWithItem(
-            ref,
-            ref.getStore(),
-            WOODCUTTER_AXE_ITEM_ID
-        );
+    private void enterToolProfession(Ref<EntityStore> ref, String itemId) {
+        byte slot = InventoryHelper.findHotbarSlotWithItem(ref, ref.getStore(), itemId);
         if (slot < 0) {
             slot = InventoryHelper.findHotbarEmptySlot(ref, ref.getStore());
         }
         if (slot < 0) {
             return;
         }
-        InventoryHelper.useItem(ref, WOODCUTTER_AXE_ITEM_ID, slot, ref.getStore());
+        InventoryHelper.useItem(ref, itemId, slot, ref.getStore());
     }
 
-    private void leaveWoodcutter(Ref<EntityStore> ref) {
-        removeFrom(
-            ref,
-            InventoryComponent.Hotbar.getComponentType(),
-            WOODCUTTER_AXE_ITEM_ID,
-            1
-        );
+    private void leaveToolProfession(Ref<EntityStore> ref, String itemId) {
+        removeFrom(ref, InventoryComponent.Hotbar.getComponentType(), itemId, 1);
     }
 
     private <T extends InventoryComponent> ItemStack addTo(
