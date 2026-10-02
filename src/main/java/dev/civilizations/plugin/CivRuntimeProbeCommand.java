@@ -9,6 +9,7 @@ import com.hypixel.hytale.server.core.command.system.basecommands.CommandBase;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
+import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.NPCPlugin;
 import dev.civilizations.core.WorldPosition;
@@ -26,8 +27,24 @@ import java.util.concurrent.TimeUnit;
 final class CivRuntimeProbeCommand extends CommandBase {
 
     private static final String ROLE = "Civ_Inhabitant";
-    private static final long ASSERT_AFTER_MILLIS = 1_000L;
+    private static final long ASSERT_INTERVAL_MILLIS = 250L;
+    private static final long PROBE_TIMEOUT_MILLIS = 10_000L;
     private static final long MINIMUM_WORLD_TICKS = 2L;
+    private static final double MINIMUM_MOVED_DISTANCE = 2.0;
+    private static final double MAXIMUM_TARGET_DISTANCE = 1.25;
+    private static final int TARGET_DISTANCE_BLOCKS = 5;
+    private static final int MAXIMUM_GROUND_STEP = 1;
+
+    private static final int[][] TARGET_OFFSETS = {
+        {TARGET_DISTANCE_BLOCKS, 0},
+        {-TARGET_DISTANCE_BLOCKS, 0},
+        {0, TARGET_DISTANCE_BLOCKS},
+        {0, -TARGET_DISTANCE_BLOCKS},
+        {4, 4},
+        {-4, 4},
+        {4, -4},
+        {-4, -4}
+    };
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
@@ -71,7 +88,7 @@ final class CivRuntimeProbeCommand extends CommandBase {
                         fail("spawn chunk could not be loaded", throwable);
                         return;
                     }
-                    startProbe(world, spawn.getPosition(), spawn.getRotation());
+                    startProbe(world, chunk, spawn.getPosition(), spawn.getRotation());
                 })
             );
         } catch (Throwable throwable) {
@@ -79,7 +96,12 @@ final class CivRuntimeProbeCommand extends CommandBase {
         }
     }
 
-    private void startProbe(World world, Vector3d spawnPosition, Rotation3f spawnRotation) {
+    private void startProbe(
+        World world,
+        WorldChunk spawnChunk,
+        Vector3d spawnPosition,
+        Rotation3f spawnRotation
+    ) {
         try {
             var spawned = NPCPlugin.get().spawnNPC(
                 world.getEntityStore().getStore(),
@@ -117,8 +139,13 @@ final class CivRuntimeProbeCommand extends CommandBase {
                 return;
             }
 
-            Vector3d position = transform.getPosition();
-            WorldPosition destination = new WorldPosition(position.x, position.y, position.z);
+            Vector3d startPosition = new Vector3d(transform.getPosition());
+            WorldPosition destination = findNearbyWalkableDestination(spawnChunk, startPosition);
+            if (destination == null) {
+                fail("NO_SAFE_TARGET: no nearby same-chunk target with compatible ground height", null);
+                return;
+            }
+
             if (!activityRegistry.orderManualMove(ref, destination)) {
                 fail("Civ manual movement order was rejected", null);
                 return;
@@ -129,14 +156,17 @@ final class CivRuntimeProbeCommand extends CommandBase {
             }
 
             long startTick = world.getTick();
+            long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(PROBE_TIMEOUT_MILLIS);
             System.out.println(
                 "CIV_RUNTIME_PROBE_STARTED tick=" + startTick
                     + " entity=" + ref.getIndex()
+                    + " start=" + format(startPosition)
+                    + " target=" + format(destination)
             );
 
             world.scheduleAfter(
-                () -> assertProbe(world, ref, startTick),
-                ASSERT_AFTER_MILLIS,
+                () -> assertProbe(world, ref, startTick, startPosition, destination, deadlineNanos),
+                ASSERT_INTERVAL_MILLIS,
                 TimeUnit.MILLISECONDS
             );
         } catch (Throwable throwable) {
@@ -144,13 +174,51 @@ final class CivRuntimeProbeCommand extends CommandBase {
         }
     }
 
-    private void assertProbe(World world, Ref<EntityStore> ref, long startTick) {
+    private static WorldPosition findNearbyWalkableDestination(
+        WorldChunk chunk,
+        Vector3d startPosition
+    ) {
+        int startBlockX = (int) Math.floor(startPosition.x);
+        int startBlockZ = (int) Math.floor(startPosition.z);
+        int startLocalX = ChunkUtil.localCoordinate(startBlockX);
+        int startLocalZ = ChunkUtil.localCoordinate(startBlockZ);
+        int startGroundY = chunk.getHeight(startLocalX, startLocalZ);
+        long startChunkIndex = chunk.getIndex();
+
+        for (int[] offset : TARGET_OFFSETS) {
+            int targetBlockX = startBlockX + offset[0];
+            int targetBlockZ = startBlockZ + offset[1];
+            if (ChunkUtil.indexChunkFromBlock(targetBlockX, targetBlockZ) != startChunkIndex) {
+                continue;
+            }
+
+            int targetLocalX = ChunkUtil.localCoordinate(targetBlockX);
+            int targetLocalZ = ChunkUtil.localCoordinate(targetBlockZ);
+            int targetGroundY = chunk.getHeight(targetLocalX, targetLocalZ);
+            if (Math.abs(targetGroundY - startGroundY) > MAXIMUM_GROUND_STEP) {
+                continue;
+            }
+
+            return new WorldPosition(
+                targetBlockX + 0.5,
+                targetGroundY + 1.0,
+                targetBlockZ + 0.5
+            );
+        }
+
+        return null;
+    }
+
+    private void assertProbe(
+        World world,
+        Ref<EntityStore> ref,
+        long startTick,
+        Vector3d startPosition,
+        WorldPosition destination,
+        long deadlineNanos
+    ) {
         try {
             long ticksElapsed = world.getTick() - startTick;
-            if (ticksElapsed < MINIMUM_WORLD_TICKS) {
-                fail("fewer than two real world ticks elapsed: " + ticksElapsed, null);
-                return;
-            }
             if (!ref.isValid()) {
                 fail("Civ inhabitant became invalid before assertion", null);
                 return;
@@ -159,23 +227,85 @@ final class CivRuntimeProbeCommand extends CommandBase {
                 fail("Civ inhabitant lost its claimed state", null);
                 return;
             }
-            if (activityRegistry.manualMovementIntent(ref) != null) {
-                fail("CivManualMovementSystem did not complete the arrived movement intent", null);
-                return;
-            }
-            if (unitRegistry.getMoveTarget(ref) != null) {
-                fail("native Civ movement target was not cleared after arrival", null);
+
+            TransformComponent transform = ref.getStore()
+                .getComponent(ref, TransformComponent.getComponentType());
+            if (transform == null) {
+                fail("Civ inhabitant lost its TransformComponent", null);
                 return;
             }
 
-            System.out.println(
-                "CIV_RUNTIME_PROBE_PASS ticks=" + ticksElapsed
-                    + " entity=" + ref.getIndex()
+            Vector3d currentPosition = new Vector3d(transform.getPosition());
+            double movedDistance = horizontalDistance(startPosition, currentPosition);
+            double targetDistance = horizontalDistance(currentPosition, destination);
+            boolean activityComplete = activityRegistry.manualMovementIntent(ref) == null;
+            boolean nativeTargetCleared = unitRegistry.getMoveTarget(ref) == null;
+
+            if (activityComplete && nativeTargetCleared) {
+                if (ticksElapsed < MINIMUM_WORLD_TICKS) {
+                    fail("fewer than two real world ticks elapsed: " + ticksElapsed, null);
+                    return;
+                }
+                if (movedDistance < MINIMUM_MOVED_DISTANCE) {
+                    fail("NPC movement completed without real displacement: " + movedDistance, null);
+                    return;
+                }
+                if (targetDistance > MAXIMUM_TARGET_DISTANCE) {
+                    fail("NPC movement completed too far from target: " + targetDistance, null);
+                    return;
+                }
+
+                System.out.println(
+                    "CIV_RUNTIME_PROBE_PASS ticks=" + ticksElapsed
+                        + " entity=" + ref.getIndex()
+                        + " moved=" + String.format("%.2f", movedDistance)
+                        + " targetDistance=" + String.format("%.2f", targetDistance)
+                        + " end=" + format(currentPosition)
+                );
+                HytaleServer.get().shutdownServer();
+                return;
+            }
+
+            if (System.nanoTime() >= deadlineNanos) {
+                fail(
+                    "movement timed out after " + ticksElapsed + " ticks"
+                        + ", moved=" + String.format("%.2f", movedDistance)
+                        + ", targetDistance=" + String.format("%.2f", targetDistance)
+                        + ", activityComplete=" + activityComplete
+                        + ", nativeTargetCleared=" + nativeTargetCleared,
+                    null
+                );
+                return;
+            }
+
+            world.scheduleAfter(
+                () -> assertProbe(world, ref, startTick, startPosition, destination, deadlineNanos),
+                ASSERT_INTERVAL_MILLIS,
+                TimeUnit.MILLISECONDS
             );
-            HytaleServer.get().shutdownServer();
         } catch (Throwable throwable) {
             fail("probe assertion threw an exception", throwable);
         }
+    }
+
+    private static double horizontalDistance(Vector3d first, Vector3d second) {
+        double dx = first.x - second.x;
+        double dz = first.z - second.z;
+        return Math.sqrt(dx * dx + dz * dz);
+    }
+
+    private static double horizontalDistance(Vector3d first, WorldPosition second) {
+        double dx = first.x - second.x();
+        double dz = first.z - second.z();
+        return Math.sqrt(dx * dx + dz * dz);
+    }
+
+    private static String format(Vector3d position) {
+        return String.format("(%.2f,%.2f,%.2f)", position.x, position.y, position.z);
+    }
+
+    private static String format(WorldPosition position) {
+        return String.format("(%.2f,%.2f,%.2f)", position.x(), position.y(), position.z());
     }
 
     private static void fail(String reason, Throwable throwable) {
