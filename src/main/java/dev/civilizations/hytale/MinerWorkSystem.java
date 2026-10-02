@@ -49,8 +49,8 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
     private static final String WORKPLACE_ACCESS = "workplace_access";
     private static final String TUNNEL_CONNECTOR = "mine_tunnel_connector";
     private static final String MINE_BUILDING = "mine";
-    private static final String MINING_ITEM_ANIMATIONS = "Civ_Miner_Pickaxe";
-    private static final String MINING_ANIMATION = "SwingDown";
+    private static final String MINING_ITEM_ANIMATIONS = "Pickaxe";
+    private static final String MINING_ANIMATION = "Mine";
     private static final String SUPPORT_PREFAB_KEY = "Civilizations/Mine/Mine_Support_01";
     private static final double ARRIVAL_DISTANCE = 1.1;
     private static final double RETRY_SECONDS = 1.0;
