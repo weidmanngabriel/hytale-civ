@@ -174,18 +174,27 @@ Nach dem final validierten Zustand dürfen keine zusätzlichen Änderungen auf d
 
 Pull Requests führen Tests und einen vollständigen Java-25-Gradle-Build für Feature-Branches aus. Normale Pushes auf Nicht-Main-Branches starten keinen zweiten, doppelten Workflow. Pushes auf <code>main</code> und Tags mit Präfix <code>v</code> führen weiterhin CI aus, weil sie Development- und Stable-Releases erzeugen. Wird derselbe Pull Request beziehungsweise Branch mit einem neueren Commit aktualisiert, bricht GitHub Actions den älteren laufenden Workflow ab, sodass nur die neueste Revision weiterläuft. Das Release-Bundle-ZIP wird als Actions-Artefakt hochgeladen. Fehlgeschlagene Testberichte werden zur Analyse ebenfalls hochgeladen.
 
-Der lokale Hytale-Runtime-Workflow <code>.github/workflows/hytale-local.yml</code> kann weiterhin manuell gestartet werden und reagiert zusätzlich auf PR-Kommentare der Form <code>/hytale-test &lt;szenario...&gt;</code>. Unterstützte Szenarien werden im Workflow über eine feste Allowlist definiert; <code>all</code> expandiert auf alle aktuell registrierten Runtime-Szenarien. Ein GitHub-hosted Autorisierungsjob prüft vor jeder Self-Hosted-Ausführung, dass der Kommentar von einem ausdrücklich erlaubten Benutzer stammt, zu einem offenen PR gegen <code>main</code> gehört und der PR-Branch direkt aus <code>weidmanngabriel/hytale-civ</code> statt aus einem Fork kommt. Erst danach wird der exakte aktuelle PR-Head-SHA an den Windows-Self-Hosted-Runner übergeben. Der Runner checkt ausschließlich diesen SHA aus; unvalidierter Kommentartext wird nicht als Shell-Eingabe verwendet. Mehrere Kommentare erzeugen getrennte Runs, sodass ein PR nach weiteren Commits gezielt erneut getestet werden kann.
+Echte Hytale-Runtime-Tests werden unabhängig von einem Pull Request über temporäre Lightweight-Tags angefordert. Das Format lautet <code>hytale-test/&lt;szenarien&gt;/&lt;short-sha&gt;</code>. Mehrere Szenarien werden mit <code>-</code> getrennt; Szenarionamen selbst enthalten deshalb keine Bindestriche und zusammengesetzte Begriffe werden zusammengeschrieben. Bis zu acht Szenarien können explizit angegeben werden. <code>all</code> steht alleine und expandiert auf alle Szenarien aus <code>scripts/hytale-runtime-scenarios.json</code>.
 
 Beispiele:
 
 ~~~text
-/hytale-test all
-/hytale-test woodcutter
-/hytale-test persistence
-/hytale-test woodcutter persistence
+hytale-test/woodcutter/ee453d7
+hytale-test/woodcutter-persistence/ee453d7
+hytale-test/all/ee453d7
 ~~~
 
-Der Self-Hosted-Runner benötigt weiterhin die lokale Hytale-Installation sowie die lizenzierten Basisassets. Der Workflow protokolliert PR-Nummer, getesteten Commit-SHA, anfordernden Benutzer und ausgewählte Szenarien, bevor Hytale gestartet wird.
+Der Tag darf auf jeden Commit im Repository zeigen, also auch auf einen Spike ohne Pull Request. Der SHA-Teil im Tagnamen dient als sichtbare Kontrolle und muss mit dem tatsächlich getaggten Commit beginnen. Annotated Tags werden für Runtime-Anforderungen nicht akzeptiert; der Test-Tag muss direkt auf einen Commit zeigen.
+
+Die Ausführung ist absichtlich zweistufig. <code>.github/workflows/hytale-runtime-request.yml</code> reagiert auf <code>hytale-test/**</code>, läuft ausschließlich GitHub-hosted, besitzt keine Berechtigungen, checkt keinen Repository-Code aus und erhält keine Hytale-Dateien. Nach Abschluss dieses unprivilegierten Request-Workflows startet <code>.github/workflows/hytale-local.yml</code> über <code>workflow_run</code> aus dem vertrauenswürdigen Default-Branch-Kontext.
+
+Bevor ein Self-Hosted-Job startet, prüft der GitHub-hosted Autorisierungsjob den erwarteten Request-Workflow-Pfad, das eigene Repository, den ausdrücklich erlaubten Benutzer, die Tag-Syntax, die direkte Commit-Referenz, den vollständigen 40-stelligen Commit-SHA, den sichtbaren Short-SHA sowie die Szenario-Registry aus genau diesem Commit. Aktuell ist <code>weidmanngabriel</code> der einzige erlaubte Anforderer. Unbekannte Szenarien, doppelte Namen, mehr als acht explizite Szenarien oder ein veränderter beziehungsweise bereits gelöschter Tag erreichen den Self-Hosted-Runner nicht.
+
+Der Windows-Self-Hosted-Runner erhält nur <code>contents: read</code>, checkt ausschließlich den bereits autorisierten exakten Commit-SHA mit <code>persist-credentials: false</code> aus und verifiziert den Checkout erneut. Danach werden Tests und Plugin-JAR einmal gebaut. <code>scripts/hytale-runtime-tests.ps1</code> führt die ausgewählten Runtime-Szenarien aus; jedes Szenario erhält ein eigenes isoliertes Hytale-Runtime-Verzeichnis. Die Registry <code>scripts/hytale-runtime-scenarios.json</code> ist die gemeinsame Allowlist für Controller und Harness. Ein neuer Runtime-Vertrag wird dort erst registriert, wenn der zugehörige Harness-Code im selben Commit vorhanden ist.
+
+Nach einem autorisierten Lauf entfernt ein separater GitHub-hosted Cleanup-Job den temporären <code>hytale-test/**</code>-Tag auch bei einem fehlgeschlagenen Runtime-Test. Der Cleanup löscht nur den zuvor autorisierten Tag und nur solange er noch auf denselben Commit zeigt. Der Self-Hosted-Runner selbst besitzt keine Schreibrechte auf das Repository. Falls ein kompletter Workflow vor dem Cleanup hart abgebrochen wird, kann ein temporärer Test-Tag zurückbleiben; er wird dann manuell gelöscht.
+
+Der Self-Hosted-Runner benötigt weiterhin die lokale Hytale-Installation sowie die lizenzierten Basisassets. Die Runtime-Logs nennen Test-Tag, exakten Commit-SHA, anfordernden Benutzer und die aufgelösten Szenarien.
 
 Jeder erfolgreiche Push auf <code>main</code> erzeugt ein SemVer-kompatibles Development-Pre-Release. Die Basisversion stammt aus <code>projectVersion</code> in <code>gradle.properties</code>. Der Workflow entfernt <code>-SNAPSHOT</code> und hängt die GitHub-Actions-Run-Nummer an:
 
