@@ -7,6 +7,7 @@ on:
       - agent/headless-server-spike
     paths:
       - .github/workflows/hytale-local.yml
+      - asset-pack/manifest.json
 
 permissions:
   contents: read
@@ -127,14 +128,30 @@ jobs:
           if ($combined.Contains('client.disconnection.shutdownReason.missingAssets.failedToLoad')) {
             throw 'Hytale still reports missing assets while using --assets with the local Assets.zip.'
           }
-          if (-not $combined.Contains('Civilizations:HytaleCiv')) {
-            throw 'Hytale did not discover the Civ plugin.'
+          if ($combined.Contains("Plugin 'Civilizations:HytaleCivAssets' does not specify a target server version")) {
+            throw 'Civ asset pack is missing its target Hytale server version.'
           }
-          if (-not $combined.Contains('Added world ''default''')) {
-            throw 'Hytale did not finish creating/loading the default world before shutdown.'
+
+          $requiredEvidence = @(
+            'Loaded pack: Hytale:Hytale from Assets.zip',
+            'Loaded pack: Civilizations:HytaleCivAssets from hytale-civ-assets',
+            'Enabled plugin Civilizations:HytaleCiv',
+            "Added world 'default'",
+            'Universe ready!',
+            'Hytale Server Booted!',
+            'Console executed command: stop',
+            'Shut down plugin Civilizations:HytaleCiv',
+            'Shutdown completed!'
+          )
+
+          foreach ($evidence in $requiredEvidence) {
+            if (-not $combined.Contains($evidence)) {
+              throw "Expected Hytale runtime evidence was not found: $evidence"
+            }
           }
+
           if ($process.ExitCode -ne 0) {
             throw "Hytale server exited with code $($process.ExitCode)."
           }
 
-          Write-Host 'Real Hytale server started with local assets, discovered Civ, loaded the default world, and shut down cleanly.'
+          Write-Host 'Real Hytale server loaded licensed base assets, loaded Civ assets, enabled Civ, reached a ready default universe, and shut down cleanly.'
