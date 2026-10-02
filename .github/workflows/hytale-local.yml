@@ -98,7 +98,7 @@ jobs:
           Write-Host 'Isolated runtime prepared outside the repository worktree.'
           Write-Host 'Civ plugin and asset pack installed into runtime mods directory.'
 
-      - name: Run real Hytale woodcutter fixture discovery
+      - name: Run real Hytale woodcutter scenario
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
@@ -135,8 +135,11 @@ jobs:
           if ($combined.Contains('client.disconnection.shutdownReason.missingAssets.failedToLoad')) {
             throw 'Hytale still reports missing assets while using --assets with the local Assets.zip.'
           }
-          if ($combined.Contains('CIV_WOODCUTTER_FIXTURE_DISCOVERY_FAIL')) {
-            throw 'The Civ woodcutter fixture discovery probe reported failure.'
+          if ($combined.Contains('CIV_WOODCUTTER_RUNTIME_FAIL')) {
+            throw 'The Civ woodcutter runtime scenario reported failure.'
+          }
+          if ($combined.Contains("chunk isn't currently loaded")) {
+            throw 'The Civ woodcutter runtime scenario touched an unloaded chunk.'
           }
 
           $requiredEvidence = @(
@@ -146,10 +149,15 @@ jobs:
             'Universe ready!',
             'Hytale Server Booted!',
             'Console executed command: civwoodcutterprobe',
-            'CIV_WOODCUTTER_FIXTURE_DISCOVERY_STARTED',
+            'CIV_WOODCUTTER_RUNTIME_STARTED',
             'CIV_WOODCUTTER_FLAT_WORLD_READY',
-            'CIV_TREE_PREFAB_CANDIDATES',
-            'CIV_WOODCUTTER_FIXTURE_DISCOVERY_PASS',
+            'CIV_WOODCUTTER_FIXTURE_READY',
+            'state=target-assigned',
+            'state=chopping',
+            'state=fell-success',
+            'CIV_WOODCUTTER_TREE_FELLED',
+            'CIV_WOODCUTTER_REENGAGED',
+            'CIV_WOODCUTTER_RUNTIME_PASS',
             'Shut down plugin Civilizations:HytaleCiv',
             'Shutdown completed!'
           )
@@ -164,7 +172,7 @@ jobs:
             throw "Hytale server exited with code $($process.ExitCode)."
           }
 
-          Write-Host 'Real Hytale runtime created the deterministic flat test world and discovered tree-like prefab keys from the loaded asset packs.'
+          Write-Host 'Real Hytale runtime completed the shared deterministic woodcutter scenario: flat world, real oak prefab, autonomous target search, navigation, chopping, felling and re-engagement.'
 
       - name: Clean isolated Hytale runtime
         if: always()
