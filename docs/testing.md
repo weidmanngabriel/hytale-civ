@@ -22,6 +22,8 @@ Ein erfolgreicher Compile- oder Build-Lauf reicht als Abdeckung für eine neue D
 
 Domänenregeln und Invarianten sollten normalerweise durch deterministische Core-Tests abgebildet werden. Hytale-Adapter-Tests sollen Übersetzungs- und Engine-Grenzverhalten prüfen, nicht dieselben Core-Regeln mit Mocks duplizieren.
 
+Lokale Hytale-Runtime-Szenarien auf dem Self-Hosted-Runner sind aktuell **optionale Entwicklungs- und Diagnosehilfen**. Sie liefern bei Bedarf zusätzliche Evidenz für Engine-Verhalten, sind aber keine verpflichtenden Merge- oder Release-Checks und müssen nicht für jedes neue oder geänderte Hytale-Verhalten ergänzt oder ausgeführt werden. Die normale automatisierte Abdeckung durch Unit-, Simulations-, Adapter- und GitHub-CI-Checks bleibt die Standard-Abnahme.
+
 ## Unit-Tests
 
 Schnelle JUnit-5-Tests für reine Java-Domänenregeln und Hilfsfunktionen.
@@ -63,7 +65,7 @@ Der aktuelle RTS-Prototyp betrifft vor allem Kamera, Cursor-Zielerfassung, inter
 Es existieren zwei unterschiedliche Server-Proben:
 
 - Der normale GitHub-hosted Build startet die echte gepinnte Server-JAR als Bare-Probe. Weil Hytale 0.6.8 auch mit <code>--bare</code> das Asset-Modul lädt, endet dieser Test ohne lizenzierte <code>Assets.zip</code> erwartungsgemäß an der Missing-Assets-Grenze. Er beweist nur die frühe Server-/Plugin-Manager-Kompatibilität.
-- Echte Gameplay-Verträge laufen über <code>.github/workflows/hytale-local.yml</code> auf einem vertrauenswürdigen Windows-Self-Hosted-Runner mit lokaler Hytale-Installation und den lizenzierten Basisassets.
+- Echte Gameplay-Verträge können über <code>.github/workflows/hytale-local.yml</code> auf einem vertrauenswürdigen Windows-Self-Hosted-Runner mit lokaler Hytale-Installation und den lizenzierten Basisassets ausgeführt werden. Diese Läufe sind optional und primär für Entwicklung, Diagnose und gezielte Runtime-Verifikation gedacht.
 
 Ein Runtime-Lauf wird über einen Kommentar in der festen GitHub-Issue <code>#126 Hytale Runtime Test Requests</code> angefordert. Das Format lautet <code>/hytale-test &lt;szenarien&gt; &lt;commit-sha&gt;</code>. Der Commit darf jeder Commit des eigenen Repositories sein, also auch ein Spike ohne Pull Request. Mehrere Szenarien werden mit <code>-</code> getrennt; <code>all</code> steht allein und expandiert auf alle aktuell registrierten Runtime-Szenarien. Die Registry <code>scripts/hytale-runtime-scenarios.json</code> ist die gemeinsame Allowlist für Autorisierung und Harness. Aktuell sind <code>woodcutter</code> und <code>persistence</code> registriert.
 
@@ -75,7 +77,7 @@ Der lokale Runtime-Vertrag <code>woodcutter</code> führt <code>WoodcutterBasicS
 
 Der lokale Runtime-Vertrag <code>persistence</code> startet zwei getrennte Hytale-Serverprozesse im selben isolierten Runtime-Verzeichnis. Der Prepare-Prozess spawnt und claimt einen echten <code>Civ_Inhabitant</code>, setzt deterministische persistente Daten, liest dessen native <code>UUIDComponent</code> und beendet den Server über den normalen Shutdownpfad. Der Restore-Prozess startet Hytale anschließend neu, lädt denselben Weltzustand und muss exakt dieselbe Entity-UUID wiederfinden. Zusätzlich werden Civ-Claimzustand, vollständiger Name, Beruf, Berufs-XP, Workplace-ID, Appearance sowie die rehydrierten Display-Komponenten geprüft. Der Vertrag gilt nur als bestanden, wenn beide Prozesse mit Exit-Code 0 sauber herunterfahren und die Restore-Assertions gegen die vorbereitete UUID erfolgreich sind.
 
-Damit sind echte NPC-, Navigations-, Worldgen-, Prefab-, Tick-, Weltmutations- und saubere Persistenz-/Restart-Verträge headless automatisierbar. Nicht abgedeckt sind weiterhin Client-UI/Rendering sowie Gameplay, das noch nicht implementiert ist, insbesondere Holz-Drops einsammeln und in ein Lager liefern. Details und Grenzen stehen in <code>docs/hytale/server-headless.md</code>.
+Damit sind echte NPC-, Navigations-, Worldgen-, Prefab-, Tick-, Weltmutations- und saubere Persistenz-/Restart-Verträge headless automatisierbar. Sie werden bei Bedarf eingesetzt, sind aber aktuell kein allgemeiner Fertigstellungsnachweis. Nicht abgedeckt sind weiterhin Client-UI/Rendering sowie Gameplay, das noch nicht implementiert ist, insbesondere Holz-Drops einsammeln und in ein Lager liefern. Details und Grenzen stehen in <code>docs/hytale/server-headless.md</code>.
 
 ## Manueller Check: nativer NPC-Pfad-Debug
 
