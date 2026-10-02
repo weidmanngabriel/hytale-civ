@@ -58,7 +58,12 @@ Der aktuelle RTS-Prototyp betrifft vor allem Kamera, Cursor-Zielerfassung, inter
 
 ## Hytale-Server-Integrationstests
 
-Zukünftige kontrollierte Server-Tests für Lifecycle, Registrierung und Engine-Interaktion. Noch nicht umgesetzt.
+Es existieren jetzt zwei unterschiedliche Server-Proben:
+
+- Der normale GitHub-hosted Build startet die echte gepinnte Server-JAR als Bare-Probe. Weil Hytale 0.6.8 auch mit <code>--bare</code> das Asset-Modul lädt, endet dieser Test ohne lizenzierte <code>Assets.zip</code> erwartungsgemäß an der Missing-Assets-Grenze. Er beweist nur die frühe Server-/Plugin-Manager-Kompatibilität.
+- Der Workflow <code>.github/workflows/hytale-local.yml</code> läuft auf einem vertrauenswürdigen Windows-Self-Hosted-Runner mit lokaler Hytale-Installation. Er startet den echten Server mit <code>--assets</code>, lädt Basisassets, Civ-Asset-Pack und Civ-Plugin, lädt die Default-Welt, erreicht den normalen Universe-/Boot-Zustand und fährt kontrolliert mit Exitcode 0 herunter.
+
+Der lokale Runtime-Test beweist damit einen echten headless Server-Boot ohne verbundenen Client. Er führt derzeit aber keine Spieler-, NPC-, UI-, Navigations- oder Persistenzszenarien aus. Diese Verträge bleiben separate Runtime-/Client-Tests. Details und Grenzen stehen in <code>docs/hytale/server-headless.md</code>.
 
 ## Manueller Check: nativer NPC-Pfad-Debug
 
