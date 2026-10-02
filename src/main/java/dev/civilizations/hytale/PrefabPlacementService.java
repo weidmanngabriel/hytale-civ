@@ -12,6 +12,7 @@ import com.hypixel.hytale.component.RemoveReason;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Rotation3f;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentPrefabPreview;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
@@ -330,7 +331,8 @@ public final class PrefabPlacementService {
     }
 
     /**
-     * Materializes one occupied prefab Y-layer without spawning prefab entities.
+     * Materializes one authored prefab Y-layer, including explicit Empty cells,
+     * without spawning prefab entities.
      */
     public boolean materializeConstructionLayer(
         World world,
@@ -354,6 +356,10 @@ public final class PrefabPlacementService {
         layer.setAnchor(source.getAnchorX(), source.getAnchorY(), source.getAnchorZ());
         source.forEachBlock((x, y, z, blockHolder) -> {
             if (y != sourceY) {
+                return;
+            }
+            if (blockHolder.blockId() == BlockType.EMPTY_ID) {
+                layer.addEmptyAtWorldPos(x, y, z);
                 return;
             }
             layer.addBlockAtWorldPos(
