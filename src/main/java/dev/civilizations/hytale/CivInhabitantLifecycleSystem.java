@@ -27,6 +27,7 @@ public final class CivInhabitantLifecycleSystem extends RefSystem<EntityStore> {
     private final FarmBuildingRegistry farmRegistry;
     private final FarmNpcWorkSystem farmWorkSystem;
     private final WoodcutterWorkSystem woodcutterWorkSystem;
+    private final MinerWorkSystem minerWorkSystem;
     private final ConstructionWorkSystem constructionWorkSystem;
 
     public CivInhabitantLifecycleSystem(
@@ -37,6 +38,7 @@ public final class CivInhabitantLifecycleSystem extends RefSystem<EntityStore> {
         FarmBuildingRegistry farmRegistry,
         FarmNpcWorkSystem farmWorkSystem,
         WoodcutterWorkSystem woodcutterWorkSystem,
+        MinerWorkSystem minerWorkSystem,
         ConstructionWorkSystem constructionWorkSystem
     ) {
         this.query = Archetype.of(inhabitantDataType, NPCEntity.getComponentType());
@@ -46,6 +48,7 @@ public final class CivInhabitantLifecycleSystem extends RefSystem<EntityStore> {
         this.farmRegistry = farmRegistry;
         this.farmWorkSystem = farmWorkSystem;
         this.woodcutterWorkSystem = woodcutterWorkSystem;
+        this.minerWorkSystem = minerWorkSystem;
         this.constructionWorkSystem = constructionWorkSystem;
     }
 
@@ -61,10 +64,7 @@ public final class CivInhabitantLifecycleSystem extends RefSystem<EntityStore> {
         Store<EntityStore> store,
         CommandBuffer<EntityStore> commandBuffer
     ) {
-        // LOAD and SPAWN both need the runtime Player presentation rebuilt from persisted Civ data.
         inhabitantService.ensureInhabitant(ref, commandBuffer);
-        // The persistent component is the authority for Civ membership. Re-register every loaded
-        // inhabitant so workplace lookups do not depend on a player interacting with it first.
         unitRegistry.trackLoaded(ref);
     }
 
@@ -75,16 +75,13 @@ public final class CivInhabitantLifecycleSystem extends RefSystem<EntityStore> {
         Store<EntityStore> store,
         CommandBuffer<EntityStore> commandBuffer
     ) {
-        // Worker state and reservations are active-memory state, so they are always discarded.
-        // The persistent Civ component itself stays Hytale-owned and survives UNLOAD.
         farmWorkSystem.forgetRuntime(ref);
         woodcutterWorkSystem.forgetRuntime(ref);
+        minerWorkSystem.forgetRuntime(ref);
         constructionWorkSystem.forgetRuntime(ref);
         activityRegistry.forget(ref);
         unitRegistry.forget(ref);
 
-        // A chunk UNLOAD is not deletion. Keep the farm relationship intact so normal streaming
-        // cannot silently unassign a farmer. Real removal (including /entityclean) releases it.
         if (reason != RemoveReason.UNLOAD) {
             farmRegistry.unassignFarmer(ref);
         }
