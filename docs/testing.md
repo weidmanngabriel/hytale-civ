@@ -32,7 +32,9 @@ Deterministische mehrstufige Tests sind die bevorzugte Abdeckung für Bewohner, 
 
 Wenn diese Systeme eingeführt werden, sollen kleine Golden-Szenarien mit klar definiertem Ausgangszustand, Befehlen und erwartetem Ergebnis verwendet werden. Wiederverwendbare Tick-0-Zustände liegen als <code>SimulationScenario</code> im gemeinsamen Szenariokatalog und können sowohl vom Viewer als auch von Tests gestartet werden. Erwartete Ergebnisse und Assertions gehören weiterhin in den jeweiligen Test, nicht in die Szenariodefinition. Wichtige Invarianten werden direkt geprüft, zum Beispiel dass Inputs exakt einmal verbraucht werden, Inventare nie negativ werden und dieselbe Befehlsfolge dasselbe Ergebnis erzeugt.
 
-Engine-Schritte dürfen in solchen Tests als kontrollierte Ergebnisse zurückgespielt werden. Wenn der Core beispielsweise einen Bewegungs-Intent erzeugt, kann der Test „angekommen“ melden, ohne Hytales Navigation zu starten. Damit werden Ablauf, Unterbrechung und Wiederaufnahme headless geprüft; nur die tatsächliche Umsetzung des Intents durch Hytale bleibt ein Adapter-/Runtime-Test.
+Ausgewählte fachliche Ausgangslagen dürfen zusätzlich als reine, Hytale-unabhängige Scenario-Fixture von Simulator und echtem Hytale-Runtime-Test gemeinsam verwendet werden. Der erste solche Vertrag ist <code>WoodcutterBasicScenario</code>: Startposition und Baum-Anker stammen aus derselben Definition. Der Simulator übersetzt die Anker in abstrakte Bäume; der Hytale-Runner platziert dort reale Vanilla-Prefabs. Engine-Details wie Prefab-Origin, Chunk-Preload, EntityStore und NPC-Spawn gehören nicht in die gemeinsame Fixture.
+
+Engine-Schritte dürfen in solchen Tests als kontrollierte Ergebnisse zurückgespielt werden. Wenn der Core beispielsweise einen Bewegungs-Intent erzeugt, kann der Test „angekommen“ melden, ohne Hytales Navigation zu starten. Damit werden Ablauf, Unterbrechung und Wiederaufnahme headless geprüft; nur die tatsächliche Umsetzung des Intents durch Hytale bleibt ein Adapter-/Runtime-Test. Hytales Pathfinding wird ausdrücklich nicht im Simulator nachgebaut.
 
 Szenario-Tests bleiben Hytale-unabhängig, außer das geprüfte Verhalten ist tatsächlich ein Engine-Vertrag. UI-Klicks sind kein Ersatz für einen Core-Test einer Regel, die auch ohne UI formulierbar ist.
 
@@ -58,7 +60,14 @@ Der aktuelle RTS-Prototyp betrifft vor allem Kamera, Cursor-Zielerfassung, inter
 
 ## Hytale-Server-Integrationstests
 
-Zukünftige kontrollierte Server-Tests für Lifecycle, Registrierung und Engine-Interaktion. Noch nicht umgesetzt.
+Es existieren jetzt zwei unterschiedliche Server-Proben:
+
+- Der normale GitHub-hosted Build startet die echte gepinnte Server-JAR als Bare-Probe. Weil Hytale 0.6.8 auch mit <code>--bare</code> das Asset-Modul lädt, endet dieser Test ohne lizenzierte <code>Assets.zip</code> erwartungsgemäß an der Missing-Assets-Grenze. Er beweist nur die frühe Server-/Plugin-Manager-Kompatibilität.
+- Der Workflow <code>.github/workflows/hytale-local.yml</code> läuft auf einem vertrauenswürdigen Windows-Self-Hosted-Runner mit lokaler Hytale-Installation. Er startet den echten Server mit <code>--assets</code>, lädt Basisassets, Civ-Asset-Pack und Civ-Plugin und führt ausgewählte Gameplay-Szenarien in einer nativen deterministischen Flat-World aus.
+
+Der aktuelle lokale Runtime-Vertrag führt <code>WoodcutterBasicScenario</code> real aus: drei Vanilla-Oaks werden als Prefabs platziert, ein echter <code>Civ_Inhabitant</code> wird gespawnt, geclaimt und zum Holzfäller gemacht. Danach muss der produktive <code>WoodcutterWorkSystem</code> autonom einen Baum auswählen, Hytales echte NPC-Navigation nutzen, die Arbeitsphase durch echte World-/ECS-Ticks ausführen, einen Oak über den nativen Fällpfad aus der Welt entfernen und anschließend einen weiteren Baum als Ziel aufnehmen. Die Assertion beobachtet dabei reale Weltzustände und Produktionslogs statt den Core-Job direkt fernzusteuern. Der erfolgreiche Referenzlauf reduzierte 54 reale <code>Woods</code>-Blöcke auf 36, also genau einen 18-Block-Oak, und wurde ohne Codeänderung erneut erfolgreich ausgeführt.
+
+Damit sind echte NPC-, Navigations-, Worldgen-, Prefab-, Tick- und Weltmutationsverträge headless automatisierbar. Nicht abgedeckt sind weiterhin Client-UI/Rendering sowie Gameplay, das noch nicht implementiert ist, insbesondere Holz-Drops einsammeln und in ein Lager liefern. Save → Shutdown → zweiter Serverstart → Restore ist ebenfalls noch ein eigener zukünftiger Runtime-Vertrag. Details und Grenzen stehen in <code>docs/hytale/server-headless.md</code>.
 
 ## Manueller Check: nativer NPC-Pfad-Debug
 
@@ -105,7 +114,7 @@ Der Test für direkte Bewegung verwendet die eingecheckte Rolle <code>Civ_Inhabi
 - <code>InhabitantActivityTest</code> prüft, dass ein manueller Bewegungsauftrag autonome Arbeit verdrängt, nach Abschluss wieder freigibt und den pausierten Holzfällerzustand nicht verändert.
 - <code>WorkDecisionScheduleTest</code> prüft unmittelbare Entscheidungen, begrenzte Retries und das Vorziehen eines relevanten Ereignisses gegenüber einem noch nicht fälligen Retry.
 - <code>SimulationRuntimeTest</code> deckt die Core-Abläufe für Bauarbeiter, Holzfäller, Farmer und manuelle Unterbrechungen ab. Dazu gehören feste Operationsbudgets: 100 wartende Bauarbeiter führen in 60 Simulationssekunden 6.000 Baustellensuchen aus, und ein Farmer ohne Feld führt in derselben Zeit 60 Feldsuchen statt einer Suche pro Tick aus.
-- <code>SimulationScenariosTest</code> prüft den gemeinsamen Szenariokatalog: eindeutige IDs, headless Startbarkeit, frische Weltzustände pro Lauf sowie repräsentative Abläufe der Holzfäller-, Bauarbeiter-, Farmer- und Warteszenarien.
+- <code>SimulationScenariosTest</code> prüft den gemeinsamen Szenariokatalog. Für <code>WoodcutterBasicScenario</code> wird zusätzlich geprüft, dass dieselbe gemeinsame Fixture mit drei Baum-Ankern startet, mindestens ein Baum fällt und der Holzfäller anschließend erneut nach Arbeit sucht.
 - <code>SimulationIndependenceTest</code> verhindert direkte Hytale-Imports im wiederverwendbaren Headless-Runtime-Paket.
 - <code>SimulationViewerAppTest</code> prüft das Demo-Szenario und die Snapshot-Grenze, ohne ein Swing-Fenster zu öffnen. Die grafische Darstellung selbst bleibt ein manueller Entwickler-Check.
 - <code>ManifestValidationTest</code> prüft die verpackten Plugin-Metadaten ohne Hytale zu starten.

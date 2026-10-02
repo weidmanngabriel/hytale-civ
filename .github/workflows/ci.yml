@@ -67,6 +67,9 @@ jobs:
       - name: Build plugin and release bundle
         run: ./gradlew build --stacktrace -PprojectVersion=${{ steps.version.outputs.project_version }}
 
+      - name: Run bare Hytale server probe
+        timeout-minutes: 2
+        run: ./gradlew hytaleServerBareProbe --no-configuration-cache --stacktrace -PprojectVersion=${{ steps.version.outputs.project_version }}
 
       - name: Upload release bundle
         uses: actions/upload-artifact@v4

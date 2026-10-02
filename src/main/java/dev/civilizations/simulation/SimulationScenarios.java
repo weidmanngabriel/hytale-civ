@@ -3,6 +3,7 @@ package dev.civilizations.simulation;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.FarmBuilding;
 import dev.civilizations.core.WorldPosition;
+import dev.civilizations.scenario.WoodcutterBasicScenario;
 
 import java.util.List;
 
@@ -19,8 +20,8 @@ public final class SimulationScenarios {
     );
 
     public static final SimulationScenario WOODCUTTER_BASIC = new SimulationScenario(
-        "woodcutter-basic",
-        "Woodcutter Basic",
+        WoodcutterBasicScenario.ID,
+        WoodcutterBasicScenario.DISPLAY_NAME,
         "Ein Holzfäller mit drei Bäumen. Zeigt Suche, Weg, Arbeit und erneute Zielsuche.",
         SimulationScenarios::createWoodcutterBasic
     );
@@ -109,13 +110,10 @@ public final class SimulationScenarios {
 
     private static SimulationRuntime createWoodcutterBasic() {
         SimulationRuntime runtime = new SimulationRuntime();
-        runtime.addWoodcutter(
-            "woodcutter-1",
-            new WorldPosition(0.0, 0.0, 0.0)
-        );
-        runtime.addTree(new BlockPosition(3, 0, 0));
-        runtime.addTree(new BlockPosition(6, 0, 1));
-        runtime.addTree(new BlockPosition(8, 0, -2));
+        runtime.addWoodcutter("woodcutter-1", WoodcutterBasicScenario.WOODCUTTER_START);
+        for (BlockPosition tree : WoodcutterBasicScenario.TREE_ANCHORS) {
+            runtime.addTree(tree);
+        }
         return runtime;
     }
 
@@ -171,6 +169,7 @@ public final class SimulationScenarios {
             new WorldPosition(2.5, 0.0, 0.5),
             farm
         );
+
         return runtime;
     }
 }
