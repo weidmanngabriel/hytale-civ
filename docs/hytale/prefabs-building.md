@@ -10,9 +10,30 @@ Der Civ-Commit-Pfad verwendet dafür nicht mehr `BlockSelection.place`. Auch `Pr
 
 ## Anker und Höhe
 
-Für die aktuell verwendeten Creator-Prefabs liegt der logische Civ-Bauanker einen Block unter dem anvisierten Oberflächenblock. `groundSinkBlocks` wird beim Erzeugen dieses terrain-relativen Ankers angewendet.
+Für einfache Creator-Prefabs liegt der logische Civ-Bauanker weiterhin einen Block unter dem anvisierten Oberflächenblock. `groundSinkBlocks` wird beim Erzeugen dieses terrain-relativen Ankers angewendet.
 
-`PrefabPlacementService` übersetzt diesen Civ-Anker anschließend zentral in den von Hytales Prefab-APIs erwarteten Placement-Origin. Diese Übersetzung muss für Preview, Baustellen-Layer und finales Prefab identisch sein, damit die sichtbare Höhe übereinstimmt.
+Unterirdische oder anderweitig vertikal versetzte Gebäude dürfen ihre Oberflächenhöhe zusätzlich über genau ein TriggerVolume mit `civ.type=construction_ground_level` authoren. `PrefabPlacementService` übernimmt dessen lokale Y-Ebene als effektiven Prefab-Anker. Dadurch hängt der Code weder von einer festen Prefab-Höhe noch von einer festen Schachttiefe ab.
+
+Die native `PersistentPrefabPreview` lädt weiterhin den ursprünglichen Prefab-Key. Civ kompensiert deshalb beim Preview-Transform die Differenz zwischen dem im Prefab gespeicherten Anker und dem semantischen `construction_ground_level`. Baustellen-Layer und finales Prefab verwenden dagegen die semantisch vorbereitete `BlockSelection`.
+
+## Semantische Bau-Reihenfolge
+
+Prefabs ohne `construction_ground_level` behalten die bisherige Reihenfolge: belegte Y-Layer werden von unten nach oben gebaut.
+
+Ist `construction_ground_level` vorhanden, wird zweiphasig gebaut:
+
+1. die Ground-Level-Schicht und alle belegten Schichten darüber, aufsteigend;
+2. anschließend alle belegten Schichten unterhalb des Ground-Levels, absteigend.
+
+Damit kann beispielsweise eine Mine zuerst ihr sichtbares Obergebäude fertigstellen und danach den Schacht nach unten materialisieren. Leere Y-Schichten erzeugen keinen zusätzlichen Bauschritt.
+
+## Reservierungsfläche und `building_bounds`
+
+Wenn ein Prefab mindestens ein TriggerVolume mit `civ.type=building_bounds` enthält, leitet Civ den horizontalen Placement-Footprint aus der Vereinigung dieser Bounds ab. Die Reservierung hängt dadurch nicht von den aktuell enthaltenen Blockkoordinaten ab. Mehrere `building_bounds` sind zulässig.
+
+Für upgradebare Gebäude gilt als Authoring-Regel: Bereits das erste Level muss den maximal vorgesehenen horizontalen Ausbau-Footprint reservieren, damit spätere Upgrades nicht mit zwischenzeitlich daneben gebauten Civ-Gebäuden kollidieren. Die sichtbare Struktur darf innerhalb dieser Reservierung anfangs kleiner sein.
+
+Semantische Trigger sind grundsätzlich gegenüber festen Prefab-Maßen zu bevorzugen. Bestehende externe Anschlussstellen sollten bei Upgrades stabil bleiben, sofern sie weiter benutzt werden. Ein bewusst verschobener aktiver Anschluss, etwa ein tiefer gesetzter Minen-Tunnel-Connector, wird dagegen als neue aktive Arbeitsfront behandelt; alte Tunnel können physisch bestehen bleiben, ohne weiter produktiv genutzt zu werden.
 
 ## Aktuelle Validierungsgrenze
 
@@ -22,4 +43,4 @@ Die Kollisionsregeln müssen für den Baustellen-Lifecycle erneut passend eingef
 
 ## Fertige Gebäude
 
-`BuildingPlacementRegistry` verwaltet weiterhin bereits fertig platzierte Civ-Bauflächen. Eine neue Baustellen-Preview ist noch kein fertiges Gebäude und darf deshalb nicht vorzeitig als fertige `FarmBuilding`-Instanz registriert werden.
+`BuildingPlacementRegistry` verwaltet weiterhin bereits fertig platzierte Civ-Bauflächen. Eine neue Baustellen-Preview ist noch kein fertiges Gebäude und darf deshalb nicht vorzeitig als fertige `FarmBuilding`-Instanz oder andere spezialisierte Gebäudeinstanz registriert werden.
