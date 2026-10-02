@@ -11,6 +11,7 @@
     }
   ],
   "Website": "",
+  "ServerVersion": "^0.6.0",
   "Dependencies": {},
   "OptionalDependencies": {},
   "LoadBefore": {},
