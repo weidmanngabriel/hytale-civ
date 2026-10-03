@@ -37,8 +37,8 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
 
     private static final double ARRIVAL_DISTANCE = 1.25;
     private static final double RETRY_SECONDS = 1.0;
-    // Temporary verified generic action id. Replace with a dedicated hammer animation asset later.
-    private static final String BUILD_ANIMATION = "Alerted";
+    private static final String BUILD_ITEM_ANIMATIONS = "Civ_Construction_Hammer";
+    private static final String BUILD_ANIMATION = "Build";
 
     private static final String TYPE_TAG = "civ.type";
     private static final String BUILDING_TAG = "civ.building";
@@ -108,6 +108,8 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         }
 
         if (unitRegistry.getProfession(ref) != Profession.CONSTRUCTION_WORKER) {
+            WorkerRuntime previous = workers.get(key);
+            stopBuildAnimation(ref, store, previous);
             releaseWorker(key);
             return;
         }
@@ -115,6 +117,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         TransformComponent transform =
             commandBuffer.getComponent(ref, TransformComponent.getComponentType());
         if (transform == null || !activityRegistry.autonomousWorkAllowed(ref)) {
+            stopBuildAnimation(ref, store, workers.get(key));
             return;
         }
 
@@ -123,7 +126,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         WorkerRuntime runtime = workers.computeIfAbsent(key, ignored -> new WorkerRuntime());
 
         if (runtime.site != null && !placementService.constructionSites().contains(runtime.site)) {
-            stopBuildAnimation(ref, store);
+            stopBuildAnimation(ref, store, runtime);
             releaseReservation(key, runtime);
             runtime.job.abandonTarget();
             runtime.site = null;
@@ -231,11 +234,18 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
     ) {
         unitRegistry.clearMoveTarget(ref);
         if (!runtime.animationStarted) {
-            AnimationUtils.playAnimation(ref, AnimationSlot.Action, BUILD_ANIMATION, store);
+            AnimationUtils.playAnimation(
+                ref,
+                AnimationSlot.Action,
+                BUILD_ITEM_ANIMATIONS,
+                BUILD_ANIMATION,
+                store
+            );
             runtime.animationStarted = true;
             System.out.println(
                 "[Civ Construction] BUILDING started for site " + runtime.site.id()
-                    + " using animation set " + BUILD_ANIMATION
+                    + " using animation set " + BUILD_ITEM_ANIMATIONS
+                    + " animation=" + BUILD_ANIMATION
             );
         }
 
@@ -267,7 +277,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         PrefabPlacementService.ConstructionSite site = runtime.site;
         PlayerRef owner = site == null ? null : Universe.get().getPlayer(site.ownerId());
         if (site == null || owner == null) {
-            stopBuildAnimation(ref, store);
+            stopBuildAnimation(ref, store, runtime);
             releaseReservation(key, runtime);
             runtime.job.abandonTarget();
             runtime.site = null;
@@ -317,7 +327,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         if (PrefabPlacementService.WHEAT_FIELD.id().equals(site.definition().id())) {
             var fieldMarkers = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, FIELD))
-                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
+                .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
                 .toList();
             if (!fieldMarkers.isEmpty()) {
                 if (buildingInstance != null) {
@@ -338,7 +348,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                 .orElse(null);
             var entrances = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, WORKPLACE_ACCESS))
-                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
+                .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
                 .toList();
             if (!entrances.isEmpty() && buildingInstance != null) {
                 farmRegistry.registerFarm(
@@ -352,7 +362,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
             }
         }
 
-        stopBuildAnimation(ref, store);
+        stopBuildAnimation(ref, store, runtime);
         releaseReservation(key, runtime);
         runtime.site = null;
         runtime.job.constructionCompleted();
@@ -447,11 +457,14 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
 
     private static void stopBuildAnimation(
         Ref<EntityStore> ref,
-        Store<EntityStore> store
+        Store<EntityStore> store,
+        WorkerRuntime runtime
     ) {
+        if (runtime == null || !runtime.animationStarted) return;
         if (ref != null && ref.isValid()) {
             AnimationUtils.stopAnimation(ref, AnimationSlot.Action, store);
         }
+        runtime.animationStarted = false;
     }
 
     private static Vector3d toVector(WorldPosition position) {
