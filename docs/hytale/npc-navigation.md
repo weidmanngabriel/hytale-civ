@@ -21,6 +21,7 @@ Berufsadapter dürfen eine native Bewegung nicht dadurch ersetzen, dass sie selb
 Der Minenabbauer verwendet deshalb zusätzlich einen kleinen Navigationswächter:
 
 - Ankunft wird dreidimensional geprüft; gleiche X/Z-Koordinaten auf einer anderen Höhe zählen nicht als erreicht.
+- Die Navigation zielt auf die Arbeitsposition der aktuellen Tunnel-Front. Ist diese Position erreicht, darf der Arbeiter die dazugehörige Arbeitsfront bearbeiten; einzelne Blöcke derselben Front erhalten keine zusätzliche künstliche Civ-Reichweitengrenze.
 - Solange sich der NPC sichtbar auf sein Ziel zubewegt, bleibt Hytales Navigation unangetastet.
 - Bleibt der NPC mehrere Sekunden ohne Positionsfortschritt, löscht und setzt Civ dasselbe native Bewegungsziel einmal neu. Dadurch muss Hytale den Weg neu berechnen.
 - Bleibt der NPC danach erneut stehen, wird das Bewegungsziel vorübergehend entfernt und eine Chatmeldung ausgegeben, dass kein Weg zur Arbeitsstelle gefunden wurde.

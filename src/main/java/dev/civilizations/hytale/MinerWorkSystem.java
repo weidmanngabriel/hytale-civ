@@ -59,8 +59,6 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
     private static final String SUPPORT_BEAM_BLOCK = "Wood_Fir_Trunk";
     private static final double ARRIVAL_DISTANCE = 1.1;
     private static final double RETRY_SECONDS = 1.0;
-    private static final double MAX_MINING_REACH = 3.25;
-    private static final double WORKER_EYE_HEIGHT = 1.5;
     private static final double PATH_PROGRESS_DISTANCE = 0.15;
     private static final double PATH_RECOMPUTE_AFTER_SECONDS = 3.0;
     private static final double PATH_RETRY_AFTER_FAILURE_SECONDS = 4.0;
@@ -214,7 +212,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         runtime.workElapsed += dt;
         while (runtime.workElapsed >= MineTuning.secondsPerBlock()) {
             runtime.workElapsed -= MineTuning.secondsPerBlock();
-            segment = advanceOneBlock(world, ref, store, mine, segment, position);
+            segment = advanceOneBlock(world, ref, store, mine, segment);
             if (segment == null) {
                 stopMiningAnimation(ref, store, runtime);
                 runtime.segmentId = null;
@@ -374,8 +372,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         Ref<EntityStore> worker,
         Store<EntityStore> entityStore,
         BuildingPlacementRegistry.BuildingInstance mine,
-        MineSegment segment,
-        Vector3d workerPosition
+        MineSegment segment
     ) {
         int index = segment.nextBlockIndex();
         if (index >= MineTuning.blocksPerSegment()) return finishSegment(segment);
@@ -385,10 +382,6 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             MineSegment blocked = segment.withStatus(MineSegment.Status.BLOCKED);
             tunnelRegistry.put(world, blocked);
             return null;
-        }
-
-        if (!withinMiningReach(workerPosition, target)) {
-            return segment;
         }
 
         BlockType type = loadedBlockType(world, target);
@@ -628,13 +621,6 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         }
         runtime.pathRetryRemaining = PATH_RETRY_AFTER_FAILURE_SECONDS;
         runtime.pathStallElapsed = 0.0;
-    }
-
-    private static boolean withinMiningReach(Vector3d workerPosition, BlockPosition target) {
-        double dx = target.x() + 0.5 - workerPosition.x;
-        double dy = target.y() + 0.5 - (workerPosition.y + WORKER_EYE_HEIGHT);
-        double dz = target.z() + 0.5 - workerPosition.z;
-        return dx * dx + dy * dy + dz * dz <= MAX_MINING_REACH * MAX_MINING_REACH;
     }
 
     private static PrefabPlacementService.PlacedMarker marker(

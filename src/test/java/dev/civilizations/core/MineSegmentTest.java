@@ -26,6 +26,35 @@ final class MineSegmentTest {
     }
 
     @Test
+    void excavationOrderCompletesWholeFourByFourFaceBeforeNextDepth() {
+        int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
+        assertEquals(16, faceSize);
+
+        for (MineDirection direction : MineDirection.values()) {
+            MineSegment segment = segment(direction);
+
+            for (int index = 0; index < faceSize; index++) {
+                BlockPosition block = segment.blockAtIndex(index);
+                assertEquals(0, forwardDepth(segment, block), direction + " first face index " + index);
+            }
+
+            for (int index = faceSize - MineTuning.TUNNEL_WIDTH_BLOCKS; index < faceSize; index++) {
+                assertEquals(
+                    segment.start().y() + MineTuning.TUNNEL_HEIGHT_BLOCKS - 1,
+                    segment.blockAtIndex(index).y(),
+                    direction + " top row index " + index
+                );
+            }
+
+            assertEquals(
+                1,
+                forwardDepth(segment, segment.blockAtIndex(faceSize)),
+                direction + " must only enter depth 1 after all 16 face blocks"
+            );
+        }
+    }
+
+    @Test
     void straightContinuationStaysExactlyInTheSameTunnelLane() {
         for (MineDirection direction : MineDirection.values()) {
             MineSegment parent = segment(direction);
@@ -133,6 +162,11 @@ final class MineSegmentTest {
         MineSegment segment = segment(MineDirection.SOUTH);
         assertEquals(new BlockPosition(10, 20, 33), segment.supportOrigin(4));
         assertEquals(new BlockPosition(10, 20, 37), segment.supportOrigin(8));
+    }
+
+    private static int forwardDepth(MineSegment segment, BlockPosition block) {
+        return (block.x() - segment.start().x()) * segment.direction().dx()
+            + (block.z() - segment.start().z()) * segment.direction().dz();
     }
 
     private static void assertContinuationStarts(
