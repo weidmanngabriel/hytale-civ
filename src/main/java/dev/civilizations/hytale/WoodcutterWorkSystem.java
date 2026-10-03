@@ -123,7 +123,6 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         }
 
         if (unitRegistry.getProfession(ref) != Profession.WOODCUTTER) {
-            stopChopAnimation(ref, store);
             releaseWorker(key);
             return;
         }
