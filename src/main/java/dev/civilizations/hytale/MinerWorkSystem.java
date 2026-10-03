@@ -558,7 +558,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         }
         BlockSelection selection = new BlockSelection(raw);
         if (segment.direction() == MineDirection.NORTH || segment.direction() == MineDirection.SOUTH) {
-            selection = selection.rotate(Axis.Y, 1);
+            selection = selection.rotate(Axis.Y, 90);
         }
 
         List<BlockPosition> face = new ArrayList<>();
