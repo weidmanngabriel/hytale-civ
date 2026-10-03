@@ -171,6 +171,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             stopMiningAnimation(ref, store, runtime);
             return;
         }
+        segment = placeDueSupports(world, segment);
         tunnelRegistry.put(world, segment);
         runtime.segmentId = segment.id();
 
@@ -411,14 +412,43 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
         int completedDepth = segment.nextBlockIndex() / faceSize;
         int due = completedDepth / MineTuning.SUPPORT_SPACING_BLOCKS;
-        MineSegment updated = segment;
         int supportsPerSegment = MineTuning.SEGMENT_LENGTH_BLOCKS / MineTuning.SUPPORT_SPACING_BLOCKS;
-        while (updated.supportsPlaced() < due && updated.supportsPlaced() < supportsPerSegment) {
-            int supportDepth = (updated.supportsPlaced() + 1) * MineTuning.SUPPORT_SPACING_BLOCKS;
-            placeSupport(world, updated, supportDepth);
-            updated = updated.withSupportsPlaced(updated.supportsPlaced() + 1);
+        int highestConfirmed = 0;
+
+        for (int supportNumber = 1; supportNumber <= supportsPerSegment; supportNumber++) {
+            int supportDepth = supportNumber * MineTuning.SUPPORT_SPACING_BLOCKS;
+            if (supportNumber <= due && !supportPresent(world, segment, supportDepth)) {
+                placeSupport(world, segment, supportDepth);
+            }
+            if (supportPresent(world, segment, supportDepth)) {
+                highestConfirmed = supportNumber;
+            }
         }
-        return updated;
+
+        return segment.withSupportsPlaced(highestConfirmed);
+    }
+
+    private boolean supportPresent(World world, MineSegment segment, int depth) {
+        int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
+        int faceStart = (depth - 1) * faceSize;
+
+        for (int y = 0; y < MineTuning.TUNNEL_HEIGHT_BLOCKS; y++) {
+            for (int width = 0; width < MineTuning.TUNNEL_WIDTH_BLOCKS; width++) {
+                boolean topBeam = y == MineTuning.TUNNEL_HEIGHT_BLOCKS - 1;
+                boolean sidePost = y < MineTuning.TUNNEL_HEIGHT_BLOCKS - 1
+                    && (width == 0 || width == MineTuning.TUNNEL_WIDTH_BLOCKS - 1);
+                if (!topBeam && !sidePost) continue;
+
+                BlockPosition block = segment.blockAtIndex(
+                    faceStart + y * MineTuning.TUNNEL_WIDTH_BLOCKS + width
+                );
+                BlockType type = loadedBlockType(world, block);
+                if (type == null || type.getId() == null) return false;
+                String expected = topBeam ? SUPPORT_BEAM_BLOCK : SUPPORT_POST_BLOCK;
+                if (!expected.equals(type.getId())) return false;
+            }
+        }
+        return true;
     }
 
     private static MineSegment finishSegment(MineSegment segment) {
@@ -520,11 +550,11 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             || (blockType != null && blockType.getMaterial() == BlockMaterial.Empty);
     }
 
-    private void placeSupport(World world, MineSegment segment, int depth) {
+    private boolean placeSupport(World world, MineSegment segment, int depth) {
         BlockSelection raw = PrefabStore.get().getAssetPrefabFromAnyPack(SUPPORT_PREFAB_KEY);
         if (raw == null) {
             System.err.println("[Civ Mine] Missing support prefab " + SUPPORT_PREFAB_KEY);
-            return;
+            return false;
         }
         BlockSelection selection = new BlockSelection(raw);
         if (segment.direction() == MineDirection.NORTH || segment.direction() == MineDirection.SOUTH) {
@@ -545,6 +575,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             desiredMinZ - localMin.z + selection.getAnchorZ()
         );
         selection.placeNoReturn(world, origin, world.getEntityStore().getStore());
+        return true;
     }
 
     private static Vector3d workTarget(MineSegment segment) {
