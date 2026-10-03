@@ -606,52 +606,11 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         WorkerRuntime runtime,
         float dt
     ) {
-        if (runtime.pathRetryRemaining > 0.0) {
-            runtime.pathRetryRemaining = Math.max(0.0, runtime.pathRetryRemaining - dt);
-            if (runtime.pathRetryRemaining > 0.0) return;
-            runtime.navigationTarget = null;
-            runtime.pathRecomputeAttempts = 0;
-            runtime.pathStallElapsed = 0.0;
-        }
-
         if (runtime.navigationTarget == null
             || runtime.navigationTarget.distanceSquared(target) > 0.0001) {
             runtime.beginNavigation(position, target);
             unitRegistry.setMoveTarget(ref, target);
-            return;
         }
-
-        if (runtime.lastNavigationPosition == null
-            || runtime.lastNavigationPosition.distanceSquared(position)
-                >= PATH_PROGRESS_DISTANCE * PATH_PROGRESS_DISTANCE) {
-            runtime.lastNavigationPosition = new Vector3d(position);
-            runtime.pathStallElapsed = 0.0;
-            runtime.pathRecomputeAttempts = 0;
-            runtime.pathFailureNotified = false;
-            return;
-        }
-
-        runtime.pathStallElapsed += dt;
-        if (runtime.pathStallElapsed < PATH_RECOMPUTE_AFTER_SECONDS) return;
-
-        if (runtime.pathRecomputeAttempts == 0) {
-            unitRegistry.clearMoveTarget(ref);
-            unitRegistry.setMoveTarget(ref, target);
-            runtime.pathRecomputeAttempts = 1;
-            runtime.pathStallElapsed = 0.0;
-            runtime.lastNavigationPosition = new Vector3d(position);
-            return;
-        }
-
-        unitRegistry.clearMoveTarget(ref);
-        if (!runtime.pathFailureNotified) {
-            world.sendMessage(Message.raw(
-                "[Civilizations] Ein Minenabbauer findet keinen Weg zu seiner Arbeitsstelle."
-            ));
-            runtime.pathFailureNotified = true;
-        }
-        runtime.pathRetryRemaining = PATH_RETRY_AFTER_FAILURE_SECONDS;
-        runtime.pathStallElapsed = 0.0;
     }
 
     private static PrefabPlacementService.PlacedMarker marker(
