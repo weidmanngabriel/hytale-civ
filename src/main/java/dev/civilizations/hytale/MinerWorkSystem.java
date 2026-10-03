@@ -108,12 +108,13 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             return;
         }
         if (unitRegistry.getProfession(ref) != Profession.MINER) {
-            stopMiningAnimation(ref, store);
             workers.remove(key);
             return;
         }
+
+        WorkerRuntime runtime = workers.computeIfAbsent(key, ignored -> new WorkerRuntime());
         if (!activityRegistry.autonomousWorkAllowed(ref)) {
-            stopMiningAnimation(ref, store);
+            stopMiningAnimation(ref, store, runtime);
             return;
         }
 
@@ -124,12 +125,12 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         BuildingPlacementRegistry.BuildingInstance mine = assignedMine(ref, worldId);
         if (mine == null) {
             unitRegistry.clearMoveTarget(ref);
-            stopMiningAnimation(ref, store);
+            stopMiningAnimation(ref, store, runtime);
             return;
         }
 
-        WorkerRuntime runtime = workers.computeIfAbsent(key, ignored -> new WorkerRuntime());
         if (!mine.id().equals(runtime.mineId)) {
+            stopMiningAnimation(ref, store, runtime);
             runtime.reset(mine.id());
         }
 
@@ -137,7 +138,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         PrefabPlacementService.PlacedMarker connector = marker(world, mine, TUNNEL_CONNECTOR);
         if (connector == null || connector.bounds() == null) {
             unitRegistry.clearMoveTarget(ref);
-            stopMiningAnimation(ref, store);
+            stopMiningAnimation(ref, store, runtime);
             return;
         }
 
@@ -146,8 +147,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             Vector3d target = center(entrance.bounds(), entrance.bounds().minY());
             if (!arrived(position, target)) {
                 navigateTo(ref, world, position, target, runtime, dt);
-                stopMiningAnimation(ref, store);
-                runtime.animationStarted = false;
+                stopMiningAnimation(ref, store, runtime);
                 return;
             }
             runtime.enteredMine = true;
@@ -157,7 +157,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         MineSegment segment = resolveSegment(world, mine, connector, runtime);
         if (segment == null) {
             unitRegistry.clearMoveTarget(ref);
-            stopMiningAnimation(ref, store);
+            stopMiningAnimation(ref, store, runtime);
             runtime.retryElapsed += dt;
             if (runtime.retryElapsed >= RETRY_SECONDS) {
                 runtime.retryElapsed = 0.0;
@@ -170,15 +170,14 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         segment = reconcileSegmentWithWorld(world, segment);
         if (segment == null) {
             unitRegistry.clearMoveTarget(ref);
-            stopMiningAnimation(ref, store);
+            stopMiningAnimation(ref, store, runtime);
             return;
         }
         tunnelRegistry.put(world, segment);
         runtime.segmentId = segment.id();
 
         if (segment.status() == MineSegment.Status.COMPLETE) {
-            stopMiningAnimation(ref, store);
-            runtime.animationStarted = false;
+            stopMiningAnimation(ref, store, runtime);
             runtime.workElapsed = 0.0;
             MineSegment next = existingChild(worldId, segment.id());
             if (next == null) next = chooseNext(world, mine, segment);
@@ -195,8 +194,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         Vector3d workTarget = workTarget(segment);
         if (!arrived(position, workTarget)) {
             navigateTo(ref, world, position, workTarget, runtime, dt);
-            stopMiningAnimation(ref, store);
-            runtime.animationStarted = false;
+            stopMiningAnimation(ref, store, runtime);
             return;
         }
         runtime.navigationArrived();
@@ -218,15 +216,13 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             runtime.workElapsed -= MineTuning.secondsPerBlock();
             segment = advanceOneBlock(world, ref, store, mine, segment, position);
             if (segment == null) {
-                stopMiningAnimation(ref, store);
-                runtime.animationStarted = false;
+                stopMiningAnimation(ref, store, runtime);
                 runtime.segmentId = null;
                 return;
             }
             runtime.segmentId = segment.id();
             if (segment.status() == MineSegment.Status.COMPLETE) {
-                stopMiningAnimation(ref, store);
-                runtime.animationStarted = false;
+                stopMiningAnimation(ref, store, runtime);
                 runtime.workElapsed = 0.0;
                 MineSegment next = existingChild(worldId, segment.id());
                 if (next == null) next = chooseNext(world, mine, segment);
@@ -708,8 +704,16 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         return position.distanceSquared(target) <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
     }
 
-    private static void stopMiningAnimation(Ref<EntityStore> ref, Store<EntityStore> store) {
-        if (ref != null && ref.isValid()) AnimationUtils.stopAnimation(ref, AnimationSlot.Action, store);
+    private static void stopMiningAnimation(
+        Ref<EntityStore> ref,
+        Store<EntityStore> store,
+        WorkerRuntime runtime
+    ) {
+        if (runtime == null || !runtime.animationStarted) return;
+        if (ref != null && ref.isValid()) {
+            AnimationUtils.stopAnimation(ref, AnimationSlot.Action, store);
+        }
+        runtime.animationStarted = false;
     }
 
     private record WeightedDirection(MineDirection direction, int weight) {
