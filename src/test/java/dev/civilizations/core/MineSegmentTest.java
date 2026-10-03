@@ -26,9 +26,16 @@ final class MineSegmentTest {
     }
 
     @Test
-    void straightContinuationDoesNotOverlapParent() {
+    void straightContinuationStaysExactlyInTheSameTunnelLane() {
         for (MineDirection direction : MineDirection.values()) {
             MineSegment parent = segment(direction);
+            BlockPosition expectedStart = new BlockPosition(
+                parent.start().x() + direction.dx() * MineTuning.SEGMENT_LENGTH_BLOCKS,
+                parent.start().y(),
+                parent.start().z() + direction.dz() * MineTuning.SEGMENT_LENGTH_BLOCKS
+            );
+            assertEquals(expectedStart, parent.nextStart(direction), direction.name());
+
             MineSegment child = MineSegment.reserved(
                 UUID.randomUUID(),
                 parent.mineId(),
@@ -43,7 +50,7 @@ final class MineSegmentTest {
     }
 
     @Test
-    void turningContinuationsReuseCompleteFourByFourByFourJunction() {
+    void turningContinuationsReuseOnlyTheParentsFinalFourByFourJunction() {
         int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
         int junctionBlocks = MineTuning.TUNNEL_WIDTH_BLOCKS * faceSize;
 
@@ -77,6 +84,34 @@ final class MineSegmentTest {
     }
 
     @Test
+    void continuationStartsAreSymmetricForAllCardinalDirections() {
+        assertContinuationStarts(
+            MineDirection.NORTH,
+            new BlockPosition(10, 20, 22),
+            new BlockPosition(13, 20, 26),
+            new BlockPosition(10, 20, 23)
+        );
+        assertContinuationStarts(
+            MineDirection.EAST,
+            new BlockPosition(18, 20, 30),
+            new BlockPosition(14, 20, 33),
+            new BlockPosition(17, 20, 30)
+        );
+        assertContinuationStarts(
+            MineDirection.SOUTH,
+            new BlockPosition(10, 20, 38),
+            new BlockPosition(7, 20, 34),
+            new BlockPosition(10, 20, 37)
+        );
+        assertContinuationStarts(
+            MineDirection.WEST,
+            new BlockPosition(2, 20, 30),
+            new BlockPosition(6, 20, 27),
+            new BlockPosition(3, 20, 30)
+        );
+    }
+
+    @Test
     void leftAndRightContinuationsDoNotReverse() {
         for (MineDirection direction : MineDirection.values()) {
             MineSegment parent = segment(direction);
@@ -98,6 +133,18 @@ final class MineSegmentTest {
         MineSegment segment = segment(MineDirection.SOUTH);
         assertEquals(new BlockPosition(10, 20, 33), segment.supportOrigin(4));
         assertEquals(new BlockPosition(10, 20, 37), segment.supportOrigin(8));
+    }
+
+    private static void assertContinuationStarts(
+        MineDirection direction,
+        BlockPosition straight,
+        BlockPosition left,
+        BlockPosition right
+    ) {
+        MineSegment parent = segment(direction);
+        assertEquals(straight, parent.nextStart(direction), direction + " straight");
+        assertEquals(left, parent.nextStart(direction.left()), direction + " left");
+        assertEquals(right, parent.nextStart(direction.right()), direction + " right");
     }
 
     private static MineSegment segment(MineDirection direction) {
