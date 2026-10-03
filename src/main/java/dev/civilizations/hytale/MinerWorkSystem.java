@@ -54,7 +54,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
     private static final String MINE_BUILDING = "mine";
     private static final String MINING_ITEM_ANIMATIONS = "Civ_Miner_Pickaxe";
     private static final String MINING_ANIMATION = "SwingDown";
-    private static final String SUPPORT_PREFAB_KEY = "Civilizations/Mine/Mine_Support_01";
+    private static final String SUPPORT_PREFAB_KEY = "Civilizations/Mine/Mine_Support_01.prefab.json";
     private static final String SUPPORT_POST_BLOCK = "Wood_Fir_Branch_Long";
     private static final String SUPPORT_BEAM_BLOCK = "Wood_Fir_Trunk";
     private static final double ARRIVAL_DISTANCE = 1.1;
