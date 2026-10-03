@@ -23,14 +23,17 @@ Die Animation wird einmal beim Eintritt in die Arbeitsphase gestartet und läuft
 
 ## Ownership-Regel
 
-Ein Worker-System darf `AnimationSlot.Action` nur stoppen, wenn sein eigener Runtime-State zuvor die zugehörige Arbeitsanimation gestartet hat. Insbesondere darf ein Miner-System nicht pauschal die Action-Animation von Nicht-Minern stoppen.
+Ein Worker-System darf `AnimationSlot.Action` niemals bei einer Entity stoppen, die nicht zu seiner eigenen Profession gehört. Sonst kann ein System die Arbeitsanimation eines anderen Berufs direkt nach deren Start wieder löschen.
+
+Für den eigenen Worker gilt zusätzlich: Arbeitsanimationen werden nur beim Eintritt in die Arbeitsphase gestartet und beim Verlassen oder Abbruch dieser Phase beendet. Es gibt kein per-Tick-Retriggering.
 
 Das aktuelle Pattern ist daher:
 
-1. Arbeitsposition erreichen.
-2. Falls `runtime.animationStarted == false`, Item-Animation einmal starten und den Flag setzen.
-3. Während der Arbeitsphase keinen erneuten Start senden.
-4. Beim Verlassen/Abbruch nur bei gesetztem Flag `stopAnimation(Action)` senden und den Flag zurücksetzen.
+1. Nicht-eigene Profession: Runtime aufräumen, aber keinen Animationsbefehl senden.
+2. Arbeitsposition erreichen.
+3. Falls die eigene Arbeitsanimation noch nicht läuft, Item-Animation einmal starten.
+4. Während der Arbeitsphase keinen erneuten Start senden.
+5. Beim Verlassen/Abbruch die eigene Arbeitsanimation stoppen und den Runtime-State zurücksetzen.
 
 ## Aktuelle Werkzeugzuordnung
 
@@ -38,6 +41,8 @@ Die Entwicklungs-Bootstrap-Items sind derzeit:
 
 - Holzfäller: `Weapon_Axe_Iron`
 - Minenabbauer: `Tool_Pickaxe_Iron`
-- Bauarbeiter: `Tool_Hammer_Crude`
+- Bauarbeiter: `Tool_Hammer_Iron`
+
+`Tool_Hammer_Iron` erbt nativ von `Tool_Hammer_Crude`; Civ rüstet bewusst den sichtbaren Eisenhammer aus.
 
 Diese Bootstrap-Zuordnung ist kein dauerhaftes Ressourcen-/Logistiksystem. Sie sorgt nur dafür, dass die Berufe bis zur späteren Werkzeugbeschaffung sichtbar mit dem passenden nativen Item arbeiten können.
