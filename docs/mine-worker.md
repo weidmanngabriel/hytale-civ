@@ -25,9 +25,9 @@ Dieser Slice beschreibt den ersten autonomen Abbauer einer fertigen Mine.
 
 ## Stützbalken
 
-Das Asset `Civilizations/Mine/Mine_Support_01` ist ein 4 Blöcke hoher Holzrahmen und sitzt innerhalb des 4×4-Stollens. Civ setzt ihn über Hytales native Prefab-API statt die Balken selbst blockweise zu erzeugen.
+Das Asset `Civilizations/Mine/Mine_Support_01.prefab.json` ist ein 4 Blöcke hoher Holzrahmen und sitzt innerhalb des 4×4-Stollens. Civ setzt ihn über Hytales native Prefab-API statt die Balken selbst blockweise zu erzeugen.
 
-Stützen stehen zunächst alle 4 Tunnelblöcke. Ein 8-Blöcke-Segment erhält daher einen Rahmen nach Block 4 und einen am Segmentende nach Block 8. Beim erneuten Prüfen eines bereits gegrabenen Abschnitts werden die bekannten Holzstützen nicht fälschlich als neu zu entfernende Blockierung behandelt.
+Stützen stehen zunächst alle 4 Tunnelblöcke. Ein 8-Blöcke-Segment erhält daher einen Rahmen nach Block 4 und einen am Segmentende nach Block 8. Beim erneuten Prüfen eines bereits gegrabenen Abschnitts werden die bekannten Holzstützen nicht fälschlich als neu zu entfernende Blockierung behandelt. Civ prüft außerdem die tatsächlich vorhandenen Rahmen gegen den erreichten Tunnelstand: fehlt eine bereits fällige Stütze, wird sie nachgesetzt und der persistierte `supportsPlaced`-Stand wieder mit der realen Welt synchronisiert. Dadurch repariert die Mine auch Segmente, bei denen ein früherer Prefab-Lookup fehlgeschlagen ist, obwohl der Support-Zähler bereits erhöht worden war.
 
 ## Native Hytale-Grenze
 
