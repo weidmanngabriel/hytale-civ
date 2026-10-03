@@ -22,7 +22,7 @@ public final class ProfessionBootstrapInventory {
     static final int FARMER_SEED_COUNT = 4;
     static final String WOODCUTTER_AXE_ITEM_ID = "Weapon_Axe_Iron";
     static final String MINER_PICKAXE_ITEM_ID = "Tool_Pickaxe_Iron";
-    static final String CONSTRUCTION_HAMMER_ITEM_ID = "Tool_Hammer_Crude";
+    static final String CONSTRUCTION_HAMMER_ITEM_ID = "Tool_Hammer_Iron";
 
     public void enterProfession(Ref<EntityStore> ref, Profession profession) {
         if (profession == null) return;
