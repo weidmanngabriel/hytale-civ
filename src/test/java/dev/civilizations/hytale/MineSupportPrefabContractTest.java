@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class MineSupportPrefabContractTest {
@@ -25,5 +26,15 @@ final class MineSupportPrefabContractTest {
             prefabsRoot.relativize(supportPrefab)
         );
         assertTrue(Files.isRegularFile(supportPrefab), supportPrefab.toString());
+    }
+
+    @Test
+    void supportRotationUsesDiscreteHytaleDegrees() throws Exception {
+        String source = Files.readString(
+            Path.of("src", "main", "java", "dev", "civilizations", "hytale", "MinerWorkSystem.java")
+        );
+
+        assertTrue(source.contains("selection.rotate(Axis.Y, 90)"));
+        assertFalse(source.contains("selection.rotate(Axis.Y, 1)"));
     }
 }
