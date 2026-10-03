@@ -7,7 +7,7 @@
       "FirstPerson": "Characters/Animations/Items/Main_Handed/Pickaxe/Attacks/Mine/Mine_FPS.blockyanim",
       "ThirdPersonFace": "Characters/Animations/Expressions/Frown.blockyanim",
       "KeepPreviousFirstPersonAnimation": true,
-      "Speed": 1.0,
+      "Speed": 0.5,
       "BlendingDuration": 0.05,
       "Looping": true
     }
