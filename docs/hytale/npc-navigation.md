@@ -18,16 +18,15 @@ Die Rolle `Civ_Inhabitant` besitzt genau einen Positionsslot namens `CivMoveTarg
 
 Berufsadapter dürfen eine native Bewegung nicht dadurch ersetzen, dass sie selbst einen zweiten Pathfinder implementieren. Sie dürfen aber sicherstellen, dass Arbeit nur an einer tatsächlich erreichten Position ausgeführt wird.
 
-Der Minenabbauer verwendet deshalb zusätzlich einen kleinen Navigationswächter:
+Der Minenabbauer verwendet deshalb folgende Navigationsregeln:
 
 - Ankunft wird dreidimensional geprüft; gleiche X/Z-Koordinaten auf einer anderen Höhe zählen nicht als erreicht.
 - Die Navigation zielt auf die Arbeitsposition der aktuellen Tunnel-Front. Ist diese Position erreicht, darf der Arbeiter die dazugehörige Arbeitsfront bearbeiten; einzelne Blöcke derselben Front erhalten keine zusätzliche künstliche Civ-Reichweitengrenze.
-- Solange sich der NPC sichtbar auf sein Ziel zubewegt, bleibt Hytales Navigation unangetastet.
-- Bleibt der NPC mehrere Sekunden ohne Positionsfortschritt, löscht und setzt Civ dasselbe native Bewegungsziel einmal neu. Dadurch muss Hytale den Weg neu berechnen.
-- Bleibt der NPC danach erneut stehen, wird das Bewegungsziel vorübergehend entfernt und eine Chatmeldung ausgegeben, dass kein Weg zur Arbeitsstelle gefunden wurde.
-- Nach einer kurzen Pause darf Hytale denselben Zielweg erneut versuchen, damit eine inzwischen veränderte Welt ohne manuelles Neu-Zuweisen wieder funktionieren kann.
+- Sobald Civ ein neues Ziel bestimmt, wird dieses einmal in `CivMoveTarget` geschrieben.
+- Solange dieses Ziel unverändert bleibt, löscht, retriggert oder ersetzt Civ das native Bewegungsziel nicht. `ReadPosition` und `Seek` behalten damit die vollständige Verantwortung für Pfadsuche und Bewegung.
+- Erst bei tatsächlicher Ankunft, einem neuen Gameplay-Ziel oder einem expliziten Zustandswechsel darf der Adapter das Ziel ändern oder löschen.
 
-Diese Überwachung ist ausdrücklich **keine eigene Wegfindung**. Sie entscheidet nur, ob das von Hytale ausgeführte Bewegungsziel praktisch Fortschritt macht.
+Damit besitzt Civ keinen eigenen Stillstands-Timer, keinen eigenen Repath-Versuch und keinen zeitbasierten Abbruch einer laufenden Hytale-Navigation. Falls ein natives Ziel trotz geometrisch offenem Weg nicht erreicht wird, muss die Hytale-Navigation beziehungsweise der Ziel-/Nav-Weltzustand diagnostiziert werden, statt die Route durch Civ regelmäßig zurückzusetzen.
 
 ## Manuelle Befehle und Arbeit
 
