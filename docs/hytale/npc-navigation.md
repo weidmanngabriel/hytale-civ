@@ -24,6 +24,8 @@ Der Minenabbauer verwendet deshalb folgende Navigationsregeln:
 
 - Ankunft wird dreidimensional geprüft; gleiche X/Z-Koordinaten auf einer anderen Höhe zählen nicht als erreicht.
 - Die Navigation zielt auf die Arbeitsposition der aktuellen Tunnel-Front. Ist diese Position erreicht, darf der Arbeiter die dazugehörige Arbeitsfront bearbeiten; einzelne Blöcke derselben Front erhalten keine zusätzliche künstliche Civ-Reichweitengrenze.
+- Beim autonomen Betreten oder Wiedereintreten einer Mine wird die Navigation gestaffelt: zuerst `workplace_access`, danach `mine_tunnel_connector`, erst danach eine Tunnel-Arbeitsposition. Dadurch bekommt der native Pathfinder nicht direkt von oberhalb des Gebäudes ein tiefes unterirdisches Ziel.
+- Bei einer Links-/Rechtskurve dient der Mittelpunkt der bereits offenen gemeinsamen 4×4-Kreuzungsfläche einmalig als Zwischenziel, bevor Civ die neue seitliche Arbeitsfront setzt. Die eigentliche Wegfindung zwischen diesen semantischen Zielen bleibt vollständig bei Hytales `Seek`.
 - Sobald Civ ein neues Ziel bestimmt, wird dieses einmal in `CivMinerMoveTarget` geschrieben.
 - Solange dieses Ziel unverändert bleibt, löscht, retriggert oder ersetzt Civ das native Bewegungsziel nicht. `ReadPosition` und `Seek` behalten damit die vollständige Verantwortung für Pfadsuche und Bewegung.
 - Der Miner verwendet `UseBestPath: false`, damit ein unvollständiger Ersatzpfad nicht als akzeptable Annäherung an ein unterirdisches Arbeitsziel dient.

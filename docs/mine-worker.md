@@ -8,7 +8,7 @@ Dieser Slice beschreibt den ersten autonomen Abbauer einer fertigen Mine.
 - Phase 1 besitzt eine Arbeiterkapazität von 1, Phase 2 von 2 und Phase 3 von 3. Die Kapazität ist aktuell Metadatum und noch keine harte Zuweisungsgrenze.
 - Ein Bewohner erhält über das Personenmenü den Beruf **Minenabbauer** und wird anschließend per Rechtsklick einer fertigen Mine zugewiesen.
 - Als Development-Bootstrap erhält der Minenabbauer eine native Hytale-Eisenspitzhacke (`Tool_Pickaxe_Iron`). Eine spätere Werkzeugbeschaffung ist nicht Teil dieses Slices.
-- Der Bewohner läuft zuerst über `workplace_access` und arbeitet anschließend am `mine_tunnel_connector` beziehungsweise an einer offenen Arbeitsfront im bestehenden Stollensystem.
+- Der Bewohner läuft beim Betreten beziehungsweise Wiedereintreten zuerst über `workplace_access` und danach zwingend zum `mine_tunnel_connector`. Erst wenn der Connector erreicht ist, darf Civ eine offene Arbeitsfront auswählen und als nächstes Navigationsziel setzen.
 - Tunnelabschnitte bleiben 4 Blöcke breit und 4 Blöcke hoch, besitzen aber keine feste Länge mehr. Neue Segmente werden mit 4 bis 12 Blöcken Länge geplant. Gerade Segmente dürfen die vollen 4–12 Blöcke nutzen; bei 90°-Kurven sind mindestens 5 Blöcke nötig, weil die ersten 4 Blöcke den gemeinsamen 4×4×4-Kurvenbereich bilden.
 - Die Abbaugeschwindigkeit bleibt pro Block gleich wie im bisherigen Referenzsegment: 128 Blöcke eines 4×4×8-Segments entsprechen weiterhin 60 Sekunden. Kurze Segmente dauern daher entsprechend kürzer, lange entsprechend länger.
 - Bei der Planung wird zunächst eine gewünschte Länge im erlaubten Bereich gewählt. Passt das vollständige Segment nicht, wird dieselbe Richtung mit kürzeren Längen erneut geprüft. Erst wenn auch die kleinste sinnvolle Länge nicht passt, fällt die Richtung aus der Auswahl.
@@ -21,6 +21,7 @@ Dieser Slice beschreibt den ersten autonomen Abbauer einer fertigen Mine.
 - Eine Arbeitsposition gilt nur dann als erreicht, wenn auch die Höhe stimmt. Ein NPC direkt über dem Stollen darf deshalb nicht von der Oberfläche nach unten abbauen.
 - Hytales native Navigation bleibt zuständig für den eigentlichen Weg. Civ setzt ein Bewegungsziel; `ReadPosition`/`Seek` übernimmt den Pfad.
 - Nach einem fertigen Abschnitt entscheidet der Abbauer selbst zwischen geradeaus, links und rechts. Ungültige Richtungen fallen aus der Auswahl. Geradeaus wird zunächst mit 60 %, links und rechts jeweils mit 20 % gewichtet. Ein direktes Umdrehen ist ausgeschlossen.
+- Bei einer 90°-Kurve läuft der Miner vor dem eigentlichen Abbau einmal zum Mittelpunkt der bereits offenen gemeinsamen 4×4-Kreuzungsfläche. Erst danach wird die neue seitliche Arbeitsfront als Ziel gesetzt. So muss Hytales Pathfinder nie direkt eine noch geschlossene Seitenwand als erreichbares Bewegungsziel behandeln.
 - Ist keine der drei Richtungen mit mindestens der erforderlichen Mindestlänge gültig, endet dieser Tunnelast vorerst.
 - Die Tunnelstruktur, Reservierung, Richtung, Segmentlänge und der Abbaufortschritt werden persistent gespeichert. Alte persistierte Datensätze ohne Längenfeld werden weiterhin als 8-Blöcke-Segmente geladen.
 
@@ -32,7 +33,7 @@ Ein Minenabbauer kann tief im dynamisch gegrabenen Stollen durch Hytales Navigat
 - Der ursprüngliche Bewegungsbefehl bleibt bestehen. Im nächsten Tick läuft der NPC vom Minenzugang mit der normalen nativen Navigation weiter zum angeklickten Ziel.
 - Befindet sich der Miner bereits auf Höhe des Minenzugangs oder darüber, wird nicht teleportiert.
 - Der Teleport gilt nur für manuelle Bewegungsbefehle. Das autonome Graben wird nicht über Teleports gesteuert.
-- Nach dem manuellen Auftrag muss der Miner nicht zwingend zu exakt der Front zurückkehren, an der er unterbrochen wurde. Beim Wiederaufnehmen sucht Civ zuerst nach einer anderen begonnenen Arbeitsfront. Gibt es keine, kann an einem abgeschlossenen Segment ein neuer gültiger Tunnelast angelegt werden. Nur wenn keine Alternative existiert, wird der unterbrochene Abschnitt wieder aufgenommen.
+- Nach dem manuellen Auftrag muss der Miner nicht zwingend zu exakt der Front zurückkehren, an der er unterbrochen wurde. Beim Wiederaufnehmen läuft er zuerst über `workplace_access` und `mine_tunnel_connector`; erst danach sucht Civ nach einer anderen begonnenen Arbeitsfront. Gibt es keine, kann an einem abgeschlossenen Segment ein neuer gültiger Tunnelast angelegt werden. Nur wenn keine Alternative existiert, wird der unterbrochene Abschnitt wieder aufgenommen.
 
 ## Stützbalken
 

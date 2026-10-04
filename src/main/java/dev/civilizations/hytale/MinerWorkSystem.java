@@ -148,6 +148,17 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             runtime.navigationArrived();
         }
 
+        if (!runtime.reachedConnector) {
+    Vector3d target = center(connector.bounds(), connector.bounds().minY());
+    if (!arrived(position, target)) {
+        navigateTo(ref, position, target, runtime);
+        stopMiningAnimation(ref, store, runtime);
+        return;
+    }
+    runtime.reachedConnector = true;
+    runtime.navigationArrived();
+}
+
         MineSegment segment = resolveSegment(world, mine, connector, runtime);
         if (segment == null) {
             unitRegistry.clearMoveTarget(ref);
@@ -181,6 +192,20 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             segment = segment.withStatus(MineSegment.Status.MINING);
             tunnelRegistry.put(world, segment);
         }
+
+        if (isTurnSegment(worldId, segment) && !segment.id().equals(runtime.turnStagedSegmentId)) {
+    Vector3d junctionTarget = turnStagingTarget(segment);
+    if (!arrived(position, junctionTarget)) {
+        navigateTo(ref, position, junctionTarget, runtime);
+        stopMiningAnimation(ref, store, runtime);
+        return;
+    }
+    runtime.turnStagedSegmentId = segment.id();
+    runtime.navigationArrived();
+    unitRegistry.clearMoveTarget(ref);
+    stopMiningAnimation(ref, store, runtime);
+    return;
+}
 
         Vector3d workTarget = workTarget(segment);
         if (!arrived(position, workTarget)) {
@@ -636,6 +661,30 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         };
     }
 
+    private boolean isTurnSegment(UUID worldId, MineSegment segment) {
+    if (segment.parentId() == null) return false;
+    MineSegment parent = tunnelRegistry.get(worldId, segment.parentId());
+    return parent != null && parent.direction() != segment.direction();
+}
+
+static Vector3d turnStagingTarget(MineSegment segment) {
+    int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
+    int sharedDepth = Math.min(MineTuning.TUNNEL_WIDTH_BLOCKS, segment.lengthBlocks());
+    double x = 0.0;
+    double z = 0.0;
+    int cells = 0;
+    for (int depth = 0; depth < sharedDepth; depth++) {
+        int first = depth * faceSize;
+        for (int width = 0; width < MineTuning.TUNNEL_WIDTH_BLOCKS; width++) {
+            BlockPosition block = segment.blockAtIndex(first + width);
+            x += block.x() + 0.5;
+            z += block.z() + 0.5;
+            cells++;
+        }
+    }
+    return new Vector3d(x / cells, segment.start().y(), z / cells);
+}
+
     private static Vector3d workTarget(MineSegment segment) {
         int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
         int depth = Math.min(segment.lengthBlocks() - 1, segment.nextBlockIndex() / faceSize);
@@ -764,6 +813,8 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         private UUID mineId;
         private UUID segmentId;
         private boolean enteredMine;
+        private boolean reachedConnector;
+        private UUID turnStagedSegmentId;
         private boolean animationStarted;
         private double workElapsed;
         private double retryElapsed;
@@ -776,6 +827,8 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             resumeAfterManual = true;
             segmentId = null;
             enteredMine = false;
+            reachedConnector = false;
+            turnStagedSegmentId = null;
             workElapsed = 0.0;
             navigationArrived();
         }
@@ -792,6 +845,8 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             mineId = nextMineId;
             segmentId = null;
             enteredMine = false;
+            reachedConnector = false;
+            turnStagedSegmentId = null;
             animationStarted = false;
             workElapsed = 0.0;
             retryElapsed = 0.0;
