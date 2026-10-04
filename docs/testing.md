@@ -28,6 +28,26 @@ Lokale Hytale-Runtime-Szenarien auf dem Self-Hosted-Runner sind aktuell **option
 
 Schnelle JUnit-5-Tests für reine Java-Domänenregeln und Hilfsfunktionen.
 
+## Räumliche Golden- und Voxel-Tests
+
+Räumliche Civ-Regeln werden vor einem Hytale-Runtime-Test auf zwei schnellen, Hytale-unabhängigen Ebenen geprüft. Eine eigene 2D-Engine gibt es dabei nicht: 2D-Checks verwenden dieselben `BlockPosition(x,y,z)`-Koordinaten wie 3D und betrachten lediglich eine feste Y-Ebene beziehungsweise eine Draufsicht.
+
+**Golden-Geometrie** verwendet wenige explizite, von Hand reviewbare Referenzfälle. Erwartete Koordinaten dürfen nicht durch dieselbe Produktionsfunktion berechnet werden, die geprüft wird. Für die Phase-1-Mine sind beispielsweise die exakten Weltkoordinaten eines geraden 4×4×8-Segments sowie einer Links- und Rechtskurve fest als unabhängige Sollgeometrie beschrieben. So kann ein Fehler in `MineSegment` nicht dadurch verborgen werden, dass der Test denselben Fehler noch einmal berechnet.
+
+**3D-Voxel-Szenarien** verwenden eine minimale testseitige Welt. Sie kennt nur die für den konkreten Test benötigten Zellzustände, derzeit `SOLID`, `AIR`, `SUPPORT_POST` und `SUPPORT_BEAM`. Produktionsgeometrie mutiert diese Welt; anschließend wird der komplette relevante Ausschnitt gegen einen unabhängig aufgebauten Sollzustand verglichen. Bei Abweichungen kann zusätzlich eine einfache Draufsicht ausgegeben werden. Die Voxelwelt besitzt ausdrücklich keine Navigation, Physik, Chunklogik, Prefab-Origins oder Hytale-Assetsemantik.
+
+Für die Mine ist die gewünschte Reihenfolge damit:
+
+~~~text
+kleine Golden-Geometrie
+        ↓
+3D-Voxel-World-Diff
+        ↓
+optional fokussierter Hytale-Runtime-Test
+~~~
+
+Der spätere Runtime-Test soll die bereits vorvalidierte Sollgeometrie nicht erneut fachlich erfinden, sondern nur beweisen, dass echte Hytale-Navigation, Harvesting, Prefabs, Rotation und Weltmutation sie korrekt umsetzen. Details und Begründung stehen in ADR `0004-spatial-golden-and-voxel-tests.md`.
+
 ## Simulations-/Szenario-Tests
 
 Deterministische mehrstufige Tests sind die bevorzugte Abdeckung für Bewohner, Bedürfnisse, Berufe, Inventare, Produktion, Logistik, Wirtschaft und andere gekoppelte Simulationssysteme.
@@ -123,6 +143,9 @@ Der Test für direkte Bewegung verwendet die eingecheckte Rolle <code>Civ_Inhabi
 - <code>WoodcutterJobTest</code> prüft den headless Ablauf Such-Intent → Bewegungs-Intent → Ankunft → Arbeit → Fäll-Intent → neuer Zyklus.
 - <code>InhabitantActivityTest</code> prüft, dass ein manueller Bewegungsauftrag autonome Arbeit verdrängt, nach Abschluss wieder freigibt und den pausierten Holzfällerzustand nicht verändert.
 - <code>WorkDecisionScheduleTest</code> prüft unmittelbare Entscheidungen, begrenzte Retries und das Vorziehen eines relevanten Ereignisses gegenüber einem noch nicht fälligen Retry.
+- <code>MineSegmentTest</code> prüft Segmentgröße, 4×4-Abbaureihenfolge, Anschlussregeln, Kurvensymmetrie und Support-Ursprünge.
+- <code>MineGeometryGoldenTest</code> prüft dieselbe räumliche Domäne zusätzlich gegen explizite, unabhängig formulierte Weltkoordinaten für alle vier geraden Richtungen sowie die erste Links-/Rechtskurve.
+- <code>MineVoxelScenarioTest</code> führt die Mine gegen eine minimale 3D-Testwelt aus und vergleicht schrittweisen Abbau, Support-Frames und Kurven als vollständigen World-Diff. Die Testwelt besitzt absichtlich kein Pathfinding.
 - <code>SimulationRuntimeTest</code> deckt die Core-Abläufe für Bauarbeiter, Holzfäller, Farmer und manuelle Unterbrechungen ab. Dazu gehören feste Operationsbudgets: 100 wartende Bauarbeiter führen in 60 Simulationssekunden 6.000 Baustellensuchen aus, und ein Farmer ohne Feld führt in derselben Zeit 60 Feldsuchen statt einer Suche pro Tick aus.
 - <code>SimulationScenariosTest</code> prüft den gemeinsamen Szenariokatalog. Für <code>WoodcutterBasicScenario</code> wird zusätzlich geprüft, dass dieselbe gemeinsame Fixture mit drei Baum-Ankern startet, mindestens ein Baum fällt und der Holzfäller anschließend erneut nach Arbeit sucht.
 - <code>SimulationIndependenceTest</code> verhindert direkte Hytale-Imports im wiederverwendbaren Headless-Runtime-Paket.
