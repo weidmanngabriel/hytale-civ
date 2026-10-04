@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SimulationViewerAppTest {
@@ -44,5 +45,25 @@ class SimulationViewerAppTest {
             before.residents().getFirst().position(),
             after.residents().getFirst().position()
         );
+    }
+
+    @Test
+    void minerScenarioExposesStableThreeDimensionalSnapshotsForTheViewer() {
+        SimulationRuntime runtime = SimulationScenarios.MINER_BASIC.createRuntime();
+        SimulationRuntime.WorldSnapshot before = runtime.worldSnapshot();
+
+        assertNotNull(before.mine());
+        assertEquals(128, before.mine().world().cells().size());
+        assertTrue(before.residents().stream()
+            .anyMatch(resident -> resident.profession() == Profession.MINER));
+
+        runtime.runForSeconds(5.0);
+        SimulationRuntime.WorldSnapshot after = runtime.worldSnapshot();
+
+        assertNotNull(after.mine());
+        assertTrue(after.mine().nextBlockIndex() > 0);
+        assertNotEquals(before.mine().world().cells(), after.mine().world().cells());
+        assertEquals(128, before.mine().world().cells().size(),
+            "the immutable before snapshot must remain unchanged");
     }
 }
