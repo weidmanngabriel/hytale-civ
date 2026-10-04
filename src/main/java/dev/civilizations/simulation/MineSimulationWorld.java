@@ -28,9 +28,25 @@ public final class MineSimulationWorld {
     private final Map<BlockPosition, Cell> overrides = new LinkedHashMap<>();
     private final Bounds bounds;
 
+    /** Creates the smallest possible rock volume containing exactly the segment. */
     public MineSimulationWorld(MineSegment segment) {
+        this(segment, boundsFor(segment));
+    }
+
+    /**
+     * Creates a larger deterministic rock volume around the segment.
+     *
+     * <p>Every cell inside {@code bounds} is SOLID until explicitly excavated. This lets viewer
+     * scenarios model a mountain/underground mass without changing MinerJob itself.</p>
+     */
+    public MineSimulationWorld(MineSegment segment, Bounds bounds) {
         this.segment = Objects.requireNonNull(segment, "segment");
-        this.bounds = boundsFor(segment);
+        this.bounds = Objects.requireNonNull(bounds, "bounds");
+        for (BlockPosition block : segment.blocks()) {
+            if (!bounds.contains(block)) {
+                throw new IllegalArgumentException("Mine simulation bounds must contain the entire segment.");
+            }
+        }
     }
 
     public MineSegment segment() {
@@ -38,17 +54,27 @@ public final class MineSimulationWorld {
     }
 
     public Cell get(BlockPosition position) {
+        Objects.requireNonNull(position, "position");
+        if (!bounds.contains(position)) {
+            throw new IllegalArgumentException("Position outside mine simulation bounds: " + position);
+        }
         return overrides.getOrDefault(position, Cell.SOLID);
     }
 
     public void breakBlock(BlockPosition position) {
         Objects.requireNonNull(position, "position");
+        if (!bounds.contains(position)) {
+            throw new IllegalArgumentException("Cannot break block outside mine simulation bounds: " + position);
+        }
         overrides.put(position, Cell.AIR);
     }
 
     public void placeSupport(MineSegment currentSegment, int depth) {
         Objects.requireNonNull(currentSegment, "currentSegment");
         for (MineSupportFrame.Cell cell : MineSupportFrame.cells(currentSegment, depth)) {
+            if (!bounds.contains(cell.position())) {
+                throw new IllegalArgumentException("Support outside mine simulation bounds: " + cell.position());
+            }
             overrides.put(
                 cell.position(),
                 cell.part() == MineSupportFrame.Part.POST ? Cell.SUPPORT_POST : Cell.SUPPORT_BEAM
@@ -90,6 +116,9 @@ public final class MineSimulationWorld {
         }
 
         public Cell get(BlockPosition position) {
+            if (!bounds.contains(position)) {
+                return null;
+            }
             return cells.getOrDefault(position, Cell.SOLID);
         }
     }
@@ -99,6 +128,24 @@ public final class MineSimulationWorld {
             if (minX > maxX || minY > maxY || minZ > maxZ) {
                 throw new IllegalArgumentException("Invalid mine simulation bounds.");
             }
+        }
+
+        public boolean contains(BlockPosition position) {
+            return position.x() >= minX && position.x() <= maxX
+                && position.y() >= minY && position.y() <= maxY
+                && position.z() >= minZ && position.z() <= maxZ;
+        }
+
+        public int width() {
+            return maxX - minX + 1;
+        }
+
+        public int height() {
+            return maxY - minY + 1;
+        }
+
+        public int depth() {
+            return maxZ - minZ + 1;
         }
     }
 }
