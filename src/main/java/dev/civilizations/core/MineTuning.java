@@ -26,4 +26,9 @@ public final class MineTuning {
     public static double secondsPerBlock() {
         return SEGMENT_TARGET_SECONDS / blocksPerSegment();
     }
+
+    /** Number of regular support frames that fit before the segment junction. */
+    public static int supportFramesPerSegment() {
+        return Math.max(0, (SEGMENT_LENGTH_BLOCKS - 1) / SUPPORT_SPACING_BLOCKS);
+    }
 }
