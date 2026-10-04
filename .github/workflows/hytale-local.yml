@@ -235,6 +235,7 @@ jobs:
         shell: 'powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"'
         run: |
           $ErrorActionPreference = 'Stop'
+          Write-Host ((& java -version 2>&1 | Out-String).Trim())
           .\gradlew.bat test jar --no-daemon
           if ($LASTEXITCODE -ne 0) {
             throw 'Gradle tests or jar build failed.'

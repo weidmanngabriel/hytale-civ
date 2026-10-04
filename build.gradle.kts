@@ -33,11 +33,11 @@ val hytaleServerRuntime = configurations.create("hytaleServerRuntime") {
 dependencies {
     compileOnly("com.hypixel.hytale:Server:$hytaleServerVersion")
     hytaleServerRuntime("com.hypixel.hytale:Server:$hytaleServerVersion")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.19.2")
 
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testImplementation("com.fasterxml.jackson.core:jackson-databind:2.19.2")
     // Hytale remains compileOnly for the shipped plugin; tests need the same API at compile/runtime
     // to verify persistent PlayerSkin and CharacterCreator-backed configuration contracts.
     testImplementation("com.hypixel.hytale:Server:$hytaleServerVersion")
@@ -103,6 +103,20 @@ tasks.register<JavaExec>("simulationViewer") {
     description = "Starts the Hytale-independent desktop simulation viewer."
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("dev.civilizations.simulation.viewer.SimulationViewerApp")
+}
+
+tasks.register<JavaExec>("prefabNavigationViewer") {
+    group = "development"
+    description = "Starts the prefab-derived geometric reachability lab."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("dev.civilizations.simulation.viewer.PrefabNavigationViewerApp")
+}
+
+tasks.register<JavaExec>("minePrefabNavigationViewer") {
+    group = "development"
+    description = "Starts the mine prefab + A* + MinerJob navigation lab."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("dev.civilizations.simulation.viewer.MinePrefabNavigationViewerApp")
 }
 
 val hytaleJavaLauncher = javaToolchains.launcherFor {
