@@ -22,7 +22,13 @@ final class MinePrefabNavigationScenarioTest {
         assertEquals(initial.workplace(), initial.pathToConnector().getFirst());
         assertEquals(initial.connector(), initial.pathToConnector().getLast());
         assertFalse(initial.directionAuthored(),
-            "The navigation lab must not pretend the configured tunnel direction came from prefab orientation");
+            "The navigation lab must not pretend the derived tunnel direction came from prefab orientation");
+
+        long initialOverlaps = initial.segment().blocks().stream()
+            .filter(position -> initial.model().cellAt(position) != null)
+            .count();
+        assertEquals(0, initialOverlaps,
+            "The initial 4x4x8 tunnel rock must not overlap any authored Mine_01 block");
 
         assertEquals(10, initial.supportPrefab().cells().size(),
             "The real Mine_Support_01 prefab currently contains ten authored blocks");
