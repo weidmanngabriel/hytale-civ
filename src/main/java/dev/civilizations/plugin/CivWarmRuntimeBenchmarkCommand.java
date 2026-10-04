@@ -173,7 +173,6 @@ final class CivWarmRuntimeBenchmarkCommand extends CommandBase {
                 startTick,
                 startNanos + TimeUnit.MILLISECONDS.toNanos(TIMEOUT_MILLIS)
             );
-            coordinator.started(probe);
             System.out.println(
                 "CIV_WARM_RUNTIME_WORLD_STARTED world=" + world.getName()
                     + " dilation=" + dilation
@@ -292,7 +291,6 @@ final class CivWarmRuntimeBenchmarkCommand extends CommandBase {
     private final class Coordinator {
         private final Universe universe;
         private final long benchmarkStartNanos;
-        private final Map<String, Probe> started = new ConcurrentHashMap<>();
         private final Map<String, Result> results = new ConcurrentHashMap<>();
         private final AtomicBoolean terminal = new AtomicBoolean();
         private volatile long worldsCreatedNanos;
@@ -300,10 +298,6 @@ final class CivWarmRuntimeBenchmarkCommand extends CommandBase {
         private Coordinator(Universe universe, long benchmarkStartNanos) {
             this.universe = universe;
             this.benchmarkStartNanos = benchmarkStartNanos;
-        }
-
-        private void started(Probe probe) {
-            started.put(probe.world.getName(), probe);
         }
 
         private void completed(Result result) {
@@ -318,14 +312,17 @@ final class CivWarmRuntimeBenchmarkCommand extends CommandBase {
             Result oneX = results.get(WORLD_1X);
             Result fourX = results.get(WORLD_4X);
             if (oneX == null || fourX == null) {
-                fail("benchmark results did not contain both worlds", null);
+                CivWarmRuntimeBenchmarkCommand.fail("benchmark results did not contain both worlds", null);
                 return;
             }
 
             long overlapNanos = Math.min(oneX.endNanos, fourX.endNanos)
                 - Math.max(oneX.startNanos, fourX.startNanos);
             if (overlapNanos <= 0L) {
-                fail("benchmark world execution windows did not overlap", null);
+                CivWarmRuntimeBenchmarkCommand.fail(
+                    "benchmark world execution windows did not overlap",
+                    null
+                );
                 return;
             }
 
@@ -354,11 +351,14 @@ final class CivWarmRuntimeBenchmarkCommand extends CommandBase {
                         + " fourX=" + removedFourX
                 );
                 if (!removedOneX || !removedFourX) {
-                    fail("benchmark worlds could not both be removed", null);
+                    CivWarmRuntimeBenchmarkCommand.fail(
+                        "benchmark worlds could not both be removed",
+                        null
+                    );
                     return;
                 }
             } catch (Throwable throwable) {
-                fail("benchmark world cleanup failed", throwable);
+                CivWarmRuntimeBenchmarkCommand.fail("benchmark world cleanup failed", throwable);
                 return;
             }
 
