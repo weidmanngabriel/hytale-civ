@@ -47,3 +47,7 @@ Die Arbeitsanimation folgt demselben Muster wie beim Holzfäller: Civ startet f�
 - harte Durchsetzung der Arbeiterkapazität
 - unterschiedliche Tunnelebenen je Gebäudephase
 - besondere Abbaumechaniken, Verzierungen oder größere Querschnitte für spätere Fraktionen wie Zwerge
+
+## Schutz vor Gebaeudegrenzen
+
+Bevor ein Folgesegment reserviert wird, prueft Civ den vollstaendigen geplanten Tunnelkoerper gegen die `building_bounds` aller fertigen Civ-Gebaeude, einschliesslich der eigenen Mine. Kollidiert eine Richtung, wird sie vor der gewichteten Auswahl verworfen; sind alle drei moeglichen Richtungen blockiert, wird kein neues Segment angelegt. Nur das initiale Segment am `mine_tunnel_connector` darf die Bounds der eigenen Mine ignorieren, damit der Stollen den authored Ausgang sauber verlassen kann. Dieselbe Schutzregel gilt beim tatsaechlichen Blockabbau, sodass bereits gespeicherte problematische Folgesegmente nicht weiter in ein Gebaeude hinein gegraben werden. Die Pruefung arbeitet auf den tatsaechlichen Segmentbloecken und ist daher nicht auf 4x4x8 fest verdrahtet.

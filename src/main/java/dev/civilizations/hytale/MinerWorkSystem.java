@@ -288,7 +288,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             initialStart(connector.bounds(), direction),
             direction
         );
-        if (!validCandidate(world, mine, initial)) return null;
+        if (!validCandidate(world, mine, initial, true)) return null;
         tunnelRegistry.put(world, initial);
         runtime.segmentId = initial.id();
         return initial;
@@ -542,18 +542,19 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         MineSegment candidate = MineSegment.reserved(
             UUID.randomUUID(), mine.id(), parent.id(), parent.nextStart(direction), direction
         );
-        if (validCandidate(world, mine, candidate)) result.add(new WeightedDirection(direction, weight));
+        if (validCandidate(world, mine, candidate, false)) result.add(new WeightedDirection(direction, weight));
     }
 
     private boolean validCandidate(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
-        MineSegment segment
+        MineSegment segment,
+        boolean allowOwnMine
     ) {
         UUID worldId = world.getWorldConfig().getUuid();
         if (tunnelRegistry.conflicts(worldId, segment)) return false;
         for (BlockPosition block : segment.blocks()) {
-            if (!safeBlock(world, mine, block)) return false;
+            if (!safeBlock(world, mine, block, allowOwnMine)) return false;
         }
         return true;
     }
@@ -563,9 +564,19 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         BuildingPlacementRegistry.BuildingInstance mine,
         BlockPosition block
     ) {
+        return safeBlock(world, mine, block, false);
+    }
+
+    private boolean safeBlock(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        BlockPosition block,
+        boolean allowOwnMine
+    ) {
         for (BuildingPlacementRegistry.BuildingInstance building :
             buildingRegistry.buildings(world.getWorldConfig().getUuid())) {
-            if (!building.id().equals(mine.id()) && building.bounds().containsBlock(block)) return false;
+            if ((!allowOwnMine || !building.id().equals(mine.id()))
+                && building.bounds().containsBlock(block)) return false;
         }
         BlockType type = loadedBlockType(world, block);
         if (type == null) return false;
