@@ -28,6 +28,7 @@ public final class CivUnitRegistry {
 
     private static final String CIV_INHABITANT_ROLE = "Civ_Inhabitant";
     private static final int CIV_MOVE_POSITION_SLOT = 0;
+    private static final int CIV_MINER_MOVE_POSITION_SLOT = 1;
 
     private final CivInhabitantService inhabitantService;
     private final ProfessionBootstrapInventory professionInventory = new ProfessionBootstrapInventory();
@@ -194,7 +195,7 @@ public final class CivUnitRegistry {
         applyNativePath(ref, nextTarget);
     }
 
-    private static void applyNativePath(Ref<EntityStore> ref, Vector3d target) {
+    private void applyNativePath(Ref<EntityStore> ref, Vector3d target) {
         NPCEntity npc = ref.getStore().getComponent(ref, NPCEntity.getComponentType());
         if (npc == null || !CIV_INHABITANT_ROLE.equals(npc.getRoleName())) {
             return;
@@ -206,13 +207,23 @@ public final class CivUnitRegistry {
             return;
         }
 
-        Vector3d moveTarget = markedEntitySupport.getStoredPosition(CIV_MOVE_POSITION_SLOT);
+        Vector3d normalMoveTarget = markedEntitySupport.getStoredPosition(CIV_MOVE_POSITION_SLOT);
+        Vector3d minerMoveTarget = markedEntitySupport.getStoredPosition(CIV_MINER_MOVE_POSITION_SLOT);
+
         if (target == null) {
-            moveTarget.set(Vector3dUtil.MIN);
+            normalMoveTarget.set(Vector3dUtil.MIN);
+            minerMoveTarget.set(Vector3dUtil.MIN);
             return;
         }
 
-        moveTarget.set(target);
+        if (inhabitantService.getProfession(ref) == Profession.MINER) {
+            normalMoveTarget.set(Vector3dUtil.MIN);
+            minerMoveTarget.set(target);
+            return;
+        }
+
+        minerMoveTarget.set(Vector3dUtil.MIN);
+        normalMoveTarget.set(target);
     }
 
     private static boolean sameTarget(Vector3d current, Vector3d next) {
@@ -234,6 +245,11 @@ public final class CivUnitRegistry {
         professionInventory.leaveProfession(ref, previous);
         inhabitantService.assignProfession(ref, profession);
         professionInventory.enterProfession(ref, profession);
+
+        Vector3d activeTarget = getMoveTarget(ref);
+        if (activeTarget != null) {
+            applyNativePath(ref, activeTarget);
+        }
     }
 
     public Profession getProfession(Ref<EntityStore> ref) {
