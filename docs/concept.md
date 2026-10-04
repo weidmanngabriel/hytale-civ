@@ -155,3 +155,9 @@ Das Weizenfeld besitzt einen eigenen `wheat_field`-Gebäudebereich für Auswahl,
 ### Bewohnerinventar ansehen
 
 Im Personenaktionsmenü eines beanspruchten Civ-Bewohners gibt es **Inventar ansehen**. Die Ansicht zeigt das tatsächliche Hytale-Inventar des Bewohners inklusive der von Hytale zusammengefassten relevanten Inventarbereiche. Sie ist zunächst schreibgeschützt: Der Spieler kann kontrollieren, welche Gegenstände der Bewohner trägt, aber über diese Ansicht keine Items hineinlegen, herausnehmen oder verschieben.
+
+## Flexible Minenstollen
+
+Minenabbauer graben 4x4-Stollen in variablen Abschnitten von 4 bis 12 Blöcken. Passt die zunächst gewählte Länge wegen eines Gebäudes oder vorhandenen Stollens nicht, wird derselbe Verlauf zunächst kürzer geplant, bevor eine andere Richtung gewählt wird. Kurven benötigen wegen ihres gemeinsamen 4x4x4-Übergangs mindestens 5 Blöcke.
+
+Ein Spieler kann einen unterirdischen Minenabbauer jederzeit manuell herausrufen: Ein normaler Bewegungsbefehl setzt ihn am `workplace_access` seiner Mine ab, danach läuft er zum angeklickten Ziel. Nimmt er später die Arbeit wieder auf, darf er sich eine andere offene Arbeitsfront oder einen neuen gültigen Tunnelast suchen und muss nicht exakt zum unterbrochenen Block zurückkehren.
