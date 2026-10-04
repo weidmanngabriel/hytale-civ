@@ -3,6 +3,7 @@
   "scenarios": [
     "woodcutter",
     "persistence",
-    "minesupport"
+    "minesupport",
+    "warmruntime"
   ]
 }
