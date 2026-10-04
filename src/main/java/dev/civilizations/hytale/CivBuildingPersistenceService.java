@@ -7,6 +7,7 @@ import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
+import dev.civilizations.core.BuildingOrientation;
 import org.joml.Vector3i;
 
 import java.nio.charset.StandardCharsets;
@@ -92,14 +93,15 @@ public final class CivBuildingPersistenceService {
             fp.minX() + "," + fp.minZ() + "," + fp.maxX() + "," + fp.maxZ() + "," + fp.floorY(),
             b.minX() + "," + b.minY() + "," + b.minZ() + "," + b.maxX() + "," + b.maxY() + "," + b.maxZ(),
             b64(floor.toString()),
-            b64(markers.toString())
+            b64(markers.toString()),
+            placement.orientation().name()
         );
     }
 
     private BuildingPlacementRegistry.BuildingInstance decode(UUID worldId, String encoded) {
         String[] parts = encoded.split("\\|", -1);
         boolean legacy = parts.length == 9;
-        if (!legacy && parts.length != 10) {
+        if (!legacy && parts.length != 10 && parts.length != 11) {
             throw new IllegalArgumentException("unexpected field count");
         }
 
@@ -117,6 +119,9 @@ public final class CivBuildingPersistenceService {
         int[] anchor = ints(parts[4 + offset], 3);
         int[] fp = ints(parts[5 + offset], 5);
         double[] bounds = doubles(parts[6 + offset], 6);
+        BuildingOrientation orientation = parts.length == 11
+            ? BuildingOrientation.valueOf(parts[10])
+            : BuildingOrientation.NORTH;
 
         Map<BlockPosition, Integer> floor = new LinkedHashMap<>();
         String floorText = unb64(parts[7 + offset]);
@@ -168,7 +173,8 @@ public final class CivBuildingPersistenceService {
                 definition,
                 new Vector3i(anchor[0], anchor[1], anchor[2]),
                 new PrefabPlacementService.PlacementFootprint(fp[0], fp[1], fp[2], fp[3], fp[4]),
-                floor
+                floor,
+                orientation
             );
         return new BuildingPlacementRegistry.BuildingInstance(
             id,
