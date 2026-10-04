@@ -53,11 +53,12 @@ public final class MineSimulationWorld {
         return segment;
     }
 
+    /**
+     * Reads the semantic voxel state. Outside the explicit fixture bounds the abstract world is
+     * still treated as untouched solid rock, preserving the original compact-world test contract.
+     */
     public Cell get(BlockPosition position) {
         Objects.requireNonNull(position, "position");
-        if (!bounds.contains(position)) {
-            throw new IllegalArgumentException("Position outside mine simulation bounds: " + position);
-        }
         return overrides.getOrDefault(position, Cell.SOLID);
     }
 
@@ -115,6 +116,7 @@ public final class MineSimulationWorld {
             cells = Map.copyOf(cells);
         }
 
+        /** Returns null outside the rendered/snapshotted rock volume. */
         public Cell get(BlockPosition position) {
             if (!bounds.contains(position)) {
                 return null;
