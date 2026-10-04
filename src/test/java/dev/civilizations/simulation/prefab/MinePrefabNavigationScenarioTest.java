@@ -1,10 +1,14 @@
 package dev.civilizations.simulation.prefab;
 
+import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingOrientation;
 import dev.civilizations.core.MineDirection;
 import dev.civilizations.core.MineTuning;
 import dev.civilizations.simulation.MineSimulationWorld;
 import org.junit.jupiter.api.Test;
+
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -14,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class MinePrefabNavigationScenarioTest {
 
     @Test
-    void realMineConnectsWorkplaceToTunnelAndExcavatesOneSegment() {
+    void realMineConnectsWorkplaceToTunnelAndExcavatesOneSegmentInsideLargerMountain() {
         MinePrefabNavigationScenario scenario = MinePrefabNavigationScenario.create();
         MinePrefabNavigationScenario.Snapshot initial = scenario.snapshot();
 
@@ -30,6 +34,7 @@ final class MinePrefabNavigationScenarioTest {
         assertEquals(10, initial.supportPrefab().cells().size(),
             "The real Mine_Support_01 prefab currently contains ten authored blocks");
         assertNoPrefabOverlap(initial);
+        assertMountainExtendsBeyondSegment(initial);
 
         scenario.runToCompletion();
         MinePrefabNavigationScenario.Snapshot complete = scenario.snapshot();
@@ -48,6 +53,14 @@ final class MinePrefabNavigationScenarioTest {
         assertEquals(20, supports);
         assertEquals(MineTuning.blocksPerSegment() - supports, air);
         assertTrue(complete.segment().complete());
+
+        Set<BlockPosition> segmentBlocks = new HashSet<>(complete.segment().blocks());
+        BlockPosition untouchedMountain = complete.tunnelWorld().cells().keySet().stream()
+            .filter(position -> !segmentBlocks.contains(position))
+            .findFirst()
+            .orElseThrow();
+        assertEquals(MineSimulationWorld.Cell.SOLID, complete.tunnelWorld().get(untouchedMountain),
+            "Rock outside the excavated segment must stay solid");
     }
 
     @Test
@@ -67,11 +80,30 @@ final class MinePrefabNavigationScenarioTest {
             assertFalse(snapshot.pathToConnector().isEmpty(),
                 "Rotated workplace must still reach the rotated connector");
             assertNoPrefabOverlap(snapshot);
+            assertMountainExtendsBeyondSegment(snapshot);
 
             scenario.runToCompletion();
             assertTrue(scenario.snapshot().segment().complete(),
                 "MinerJob must complete for " + orientation);
         }
+    }
+
+    private static void assertMountainExtendsBeyondSegment(MinePrefabNavigationScenario.Snapshot snapshot) {
+        MineSimulationWorld.Bounds mountain = snapshot.tunnelWorld().bounds();
+        int segmentMinX = snapshot.segment().blocks().stream().mapToInt(BlockPosition::x).min().orElseThrow();
+        int segmentMaxX = snapshot.segment().blocks().stream().mapToInt(BlockPosition::x).max().orElseThrow();
+        int segmentMinY = snapshot.segment().blocks().stream().mapToInt(BlockPosition::y).min().orElseThrow();
+        int segmentMaxY = snapshot.segment().blocks().stream().mapToInt(BlockPosition::y).max().orElseThrow();
+        int segmentMinZ = snapshot.segment().blocks().stream().mapToInt(BlockPosition::z).min().orElseThrow();
+        int segmentMaxZ = snapshot.segment().blocks().stream().mapToInt(BlockPosition::z).max().orElseThrow();
+
+        assertTrue(mountain.minY() < segmentMinY);
+        assertTrue(mountain.maxY() > segmentMaxY);
+        assertTrue(mountain.width() > segmentMaxX - segmentMinX + 1
+                || mountain.depth() > segmentMaxZ - segmentMinZ + 1,
+            "Mountain must be wider/deeper than the excavated 4x4x8 segment");
+        assertTrue(mountain.cellsCountEstimate() > MineTuning.blocksPerSegment(),
+            "Mountain volume must contain substantially more rock than the active segment");
     }
 
     private static void assertNoPrefabOverlap(MinePrefabNavigationScenario.Snapshot snapshot) {
