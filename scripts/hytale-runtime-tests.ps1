@@ -254,7 +254,7 @@ function Run-PersistenceScenario {
     Write-Host "Persistence restore exit code: $($restore.ExitCode)"
 
     if ($restoreCombined.Contains('CIV_PERSISTENCE_PROBE_FAIL')) {
-        throw 'The persistence restore stage reported failure.'
+        throw 'The persistence prepare stage reported failure.'
     }
     Assert-Evidence -Combined $restoreCombined -RequiredEvidence @(
         "CIV_PERSISTENCE_RESTORED uuid=$entityUuid",
@@ -327,6 +327,57 @@ function Run-MineSupportScenario {
     Write-Host 'Real Hytale mine support scenario passed.'
 }
 
+function Run-WarmRuntimeScenario {
+    param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
+
+    $stdoutLog = Join-Path $RuntimeDir 'warmruntime.stdout.log'
+    $stderrLog = Join-Path $RuntimeDir 'warmruntime.stderr.log'
+    $process = Start-Process -FilePath 'java' `
+        -ArgumentList @(
+            '-Dcivilizations.runtimeProbe=true',
+            '-jar', $env:HYTALE_SERVER_JAR,
+            '--assets', $env:HYTALE_ASSETS_PATH,
+            '--auth-mode', 'offline',
+            '--disable-sentry',
+            '--boot-command', 'civwarmruntimebenchmark'
+        ) `
+        -WorkingDirectory $RuntimeDir `
+        -RedirectStandardOutput $stdoutLog `
+        -RedirectStandardError $stderrLog `
+        -Wait `
+        -PassThru
+
+    $combined = Read-CombinedOutput -StdoutLog $stdoutLog -StderrLog $stderrLog
+    Write-Host '----- Hytale warm runtime benchmark output -----'
+    Write-Host $combined
+    Write-Host '----- end Hytale warm runtime benchmark output -----'
+    Write-Host "Warm runtime benchmark server exit code: $($process.ExitCode)"
+
+    if ($combined.Contains('CIV_WARM_RUNTIME_BENCHMARK_FAIL')) {
+        throw 'The warm Hytale runtime benchmark reported failure.'
+    }
+    Assert-Evidence -Combined $combined -RequiredEvidence @(
+        'Loaded pack: Hytale:Hytale from Assets.zip',
+        'Loaded pack: Civilizations:HytaleCivAssets from hytale-civ-assets',
+        'Enabled plugin Civilizations:HytaleCiv',
+        'Hytale Server Booted!',
+        'Console executed command: civwarmruntimebenchmark',
+        'CIV_WARM_RUNTIME_BENCHMARK_STARTED',
+        'CIV_WARM_RUNTIME_WORLD_STARTED world=civ-warm-benchmark-1x dilation=1.0',
+        'CIV_WARM_RUNTIME_WORLD_STARTED world=civ-warm-benchmark-4x dilation=4.0',
+        'CIV_WARM_RUNTIME_WORLD_PASS world=civ-warm-benchmark-1x',
+        'CIV_WARM_RUNTIME_WORLD_PASS world=civ-warm-benchmark-4x',
+        'CIV_WARM_RUNTIME_BENCHMARK_RESULT',
+        'CIV_WARM_RUNTIME_WORLDS_REMOVED oneX=true fourX=true',
+        'CIV_WARM_RUNTIME_BENCHMARK_PASS',
+        'Shutdown completed!'
+    )
+    if ($process.ExitCode -ne 0) {
+        throw "Warm runtime benchmark server exited with code $($process.ExitCode)."
+    }
+    Write-Host 'Warm Hytale runtime benchmark passed.'
+}
+
 if ([string]::IsNullOrWhiteSpace($env:HYTALE_SERVER_JAR) -or -not (Test-Path -LiteralPath $env:HYTALE_SERVER_JAR -PathType Leaf)) {
     throw 'HYTALE_SERVER_JAR is missing or invalid.'
 }
@@ -357,6 +408,7 @@ foreach ($scenario in $Scenarios) {
             'woodcutter' { Run-WoodcutterScenario -RuntimeDir $runtimeDir }
             'persistence' { Run-PersistenceScenario -RuntimeDir $runtimeDir }
             'minesupport' { Run-MineSupportScenario -RuntimeDir $runtimeDir }
+            'warmruntime' { Run-WarmRuntimeScenario -RuntimeDir $runtimeDir }
             default { throw "No runtime implementation exists for registered scenario: $scenario" }
         }
     } finally {
