@@ -3,10 +3,10 @@ package dev.civilizations.simulation;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.MineDirection;
 import dev.civilizations.core.MineSegment;
-import dev.civilizations.core.MineSupportFrame;
 import dev.civilizations.core.MinerJob;
 import org.junit.jupiter.api.Test;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -15,13 +15,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class MinerJobVoxelScenarioTest {
 
-    private static final TestVoxelWorld.Bounds BOUNDS =
-        new TestVoxelWorld.Bounds(8, 15, 19, 24, 21, 32);
-
     @Test
-    void minerJobDrivesOneCompleteSupportedSegmentInTheVoxelWorld() {
-        MinerJob job = new MinerJob(segment());
-        TestVoxelWorld actual = new TestVoxelWorld();
+    void minerJobDrivesOneCompleteSupportedSegmentInTheSameVoxelWorldUsedByTheViewer() {
+        MineSegment segment = segment();
+        MinerJob job = new MinerJob(segment);
+        MineSimulationWorld actual = new MineSimulationWorld(segment);
         TestVoxelWorld expected = new TestVoxelWorld();
         int movementCompletions = 0;
         int blockBreaks = 0;
@@ -34,12 +32,12 @@ final class MinerJobVoxelScenarioTest {
                     assertTrue(job.movementArrived());
                 }
                 case MinerJob.BreakBlockIntent mine -> {
-                    actual.set(mine.block(), TestVoxelWorld.Cell.AIR);
+                    actual.breakBlock(mine.block());
                     blockBreaks++;
                     assertTrue(job.blockBroken());
                 }
                 case MinerJob.PlaceSupportIntent support -> {
-                    placeSupport(actual, support.segment(), support.depth());
+                    actual.placeSupport(support.segment(), support.depth());
                     supportPlacements++;
                     assertTrue(job.supportPlaced());
                 }
@@ -57,17 +55,6 @@ final class MinerJobVoxelScenarioTest {
         assertEquals(128, blockBreaks);
         assertEquals(2, supportPlacements);
         assertWorld(expected, actual);
-    }
-
-    private static void placeSupport(TestVoxelWorld world, MineSegment segment, int depth) {
-        for (MineSupportFrame.Cell cell : MineSupportFrame.cells(segment, depth)) {
-            world.set(
-                cell.position(),
-                cell.part() == MineSupportFrame.Part.POST
-                    ? TestVoxelWorld.Cell.SUPPORT_POST
-                    : TestVoxelWorld.Cell.SUPPORT_BEAM
-            );
-        }
     }
 
     private static void placeNorthGoldenSupport(TestVoxelWorld world, int z) {
@@ -99,16 +86,27 @@ final class MinerJobVoxelScenarioTest {
         }
     }
 
-    private static void assertWorld(TestVoxelWorld expected, TestVoxelWorld actual) {
-        Map<BlockPosition, TestVoxelWorld.Cell> expectedSnapshot = expected.snapshot(BOUNDS);
-        Map<BlockPosition, TestVoxelWorld.Cell> actualSnapshot = actual.snapshot(BOUNDS);
-        assertEquals(
-            expectedSnapshot,
-            actualSnapshot,
-            () -> "complete MinerJob world diff"
-                + "\nEXPECTED y=20\n" + expected.renderTopDown(BOUNDS, 20)
-                + "ACTUAL y=20\n" + actual.renderTopDown(BOUNDS, 20)
+    private static void assertWorld(TestVoxelWorld expected, MineSimulationWorld actual) {
+        MineSimulationWorld.Snapshot actualSnapshot = actual.snapshot();
+        Map<BlockPosition, TestVoxelWorld.Cell> converted = new LinkedHashMap<>();
+        actualSnapshot.cells().forEach((position, cell) -> converted.put(
+            position,
+            switch (cell) {
+                case SOLID -> TestVoxelWorld.Cell.SOLID;
+                case AIR -> TestVoxelWorld.Cell.AIR;
+                case SUPPORT_POST -> TestVoxelWorld.Cell.SUPPORT_POST;
+                case SUPPORT_BEAM -> TestVoxelWorld.Cell.SUPPORT_BEAM;
+            }
+        ));
+        TestVoxelWorld.Bounds bounds = new TestVoxelWorld.Bounds(
+            actualSnapshot.bounds().minX(),
+            actualSnapshot.bounds().maxX(),
+            actualSnapshot.bounds().minY(),
+            actualSnapshot.bounds().maxY(),
+            actualSnapshot.bounds().minZ(),
+            actualSnapshot.bounds().maxZ()
         );
+        assertEquals(expected.snapshot(bounds), Map.copyOf(converted));
     }
 
     private static MineSegment segment() {
