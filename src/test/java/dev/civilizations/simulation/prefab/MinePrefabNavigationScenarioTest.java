@@ -102,7 +102,8 @@ final class MinePrefabNavigationScenarioTest {
         assertTrue(mountain.width() > segmentMaxX - segmentMinX + 1
                 || mountain.depth() > segmentMaxZ - segmentMinZ + 1,
             "Mountain must be wider/deeper than the excavated 4x4x8 segment");
-        assertTrue(mountain.cellsCountEstimate() > MineTuning.blocksPerSegment(),
+        long mountainCells = (long) mountain.width() * mountain.height() * mountain.depth();
+        assertTrue(mountainCells > MineTuning.blocksPerSegment(),
             "Mountain volume must contain substantially more rock than the active segment");
     }
 
