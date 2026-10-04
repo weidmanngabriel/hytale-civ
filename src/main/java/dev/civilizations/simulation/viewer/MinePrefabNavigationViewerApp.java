@@ -24,8 +24,12 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.RenderingHints;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseWheelEvent;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -111,6 +115,9 @@ public final class MinePrefabNavigationViewerApp {
             panel.add(new JLabel("Ansicht:"));
             view.addActionListener(event -> refresh());
             panel.add(view);
+            JButton center = new JButton("Zentrieren");
+            center.addActionListener(event -> canvas.resetIsoView());
+            panel.add(center);
             JButton down = new JButton("Y−");
             down.addActionListener(event -> { layerY--; refresh(); });
             JButton up = new JButton("Y+");
@@ -161,6 +168,10 @@ public final class MinePrefabNavigationViewerApp {
                     + "Supports: " + s.segment().supportsPlaced() + " / 2\n\n"
                     + "Richtung\n" + s.simulationDirection() + "\n"
                     + "Authored im Prefab: " + (s.directionAuthored() ? "JA" : "NEIN – Simulationskonfiguration") + "\n\n"
+                    + "Iso-Steuerung\n"
+                    + "Linksklick + Ziehen = verschieben\n"
+                    + "Mausrad = zoomen\n"
+                    + "Zentrieren = Ansicht zurücksetzen\n\n"
                     + "Legende\nGrau = echter Mine_01-Block\n"
                     + "Blau = A*-Pfad zum Connector\nRot = aktuelle Probe / Arbeitsziel\n"
                     + "Dunkel = noch nicht abgebauter Tunnelblock\n"
@@ -173,11 +184,56 @@ public final class MinePrefabNavigationViewerApp {
 
     private static final class Canvas extends JPanel {
         private static final int CELL = 26;
+        private static final double MIN_ZOOM = 0.35;
+        private static final double MAX_ZOOM = 3.0;
         private MinePrefabNavigationScenario.Snapshot snapshot;
         private ViewMode mode = ViewMode.ISOMETRIC;
         private int layerY;
+        private double isoZoom = 1.0;
+        private int isoPanX;
+        private int isoPanY;
+        private Point dragAnchor;
 
-        private Canvas() { setBackground(Color.WHITE); }
+        private Canvas() {
+            setBackground(Color.WHITE);
+            MouseAdapter isoNavigation = new MouseAdapter() {
+                @Override public void mousePressed(MouseEvent event) {
+                    if (mode == ViewMode.ISOMETRIC && SwingUtilities.isLeftMouseButton(event)) {
+                        dragAnchor = event.getPoint();
+                    }
+                }
+
+                @Override public void mouseDragged(MouseEvent event) {
+                    if (mode != ViewMode.ISOMETRIC || dragAnchor == null) return;
+                    Point current = event.getPoint();
+                    isoPanX += current.x - dragAnchor.x;
+                    isoPanY += current.y - dragAnchor.y;
+                    dragAnchor = current;
+                    repaint();
+                }
+
+                @Override public void mouseReleased(MouseEvent event) {
+                    dragAnchor = null;
+                }
+
+                @Override public void mouseWheelMoved(MouseWheelEvent event) {
+                    if (mode != ViewMode.ISOMETRIC) return;
+                    double factor = Math.pow(1.12, -event.getPreciseWheelRotation());
+                    isoZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, isoZoom * factor));
+                    repaint();
+                }
+            };
+            addMouseListener(isoNavigation);
+            addMouseMotionListener(isoNavigation);
+            addMouseWheelListener(isoNavigation);
+        }
+
+        private void resetIsoView() {
+            isoZoom = 1.0;
+            isoPanX = 0;
+            isoPanY = 0;
+            repaint();
+        }
 
         @Override protected void paintComponent(Graphics graphics) {
             super.paintComponent(graphics);
@@ -185,9 +241,24 @@ public final class MinePrefabNavigationViewerApp {
             Graphics2D g = (Graphics2D) graphics.create();
             try {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                if (mode == ViewMode.ISOMETRIC) drawIso(g);
+                if (mode == ViewMode.ISOMETRIC) drawIsoViewport(g);
                 else drawFlat(g, mode == ViewMode.LAYER);
             } finally { g.dispose(); }
+        }
+
+        private void drawIsoViewport(Graphics2D g) {
+            Graphics2D isoGraphics = (Graphics2D) g.create();
+            try {
+                double centerX = getWidth() / 2.0;
+                double centerY = getHeight() / 2.0;
+                isoGraphics.translate(isoPanX, isoPanY);
+                isoGraphics.translate(centerX, centerY);
+                isoGraphics.scale(isoZoom, isoZoom);
+                isoGraphics.translate(-centerX, -centerY);
+                drawIso(isoGraphics);
+            } finally {
+                isoGraphics.dispose();
+            }
         }
 
         private void drawFlat(Graphics2D g, boolean layerOnly) {
