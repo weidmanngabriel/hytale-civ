@@ -1,0 +1,479 @@
+name: Temporary miner evolution patch
+
+on:
+  push:
+    branches:
+      - feature/miner-resume-variable-tunnels
+    paths:
+      - .github/workflows/tmp-miner-evolution.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/miner-resume-variable-tunnels
+          fetch-depth: 0
+      - name: Apply miner evolution patch
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          path = Path('src/main/java/dev/civilizations/hytale/MinerWorkSystem.java')
+          text = path.read_text()
+
+          old = '''        WorkerRuntime runtime = workers.computeIfAbsent(key, ignored -> new WorkerRuntime());
+          if (!activityRegistry.autonomousWorkAllowed(ref)) {
+              stopMiningAnimation(ref, store, runtime);
+              return;
+          }'''
+          new = '''        WorkerRuntime runtime = workers.computeIfAbsent(key, ignored -> new WorkerRuntime());
+          if (!activityRegistry.autonomousWorkAllowed(ref)) {
+              stopMiningAnimation(ref, store, runtime);
+              runtime.interruptForManualMove();
+              return;
+          }'''
+          if old not in text: raise SystemExit('manual interruption block missing')
+          text = text.replace(old, new, 1)
+
+          marker = '''        UUID worldId = world.getWorldConfig().getUuid();
+
+          MineSegment reopened = earliestReopenedCompletedSegment(world, mine.id());'''
+          replacement = '''        UUID worldId = world.getWorldConfig().getUuid();
+
+          if (runtime.resumeAfterManual) {
+              MineSegment resumed = chooseResumeSegment(world, mine, runtime);
+              if (resumed != null) {
+                  runtime.resumeAfterManual = false;
+                  runtime.interruptedSegmentId = null;
+                  runtime.segmentId = resumed.id();
+                  return resumed;
+              }
+          }
+
+          MineSegment reopened = earliestReopenedCompletedSegment(world, mine.id());'''
+          if marker not in text: raise SystemExit('resolve resume anchor missing')
+          text = text.replace(marker, replacement, 1)
+
+          initial_pattern = re.compile(r'''        MineDirection direction = outwardDirection\(mine\.bounds\(\), connector\.bounds\(\)\);\n        MineSegment initial = MineSegment\.reserved\(\n            UUID\.randomUUID\(\),\n            mine\.id\(\),\n            null,\n            initialStart\(connector\.bounds\(\), direction\),\n            direction\n        \);\n        if \(!validCandidate\(world, mine, initial, true\)\) return null;''')
+          initial_repl = '''        MineDirection direction = outwardDirection(mine.bounds(), connector.bounds());
+          MineSegment initial = fittingCandidate(
+              world,
+              mine,
+              null,
+              initialStart(connector.bounds(), direction),
+              direction,
+              true
+          );
+          if (initial == null) return null;'''
+          text, n = initial_pattern.subn(initial_repl, text, count=1)
+          if n != 1: raise SystemExit(f'initial replacement count={n}')
+
+          text = text.replace('MineTuning.blocksPerSegment()', 'segment.blockCount()')
+          text = text.replace(
+              'int supportsPerSegment = MineTuning.supportFramesPerSegment();',
+              'int supportsPerSegment = MineTuning.supportFramesForLength(segment.lengthBlocks());'
+          )
+          text = text.replace(
+              'int depth = Math.min(MineTuning.SEGMENT_LENGTH_BLOCKS - 1, segment.nextBlockIndex() / faceSize);',
+              'int depth = Math.min(segment.lengthBlocks() - 1, segment.nextBlockIndex() / faceSize);'
+          )
+
+          expected_anchor = '''        int oneBasedDepth = depth + 1;
+          if (oneBasedDepth % MineTuning.SUPPORT_SPACING_BLOCKS != 0) return false;'''
+          expected_repl = '''        int oneBasedDepth = depth + 1;
+          if (oneBasedDepth >= segment.lengthBlocks()) return false;
+          if (oneBasedDepth % MineTuning.SUPPORT_SPACING_BLOCKS != 0) return false;'''
+          if expected_anchor not in text: raise SystemExit('support endpoint anchor missing')
+          text = text.replace(expected_anchor, expected_repl, 1)
+
+          choose_pattern = re.compile(
+              r'    private MineSegment chooseNext\(.*?\n    private boolean validCandidate\(',
+              re.S,
+          )
+          choose_repl = '''    private MineSegment chooseNext(
+              World world,
+              BuildingPlacementRegistry.BuildingInstance mine,
+              MineSegment parent
+          ) {
+              List<WeightedCandidate> valid = new ArrayList<>();
+              addIfValid(world, mine, parent, parent.direction(), MineTuning.STRAIGHT_WEIGHT, valid);
+              addIfValid(world, mine, parent, parent.direction().left(), MineTuning.LEFT_WEIGHT, valid);
+              addIfValid(world, mine, parent, parent.direction().right(), MineTuning.RIGHT_WEIGHT, valid);
+              MineSegment next = selectWeighted(valid);
+              if (next != null) tunnelRegistry.put(world, next);
+              return next;
+          }
+
+          private MineSegment chooseResumeSegment(
+              World world,
+              BuildingPlacementRegistry.BuildingInstance mine,
+              WorkerRuntime runtime
+          ) {
+              UUID worldId = world.getWorldConfig().getUuid();
+              List<MineSegment> alternatives = tunnelRegistry.segmentsForMine(worldId, mine.id()).stream()
+                  .filter(segment -> segment.status() == MineSegment.Status.RESERVED
+                      || segment.status() == MineSegment.Status.MINING)
+                  .filter(segment -> runtime.interruptedSegmentId == null
+                      || !segment.id().equals(runtime.interruptedSegmentId))
+                  .toList();
+              if (!alternatives.isEmpty()) {
+                  return alternatives.get(ThreadLocalRandom.current().nextInt(alternatives.size()));
+              }
+
+              MineSegment fresh = chooseFreshBranch(world, mine);
+              if (fresh != null) {
+                  tunnelRegistry.put(world, fresh);
+                  return fresh;
+              }
+
+              if (runtime.interruptedSegmentId != null) {
+                  MineSegment interrupted = tunnelRegistry.get(worldId, runtime.interruptedSegmentId);
+                  if (interrupted != null && interrupted.status() != MineSegment.Status.BLOCKED) {
+                      return interrupted;
+                  }
+              }
+              return tunnelRegistry.unfinishedForMine(worldId, mine.id());
+          }
+
+          private MineSegment chooseFreshBranch(
+              World world,
+              BuildingPlacementRegistry.BuildingInstance mine
+          ) {
+              List<WeightedCandidate> valid = new ArrayList<>();
+              for (MineSegment parent : tunnelRegistry.segmentsForMine(
+                  world.getWorldConfig().getUuid(), mine.id()
+              )) {
+                  if (parent.status() != MineSegment.Status.COMPLETE) continue;
+                  addIfValid(world, mine, parent, parent.direction(), MineTuning.STRAIGHT_WEIGHT, valid);
+                  addIfValid(world, mine, parent, parent.direction().left(), MineTuning.LEFT_WEIGHT, valid);
+                  addIfValid(world, mine, parent, parent.direction().right(), MineTuning.RIGHT_WEIGHT, valid);
+              }
+              return selectWeighted(valid);
+          }
+
+          private void addIfValid(
+              World world,
+              BuildingPlacementRegistry.BuildingInstance mine,
+              MineSegment parent,
+              MineDirection direction,
+              int weight,
+              List<WeightedCandidate> result
+          ) {
+              MineSegment candidate = fittingCandidate(
+                  world,
+                  mine,
+                  parent,
+                  parent.nextStart(direction),
+                  direction,
+                  false
+              );
+              if (candidate != null) result.add(new WeightedCandidate(candidate, weight));
+          }
+
+          private MineSegment fittingCandidate(
+              World world,
+              BuildingPlacementRegistry.BuildingInstance mine,
+              MineSegment parent,
+              BlockPosition start,
+              MineDirection direction,
+              boolean allowOwnMine
+          ) {
+              int minimumLength = MineTuning.MIN_SEGMENT_LENGTH_BLOCKS;
+              if (parent != null && direction != parent.direction()) {
+                  // A turn reuses a 4x4x4 junction cube. It needs at least one additional
+                  // depth block or a length-four child would contain no new tunnel at all.
+                  minimumLength = Math.max(minimumLength, MineTuning.TUNNEL_WIDTH_BLOCKS + 1);
+              }
+              int desiredLength = Math.max(minimumLength, randomSegmentLength());
+              for (int length = desiredLength; length >= minimumLength; length--) {
+                  MineSegment candidate = MineSegment.reserved(
+                      UUID.randomUUID(),
+                      mine.id(),
+                      parent == null ? null : parent.id(),
+                      start,
+                      direction,
+                      length
+                  );
+                  if (validCandidate(world, mine, candidate, allowOwnMine)) return candidate;
+              }
+              return null;
+          }
+
+          private static int randomSegmentLength() {
+              return ThreadLocalRandom.current().nextInt(
+                  MineTuning.MIN_SEGMENT_LENGTH_BLOCKS,
+                  MineTuning.MAX_SEGMENT_LENGTH_BLOCKS + 1
+              );
+          }
+
+          private static MineSegment selectWeighted(List<WeightedCandidate> valid) {
+              if (valid.isEmpty()) return null;
+              int total = valid.stream().mapToInt(WeightedCandidate::weight).sum();
+              int roll = ThreadLocalRandom.current().nextInt(total);
+              for (WeightedCandidate option : valid) {
+                  if (roll < option.weight()) return option.segment();
+                  roll -= option.weight();
+              }
+              return valid.getLast().segment();
+          }
+
+          private boolean validCandidate('''
+          text, n = choose_pattern.subn(choose_repl, text, count=1)
+          if n != 1: raise SystemExit(f'choose block replacement count={n}')
+
+          text = text.replace(
+              '    private record WeightedDirection(MineDirection direction, int weight) {\n    }',
+              '    private record WeightedCandidate(MineSegment segment, int weight) {\n    }'
+          )
+
+          worker_anchor = '''        private boolean pathFailureNotified;
+
+          private void beginNavigation'''
+          worker_repl = '''        private boolean pathFailureNotified;
+          private boolean resumeAfterManual;
+          private UUID interruptedSegmentId;
+
+          private void interruptForManualMove() {
+              if (!resumeAfterManual) interruptedSegmentId = segmentId;
+              resumeAfterManual = true;
+              segmentId = null;
+              enteredMine = false;
+              workElapsed = 0.0;
+              navigationArrived();
+          }
+
+          private void beginNavigation'''
+          if worker_anchor not in text: raise SystemExit('worker runtime anchor missing')
+          text = text.replace(worker_anchor, worker_repl, 1)
+
+          reset_anchor = '''            retryElapsed = 0.0;
+              navigationArrived();'''
+          reset_repl = '''            retryElapsed = 0.0;
+              resumeAfterManual = false;
+              interruptedSegmentId = null;
+              navigationArrived();'''
+          if reset_anchor not in text: raise SystemExit('reset anchor missing')
+          text = text.replace(reset_anchor, reset_repl, 1)
+
+          path.write_text(text)
+
+          plugin = Path('src/main/java/dev/civilizations/plugin/CivilizationsPlugin.java')
+          p = plugin.read_text()
+          old = 'new CivManualMovementSystem(unitRegistry, activityRegistry)'
+          new = 'new CivManualMovementSystem(unitRegistry, activityRegistry, buildingRegistry)'
+          if old not in p: raise SystemExit('manual movement wiring missing')
+          plugin.write_text(p.replace(old, new, 1))
+
+          # Update test call sites that create segments directly.
+          for file in [
+              Path('src/test/java/dev/civilizations/hytale/MineSupportPrefabContractTest.java')
+          ]:
+              s = file.read_text()
+              s = re.sub(r'(\n\s+direction\n\s+)\);', r'\1,\n                8\n            );', s)
+              s = re.sub(r'(\n\s+MineDirection\.EAST\n\s+)\);', r'\1,\n            8\n        );', s)
+              file.write_text(s)
+
+          boundary = Path('src/test/java/dev/civilizations/hytale/MinerBuildingBoundaryContractTest.java')
+          if boundary.exists():
+              s = boundary.read_text()
+              s = s.replace(
+                  'assertTrue(source.contains("validCandidate(world, mine, initial, true)"));',
+                  'assertTrue(source.contains("fittingCandidate("));\n        assertTrue(source.contains("validCandidate(world, mine, candidate, allowOwnMine)"));'
+              )
+              s = s.replace(
+                  'assertTrue(source.contains("validCandidate(world, mine, candidate, false)"));',
+                  'assertTrue(source.contains("parent.nextStart(direction)"));'
+              )
+              boundary.write_text(s)
+
+          Path('src/test/java/dev/civilizations/core/MineTuningTest.java').write_text('''package dev.civilizations.core;
+
+          import org.junit.jupiter.api.Test;
+
+          import static org.junit.jupiter.api.Assertions.assertEquals;
+          import static org.junit.jupiter.api.Assertions.assertThrows;
+
+          class MineTuningTest {
+
+              @Test
+              void variableLengthsStayWithinFourToTwelveBlocks() {
+                  assertEquals(4, MineTuning.MIN_SEGMENT_LENGTH_BLOCKS);
+                  assertEquals(12, MineTuning.MAX_SEGMENT_LENGTH_BLOCKS);
+                  assertEquals(64, MineTuning.blocksPerSegment(4));
+                  assertEquals(128, MineTuning.blocksPerSegment(8));
+                  assertEquals(192, MineTuning.blocksPerSegment(12));
+                  assertThrows(IllegalArgumentException.class, () -> MineTuning.blocksPerSegment(3));
+                  assertThrows(IllegalArgumentException.class, () -> MineTuning.blocksPerSegment(13));
+              }
+
+              @Test
+              void miningSpeedUsesTheEstablishedEightBlockReference() {
+                  assertEquals(60.0 / 128.0, MineTuning.secondsPerBlock(), 0.000001);
+              }
+
+              @Test
+              void supportFramesStopBeforeVariableSegmentJunctions() {
+                  assertEquals(0, MineTuning.supportFramesForLength(4));
+                  assertEquals(1, MineTuning.supportFramesForLength(8));
+                  assertEquals(2, MineTuning.supportFramesForLength(12));
+              }
+          }
+          '''.replace('          ', ''))
+
+          Path('src/test/java/dev/civilizations/core/MineSegmentTest.java').write_text('''package dev.civilizations.core;
+
+          import org.junit.jupiter.api.Test;
+
+          import java.util.HashSet;
+          import java.util.List;
+          import java.util.UUID;
+
+          import static org.junit.jupiter.api.Assertions.assertEquals;
+          import static org.junit.jupiter.api.Assertions.assertFalse;
+          import static org.junit.jupiter.api.Assertions.assertThrows;
+          import static org.junit.jupiter.api.Assertions.assertTrue;
+
+          final class MineSegmentTest {
+
+              @Test
+              void variableSegmentsContainExactlyTheirFourByFourVolume() {
+                  for (int length : List.of(4, 8, 12)) {
+                      for (MineDirection direction : MineDirection.values()) {
+                          MineSegment segment = segment(direction, length);
+                          assertEquals(16 * length, segment.blockCount());
+                          assertEquals(16 * length, segment.blocks().size());
+                          assertEquals(16 * length, new HashSet<>(segment.blocks()).size());
+                      }
+                  }
+              }
+
+              @Test
+              void excavationOrderCompletesWholeFourByFourFaceBeforeNextDepth() {
+                  int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
+                  MineSegment segment = segment(MineDirection.SOUTH, 8);
+                  for (int index = 0; index < faceSize; index++) {
+                      assertEquals(0, forwardDepth(segment, segment.blockAtIndex(index)));
+                  }
+                  assertEquals(1, forwardDepth(segment, segment.blockAtIndex(faceSize)));
+              }
+
+              @Test
+              void straightContinuationUsesTheActualParentLength() {
+                  for (int length : List.of(4, 8, 12)) {
+                      for (MineDirection direction : MineDirection.values()) {
+                          MineSegment parent = segment(direction, length);
+                          BlockPosition expected = new BlockPosition(
+                              parent.start().x() + direction.dx() * length,
+                              parent.start().y(),
+                              parent.start().z() + direction.dz() * length
+                          );
+                          assertEquals(expected, parent.nextStart(direction));
+                      }
+                  }
+              }
+
+              @Test
+              void turningContinuationsReuseTheParentsFinalFourByFourJunction() {
+                  int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
+                  int junctionBlocks = MineTuning.TUNNEL_WIDTH_BLOCKS * faceSize;
+                  for (MineDirection direction : MineDirection.values()) {
+                      MineSegment parent = segment(direction, 8);
+                      for (MineDirection turn : List.of(direction.left(), direction.right())) {
+                          MineSegment child = MineSegment.reserved(
+                              UUID.randomUUID(), parent.mineId(), parent.id(), parent.nextStart(turn), turn, 8
+                          );
+                          HashSet<BlockPosition> overlap = new HashSet<>(parent.blocks());
+                          overlap.retainAll(child.blocks());
+                          assertEquals(junctionBlocks, overlap.size(), direction + " -> " + turn);
+                      }
+                  }
+              }
+
+              @Test
+              void immediateReverseIsRejected() {
+                  assertThrows(
+                      IllegalArgumentException.class,
+                      () -> segment(MineDirection.NORTH, 8).nextStart(MineDirection.SOUTH)
+                  );
+              }
+
+              @Test
+              void progressAndSupportBoundsFollowActualLength() {
+                  MineSegment shortSegment = segment(MineDirection.SOUTH, 4);
+                  assertEquals(64, shortSegment.blockCount());
+                  assertEquals(new BlockPosition(10, 20, 33), shortSegment.supportOrigin(4));
+                  assertThrows(IllegalArgumentException.class, () -> shortSegment.supportOrigin(5));
+                  assertThrows(IndexOutOfBoundsException.class, () -> shortSegment.blockAtIndex(64));
+              }
+
+              @Test
+              void leftAndRightContinuationsDoNotReverse() {
+                  for (MineDirection direction : MineDirection.values()) {
+                      MineSegment parent = segment(direction, 8);
+                      assertFalse(parent.nextStart(direction.left()).equals(parent.start()));
+                      assertFalse(parent.nextStart(direction.right()).equals(parent.start()));
+                  }
+              }
+
+              private static int forwardDepth(MineSegment segment, BlockPosition block) {
+                  return (block.x() - segment.start().x()) * segment.direction().dx()
+                      + (block.z() - segment.start().z()) * segment.direction().dz();
+              }
+
+              private static MineSegment segment(MineDirection direction, int length) {
+                  return MineSegment.reserved(
+                      UUID.randomUUID(), UUID.randomUUID(), null,
+                      new BlockPosition(10, 20, 30), direction, length
+                  );
+              }
+          }
+          '''.replace('          ', ''))
+
+          Path('src/test/java/dev/civilizations/hytale/CivMinePersistenceServiceTest.java').write_text('''package dev.civilizations.hytale;
+
+          import dev.civilizations.core.BlockPosition;
+          import dev.civilizations.core.MineDirection;
+          import dev.civilizations.core.MineSegment;
+          import org.junit.jupiter.api.Test;
+
+          import java.util.UUID;
+
+          import static org.junit.jupiter.api.Assertions.assertEquals;
+
+          class CivMinePersistenceServiceTest {
+              private final CivMinePersistenceService service = new CivMinePersistenceService(null);
+
+              @Test
+              void roundTripKeepsVariableLength() {
+                  MineSegment segment = MineSegment.reserved(
+                      UUID.randomUUID(), UUID.randomUUID(), null,
+                      new BlockPosition(1, 2, 3), MineDirection.WEST, 11
+                  ).withStatus(MineSegment.Status.MINING).withProgress(17).withSupportsPlaced(2);
+                  assertEquals(segment, service.decode(service.encode(segment)));
+              }
+
+              @Test
+              void legacyEightFieldSegmentsLoadAsEightBlocksLong() {
+                  UUID id = UUID.randomUUID();
+                  UUID mine = UUID.randomUUID();
+                  String encoded = id + "|" + mine + "||1,2,3|NORTH|MINING|16|0";
+                  assertEquals(8, service.decode(encoded).lengthBlocks());
+              }
+          }
+          '''.replace('          ', ''))
+
+      - name: Run tests and build
+        run: ./gradlew test build
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main/java src/test/java
+          git commit -m "Add flexible miner work sites and tunnel lengths"
+          git push origin HEAD:feature/miner-resume-variable-tunnels
