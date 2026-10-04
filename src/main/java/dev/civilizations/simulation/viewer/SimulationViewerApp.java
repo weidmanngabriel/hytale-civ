@@ -1,7 +1,11 @@
 package dev.civilizations.simulation.viewer;
 
+import dev.civilizations.core.BlockPosition;
+import dev.civilizations.core.MineSupportFrame;
+import dev.civilizations.core.MineTuning;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.WorldPosition;
+import dev.civilizations.simulation.MineSimulationWorld;
 import dev.civilizations.simulation.SimulationMetrics;
 import dev.civilizations.simulation.SimulationRuntime;
 import dev.civilizations.simulation.SimulationScenario;
@@ -11,6 +15,7 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -27,17 +32,22 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Polygon;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 
 /**
  * Lightweight desktop viewer for the Hytale-independent simulation runtime.
  *
  * <p>The viewer is presentation only. It advances {@link SimulationRuntime}, renders snapshots
- * and translates mouse input into existing Core commands.</p>
+ * and translates mouse input into existing Core commands. Mine views render the same voxel
+ * snapshot that automated scenario tests observe; they do not own mining rules.</p>
  */
 public final class SimulationViewerApp {
 
@@ -57,10 +67,16 @@ public final class SimulationViewerApp {
 
         private final SimulationCanvas canvas = new SimulationCanvas();
         private final JTextArea residentDetails = detailsArea();
+        private final JTextArea mineDetails = detailsArea();
         private final JTextArea metricsDetails = detailsArea();
         private final JLabel clockLabel = new JLabel();
+        private final JLabel layerLabel = new JLabel("Y –");
         private final JButton playPauseButton = new JButton("Start");
+        private final JButton layerDownButton = new JButton("Y−");
+        private final JButton layerUpButton = new JButton("Y+");
+        private final JCheckBox expectedOverlay = new JCheckBox("Soll", true);
         private final JComboBox<Speed> speedSelector = new JComboBox<>(Speed.values());
+        private final JComboBox<ViewMode> viewSelector = new JComboBox<>(ViewMode.values());
         private final JComboBox<SimulationScenario> scenarioSelector =
             new JComboBox<>(SimulationScenarios.all().toArray(SimulationScenario[]::new));
         private final Timer timer;
@@ -68,13 +84,14 @@ public final class SimulationViewerApp {
         private SimulationScenario selectedScenario = SimulationScenarios.DEMO_SETTLEMENT;
         private SimulationRuntime runtime = selectedScenario.createRuntime();
         private String selectedResidentId;
+        private int selectedLayerY;
         private boolean running;
 
         private SimulationViewerFrame() {
             super("Hytale Civ – Simulation Lab");
             setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-            setMinimumSize(new Dimension(1_050, 700));
-            setSize(1_280, 800);
+            setMinimumSize(new Dimension(1_100, 720));
+            setSize(1_380, 860);
             setLocationByPlatform(true);
 
             canvas.setRuntime(runtime);
@@ -118,6 +135,17 @@ public final class SimulationViewerApp {
             });
 
             speedSelector.setSelectedItem(Speed.X1);
+            viewSelector.setSelectedItem(ViewMode.TOP_DOWN);
+            viewSelector.addActionListener(event -> {
+                ViewMode mode = (ViewMode) viewSelector.getSelectedItem();
+                canvas.setViewMode(mode == null ? ViewMode.TOP_DOWN : mode);
+            });
+            expectedOverlay.addActionListener(event ->
+                canvas.setShowExpected(expectedOverlay.isSelected())
+            );
+            layerDownButton.addActionListener(event -> changeLayer(-1));
+            layerUpButton.addActionListener(event -> changeLayer(1));
+
             scenarioSelector.setSelectedItem(selectedScenario);
             scenarioSelector.addActionListener(event -> {
                 SimulationScenario scenario =
@@ -130,14 +158,22 @@ public final class SimulationViewerApp {
 
             toolbar.add(new JLabel("Szenario:"));
             toolbar.add(scenarioSelector);
-            toolbar.add(Box.createHorizontalStrut(12));
+            toolbar.add(Box.createHorizontalStrut(10));
             toolbar.add(playPauseButton);
             toolbar.add(stepButton);
             toolbar.add(new JLabel("Tempo:"));
             toolbar.add(speedSelector);
             toolbar.add(resetButton);
+            toolbar.add(Box.createHorizontalStrut(10));
+            toolbar.add(new JLabel("Ansicht:"));
+            toolbar.add(viewSelector);
+            toolbar.add(layerDownButton);
+            toolbar.add(layerLabel);
+            toolbar.add(layerUpButton);
+            toolbar.add(expectedOverlay);
+            toolbar.add(Box.createHorizontalStrut(10));
             toolbar.add(cancelOrderButton);
-            toolbar.add(Box.createHorizontalStrut(16));
+            toolbar.add(Box.createHorizontalStrut(12));
             toolbar.add(clockLabel);
 
             return toolbar;
@@ -146,7 +182,7 @@ public final class SimulationViewerApp {
         private JPanel createInspector() {
             JPanel inspector = new JPanel();
             inspector.setLayout(new BoxLayout(inspector, BoxLayout.Y_AXIS));
-            inspector.setPreferredSize(new Dimension(330, 700));
+            inspector.setPreferredSize(new Dimension(350, 740));
             inspector.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
             JLabel selectionTitle = new JLabel("Ausgewählter Bewohner");
@@ -155,9 +191,19 @@ public final class SimulationViewerApp {
             inspector.add(Box.createVerticalStrut(4));
 
             JScrollPane residentScroll = new JScrollPane(residentDetails);
-            residentScroll.setPreferredSize(new Dimension(310, 220));
+            residentScroll.setPreferredSize(new Dimension(330, 180));
             inspector.add(residentScroll);
-            inspector.add(Box.createVerticalStrut(12));
+            inspector.add(Box.createVerticalStrut(10));
+
+            JLabel mineTitle = new JLabel("Mine / aktueller Intent");
+            mineTitle.setFont(mineTitle.getFont().deriveFont(Font.BOLD));
+            inspector.add(mineTitle);
+            inspector.add(Box.createVerticalStrut(4));
+
+            JScrollPane mineScroll = new JScrollPane(mineDetails);
+            mineScroll.setPreferredSize(new Dimension(330, 200));
+            inspector.add(mineScroll);
+            inspector.add(Box.createVerticalStrut(10));
 
             JLabel metricsTitle = new JLabel("Simulation Metrics");
             metricsTitle.setFont(metricsTitle.getFont().deriveFont(Font.BOLD));
@@ -165,20 +211,19 @@ public final class SimulationViewerApp {
             inspector.add(Box.createVerticalStrut(4));
 
             JScrollPane metricsScroll = new JScrollPane(metricsDetails);
-            metricsScroll.setPreferredSize(new Dimension(310, 340));
+            metricsScroll.setPreferredSize(new Dimension(330, 220));
             inspector.add(metricsScroll);
-            inspector.add(Box.createVerticalStrut(12));
+            inspector.add(Box.createVerticalStrut(10));
 
             JTextArea help = detailsArea();
             help.setText(
-                "Szenarien\n"
-                    + "Oben ein Start-Szenario wählen. Wechsel und Reset laden denselben definierten Weltzustand neu.\n\n"
-                    + "Bedienung\n"
-                    + "Linksklick: Bewohner auswählen\n"
-                    + "Rechtsklick: manuelles Ziel setzen\n"
-                    + "Mausrad: Zoom\n"
-                    + "Step: genau ein Simulations-Tick\n"
-                    + "Max: 2.000 Ticks pro UI-Frame"
+                "Bedienung\n"
+                    + "Step: genau ein 50-ms-Tick\n"
+                    + "Top-Down: Draufsicht\n"
+                    + "Layer: ausgewählte Y-Schicht\n"
+                    + "Isometrisch: feste 3D-Cutaway-Ansicht\n"
+                    + "Soll: geplante Tunnel-/Stützgeometrie einblenden\n"
+                    + "Mausrad: Zoom"
             );
             help.setRows(6);
             inspector.add(help);
@@ -187,9 +232,7 @@ public final class SimulationViewerApp {
         }
 
         private void advanceFrame() {
-            if (!running) {
-                return;
-            }
+            if (!running) return;
             Speed speed = (Speed) speedSelector.getSelectedItem();
             runtime.runTicks(speed == null ? 1 : speed.ticksPerFrame);
             refresh();
@@ -197,11 +240,37 @@ public final class SimulationViewerApp {
 
         private void reset() {
             runtime = selectedScenario.createRuntime();
-            selectedResidentId = null;
+            SimulationRuntime.WorldSnapshot snapshot = runtime.worldSnapshot();
+            selectedResidentId = snapshot.mine() == null
+                ? null
+                : snapshot.residents().stream()
+                    .filter(resident -> resident.profession() == Profession.MINER)
+                    .map(SimulationRuntime.ResidentSnapshot::id)
+                    .findFirst()
+                    .orElse(null);
+            if (snapshot.mine() != null) {
+                selectedLayerY = snapshot.mine().world().bounds().minY();
+                viewSelector.setSelectedItem(ViewMode.ISOMETRIC);
+            } else {
+                viewSelector.setSelectedItem(ViewMode.TOP_DOWN);
+            }
             canvas.setRuntime(runtime);
-            canvas.setSelectedResidentId(null);
+            canvas.setSelectedResidentId(selectedResidentId);
+            canvas.setLayerY(selectedLayerY);
             running = false;
             playPauseButton.setText("Start");
+            refresh();
+        }
+
+        private void changeLayer(int delta) {
+            SimulationRuntime.MineSnapshot mine = runtime.worldSnapshot().mine();
+            if (mine == null) return;
+            MineSimulationWorld.Bounds bounds = mine.world().bounds();
+            selectedLayerY = Math.max(
+                bounds.minY(),
+                Math.min(bounds.maxY(), selectedLayerY + delta)
+            );
+            canvas.setLayerY(selectedLayerY);
             refresh();
         }
 
@@ -212,9 +281,7 @@ public final class SimulationViewerApp {
         }
 
         private void orderManualMove(WorldPosition destination) {
-            if (selectedResidentId == null) {
-                return;
-            }
+            if (selectedResidentId == null) return;
             runtime.orderManualMove(selectedResidentId, destination);
             refresh();
         }
@@ -230,7 +297,24 @@ public final class SimulationViewerApp {
                 snapshot.elapsedSeconds()
             ));
 
+            boolean mineAvailable = snapshot.mine() != null;
+            viewSelector.setEnabled(mineAvailable);
+            expectedOverlay.setEnabled(mineAvailable);
+            layerDownButton.setEnabled(mineAvailable);
+            layerUpButton.setEnabled(mineAvailable);
+            if (mineAvailable) {
+                MineSimulationWorld.Bounds bounds = snapshot.mine().world().bounds();
+                if (selectedLayerY < bounds.minY() || selectedLayerY > bounds.maxY()) {
+                    selectedLayerY = bounds.minY();
+                    canvas.setLayerY(selectedLayerY);
+                }
+                layerLabel.setText("Y " + selectedLayerY);
+            } else {
+                layerLabel.setText("Y –");
+            }
+
             updateResidentDetails(snapshot);
+            updateMineDetails(snapshot.mine());
             updateMetrics(snapshot.metrics());
         }
 
@@ -271,6 +355,35 @@ public final class SimulationViewerApp {
             );
         }
 
+        private void updateMineDetails(SimulationRuntime.MineSnapshot mine) {
+            if (mine == null) {
+                mineDetails.setText("Kein Mine-Szenario aktiv.");
+                return;
+            }
+            int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
+            int blockInFace = mine.nextBlockIndex() >= MineTuning.blocksPerSegment()
+                ? faceSize
+                : mine.nextBlockIndex() % faceSize + 1;
+            mineDetails.setText(
+                "State: " + mine.state() + "\n"
+                    + "Intent: " + mine.intent() + "\n"
+                    + "Richtung: " + mine.segment().direction() + "\n"
+                    + "Tiefe: " + Math.min(MineTuning.SEGMENT_LENGTH_BLOCKS, mine.currentDepth() + 1)
+                    + " / " + MineTuning.SEGMENT_LENGTH_BLOCKS + "\n"
+                    + "Block in Fläche: " + blockInFace + " / " + faceSize + "\n"
+                    + "Gesamtfortschritt: " + mine.nextBlockIndex() + " / "
+                    + MineTuning.blocksPerSegment() + "\n"
+                    + "Stützen bestätigt: " + mine.segment().supportsPlaced() + " / 2\n"
+                    + "Zielblock: " + (mine.targetBlock() == null ? "–" : mine.targetBlock()) + "\n"
+                    + String.format(
+                        Locale.ROOT,
+                        "Arbeitszeit Block: %.2f / %.2f s",
+                        mine.blockWorkElapsedSeconds(),
+                        MineTuning.secondsPerBlock()
+                    )
+            );
+        }
+
         private void updateMetrics(SimulationMetrics.Snapshot metrics) {
             metricsDetails.setText(
                 "Ticks                 " + metrics.ticks() + "\n"
@@ -284,7 +397,7 @@ public final class SimulationViewerApp {
                     + "Movement requests      " + metrics.movementRequests() + "\n"
                     + "Failed plans           " + metrics.failedPlans() + "\n"
                     + "\n"
-                    + "Trees felled            " + metrics.treesFelled() + "\n"
+                    + "Trees felled           " + metrics.treesFelled() + "\n"
                     + "Constructions done     " + metrics.constructionsCompleted() + "\n"
                     + "Farm outputs stored    " + metrics.farmOutputsStored()
             );
@@ -319,10 +432,14 @@ public final class SimulationViewerApp {
         private final Color axisColor = new Color(175, 175, 175);
         private final Color treeColor = new Color(45, 125, 60);
         private final Color builderColor = new Color(205, 135, 35);
-        private final Color farmerColor = new Color(80, 130, 205);
-        private final Color woodcutterColor = new Color(120, 80, 45);
         private final Color fieldColor = new Color(205, 180, 70);
         private final Color selectedColor = new Color(205, 45, 45);
+        private final Color solidColor = new Color(105, 108, 115);
+        private final Color airColor = new Color(244, 246, 248);
+        private final Color supportPostColor = new Color(128, 84, 48);
+        private final Color supportBeamColor = new Color(158, 103, 54);
+        private final Color expectedColor = new Color(65, 135, 210, 115);
+        private final Color targetColor = new Color(215, 55, 55);
 
         private SimulationRuntime runtime;
         private SimulationRuntime.WorldSnapshot snapshot;
@@ -331,6 +448,9 @@ public final class SimulationViewerApp {
         };
         private ManualMoveListener manualMoveListener = destination -> {
         };
+        private ViewMode viewMode = ViewMode.TOP_DOWN;
+        private int layerY;
+        private boolean showExpected = true;
         private double zoom = 1.0;
 
         private SimulationCanvas() {
@@ -340,26 +460,20 @@ public final class SimulationViewerApp {
             MouseAdapter mouse = new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent event) {
-                    if (snapshot == null) {
-                        return;
-                    }
-
+                    if (snapshot == null) return;
                     if (SwingUtilities.isLeftMouseButton(event)) {
                         String residentId = residentAt(event.getX(), event.getY());
                         selectionListener.onSelected(residentId);
                         return;
                     }
-
                     if (SwingUtilities.isRightMouseButton(event)
-                        && selectedResidentId != null) {
+                        && selectedResidentId != null
+                        && snapshot.mine() == null) {
                         SimulationRuntime.ResidentSnapshot resident = snapshot.residents().stream()
                             .filter(candidate -> candidate.id().equals(selectedResidentId))
                             .findFirst()
                             .orElse(null);
-                        if (resident == null) {
-                            return;
-                        }
-
+                        if (resident == null) return;
                         WorldPosition world = screenToWorld(
                             event.getX(),
                             event.getY(),
@@ -404,12 +518,25 @@ public final class SimulationViewerApp {
             this.manualMoveListener = manualMoveListener;
         }
 
+        void setViewMode(ViewMode viewMode) {
+            this.viewMode = viewMode;
+            repaint();
+        }
+
+        void setLayerY(int layerY) {
+            this.layerY = layerY;
+            repaint();
+        }
+
+        void setShowExpected(boolean showExpected) {
+            this.showExpected = showExpected;
+            repaint();
+        }
+
         @Override
         protected void paintComponent(Graphics graphics) {
             super.paintComponent(graphics);
-            if (snapshot == null) {
-                return;
-            }
+            if (snapshot == null) return;
 
             Graphics2D g = (Graphics2D) graphics.create();
             try {
@@ -417,15 +544,264 @@ public final class SimulationViewerApp {
                     RenderingHints.KEY_ANTIALIASING,
                     RenderingHints.VALUE_ANTIALIAS_ON
                 );
-                drawGrid(g);
-                drawFields(g);
-                drawConstructionSites(g);
-                drawTrees(g);
-                drawResidents(g);
-                drawLegend(g);
+                if (snapshot.mine() != null) {
+                    switch (viewMode) {
+                        case TOP_DOWN -> drawMineTopDown(g, snapshot.mine(), false);
+                        case LAYER -> drawMineTopDown(g, snapshot.mine(), true);
+                        case ISOMETRIC -> drawMineIsometric(g, snapshot.mine());
+                    }
+                    drawMineLegend(g);
+                } else {
+                    drawGrid(g);
+                    drawFields(g);
+                    drawConstructionSites(g);
+                    drawTrees(g);
+                    drawResidents(g);
+                    drawLegend(g);
+                }
             } finally {
                 g.dispose();
             }
+        }
+
+        private void drawMineTopDown(
+            Graphics2D g,
+            SimulationRuntime.MineSnapshot mine,
+            boolean singleLayer
+        ) {
+            MineSimulationWorld.Bounds bounds = mine.world().bounds();
+            double cell = mineCellSize(bounds);
+            double width = (bounds.maxX() - bounds.minX() + 1) * cell;
+            double depth = (bounds.maxZ() - bounds.minZ() + 1) * cell;
+            double originX = (getWidth() - width) / 2.0;
+            double originY = (getHeight() - depth) / 2.0;
+            int y = singleLayer ? layerY : bounds.minY();
+
+            for (int z = bounds.minZ(); z <= bounds.maxZ(); z++) {
+                for (int x = bounds.minX(); x <= bounds.maxX(); x++) {
+                    BlockPosition position = new BlockPosition(x, y, z);
+                    MineSimulationWorld.Cell state = mine.world().get(position);
+                    int sx = (int) Math.round(originX + (x - bounds.minX()) * cell);
+                    int sy = (int) Math.round(originY + (z - bounds.minZ()) * cell);
+                    int size = Math.max(2, (int) Math.ceil(cell));
+                    g.setColor(cellColor(state));
+                    g.fillRect(sx, sy, size, size);
+                    g.setColor(new Color(210, 210, 210));
+                    g.drawRect(sx, sy, size, size);
+
+                    if (showExpected) drawExpectedCell(g, mine, position, sx, sy, size);
+                    if (position.equals(mine.targetBlock())) {
+                        g.setColor(targetColor);
+                        g.setStroke(new BasicStroke(3.0f));
+                        g.drawRect(sx + 2, sy + 2, Math.max(1, size - 4), Math.max(1, size - 4));
+                    }
+                }
+            }
+            drawMineResidentTopDown(g, mine, bounds, originX, originY, cell);
+            g.setColor(Color.DARK_GRAY);
+            g.drawString(singleLayer ? "Layer Y=" + y : "Draufsicht auf Tunnelboden", 12, 22);
+        }
+
+        private void drawExpectedCell(
+            Graphics2D g,
+            SimulationRuntime.MineSnapshot mine,
+            BlockPosition position,
+            int sx,
+            int sy,
+            int size
+        ) {
+            g.setColor(expectedColor);
+            g.setStroke(new BasicStroke(1.4f));
+            g.drawRect(sx + 3, sy + 3, Math.max(1, size - 6), Math.max(1, size - 6));
+            for (int depth : List.of(4, 8)) {
+                for (MineSupportFrame.Cell support : MineSupportFrame.cells(mine.segment(), depth)) {
+                    if (support.position().equals(position)) {
+                        g.setColor(support.part() == MineSupportFrame.Part.POST
+                            ? supportPostColor
+                            : supportBeamColor);
+                        g.setStroke(new BasicStroke(2.2f));
+                        g.drawRect(sx + 5, sy + 5, Math.max(1, size - 10), Math.max(1, size - 10));
+                        return;
+                    }
+                }
+            }
+        }
+
+        private void drawMineResidentTopDown(
+            Graphics2D g,
+            SimulationRuntime.MineSnapshot mine,
+            MineSimulationWorld.Bounds bounds,
+            double originX,
+            double originY,
+            double cell
+        ) {
+            SimulationRuntime.ResidentSnapshot miner = snapshot.residents().stream()
+                .filter(resident -> resident.profession() == Profession.MINER)
+                .findFirst()
+                .orElse(null);
+            if (miner == null) return;
+            int x = (int) Math.round(originX + (miner.position().x() - bounds.minX()) * cell);
+            int y = (int) Math.round(originY + (miner.position().z() - bounds.minZ()) * cell);
+            g.setColor(selectedColor);
+            g.fillOval(x - 7, y - 7, 14, 14);
+            g.setColor(Color.BLACK);
+            g.drawOval(x - 7, y - 7, 14, 14);
+            g.drawString("M", x + 9, y + 4);
+        }
+
+        private void drawMineIsometric(Graphics2D g, SimulationRuntime.MineSnapshot mine) {
+            MineSimulationWorld.Bounds bounds = mine.world().bounds();
+            double tileW = 38.0 * zoom;
+            double tileH = 19.0 * zoom;
+            double cubeH = 20.0 * zoom;
+            double centerX = getWidth() * 0.5;
+            double baseY = getHeight() * 0.68;
+
+            List<BlockPosition> positions = new ArrayList<>(mine.world().cells().keySet());
+            positions.sort(Comparator
+                .comparingInt((BlockPosition p) -> (p.x() - bounds.minX()) + (p.z() - bounds.minZ()))
+                .thenComparingInt(BlockPosition::y));
+
+            for (BlockPosition position : positions) {
+                MineSimulationWorld.Cell cell = mine.world().get(position);
+                if (cell == MineSimulationWorld.Cell.AIR) continue;
+                double rx = position.x() - bounds.minX();
+                double rz = position.z() - bounds.minZ();
+                double ry = position.y() - bounds.minY();
+                int px = (int) Math.round(centerX + (rx - rz) * tileW / 2.0);
+                int py = (int) Math.round(baseY + (rx + rz) * tileH / 2.0 - ry * cubeH);
+                drawIsoCube(g, px, py, tileW, tileH, cubeH, cellColor(cell));
+            }
+
+            if (showExpected) drawExpectedSupportsIso(g, mine, bounds, centerX, baseY, tileW, tileH, cubeH);
+            drawMinerIso(g, bounds, centerX, baseY, tileW, tileH, cubeH);
+            g.setColor(Color.DARK_GRAY);
+            g.drawString("Isometrische Cutaway-Ansicht – AIR wird nicht gezeichnet", 12, 22);
+        }
+
+        private void drawExpectedSupportsIso(
+            Graphics2D g,
+            SimulationRuntime.MineSnapshot mine,
+            MineSimulationWorld.Bounds bounds,
+            double centerX,
+            double baseY,
+            double tileW,
+            double tileH,
+            double cubeH
+        ) {
+            for (int depth : List.of(4, 8)) {
+                for (MineSupportFrame.Cell support : MineSupportFrame.cells(mine.segment(), depth)) {
+                    MineSimulationWorld.Cell actual = mine.world().get(support.position());
+                    if (actual == MineSimulationWorld.Cell.SUPPORT_POST
+                        || actual == MineSimulationWorld.Cell.SUPPORT_BEAM) continue;
+                    BlockPosition p = support.position();
+                    double rx = p.x() - bounds.minX();
+                    double rz = p.z() - bounds.minZ();
+                    double ry = p.y() - bounds.minY();
+                    int px = (int) Math.round(centerX + (rx - rz) * tileW / 2.0);
+                    int py = (int) Math.round(baseY + (rx + rz) * tileH / 2.0 - ry * cubeH);
+                    Polygon top = isoTop(px, py, tileW, tileH);
+                    g.setColor(expectedColor);
+                    g.setStroke(new BasicStroke(2.0f));
+                    g.drawPolygon(top);
+                }
+            }
+        }
+
+        private void drawMinerIso(
+            Graphics2D g,
+            MineSimulationWorld.Bounds bounds,
+            double centerX,
+            double baseY,
+            double tileW,
+            double tileH,
+            double cubeH
+        ) {
+            SimulationRuntime.ResidentSnapshot miner = snapshot.residents().stream()
+                .filter(resident -> resident.profession() == Profession.MINER)
+                .findFirst()
+                .orElse(null);
+            if (miner == null) return;
+            double rx = miner.position().x() - bounds.minX();
+            double rz = miner.position().z() - bounds.minZ();
+            double ry = miner.position().y() - bounds.minY();
+            int px = (int) Math.round(centerX + (rx - rz) * tileW / 2.0);
+            int py = (int) Math.round(baseY + (rx + rz) * tileH / 2.0 - ry * cubeH - cubeH);
+            g.setColor(selectedColor);
+            g.fillOval(px - 8, py - 8, 16, 16);
+            g.setColor(Color.BLACK);
+            g.drawOval(px - 8, py - 8, 16, 16);
+            g.drawString("M", px + 10, py + 4);
+        }
+
+        private void drawIsoCube(
+            Graphics2D g,
+            int px,
+            int py,
+            double tileW,
+            double tileH,
+            double cubeH,
+            Color base
+        ) {
+            Polygon top = isoTop(px, py, tileW, tileH);
+            Polygon left = new Polygon(
+                new int[]{top.xpoints[3], top.xpoints[2], top.xpoints[2], top.xpoints[3]},
+                new int[]{top.ypoints[3], top.ypoints[2], (int) (top.ypoints[2] + cubeH), (int) (top.ypoints[3] + cubeH)},
+                4
+            );
+            Polygon right = new Polygon(
+                new int[]{top.xpoints[1], top.xpoints[2], top.xpoints[2], top.xpoints[1]},
+                new int[]{top.ypoints[1], top.ypoints[2], (int) (top.ypoints[2] + cubeH), (int) (top.ypoints[1] + cubeH)},
+                4
+            );
+            g.setColor(base.brighter());
+            g.fillPolygon(top);
+            g.setColor(base.darker());
+            g.fillPolygon(left);
+            g.setColor(base);
+            g.fillPolygon(right);
+            g.setColor(new Color(55, 55, 55, 150));
+            g.drawPolygon(top);
+            g.drawPolygon(left);
+            g.drawPolygon(right);
+        }
+
+        private static Polygon isoTop(int px, int py, double tileW, double tileH) {
+            int halfW = (int) Math.round(tileW / 2.0);
+            int halfH = (int) Math.round(tileH / 2.0);
+            return new Polygon(
+                new int[]{px, px + halfW, px, px - halfW},
+                new int[]{py - halfH, py, py + halfH, py},
+                4
+            );
+        }
+
+        private Color cellColor(MineSimulationWorld.Cell cell) {
+            return switch (cell) {
+                case SOLID -> solidColor;
+                case AIR -> airColor;
+                case SUPPORT_POST -> supportPostColor;
+                case SUPPORT_BEAM -> supportBeamColor;
+            };
+        }
+
+        private double mineCellSize(MineSimulationWorld.Bounds bounds) {
+            double width = bounds.maxX() - bounds.minX() + 1.0;
+            double depth = bounds.maxZ() - bounds.minZ() + 1.0;
+            return Math.max(
+                12.0,
+                Math.min(62.0, Math.min((getWidth() - 100.0) / width, (getHeight() - 120.0) / depth))
+            ) * zoom;
+        }
+
+        private void drawMineLegend(Graphics2D g) {
+            String text = "Grau = Stein   Weiß = Luft   Braun = Stütze   Rot = aktueller Zielblock   Blau = Soll";
+            int width = g.getFontMetrics().stringWidth(text) + 16;
+            int y = getHeight() - 14;
+            g.setColor(new Color(255, 255, 255, 225));
+            g.fillRect(8, y - 16, width, 22);
+            g.setColor(Color.DARK_GRAY);
+            g.drawString(text, 16, y);
         }
 
         private void drawGrid(Graphics2D g) {
@@ -541,6 +917,13 @@ public final class SimulationViewerApp {
         }
 
         private String residentAt(int mouseX, int mouseY) {
+            if (snapshot.mine() != null) {
+                return snapshot.residents().stream()
+                    .filter(resident -> resident.profession() == Profession.MINER)
+                    .map(SimulationRuntime.ResidentSnapshot::id)
+                    .findFirst()
+                    .orElse(null);
+            }
             String nearest = null;
             double nearestDistance = 18.0 * 18.0;
             for (SimulationRuntime.ResidentSnapshot resident : snapshot.residents()) {
@@ -591,6 +974,23 @@ public final class SimulationViewerApp {
                 case MINER -> "M";
                 case UNEMPLOYED -> "–";
             };
+        }
+    }
+
+    private enum ViewMode {
+        TOP_DOWN("Draufsicht"),
+        LAYER("Layer"),
+        ISOMETRIC("Isometrisch");
+
+        private final String label;
+
+        ViewMode(String label) {
+            this.label = label;
+        }
+
+        @Override
+        public String toString() {
+            return label;
         }
     }
 
