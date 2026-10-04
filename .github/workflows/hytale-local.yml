@@ -163,7 +163,7 @@ jobs:
           persist-credentials: false
 
       - name: Verify authorized revision and request
-        shell: powershell
+        shell: 'powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"'
         env:
           EXPECTED_SHA: ${{ needs.authorize.outputs.head_sha }}
           REQUESTED_BY: ${{ needs.authorize.outputs.requested_by }}
@@ -181,7 +181,7 @@ jobs:
           Write-Host "Scenarios: $($env:REQUESTED_SCENARIOS)"
 
       - name: Verify runner environment
-        shell: powershell
+        shell: 'powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"'
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -208,7 +208,7 @@ jobs:
           Write-Host 'Hytale Assets.zip: OK'
 
       - name: Run tests and build Civ plugin
-        shell: powershell
+        shell: 'powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"'
         run: |
           $ErrorActionPreference = 'Stop'
           .\gradlew.bat test jar --no-daemon
@@ -217,7 +217,7 @@ jobs:
           }
 
       - name: Run selected Hytale scenarios
-        shell: powershell
+        shell: 'powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"'
         env:
           REQUESTED_SCENARIOS: ${{ needs.authorize.outputs.scenarios }}
         run: |
