@@ -2,6 +2,7 @@
   "version": 1,
   "scenarios": [
     "woodcutter",
-    "persistence"
+    "persistence",
+    "minesupport"
   ]
 }
