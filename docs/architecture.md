@@ -42,6 +42,8 @@ Die Headless-Simulation ist keine zweite Gameplay-Implementierung und kein Ersat
 
 <code>SimulationViewerApp</code> ist eine optionale Swing-/Java2D-Präsentationsschicht auf derselben Runtime. Sie liest unveränderliche <code>WorldSnapshot</code>-Daten, zeichnet Bewohner und einfache Weltobjekte und übersetzt Auswahl sowie manuelle Rechtsklick-Ziele in vorhandene Runtime-/Core-Befehle. Der Viewer startet über ein auswählbares <code>SimulationScenario</code>; Szenariowechsel und Reset erzeugen jeweils einen frischen Runtime-Zustand. Die Präsentationsschicht besitzt keine eigenen Gameplay-Regeln.
 
+Räumliche Civ-Regeln folgen derselben Grenze. <code>MineSegment</code> beschreibt die Hytale-unabhängige Tunnelgeometrie, <code>MineSupportFrame</code> die semantischen Zellen eines Stützrahmens. Schnelle Tests dürfen diese Geometrie in eine minimale 3D-Voxelwelt projizieren und vollständige World-Diffs prüfen. Diese Testwelt ist keine zweite Engine: Sie besitzt weder Pathfinding noch Physik, Chunks, Prefab-Origins oder Assetsemantik. Kleine 2D-Checks sind lediglich Draufsichten beziehungsweise feste Y-Ebenen derselben 3D-Koordinaten. Erst ein Hytale-Runtime-Test beweist anschließend, dass native Navigation, Harvesting und Prefab-Platzierung die bereits validierte Civ-Sollgeometrie tatsächlich umsetzen. Die Teststrategie und die Begründung dieser Grenze stehen in <code>docs/testing.md</code> und ADR <code>0004-spatial-golden-and-voxel-tests.md</code>.
+
 ### hytale
 
 Adapter zwischen Hytale-Konzepten und Core-Konzepten. Entitäten, NPCs, Weltzugriff, Navigation, Kamera, Eingabe, UI und Rendering gehören hierher.
