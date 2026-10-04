@@ -20,50 +20,50 @@ final class MineGeometryGoldenTest {
     private static final BlockPosition START = new BlockPosition(10, 20, 30);
 
     @Test
-    void straightSegmentsMatchIndependentGoldenVolumesInAllDirections() {
+    void straightSegmentsIncludeTheFixedFourBlockJunctionInAllDirections() {
         assertEquals(
-            box(10, 13, 20, 23, 23, 30),
+            box(10, 13, 20, 23, 19, 30),
             new HashSet<>(segment(MineDirection.NORTH).blocks())
         );
         assertEquals(
-            box(10, 17, 20, 23, 30, 33),
+            box(10, 21, 20, 23, 30, 33),
             new HashSet<>(segment(MineDirection.EAST).blocks())
         );
         assertEquals(
-            box(7, 10, 20, 23, 30, 37),
+            box(7, 10, 20, 23, 30, 41),
             new HashSet<>(segment(MineDirection.SOUTH).blocks())
         );
         assertEquals(
-            box(3, 10, 20, 23, 27, 30),
+            box(-1, 10, 20, 23, 27, 30),
             new HashSet<>(segment(MineDirection.WEST).blocks())
         );
     }
 
     @Test
-    void northRightTurnMatchesIndependentTopDownGoldenShape() {
+    void northRightTurnStartsOutsideTheReservedJunction() {
         MineSegment parent = segment(MineDirection.NORTH);
-        assertEquals(new BlockPosition(10, 20, 23), parent.nextStart(MineDirection.EAST));
+        assertEquals(new BlockPosition(14, 20, 19), parent.nextStart(MineDirection.EAST));
 
         MineSegment child = child(parent, MineDirection.EAST);
         Set<BlockPosition> actualFloor = floor(parent);
         actualFloor.addAll(floor(child));
 
-        Set<BlockPosition> expectedFloor = box(10, 13, 20, 20, 23, 30);
-        expectedFloor.addAll(box(10, 17, 20, 20, 23, 26));
+        Set<BlockPosition> expectedFloor = box(10, 13, 20, 20, 19, 30);
+        expectedFloor.addAll(box(14, 25, 20, 20, 19, 22));
         assertEquals(expectedFloor, actualFloor);
     }
 
     @Test
-    void northLeftTurnMatchesIndependentTopDownGoldenShape() {
+    void northLeftTurnStartsOutsideTheReservedJunction() {
         MineSegment parent = segment(MineDirection.NORTH);
-        assertEquals(new BlockPosition(13, 20, 26), parent.nextStart(MineDirection.WEST));
+        assertEquals(new BlockPosition(9, 20, 22), parent.nextStart(MineDirection.WEST));
 
         MineSegment child = child(parent, MineDirection.WEST);
         Set<BlockPosition> actualFloor = floor(parent);
         actualFloor.addAll(floor(child));
 
-        Set<BlockPosition> expectedFloor = box(10, 13, 20, 20, 23, 30);
-        expectedFloor.addAll(box(6, 13, 20, 20, 23, 26));
+        Set<BlockPosition> expectedFloor = box(10, 13, 20, 20, 19, 30);
+        expectedFloor.addAll(box(-2, 9, 20, 20, 19, 22));
         assertEquals(expectedFloor, actualFloor);
     }
 
