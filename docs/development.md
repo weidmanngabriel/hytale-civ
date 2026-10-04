@@ -155,6 +155,16 @@ Alternativ:
 
 Der Task kopiert sowohl das Plugin-JAR als auch <code>hytale-civ-assets/</code> in das konfigurierte Mods-Verzeichnis. Normale Tests und Builds benötigen diese Einstellung nicht.
 
+## Hytale Local / Runtime-Tests
+
+Hytale Local bezeichnet im Projekt die gezielte Ausführung echter Hytale-Runtime-Szenarien auf dem lokalen Windows-Self-Hosted-Runner. Es ergänzt Unit-, Simulations- und Adaptertests dort, wo eine Frage nur in der echten Engine zuverlässig beantwortet werden kann, zum Beispiel bei Lifecycle, Event-Dispatch, Navigation, Client-/Server-Interaktion, Asset-Verhalten oder anderen runtime-abhängigen Hytale-Verträgen.
+
+Hytale Local ist bewusst **kein allgemeiner Standard-Testschritt** und kein Merge- oder Release-Gate. Es soll eingesetzt werden, wenn ein konkreter Runtime-Test eine relevante Unsicherheit reduziert oder eine schwer reproduzierbare Engine-Interaktion gezielt diagnostiziert. Reine Core-Logik, Dokumentationsänderungen und Verhalten, das zuverlässig unterhalb der Hytale-Grenze getestet werden kann, gehören weiterhin in die normalen automatisierten Tests.
+
+Die Nutzung ist **opt-in**: Wenn ein Coding-Agent erkennt, dass Hytale Local für eine Aufgabe sinnvoll wäre, bietet er den Lauf zuerst an und beschreibt kurz, welche offene Frage damit geprüft werden soll. Ein Runtime-Test darf erst angefordert oder ausgeführt werden, nachdem der Benutzer für die konkrete Aufgabe ausdrücklich zugestimmt hat. Danach soll möglichst das kleinste passende Szenario verwendet werden; <code>all</code> ist für echte breite Regressionen reserviert.
+
+Technisch wird der Lauf über die feste GitHub-Issue <code>#126 Hytale Runtime Test Requests</code> angefordert. Der Befehl referenziert die gewünschten Szenarien und den exakt zu testenden Commit. GitHub prüft die Anfrage zuerst auf einem GitHub-hosted Runner; erst eine autorisierte Anfrage erreicht den lokalen Self-Hosted-Runner. Dort wird genau dieser Commit ausgecheckt, gebaut und mit den erlaubten Szenarien aus <code>scripts/hytale-runtime-scenarios.json</code> in isolierten Hytale-Runtime-Verzeichnissen ausgeführt. Die Ergebnisse bleiben dadurch einem konkreten Commit und Szenario zuordenbar.
+
 ## Integration von Änderungen
 
 Jede Änderung wird auf einem temporären Branch umgesetzt. Zwischen-Commits sind während der Arbeit erlaubt.
@@ -168,7 +178,7 @@ Vor der Integration:
 5. Nur den final validierten Branch per Squash-Merge integrieren, damit genau ein sinnvoller Commit für die Änderung auf <code>main</code> verbleibt.
 6. Danach den Workflow auf <code>main</code> sowie das erzeugte Pre-Release prüfen.
 
-Lokale Hytale-Runtime-Szenarien sind in dieser Entwicklungsphase **optional**. Sie dienen zur Diagnose und zur gezielten Verifikation unsicherer Engine-Verträge, sind aber weder Voraussetzung für einen Merge noch für einen Release. Ein fehlender oder nicht ausgeführter lokaler Runtime-Lauf blockiert eine Änderung deshalb nicht. Wenn ein solcher Lauf sinnvoll ist oder ausdrücklich angefordert wurde, soll weiterhin möglichst nur das kleinste relevante Szenario ausgeführt werden.
+Lokale Hytale-Runtime-Szenarien sind in dieser Entwicklungsphase **optional**. Sie dienen zur Diagnose und zur gezielten Verifikation unsicherer Engine-Verträge, sind aber weder Voraussetzung für einen Merge noch für einen Release. Ein fehlender oder nicht ausgeführter lokaler Runtime-Lauf blockiert eine Änderung deshalb nicht. Wenn ein solcher Lauf nach ausdrücklicher Zustimmung ausgeführt wird, soll weiterhin möglichst nur das kleinste relevante Szenario verwendet werden.
 
 Nach dem final validierten Zustand dürfen keine zusätzlichen Änderungen auf denselben Branch gepusht und anschließend ungeprüft gemerged werden. Ein Fix nach dem Merge beginnt auf einem neuen temporären Branch und wird ein eigener Squash-Commit.
 
