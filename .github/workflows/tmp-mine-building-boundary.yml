@@ -1,0 +1,74 @@
+name: Temporary mine building boundary patch
+
+on:
+  push:
+    branches:
+      - fix/mine-building-boundary
+    paths:
+      - .github/workflows/tmp-mine-building-boundary.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/mine-building-boundary
+          fetch-depth: 0
+      - name: Patch miner building-boundary validation
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('src/main/java/dev/civilizations/hytale/MinerWorkSystem.java')
+          text = path.read_text()
+
+          replacements = [
+              (
+                  'if (!validCandidate(world, mine, initial)) return null;',
+                  'if (!validCandidate(world, mine, initial, true)) return null;'
+              ),
+              (
+                  'if (validCandidate(world, mine, candidate)) result.add(new WeightedDirection(direction, weight));',
+                  'if (validCandidate(world, mine, candidate, false)) result.add(new WeightedDirection(direction, weight));'
+              ),
+              (
+                  '''    private boolean validCandidate(\n        World world,\n        BuildingPlacementRegistry.BuildingInstance mine,\n        MineSegment segment\n    ) {\n        UUID worldId = world.getWorldConfig().getUuid();\n        if (tunnelRegistry.conflicts(worldId, segment)) return false;\n        for (BlockPosition block : segment.blocks()) {\n            if (!safeBlock(world, mine, block)) return false;\n        }\n        return true;\n    }\n\n    private boolean safeBlock(\n        World world,\n        BuildingPlacementRegistry.BuildingInstance mine,\n        BlockPosition block\n    ) {\n        for (BuildingPlacementRegistry.BuildingInstance building :\n            buildingRegistry.buildings(world.getWorldConfig().getUuid())) {\n            if (!building.id().equals(mine.id()) && building.bounds().containsBlock(block)) return false;\n        }\n        BlockType type = loadedBlockType(world, block);''',
+                  '''    private boolean validCandidate(\n        World world,\n        BuildingPlacementRegistry.BuildingInstance mine,\n        MineSegment segment,\n        boolean allowOwnMine\n    ) {\n        UUID worldId = world.getWorldConfig().getUuid();\n        if (tunnelRegistry.conflicts(worldId, segment)) return false;\n        for (BlockPosition block : segment.blocks()) {\n            if (!safeBlock(world, mine, block, allowOwnMine)) return false;\n        }\n        return true;\n    }\n\n    private boolean safeBlock(\n        World world,\n        BuildingPlacementRegistry.BuildingInstance mine,\n        BlockPosition block\n    ) {\n        return safeBlock(world, mine, block, false);\n    }\n\n    private boolean safeBlock(\n        World world,\n        BuildingPlacementRegistry.BuildingInstance mine,\n        BlockPosition block,\n        boolean allowOwnMine\n    ) {\n        if (blockedByBuilding(\n            block,\n            mine.id(),\n            buildingRegistry.buildings(world.getWorldConfig().getUuid()),\n            allowOwnMine\n        )) return false;\n        BlockType type = loadedBlockType(world, block);'''
+              ),
+          ]
+
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'Missing expected source fragment:\n{old}')
+              text = text.replace(old, new, 1)
+
+          anchor = '''    private static BlockType loadedBlockType(World world, BlockPosition block) {'''
+          helper = '''    static boolean blockedByBuilding(\n        BlockPosition block,\n        UUID mineId,\n        List<BuildingPlacementRegistry.BuildingInstance> buildings,\n        boolean allowOwnMine\n    ) {\n        for (BuildingPlacementRegistry.BuildingInstance building : buildings) {\n            if (allowOwnMine && building.id().equals(mineId)) continue;\n            if (building.bounds().containsBlock(block)) return true;\n        }\n        return false;\n    }\n\n'''
+          if anchor not in text:
+              raise SystemExit('Missing loadedBlockType anchor')
+          text = text.replace(anchor, helper + anchor, 1)
+          path.write_text(text)
+
+          test = Path('src/test/java/dev/civilizations/hytale/MinerBuildingBoundaryTest.java')
+          test.parent.mkdir(parents=True, exist_ok=True)
+          test.write_text('''package dev.civilizations.hytale;\n\nimport dev.civilizations.core.BlockPosition;\nimport dev.civilizations.core.BuildingBounds;\nimport org.junit.jupiter.api.Test;\n\nimport java.util.List;\nimport java.util.UUID;\n\nimport static org.junit.jupiter.api.Assertions.assertFalse;\nimport static org.junit.jupiter.api.Assertions.assertTrue;\n\nclass MinerBuildingBoundaryTest {\n\n    @Test\n    void ownMineIsIgnoredOnlyForInitialConnectorSegment() {\n        UUID mineId = UUID.randomUUID();\n        var ownMine = building(mineId, new BuildingBounds(0, 0, 0, 8, 8, 8));\n        BlockPosition inside = new BlockPosition(2, 2, 2);\n\n        assertFalse(MinerWorkSystem.blockedByBuilding(inside, mineId, List.of(ownMine), true));\n        assertTrue(MinerWorkSystem.blockedByBuilding(inside, mineId, List.of(ownMine), false));\n    }\n\n    @Test\n    void otherBuildingsAreAlwaysProtected() {\n        UUID mineId = UUID.randomUUID();\n        var other = building(UUID.randomUUID(), new BuildingBounds(10, 0, 10, 18, 8, 18));\n        BlockPosition inside = new BlockPosition(12, 2, 12);\n\n        assertTrue(MinerWorkSystem.blockedByBuilding(inside, mineId, List.of(other), true));\n        assertTrue(MinerWorkSystem.blockedByBuilding(inside, mineId, List.of(other), false));\n    }\n\n    private static BuildingPlacementRegistry.BuildingInstance building(\n        UUID id,\n        BuildingBounds bounds\n    ) {\n        return new BuildingPlacementRegistry.BuildingInstance(\n            id, UUID.randomUUID(), "mine", "bounds", bounds, List.of(), null\n        );\n    }\n}\n''')
+
+          docs = Path('docs/mine-worker.md')
+          doc = docs.read_text()
+          marker = '## Stollenlogik\n'
+          note = '''## Schutz vor Gebaeudegrenzen\n\nBevor ein Folgesegment reserviert wird, prueft Civ den vollstaendigen geplanten Tunnelkoerper gegen die `building_bounds` aller fertigen Civ-Gebaeude, einschliesslich der eigenen Mine. Kollidiert eine Richtung, wird sie vor der gewichteten Auswahl verworfen; sind alle drei moeglichen Richtungen blockiert, wird kein neues Segment angelegt. Nur das initiale Segment am `mine_tunnel_connector` darf die Bounds der eigenen Mine ignorieren, damit der Stollen den authored Ausgang sauber verlassen kann. Dieselbe Schutzregel gilt beim tatsaechlichen Blockabbau, sodass bereits gespeicherte problematische Folgesegmente nicht weiter in ein Gebaeude hinein gegraben werden. Die Pruefung arbeitet auf den tatsaechlichen Segmentbloecken und ist daher nicht auf 4x4x8 fest verdrahtet.\n\n'''
+          if marker not in doc:
+              raise SystemExit('Missing docs marker')
+          doc = doc.replace(marker, note + marker, 1)
+          docs.write_text(doc)
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main/java/dev/civilizations/hytale/MinerWorkSystem.java src/test/java/dev/civilizations/hytale/MinerBuildingBoundaryTest.java docs/mine-worker.md
+          git commit -m "Protect buildings from mine tunnel continuations"
+          git push origin HEAD:fix/mine-building-boundary
