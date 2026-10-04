@@ -339,6 +339,17 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             BlockPosition block = segment.blockAtIndex(index);
             BlockType type = loadedBlockType(world, block);
             if (type == null) return -1;
+            if (!isEmpty(type) && type.getId() != null && type.getId().toLowerCase().contains("wood_fir")) {
+                System.out.println(
+                    "[Civ Mine Debug] reconcile-wood segment=" + segment.id()
+                        + " index=" + index
+                        + " progress=" + segment.nextBlockIndex()
+                        + " supportsPlaced=" + segment.supportsPlaced()
+                        + " pos=" + block
+                        + " blockId=" + type.getId()
+                        + " expectedSupport=" + isExpectedSupportBlock(segment, index, type)
+                );
+            }
             if (isEmpty(type) || isExpectedSupportBlock(segment, index, type)) continue;
             return index;
         }
@@ -397,8 +408,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         BlockType type = loadedBlockType(world, target);
         if (!isEmpty(type)) {
             String blockId = type == null ? "null" : type.getId();
-            boolean supportCell = isExpectedSupportCell(segment, index, blockId);
-            if (blockId != null && (blockId.toLowerCase().contains("wood_fir") || supportCell)) {
+            if (blockId != null && blockId.toLowerCase().contains("wood_fir")) {
                 System.out.println(
                     "[Civ Mine Debug] break-attempt segment=" + segment.id()
                         + " index=" + index
@@ -406,7 +416,6 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
                         + " supportsPlaced=" + segment.supportsPlaced()
                         + " target=" + target
                         + " blockId=" + blockId
-                        + " expectedSupport=" + supportCell
                 );
             }
             Store<ChunkStore> chunkStore = world.getChunkStore().getStore();
