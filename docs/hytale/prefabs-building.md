@@ -10,11 +10,15 @@ Der Civ-Commit-Pfad verwendet dafür nicht mehr `BlockSelection.place`. Auch `Pr
 
 ## Prefab-Rotation
 
-Die gepinnte `HytaleServer.jar` enthält `com.hypixel.hytale.server.core.prefab.PrefabRotation` mit den vier diskreten Werten `ROTATION_0`, `ROTATION_90`, `ROTATION_180` und `ROTATION_270`. Verifiziert sind außerdem `getX(x,z)`, `getZ(x,z)`, `getYaw()` und die Rotation von Block-Rotationswerten. `BlockSelection.rotate(Axis.Y, degrees, pivot)` rotiert Blöcke, Entities und Fluids um einen Pivot; `PersistentPrefabPreview.spawn(...)` akzeptiert separat eine `Rotation3f` für die Preview-Entity.
+Die gepinnte `HytaleServer.jar` enthält `com.hypixel.hytale.server.core.prefab.PrefabRotation` mit den vier diskreten Werten `ROTATION_0`, `ROTATION_90`, `ROTATION_180` und `ROTATION_270`. Verifiziert sind außerdem `getX(x,z)`, `getZ(x,z)`, `getYaw()` und die Rotation von Block-Rotationswerten. `BlockSelection.rotate(Axis.Y, degrees, pivot)` rotiert Blöcke, Entities und Fluids um einen Pivot; `PersistentPrefabPreview.spawn(...)` akzeptiert separat eine `Rotation3f` für die Preview-Entity. `TransformComponent` erlaubt zusätzlich `setRotation(...)`, sodass eine bereits existierende Preview beim Verschieben dieselbe Orientation beibehalten kann.
 
 Civ hält diese Hytale-Klasse aus dem Core heraus. `BuildingOrientation` ist die Hytale-unabhängige Orientierung, `HytalePrefabOrientation` bildet sie am Adapterrand auf `PrefabRotation` ab. Weil Hytales `ROTATION_270` lokale `(x,z)`-Offsets als `(-z,x)` transformiert, entspricht dieser Wert Civs Orientierung `EAST`; entsprechend gilt `NORTH -> ROTATION_0`, `EAST -> ROTATION_270`, `SOUTH -> ROTATION_180`, `WEST -> ROTATION_90`.
 
-Der aktuelle Spieler-Placement-Flow bietet noch keine Rotationsbedienung an. Neue Orientierungslogik muss deshalb zuerst Transform, Persistenz und Simulation konsistent machen, bevor eine sichtbare Rotate-UI aktiviert wird.
+`PlacementCandidate` trägt die Orientation als Teil des Placement-Transforms. Preview, Baustellen-Layer und finales Prefab verwenden dieselbe Orientation. Die vorbereitete `BlockSelection` wird explizit um ihren effektiven Prefab-Anker rotiert, damit Blöcke und authored Entities/Trigger gemeinsam transformiert werden.
+
+Die Orientation wird in der Civ-Gebäudepersistenz gespeichert. Ältere Datensätze ohne Orientation werden rückwärtskompatibel als `NORTH` interpretiert; dadurch ändern bestehende Welten ihre Gebäudeausrichtung nicht beim Laden.
+
+Der aktuelle Spieler-Placement-Flow bietet noch keine Rotationsbedienung an. Neue Placements entstehen deshalb weiterhin als `NORTH`, bis eine sichtbare Rotate-UI separat eingeführt und in Hytale getestet wird.
 
 ## Prefabs aus Asset Packs laden
 
@@ -55,7 +59,7 @@ Semantische Trigger sind grundsätzlich gegenüber festen Prefab-Maßen zu bevor
 
 Im derzeitigen Preview-Spike wird die frühere blockweise Kollisions-/Terrainprüfung bewusst nicht vor dem Preview-Spawn ausgeführt. Diese Prüfung stammte aus dem Sofort-Paste-Pfad und störte die isolierte Verifikation von `PersistentPrefabPreview` bei eingesenkten Baustellenankern.
 
-Die Kollisionsregeln müssen für den Baustellen-Lifecycle erneut passend eingeführt und zur Laufzeit verifiziert werden.
+Die Kollisionsregeln müssen für den Baustellen-Lifecycle erneut passend eingeführt und zur Laufzeit verifiziert werden. Die vier Orientation-Transformationen sind automatisiert gegen Core/Simulation geprüft; die sichtbare Player-Rotation selbst ist noch nicht als In-Game-UX aktiviert und daher noch nicht runtime-verifiziert.
 
 ## Fertige Gebäude
 
