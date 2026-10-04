@@ -2,10 +2,13 @@ package dev.civilizations.simulation;
 
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.FarmBuilding;
+import dev.civilizations.core.MineSegment;
 import dev.civilizations.core.WorldPosition;
+import dev.civilizations.scenario.MinerBasicScenario;
 import dev.civilizations.scenario.WoodcutterBasicScenario;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Small built-in scenario catalog for deterministic development and regression testing.
@@ -24,6 +27,13 @@ public final class SimulationScenarios {
         WoodcutterBasicScenario.DISPLAY_NAME,
         "Ein Holzfäller mit drei Bäumen. Zeigt Suche, Weg, Arbeit und erneute Zielsuche.",
         SimulationScenarios::createWoodcutterBasic
+    );
+
+    public static final SimulationScenario MINER_BASIC = new SimulationScenario(
+        MinerBasicScenario.ID,
+        MinerBasicScenario.DISPLAY_NAME,
+        "Ein Miner gräbt deterministisch genau ein 4×4×8-Segment und setzt Stützen bei Tiefe 4 und 8.",
+        SimulationScenarios::createMinerBasic
     );
 
     public static final SimulationScenario BUILDER_BASIC = new SimulationScenario(
@@ -50,6 +60,7 @@ public final class SimulationScenarios {
     private static final List<SimulationScenario> ALL = List.of(
         DEMO_SETTLEMENT,
         WOODCUTTER_BASIC,
+        MINER_BASIC,
         BUILDER_BASIC,
         FARMER_BASIC,
         WAITING_WORKERS
@@ -114,6 +125,19 @@ public final class SimulationScenarios {
         for (BlockPosition tree : WoodcutterBasicScenario.TREE_ANCHORS) {
             runtime.addTree(tree);
         }
+        return runtime;
+    }
+
+    private static SimulationRuntime createMinerBasic() {
+        SimulationRuntime runtime = new SimulationRuntime();
+        MineSegment segment = MineSegment.reserved(
+            UUID.fromString("00000000-0000-0000-0000-000000000101"),
+            UUID.fromString("00000000-0000-0000-0000-000000000102"),
+            null,
+            MinerBasicScenario.TUNNEL_START,
+            MinerBasicScenario.DIRECTION
+        );
+        runtime.addMiner(MinerBasicScenario.MINER_ID, MinerBasicScenario.MINER_START, segment);
         return runtime;
     }
 
