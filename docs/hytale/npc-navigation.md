@@ -46,3 +46,7 @@ Auch der Minenabbauer prüft den tatsächlichen Tunnelzustand ausschließlich ü
 ## Projektgrenze
 
 Hytale-Adapter führen Navigation, Weltabfragen und native Interaktionen aus. Gameplay-Prioritäten, Zustandsfolgen und Unterbrechungen bleiben im Core.
+
+## Manueller Miner-Ausgang
+
+Ein manueller Bewegungsbefehl für einen unterirdischen Minenabbauer verwendet Hytales native `Teleport`-ECS-Komponente, um den NPC zum `workplace_access` seiner zugewiesenen Mine zu setzen. Der bestehende `MovementIntent` wird nicht abgeschlossen; anschließend übernimmt wieder das normale native `ReadPosition`/`Seek` zum vom Spieler geklickten Ziel. Die gepinnte Server-JAR bestätigt die `Teleport(Vector3dc, Rotation3fc)`-Komponente und den NPC-Teleport-Lifecycle. Ob die konkrete Runtime-Positionierung im Spiel wie beabsichtigt wirkt, bleibt ein Ingame-Test.

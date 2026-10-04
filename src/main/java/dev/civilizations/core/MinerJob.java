@@ -25,7 +25,7 @@ public final class MinerJob {
             throw new IllegalArgumentException("Cannot start a blocked mine segment.");
         }
         if (segment.complete() || segment.status() == MineSegment.Status.COMPLETE) {
-            this.segment = segment.withProgress(MineTuning.blocksPerSegment())
+            this.segment = segment.withProgress(segment.blockCount())
                 .withStatus(MineSegment.Status.COMPLETE);
             state = WorkState.COMPLETE;
         } else {
@@ -63,7 +63,9 @@ public final class MinerJob {
         }
 
         int completedDepth = nextIndex / FACE_SIZE;
-        if (completedDepth % MineTuning.SUPPORT_SPACING_BLOCKS == 0) {
+        boolean supportDueBeforeJunction = completedDepth < segment.lengthBlocks()
+            && completedDepth % MineTuning.SUPPORT_SPACING_BLOCKS == 0;
+        if (supportDueBeforeJunction) {
             int expectedSupports = completedDepth / MineTuning.SUPPORT_SPACING_BLOCKS;
             if (segment.supportsPlaced() < expectedSupports) {
                 pendingSupportDepth = completedDepth;
@@ -95,7 +97,7 @@ public final class MinerJob {
     }
 
     public synchronized int currentDepth() {
-        if (segment.complete()) return MineTuning.SEGMENT_LENGTH_BLOCKS;
+        if (segment.complete()) return segment.lengthBlocks();
         return segment.nextBlockIndex() / FACE_SIZE;
     }
 
@@ -116,7 +118,7 @@ public final class MinerJob {
     public record MoveToFaceIntent(MineSegment segment, int depth) implements Intent {
         public MoveToFaceIntent {
             Objects.requireNonNull(segment, "segment");
-            if (depth < 0 || depth >= MineTuning.SEGMENT_LENGTH_BLOCKS) {
+            if (depth < 0 || depth >= segment.lengthBlocks()) {
                 throw new IllegalArgumentException("Face depth outside segment.");
             }
         }
@@ -125,8 +127,9 @@ public final class MinerJob {
     public record BreakBlockIntent(BlockPosition block, int blockIndex) implements Intent {
         public BreakBlockIntent {
             Objects.requireNonNull(block, "block");
-            if (blockIndex < 0 || blockIndex >= MineTuning.blocksPerSegment()) {
-                throw new IllegalArgumentException("Block index outside segment.");
+            if (blockIndex < 0
+                || blockIndex >= MineTuning.blocksPerSegment(MineTuning.MAX_SEGMENT_LENGTH_BLOCKS)) {
+                throw new IllegalArgumentException("Block index outside supported mine segment range.");
             }
         }
     }
@@ -135,8 +138,8 @@ public final class MinerJob {
     public record PlaceSupportIntent(MineSegment segment, int depth) implements Intent {
         public PlaceSupportIntent {
             Objects.requireNonNull(segment, "segment");
-            if (depth <= 0 || depth > MineTuning.SEGMENT_LENGTH_BLOCKS) {
-                throw new IllegalArgumentException("Support depth outside segment.");
+            if (depth <= 0 || depth >= segment.lengthBlocks()) {
+                throw new IllegalArgumentException("Support depth outside segment junction.");
             }
         }
     }

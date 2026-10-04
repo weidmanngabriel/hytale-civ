@@ -41,7 +41,7 @@ final class MinePrefabNavigationScenarioTest {
 
         assertEquals(MinePrefabNavigationScenario.Phase.COMPLETE, complete.phase());
         assertEquals(MineTuning.blocksPerSegment(), complete.segment().nextBlockIndex());
-        assertEquals(2, complete.segment().supportsPlaced());
+        assertEquals(1, complete.segment().supportsPlaced());
 
         long air = complete.tunnelWorld().cells().values().stream()
             .filter(cell -> cell == MineSimulationWorld.Cell.AIR)
@@ -50,7 +50,7 @@ final class MinePrefabNavigationScenarioTest {
             .filter(cell -> cell == MineSimulationWorld.Cell.SUPPORT_POST
                 || cell == MineSimulationWorld.Cell.SUPPORT_BEAM)
             .count();
-        assertEquals(20, supports);
+        assertEquals(10, supports);
         assertEquals(MineTuning.blocksPerSegment() - supports, air);
         assertTrue(complete.segment().complete());
 
@@ -135,7 +135,7 @@ final class MinePrefabNavigationScenarioTest {
         assertTrue(mountain.maxY() > segmentMaxY);
         assertTrue(mountain.width() > segmentMaxX - segmentMinX + 1
                 || mountain.depth() > segmentMaxZ - segmentMinZ + 1,
-            "Mountain must be wider/deeper than the excavated 4x4x8 segment");
+            "Mountain must be wider/deeper than the excavated 4x4 reference segment");
         long mountainCells = (long) mountain.width() * mountain.height() * mountain.depth();
         assertTrue(mountainCells > MineTuning.blocksPerSegment(),
             "Mountain volume must contain substantially more rock than the active segment");
@@ -146,6 +146,6 @@ final class MinePrefabNavigationScenarioTest {
             .filter(position -> snapshot.model().cellAt(position) != null)
             .count();
         assertEquals(0, overlap,
-            "Initial 4x4x8 tunnel rock must never occupy a real Mine_01 prefab block");
+            "Initial 4x4 reference tunnel rock must never occupy a real Mine_01 prefab block");
     }
 }

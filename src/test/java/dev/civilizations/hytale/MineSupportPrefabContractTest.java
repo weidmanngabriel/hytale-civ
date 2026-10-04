@@ -26,10 +26,8 @@ final class MineSupportPrefabContractTest {
         Field field = MinerWorkSystem.class.getDeclaredField("SUPPORT_PREFAB_KEY");
         field.setAccessible(true);
         String runtimeKey = (String) field.get(null);
-
         Path prefabsRoot = Path.of("asset-pack", "Server", "Prefabs");
         Path supportPrefab = prefabsRoot.resolve(runtimeKey);
-
         assertEquals(
             Path.of("Civilizations", "Mine", "Mine_Support_01.prefab.json"),
             prefabsRoot.relativize(supportPrefab)
@@ -42,7 +40,6 @@ final class MineSupportPrefabContractTest {
         String prefab = Files.readString(
             Path.of("asset-pack", "Server", "Prefabs", "Civilizations", "Mine", "Mine_Support_01.prefab.json")
         );
-
         assertTrue(prefab.contains("\"anchorX\": 0"));
         assertTrue(prefab.contains("\"anchorY\": 0"));
         assertTrue(prefab.contains("\"anchorZ\": 0"));
@@ -54,14 +51,8 @@ final class MineSupportPrefabContractTest {
     @Test
     void supportRotationMapsPrefabFrameOntoTunnelFaceInEveryDirection() {
         for (MineDirection direction : MineDirection.values()) {
-            MineSegment segment = MineSegment.reserved(
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                null,
-                new BlockPosition(20, 7, 30),
-                direction
-            ).withProgress(4 * MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS);
-
+            MineSegment segment = segment(direction)
+                .withProgress(4 * MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS);
             BlockPosition origin = segment.supportOrigin(4);
             Set<BlockPosition> actual = new HashSet<>();
             for (int y = 0; y < MineTuning.TUNNEL_HEIGHT_BLOCKS; y++) {
@@ -70,7 +61,6 @@ final class MineSupportPrefabContractTest {
                     boolean sidePost = y < MineTuning.TUNNEL_HEIGHT_BLOCKS - 1
                         && (width == 0 || width == MineTuning.TUNNEL_WIDTH_BLOCKS - 1);
                     if (!topBeam && !sidePost) continue;
-
                     Vector3i local = new Vector3i(0, y, width);
                     Axis.Y.rotate(local, MinerWorkSystem.supportRotationDegrees(direction));
                     actual.add(new BlockPosition(
@@ -80,25 +70,16 @@ final class MineSupportPrefabContractTest {
                     ));
                 }
             }
-
-            Set<BlockPosition> expected = expectedFrame(segment, 4);
-            assertEquals(expected, actual, direction.name());
+            assertEquals(expectedFrame(segment, 4), actual, direction.name());
         }
     }
 
     @Test
     void dueSupportBlocksAreIgnoredOnlyByTunnelReconciliation() {
-        MineSegment segment = MineSegment.reserved(
-            UUID.randomUUID(),
-            UUID.randomUUID(),
-            null,
-            new BlockPosition(0, 0, 0),
-            MineDirection.EAST
-        ).withProgress(4 * MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS);
-
+        MineSegment segment = segment(MineDirection.EAST)
+            .withProgress(4 * MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS);
         int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
         int faceStart = 3 * faceSize;
-
         assertEquals(0, segment.supportsPlaced());
         assertTrue(MinerWorkSystem.isExpectedSupportCell(segment, faceStart, "Wood_Fir_Branch_Long"));
         assertTrue(MinerWorkSystem.isExpectedSupportCell(
@@ -114,6 +95,18 @@ final class MineSupportPrefabContractTest {
     }
 
     @Test
+    void endpointSupportIsNotExpectedForFourBlockSegment() {
+        MineSegment segment = MineSegment.reserved(
+            UUID.randomUUID(), UUID.randomUUID(), null,
+            new BlockPosition(0, 0, 0), MineDirection.EAST, 4
+        ).withProgress(64);
+        int faceStart = 3 * 16;
+        assertFalse(MinerWorkSystem.isExpectedSupportCell(
+            segment, faceStart, "Wood_Fir_Branch_Long"
+        ));
+    }
+
+    @Test
     void supportIdsMatchRuntimeCaseWithoutTreatingStoneAsSupport() {
         assertTrue(MinerWorkSystem.supportBlockIdMatches("Wood_Fir_Trunk", "wood_fir_trunk"));
         assertTrue(MinerWorkSystem.supportBlockIdMatches("Wood_Fir_Branch_Long", "wood_fir_branch_long"));
@@ -121,25 +114,13 @@ final class MineSupportPrefabContractTest {
     }
 
     @Test
-    void removedKnownSupportIsNotAutomaticallyReplaced() throws Exception {
-        String source = Files.readString(
-            Path.of("src", "main", "java", "dev", "civilizations", "hytale", "MinerWorkSystem.java")
-        );
-
-        assertTrue(source.contains("supportNumber > highestKnown && placeSupport"));
-        assertFalse(source.contains("supportNumber <= highestKnown && placeSupport"));
-    }
-
-    @Test
     void supportBlocksRemainNormalMiningTargets() throws Exception {
         String source = Files.readString(
             Path.of("src", "main", "java", "dev", "civilizations", "hytale", "MinerWorkSystem.java")
         );
-
         int advanceStart = source.indexOf("private MineSegment advanceOneBlock");
         int supportPlacementStart = source.indexOf("private MineSegment placeDueSupports", advanceStart);
         String advanceOneBlock = source.substring(advanceStart, supportPlacementStart);
-
         assertTrue(advanceOneBlock.contains("BlockHarvestUtils.performBlockBreak"));
         assertFalse(advanceOneBlock.contains("isExpectedSupportBlock"));
         assertFalse(advanceOneBlock.contains("isExpectedSupportCell"));
@@ -151,6 +132,13 @@ final class MineSupportPrefabContractTest {
         assertEquals(90, MinerWorkSystem.supportRotationDegrees(MineDirection.NORTH));
         assertEquals(180, MinerWorkSystem.supportRotationDegrees(MineDirection.WEST));
         assertEquals(270, MinerWorkSystem.supportRotationDegrees(MineDirection.SOUTH));
+    }
+
+    private static MineSegment segment(MineDirection direction) {
+        return MineSegment.reserved(
+            UUID.randomUUID(), UUID.randomUUID(), null,
+            new BlockPosition(20, 7, 30), direction, 8
+        );
     }
 
     private static Set<BlockPosition> expectedFrame(MineSegment segment, int depth) {

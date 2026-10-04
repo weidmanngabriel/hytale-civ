@@ -4,6 +4,7 @@ import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingOrientation;
 import dev.civilizations.core.MineDirection;
 import dev.civilizations.core.MineSegment;
+import dev.civilizations.core.MineTuning;
 import dev.civilizations.core.MinerJob;
 import dev.civilizations.simulation.MineSimulationWorld;
 
@@ -101,7 +102,8 @@ public final class MinePrefabNavigationScenario {
                 MINE_ID,
                 null,
                 configuredTunnelStart(connector, direction),
-                direction
+                direction,
+                MineTuning.REFERENCE_SEGMENT_LENGTH_BLOCKS
             );
             assertNoPrefabOverlap(model, segment);
 
@@ -262,7 +264,8 @@ public final class MinePrefabNavigationScenario {
                 MINE_ID,
                 null,
                 configuredTunnelStart(connector, direction),
-                direction
+                direction,
+                MineTuning.REFERENCE_SEGMENT_LENGTH_BLOCKS
             );
             long overlaps = segment.blocks().stream()
                 .filter(position -> model.cellAt(position) != null)
@@ -279,7 +282,7 @@ public final class MinePrefabNavigationScenario {
                 .comparingDouble(SegmentCandidate::outwardScore)
                 .thenComparingInt(candidate -> -candidate.direction().ordinal()))
             .orElseThrow(() -> new IllegalStateException(
-                "No non-overlapping 4x4x8 tunnel can start at mine_tunnel_connector " + connector
+                "No non-overlapping reference tunnel can start at mine_tunnel_connector " + connector
             ));
     }
 

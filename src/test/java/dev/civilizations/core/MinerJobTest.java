@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class MinerJobTest {
 
     @Test
-    void oneSegmentProducesEightFaces128BlocksAndTwoSupports() {
+    void oneReferenceSegmentProducesEightFaces128BlocksAndOneJunctionSafeSupport() {
         MinerJob job = new MinerJob(segment());
         List<Integer> approachedDepths = new ArrayList<>();
         List<Integer> brokenIndices = new ArrayList<>();
@@ -45,8 +45,8 @@ final class MinerJobTest {
         assertEquals(128, brokenIndices.size());
         assertEquals(0, brokenIndices.getFirst());
         assertEquals(127, brokenIndices.getLast());
-        assertEquals(List.of(4, 8), supportDepths);
-        assertEquals(2, job.segment().supportsPlaced());
+        assertEquals(List.of(4), supportDepths);
+        assertEquals(1, job.segment().supportsPlaced());
         assertEquals(MineSegment.Status.COMPLETE, job.segment().status());
         assertInstanceOf(MinerJob.SegmentCompleteIntent.class, job.intent());
     }

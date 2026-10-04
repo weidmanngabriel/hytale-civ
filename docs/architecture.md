@@ -276,3 +276,11 @@ Das Personenaktionsmenü kann das tatsächliche Hytale-Inventar eines beanspruch
 ### Native Farming Interactions
 
 The farmer keeps the Civ-level work cycle, field selection and inventory policy, but does not recreate Hytale's seed placement. For wheat sowing, the Hytale adapter resolves the active item's native Secondary interaction through InteractionContext and InteractionManager, supplies the selected tilled-soil block as the interaction target, and lets Hytale execute the configured seed interaction chain. This preserves Hytale's Seed_Condition/Seed_Place behavior and its item consumption rules instead of duplicating them in Civ. The Civ farm currently exposes only Plant_Seeds_Wheat; additional crop types are a future Civ data decision, not a replacement for Hytale's native placement mechanism.
+
+## Variable mine segments and manual exit
+
+`MineSegment` owns its persisted `lengthBlocks`; production segments use a 4x4 cross-section and 4-12 blocks of length. Geometry, progress, collision checks, work fronts and support cadence derive from the segment itself rather than a global length. Legacy persisted segments without the field decode as the former 8-block reference length.
+
+`MinerWorkSystem` chooses a desired length and shortens the candidate before rejecting a direction when building or tunnel bounds block it. After a player interrupts a miner, Civ may resume another unfinished front or create a fresh valid branch; the exact interrupted front is only the fallback when no alternative exists.
+
+Manual movement remains a Core `MovementIntent`. When the assigned miner is below its mine access, the Hytale adapter adds the native `Teleport` ECS component to move it to `workplace_access`, keeps the original manual intent active, and lets native `ReadPosition`/`Seek` handle the clicked destination from there. This is an Hytale boundary behavior, not custom pathfinding.

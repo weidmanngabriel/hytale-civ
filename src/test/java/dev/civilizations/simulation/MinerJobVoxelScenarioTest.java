@@ -49,11 +49,10 @@ final class MinerJobVoxelScenarioTest {
 
         fill(expected, 10, 13, 20, 23, 23, 30, TestVoxelWorld.Cell.AIR);
         placeNorthGoldenSupport(expected, 27);
-        placeNorthGoldenSupport(expected, 23);
 
         assertEquals(8, movementCompletions);
         assertEquals(128, blockBreaks);
-        assertEquals(2, supportPlacements);
+        assertEquals(1, supportPlacements);
         assertWorld(expected, actual);
     }
 

@@ -18,8 +18,8 @@ public final class MineSupportFrame {
 
     public static List<Cell> cells(MineSegment segment, int depth) {
         Objects.requireNonNull(segment, "segment");
-        if (depth <= 0 || depth > MineTuning.SEGMENT_LENGTH_BLOCKS) {
-            throw new IllegalArgumentException("Support depth outside segment.");
+        if (depth <= 0 || depth >= segment.lengthBlocks()) {
+            throw new IllegalArgumentException("Support depth outside segment junction.");
         }
 
         int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
@@ -41,12 +41,13 @@ public final class MineSupportFrame {
     }
 
     /**
-     * Returns the support part expected at a segment block index when that face is on the
-     * configured support cadence. Non-support faces and the open center of a support frame
-     * return an empty result.
+     * Returns the support part expected at a block index when that face is on the configured
+     * support cadence. This generic helper accepts the full supported 4..12 length range; callers
+     * that know the concrete segment remain responsible for excluding the segment junction.
      */
     public static Optional<Part> scheduledPartAtIndex(int index) {
-        if (index < 0 || index >= MineTuning.blocksPerSegment()) {
+        if (index < 0
+            || index >= MineTuning.blocksPerSegment(MineTuning.MAX_SEGMENT_LENGTH_BLOCKS)) {
             throw new IndexOutOfBoundsException(index);
         }
 

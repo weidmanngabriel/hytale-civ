@@ -16,6 +16,7 @@ import com.hypixel.hytale.server.npc.NPCPlugin;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.MineDirection;
 import dev.civilizations.core.MineSegment;
+import dev.civilizations.core.MineTuning;
 import dev.civilizations.hytale.MineSupportPhysics;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
@@ -68,7 +69,8 @@ final class CivMineSupportRuntimeProbe {
                 UUID.randomUUID(),
                 null,
                 new BlockPosition(8, 1, 8),
-                MineDirection.EAST
+                MineDirection.EAST,
+                MineTuning.REFERENCE_SEGMENT_LENGTH_BLOCKS
             );
             List<BlockPosition> beam = MineSupportPhysics.beamBlocks(segment, SUPPORT_DEPTH);
 
