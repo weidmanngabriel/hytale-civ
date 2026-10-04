@@ -52,3 +52,11 @@ Hytale-Adapter führen Navigation, Weltabfragen und native Interaktionen aus. Ga
 ## Manueller Miner-Ausgang
 
 Ein manueller Bewegungsbefehl für einen unterirdischen Minenabbauer verwendet Hytales native `Teleport`-ECS-Komponente, um den NPC zum `workplace_access` seiner zugewiesenen Mine zu setzen. Der bestehende `MovementIntent` wird nicht abgeschlossen; anschließend übernimmt wieder das normale native `ReadPosition`/`Seek` zum vom Spieler geklickten Ziel. Die gepinnte Server-JAR bestätigt die `Teleport(Vector3dc, Rotation3fc)`-Komponente und den NPC-Teleport-Lifecycle. Ob die konkrete Runtime-Positionierung im Spiel wie beabsichtigt wirkt, bleibt ein Ingame-Test.
+
+## Vorläufige Oberflächen-Recovery des Miners
+
+Als Sicherheitsnetz für beobachtete native Navigationsausreißer besitzt der Miner zusätzlich einen Hytale-seitigen Recovery-Watchdog. Dieser ersetzt keine Wegfindung: Er greift erst ein, nachdem ein autonom arbeitender Miner nachweislich den bekannten unterirdischen Minenraum erreicht hatte und anschließend für etwa 1,5 Sekunden außerhalb der eigenen `building_bounds` sowie aller bekannten `MineSegment`-Volumen auf oder über dem aktuellen Gebäude-Referenzniveau steht. Dann setzt Civ den NPC über dieselbe verifizierte native `Teleport`-ECS-Komponente zum `mine_tunnel_connector` zurück; das bestehende autonome Bewegungsziel bleibt erhalten.
+
+Ein manueller Bewegungsauftrag oder die gemeinsame Wiederanlaufpause deaktiviert und entschärft diesen Watchdog vollständig. Damit kann ein vom Spieler herausgerufener Miner normal außerhalb der Mine laufen und später regulär zurückkehren; die Recovery wird erst wieder scharf, nachdem er erneut den Tunnelraum beziehungsweise eine Position unter dem aktuellen Minen-Referenzniveau erreicht hat.
+
+Die Y-Klassifikation ist ausdrücklich eine temporäre Prototyp-Heuristik für den aktuellen flachen Minen-Slice. Sie ist **keine** verifizierte allgemeine Definition von „oberirdisch“. Sobald Weltgeneration, Berge oder vertikal driftende Tunnel relevant werden, muss diese Klassifikation terrainbewusst ersetzt werden, während die native Teleport-Grenze unverändert bleiben kann.
