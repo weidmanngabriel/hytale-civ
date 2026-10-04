@@ -232,42 +232,23 @@ public final class MinePrefabNavigationViewerApp {
             inspector.setText(
                 "Quelle\n" + MinePrefabNavigationScenario.PREFAB_PATH + "\n"
                     + MinePrefabNavigationScenario.SUPPORT_PREFAB_PATH + "\n\n"
-                    + "Prefab\nBlöcke: " + s.model().cells().size() + "\n"
-                    + "Support-Prefab-Blöcke: " + s.supportPrefab().cells().size() + "\n"
-                    + "Workplace: " + s.workplace() + "\n"
-                    + "Tunnel-Connector: " + s.connector() + "\n"
-                    + "A*-Pfad: " + s.pathToConnector().size() + " Zellen\n\n"
-                    + "Berg/Felsvolumen\n"
-                    + mountain.width() + " × " + mountain.height() + " × " + mountain.depth() + " Blöcke\n"
-                    + "Bounds: " + mountain + "\n"
+                    + "Berg: " + mountain.width() + " × " + mountain.height() + " × " + mountain.depth() + "\n"
                     + "Cutaway: alles über Y=" + cutY + " ausgeblendet\n\n"
-                    + "Aktuell\nPhase: " + s.phase() + "\n"
+                    + "Phase: " + s.phase() + "\n"
                     + "MinerJob: " + s.minerState() + "\n"
                     + "Worker (rot): " + s.probe() + "\n"
                     + "Arbeitsziel: " + s.lastAction() + "\n"
                     + "Reichweite: " + MinePrefabNavigationScenario.WORK_REACH_BLOCKS + " Blöcke\n"
                     + "Tunnelboden/Feet-Y: " + s.segment().start().y() + "\n"
-                    + "Tunnelstart: " + s.segment().start() + "\n"
                     + "Fortschritt: " + s.segment().nextBlockIndex() + " / 128\n"
                     + "Supports: " + s.segment().supportsPlaced() + " / 2\n\n"
-                    + "Richtung\n" + s.simulationDirection() + "\n"
-                    + "Authored im Prefab: " + (s.directionAuthored() ? "JA" : "NEIN") + "\n"
-                    + "Ableitung: Placement-Orientation + Prefab-Geometrie\n\n"
                     + "Ansicht\n"
-                    + "Cut Y− / Y+ = Berg horizontal aufschneiden\n"
-                    + "Voll = gesamte Berghöhe anzeigen\n"
-                    + "Draufsicht = höchste sichtbare Zelle ≤ Cut-Y; tiefer = dunkler\n"
-                    + "Layer = exakt eine Y-Ebene\n"
-                    + "Iso = alle nicht-leeren Blöcke ≤ Cut-Y, darüber hart abgeschnitten\n\n"
+                    + "Draufsicht und Iso verwenden dieselbe oberste sichtbare Zelle pro X/Z-Spalte.\n"
+                    + "Cut Y− / Y+ = horizontale Schnitthöhe\n"
+                    + "Layer = exakt eine Y-Ebene\n\n"
                     + "Iso-Steuerung\n"
-                    + "W / S = vor / zurück\n"
-                    + "A / D = links / rechts\n"
-                    + "Q / E = runter / hoch\n"
-                    + "Linksklick + Ziehen = Bildschirm verschieben\n"
-                    + "Rechtsklick + horizontal = um Berg drehen\n"
-                    + "Rechtsklick + vertikal = hoch/runter kippen\n"
-                    + "Mausrad = zoomen\n"
-                    + "Kamera Reset = Position + Winkel zurücksetzen\n"
+                    + "W/S = vor/zurück | A/D = links/rechts | Q/E = runter/hoch\n"
+                    + "Linkziehen = Pan | Rechtsziehen = Orbit | Mausrad = Zoom\n"
                     + String.format(
                         "Kamera: yaw %.0f° | pitch %.0f° | offset %.1f/%.1f/%.1f\n\n",
                         Math.toDegrees(canvas.cameraYaw),
@@ -276,12 +257,9 @@ public final class MinePrefabNavigationViewerApp {
                         canvas.cameraOffsetY,
                         canvas.cameraOffsetZ
                     )
-                    + "Legende\nGrau = echter Mine_01-Block\n"
-                    + "Blau = A*-Pfad zum Connector\nRot = Worker/Fußposition\n"
-                    + "Dunkel = Fels/Berg\n"
-                    + "Türkis = noch vorhandene Blöcke der ersten Schneidfläche\n"
-                    + "Braun = gesetzter Support\nMagenta = mine_tunnel_connector\n\n"
-                    + "A* ist nur ein Reachability-Orakel.\nHytale Seek/NavMesh bleibt Produktionsnavigation."
+                    + "Legende\nGrau = Mine_01\nBlau = A*-Pfad\nRot = Worker/Fußposition\n"
+                    + "Dunkel = Fels\nTürkis = noch vorhandene erste Schneidfläche\n"
+                    + "Braun = Support\nMagenta = mine_tunnel_connector"
             );
             canvas.repaint();
         }
@@ -328,7 +306,7 @@ public final class MinePrefabNavigationViewerApp {
             setBackground(Color.WHITE);
             installKeyboardNavigation();
 
-            MouseAdapter isoNavigation = new MouseAdapter() {
+            MouseAdapter navigation = new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent event) {
                     if (mode != ViewMode.ISOMETRIC) return;
@@ -347,19 +325,13 @@ public final class MinePrefabNavigationViewerApp {
                     Point current = event.getPoint();
                     int dx = current.x - dragAnchor.x;
                     int dy = current.y - dragAnchor.y;
-
                     if (dragMode == DragMode.PAN) {
                         isoPanX += dx;
                         isoPanY += dy;
                     } else if (dragMode == DragMode.ORBIT) {
                         cameraYaw = normalizeAngle(cameraYaw + dx * ORBIT_SENSITIVITY);
-                        cameraPitch = clamp(
-                            cameraPitch - dy * ORBIT_SENSITIVITY,
-                            MIN_PITCH,
-                            MAX_PITCH
-                        );
+                        cameraPitch = clamp(cameraPitch - dy * ORBIT_SENSITIVITY, MIN_PITCH, MAX_PITCH);
                     }
-
                     dragAnchor = current;
                     repaint();
                 }
@@ -373,14 +345,17 @@ public final class MinePrefabNavigationViewerApp {
                 @Override
                 public void mouseWheelMoved(MouseWheelEvent event) {
                     if (mode != ViewMode.ISOMETRIC) return;
-                    double factor = Math.pow(1.12, -event.getPreciseWheelRotation());
-                    isoZoom = clamp(isoZoom * factor, MIN_ZOOM, MAX_ZOOM);
+                    isoZoom = clamp(
+                        isoZoom * Math.pow(1.12, -event.getPreciseWheelRotation()),
+                        MIN_ZOOM,
+                        MAX_ZOOM
+                    );
                     repaint();
                 }
             };
-            addMouseListener(isoNavigation);
-            addMouseMotionListener(isoNavigation);
-            addMouseWheelListener(isoNavigation);
+            addMouseListener(navigation);
+            addMouseMotionListener(navigation);
+            addMouseWheelListener(navigation);
         }
 
         private void installKeyboardNavigation() {
@@ -439,17 +414,17 @@ public final class MinePrefabNavigationViewerApp {
         }
 
         private void drawIsoViewport(Graphics2D g) {
-            Graphics2D isoGraphics = (Graphics2D) g.create();
+            Graphics2D iso = (Graphics2D) g.create();
             try {
                 double centerX = getWidth() / 2.0;
                 double centerY = getHeight() / 2.0;
-                isoGraphics.translate(isoPanX, isoPanY);
-                isoGraphics.translate(centerX, centerY);
-                isoGraphics.scale(isoZoom, isoZoom);
-                isoGraphics.translate(-centerX, -centerY);
-                drawIso(isoGraphics);
+                iso.translate(isoPanX, isoPanY);
+                iso.translate(centerX, centerY);
+                iso.scale(isoZoom, isoZoom);
+                iso.translate(-centerX, -centerY);
+                drawIso(iso);
             } finally {
-                isoGraphics.dispose();
+                iso.dispose();
             }
         }
 
@@ -483,21 +458,31 @@ public final class MinePrefabNavigationViewerApp {
         }
 
         private void drawCutTopDown(Graphics2D g, PrefabSimulationModel.Bounds bounds) {
-            int minY = Math.min(bounds.minY(), snapshot.tunnelWorld().bounds().minY());
+            int minY = sceneMinY();
             for (int x = bounds.minX(); x <= bounds.maxX(); x++) {
                 for (int z = bounds.minZ(); z <= bounds.maxZ(); z++) {
                     Surface surface = topSurface(x, z, minY);
                     if (surface == null) continue;
-                    fill(g, surface.position(), bounds, shadeForDepth(surface.color(), cutY - surface.position().y()));
+                    fill(
+                        g,
+                        surface.position(),
+                        bounds,
+                        shadeForDepth(surface.color(), cutY - surface.position().y())
+                    );
                 }
             }
         }
 
+        /** Shared cut-surface selection for both top-down and isometric views. */
         private Surface topSurface(int x, int z, int minY) {
             for (int y = cutY; y >= minY; y--) {
                 BlockPosition position = new BlockPosition(x, y, z);
-                if (snapshot.model().cellAt(position) != null) return new Surface(position, PREFAB_COLOR);
-                MineSimulationWorld.Cell worldCell = snapshot.tunnelWorld().get(position);
+                if (snapshot.model().cellAt(position) != null) {
+                    return new Surface(position, PREFAB_COLOR);
+                }
+                // Rendering must use the explicit snapshot map. MineSimulationWorld#get intentionally
+                // treats positions outside its bounds as SOLID for old world-diff callers.
+                MineSimulationWorld.Cell worldCell = snapshot.tunnelWorld().cells().get(position);
                 if (worldCell == null || worldCell == MineSimulationWorld.Cell.AIR) continue;
                 Color color = colorForWorld(worldCell);
                 if (color != null) return new Surface(position, color);
@@ -505,13 +490,15 @@ public final class MinePrefabNavigationViewerApp {
             return null;
         }
 
+        private int sceneMinY() {
+            PrefabSimulationModel.Bounds prefab = snapshot.model().blockBounds();
+            MineSimulationWorld.Bounds world = snapshot.tunnelWorld().bounds();
+            return Math.min(prefab.minY(), world.minY());
+        }
+
         private Color shadeForDepth(Color base, int depth) {
             double factor = Math.max(0.42, 1.0 - Math.max(0, depth) * 0.075);
-            return new Color(
-                (int) Math.round(base.getRed() * factor),
-                (int) Math.round(base.getGreen() * factor),
-                (int) Math.round(base.getBlue() * factor)
-            );
+            return scaleColor(base, factor);
         }
 
         private Color colorForWorld(MineSimulationWorld.Cell cell) {
@@ -523,7 +510,7 @@ public final class MinePrefabNavigationViewerApp {
         }
 
         private boolean isStillSolid(BlockPosition position) {
-            return snapshot.tunnelWorld().get(position) == MineSimulationWorld.Cell.SOLID;
+            return snapshot.tunnelWorld().cells().get(position) == MineSimulationWorld.Cell.SOLID;
         }
 
         private void drawFirstFaceFlat(Graphics2D g, PrefabSimulationModel.Bounds bounds, boolean layerOnly) {
@@ -561,12 +548,8 @@ public final class MinePrefabNavigationViewerApp {
         ) {
             if (layerOnly && position.y() != layerY) return;
             if (!layerOnly && position.y() > cutY) return;
-            drawMarker(g, bounds, position, text, color);
-        }
-
-        private void drawMarker(Graphics2D g, PrefabSimulationModel.Bounds bounds, BlockPosition p, String text, Color color) {
-            int x = cx(p.x(), bounds);
-            int y = cz(p.z(), bounds);
+            int x = cx(position.x(), bounds);
+            int y = cz(position.z(), bounds);
             g.setColor(color);
             g.fillOval(x - 9, y - 9, 18, 18);
             g.setColor(Color.WHITE);
@@ -580,15 +563,15 @@ public final class MinePrefabNavigationViewerApp {
 
         private void drawIso(Graphics2D g) {
             List<Face> faces = new ArrayList<>();
-            for (Cube cube : visibleCubes()) {
-                faces.addAll(cubeFaces(cube.p, cube.color));
+            for (Cube cube : visibleSurfaceCubes()) {
+                faces.addAll(cubeFaces(cube.position(), cube.color()));
             }
             faces.sort(Comparator.comparingDouble(Face::depth).reversed());
             for (Face face : faces) {
-                g.setColor(face.color);
-                g.fillPolygon(face.polygon);
-                g.setColor(face.color.darker());
-                g.drawPolygon(face.polygon);
+                g.setColor(face.color());
+                g.fillPolygon(face.polygon());
+                g.setColor(face.color().darker());
+                g.drawPolygon(face.polygon());
             }
 
             drawFirstFaceIso(g);
@@ -597,17 +580,17 @@ public final class MinePrefabNavigationViewerApp {
             drawIsoMarker(g, snapshot.probe(), new Color(205, 45, 45));
         }
 
-        private List<Cube> visibleCubes() {
+        /** The isometric view now uses exactly the same X/Z cut surface as the top-down view. */
+        private List<Cube> visibleSurfaceCubes() {
+            PrefabSimulationModel.Bounds bounds = combinedBounds();
+            int minY = sceneMinY();
             List<Cube> cubes = new ArrayList<>();
-            for (Map.Entry<BlockPosition, PrefabSimulationModel.Cell> e : snapshot.model().cells().entrySet()) {
-                if (e.getKey().y() <= cutY) cubes.add(new Cube(e.getKey(), PREFAB_COLOR));
-            }
-            for (Map.Entry<BlockPosition, MineSimulationWorld.Cell> e : snapshot.tunnelWorld().cells().entrySet()) {
-                BlockPosition position = e.getKey();
-                if (position.y() > cutY || snapshot.model().cellAt(position) != null) continue;
-                Color color = colorForWorld(e.getValue());
-                if (color != null) {
-                    cubes.add(new Cube(position, shadeForDepth(color, cutY - position.y())));
+            for (int x = bounds.minX(); x <= bounds.maxX(); x++) {
+                for (int z = bounds.minZ(); z <= bounds.maxZ(); z++) {
+                    Surface surface = topSurface(x, z, minY);
+                    if (surface == null) continue;
+                    Color color = shadeForDepth(surface.color(), cutY - surface.position().y());
+                    cubes.add(new Cube(surface.position(), color));
                 }
             }
             return cubes;
@@ -623,7 +606,7 @@ public final class MinePrefabNavigationViewerApp {
                 if (from.y() > cutY || to.y() > cutY) continue;
                 ScreenPoint a = projectCenter(from);
                 ScreenPoint b = projectCenter(to);
-                g.drawLine(a.x, a.y - 8, b.x, b.y - 8);
+                g.drawLine(a.x(), a.y() - 8, b.x(), b.y() - 8);
             }
         }
 
@@ -631,7 +614,7 @@ public final class MinePrefabNavigationViewerApp {
             if (position.y() > cutY) return;
             ScreenPoint point = projectCenter(position);
             g.setColor(color);
-            g.fillOval(point.x - 8, point.y - 16, 16, 16);
+            g.fillOval(point.x() - 8, point.y() - 16, 16, 16);
         }
 
         private void drawFirstFaceIso(Graphics2D g) {
@@ -641,7 +624,7 @@ public final class MinePrefabNavigationViewerApp {
                 BlockPosition position = snapshot.segment().blockAtIndex(index);
                 if (!isStillSolid(position) || position.y() > cutY) continue;
                 ScreenPoint point = projectCenter(position);
-                g.drawOval(point.x - 5, point.y - 10, 10, 10);
+                g.drawOval(point.x() - 5, point.y() - 10, 10, 10);
             }
         }
 
@@ -672,16 +655,15 @@ public final class MinePrefabNavigationViewerApp {
 
             List<Face> faces = new ArrayList<>();
             for (int i = 0; i < faceIndices.length; i++) {
-                int[] indices = faceIndices[i];
                 if (faceFacing(normals[i][0], normals[i][1], normals[i][2]) >= 0.0) continue;
-                double depth = 0;
                 Polygon polygon = new Polygon();
-                for (int index : indices) {
+                double depth = 0;
+                for (int index : faceIndices[i]) {
                     ScreenPoint point = projected[index];
-                    depth += point.depth;
-                    polygon.addPoint(point.x, point.y);
+                    polygon.addPoint(point.x(), point.y());
+                    depth += point.depth();
                 }
-                faces.add(new Face(polygon, depth / indices.length, faceColor(base, normals[i])));
+                faces.add(new Face(polygon, depth / faceIndices[i].length, faceColor(base, normals[i])));
             }
             return faces;
         }
@@ -789,7 +771,7 @@ public final class MinePrefabNavigationViewerApp {
             return Math.max(min, Math.min(max, value));
         }
 
-        private record Cube(BlockPosition p, Color color) {
+        private record Cube(BlockPosition position, Color color) {
         }
 
         private record Surface(BlockPosition position, Color color) {
