@@ -5,15 +5,18 @@ import dev.civilizations.simulation.MineSimulationWorld;
 import dev.civilizations.simulation.prefab.MinePrefabNavigationScenario;
 import dev.civilizations.simulation.prefab.PrefabSimulationModel;
 
+import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.WindowConstants;
@@ -27,6 +30,7 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Polygon;
 import java.awt.RenderingHints;
+import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
@@ -253,13 +257,22 @@ public final class MinePrefabNavigationViewerApp {
                     + "Layer = exakt eine Y-Ebene\n"
                     + "Iso = Orbit-Kamera + Cut-Y\n\n"
                     + "Iso-Steuerung\n"
-                    + "Linksklick + Ziehen = verschieben\n"
+                    + "W / S = vor / zurück\n"
+                    + "A / D = links / rechts\n"
+                    + "Q / E = runter / hoch\n"
+                    + "Linksklick + Ziehen = Bildschirm verschieben\n"
                     + "Rechtsklick + horizontal = um Berg drehen\n"
                     + "Rechtsklick + vertikal = hoch/runter kippen\n"
                     + "Mausrad = zoomen\n"
-                    + "Kamera Reset = Standardblick\n"
-                    + String.format("Kamera: yaw %.0f° | pitch %.0f°\n\n",
-                        Math.toDegrees(canvas.cameraYaw), Math.toDegrees(canvas.cameraPitch))
+                    + "Kamera Reset = Position + Winkel zurücksetzen\n"
+                    + String.format(
+                        "Kamera: yaw %.0f° | pitch %.0f° | offset %.1f/%.1f/%.1f\n\n",
+                        Math.toDegrees(canvas.cameraYaw),
+                        Math.toDegrees(canvas.cameraPitch),
+                        canvas.cameraOffsetX,
+                        canvas.cameraOffsetY,
+                        canvas.cameraOffsetZ
+                    )
                     + "Legende\nGrau = echter Mine_01-Block\n"
                     + "Blau = A*-Pfad zum Connector\nRot = aktuelle Probe / Arbeitsziel\n"
                     + "Dunkel = Fels/Berg\n"
@@ -280,6 +293,7 @@ public final class MinePrefabNavigationViewerApp {
         private static final double DEFAULT_YAW = Math.toRadians(45);
         private static final double DEFAULT_PITCH = Math.toRadians(35);
         private static final double ORBIT_SENSITIVITY = 0.010;
+        private static final double MOVE_STEP = 0.75;
         private static final double ISO_SCALE = 24.0;
 
         private static final Color PREFAB_COLOR = new Color(150, 150, 150);
@@ -295,6 +309,9 @@ public final class MinePrefabNavigationViewerApp {
         private int isoPanY;
         private double cameraYaw = DEFAULT_YAW;
         private double cameraPitch = DEFAULT_PITCH;
+        private double cameraOffsetX;
+        private double cameraOffsetY;
+        private double cameraOffsetZ;
         private Point dragAnchor;
         private DragMode dragMode = DragMode.NONE;
 
@@ -306,6 +323,8 @@ public final class MinePrefabNavigationViewerApp {
 
         private Canvas() {
             setBackground(Color.WHITE);
+            installKeyboardNavigation();
+
             MouseAdapter isoNavigation = new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent event) {
@@ -361,12 +380,45 @@ public final class MinePrefabNavigationViewerApp {
             addMouseWheelListener(isoNavigation);
         }
 
+        private void installKeyboardNavigation() {
+            bindKey("W", "camera-forward", () -> moveCamera(0, 1, 0));
+            bindKey("S", "camera-back", () -> moveCamera(0, -1, 0));
+            bindKey("A", "camera-left", () -> moveCamera(-1, 0, 0));
+            bindKey("D", "camera-right", () -> moveCamera(1, 0, 0));
+            bindKey("Q", "camera-down", () -> moveCamera(0, 0, -1));
+            bindKey("E", "camera-up", () -> moveCamera(0, 0, 1));
+        }
+
+        private void bindKey(String key, String actionName, Runnable action) {
+            getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(key), actionName);
+            getActionMap().put(actionName, new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent event) {
+                    if (mode != ViewMode.ISOMETRIC) return;
+                    action.run();
+                }
+            });
+        }
+
+        private void moveCamera(double right, double forward, double vertical) {
+            double sinYaw = Math.sin(cameraYaw);
+            double cosYaw = Math.cos(cameraYaw);
+
+            cameraOffsetX += (cosYaw * right + sinYaw * forward) * MOVE_STEP;
+            cameraOffsetZ += (-sinYaw * right + cosYaw * forward) * MOVE_STEP;
+            cameraOffsetY += vertical * MOVE_STEP;
+            repaint();
+        }
+
         private void resetOrbitView() {
             isoZoom = 1.0;
             isoPanX = 0;
             isoPanY = 0;
             cameraYaw = DEFAULT_YAW;
             cameraPitch = DEFAULT_PITCH;
+            cameraOffsetX = 0;
+            cameraOffsetY = 0;
+            cameraOffsetZ = 0;
             repaint();
         }
 
@@ -771,9 +823,9 @@ public final class MinePrefabNavigationViewerApp {
         private double[] sceneCenter() {
             PrefabSimulationModel.Bounds b = combinedBounds();
             return new double[] {
-                (b.minX() + b.maxX() + 1) / 2.0,
-                (b.minY() + Math.min(b.maxY(), cutY) + 1) / 2.0,
-                (b.minZ() + b.maxZ() + 1) / 2.0
+                (b.minX() + b.maxX() + 1) / 2.0 + cameraOffsetX,
+                (b.minY() + Math.min(b.maxY(), cutY) + 1) / 2.0 + cameraOffsetY,
+                (b.minZ() + b.maxZ() + 1) / 2.0 + cameraOffsetZ
             };
         }
 
