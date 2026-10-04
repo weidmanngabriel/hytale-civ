@@ -258,7 +258,7 @@ public final class MinePrefabNavigationViewerApp {
                     + "Voll = gesamte Berghöhe anzeigen\n"
                     + "Draufsicht = höchste sichtbare Zelle ≤ Cut-Y; tiefer = dunkler\n"
                     + "Layer = exakt eine Y-Ebene\n"
-                    + "Iso = Orbit-Kamera + Cut-Y\n\n"
+                    + "Iso = alle nicht-leeren Blöcke ≤ Cut-Y, darüber hart abgeschnitten\n\n"
                     + "Iso-Steuerung\n"
                     + "W / S = vor / zurück\n"
                     + "A / D = links / rechts\n"
@@ -606,7 +606,7 @@ public final class MinePrefabNavigationViewerApp {
                 BlockPosition position = e.getKey();
                 if (position.y() > cutY || snapshot.model().cellAt(position) != null) continue;
                 Color color = colorForWorld(e.getValue());
-                if (color != null && (e.getValue() != MineSimulationWorld.Cell.SOLID || isExposedRock(position))) {
+                if (color != null) {
                     cubes.add(new Cube(position, shadeForDepth(color, cutY - position.y())));
                 }
             }
@@ -632,21 +632,6 @@ public final class MinePrefabNavigationViewerApp {
             ScreenPoint point = projectCenter(position);
             g.setColor(color);
             g.fillOval(point.x - 8, point.y - 16, 16, 16);
-        }
-
-        private boolean isExposedRock(BlockPosition p) {
-            if (p.y() == cutY) return true;
-            int[][] neighbors = {
-                {1, 0, 0}, {-1, 0, 0}, {0, 1, 0},
-                {0, -1, 0}, {0, 0, 1}, {0, 0, -1}
-            };
-            for (int[] n : neighbors) {
-                BlockPosition neighbor = new BlockPosition(p.x() + n[0], p.y() + n[1], p.z() + n[2]);
-                if (neighbor.y() > cutY) return true;
-                MineSimulationWorld.Cell cell = snapshot.tunnelWorld().get(neighbor);
-                if (cell == null || cell == MineSimulationWorld.Cell.AIR) return true;
-            }
-            return false;
         }
 
         private void drawFirstFaceIso(Graphics2D g) {
