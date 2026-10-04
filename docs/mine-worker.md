@@ -25,9 +25,9 @@ Dieser Slice beschreibt den ersten autonomen Abbauer einer fertigen Mine.
 
 ## Stützbalken
 
-Das Asset `Civilizations/Mine/Mine_Support_01.prefab.json` ist ein 4 Blöcke hoher Holzrahmen und sitzt innerhalb des 4×4-Stollens. Civ setzt ihn über Hytales native Prefab-API statt die Balken selbst blockweise zu erzeugen. Für Nord-/Süd-Stollen wird das Prefab über `BlockSelection.rotate(Axis.Y, 90)` um 90 Grad gedreht; die Hytale-API erwartet hier diskrete Gradwerte (`0`, `90`, `180`, `270`) und keine Vierteldrehungs-Zahl.
+Das Asset `Civilizations/Mine/Mine_Support_01.prefab.json` ist ein 4 Blöcke hoher Holzrahmen und sitzt innerhalb des 4×4-Stollens. Das Prefab ist auf einen lokalen 4×4-Querschnitt normalisiert: Anker `(0,0,0)`, Rahmenebene `x=0`, Breite `z=0..3`. Civ setzt den Anker direkt auf `MineSegment.supportOrigin(depth)` und dreht die Auswahl abhängig von der Tunnelrichtung mit Hytales diskreten Gradwerten: Ost `0°`, Nord `90°`, West `180°`, Süd `270°`.
 
-Stützen stehen zunächst alle 4 Tunnelblöcke. Ein 8-Blöcke-Segment erhält daher einen Rahmen nach Block 4 und einen am Segmentende nach Block 8. Beim erneuten Prüfen eines bereits gegrabenen Abschnitts werden die bekannten Holzstützen nicht fälschlich als neu zu entfernende Blockierung behandelt. Civ prüft außerdem die tatsächlich vorhandenen Rahmen gegen den erreichten Tunnelstand: fehlt eine bereits fällige Stütze, wird sie nachgesetzt und der persistierte `supportsPlaced`-Stand wieder mit der realen Welt synchronisiert. Dadurch repariert die Mine auch Segmente, bei denen ein früherer Prefab-Lookup fehlgeschlagen ist, obwohl der Support-Zähler bereits erhöht worden war.
+Stützen stehen zunächst alle 4 Tunnelblöcke. Ein 8-Blöcke-Segment erhält daher einen Rahmen nach Block 4 und einen am Segmentende nach Block 8. Sobald eine Stütze fällig ist und die native Prefab-Platzierung erfolgreich angestoßen wurde, gilt sie logisch als bekannt; Civ setzt `supportsPlaced` nicht im selben Tick wieder zurück, nur weil die Weltänderung noch nicht vollständig lesbar ist. Holz an einer bereits fälligen erwarteten Stützenzelle wird deshalb auch dann nicht als normaler Abbaublock behandelt, wenn der persistierte Zähler gerade noch hinterherhinkt. Das verhindert, dass der Miner seinen frisch gesetzten Rahmen selbst wieder abbaut und anschließend erneut setzt.
 
 ## Native Hytale-Grenze
 
