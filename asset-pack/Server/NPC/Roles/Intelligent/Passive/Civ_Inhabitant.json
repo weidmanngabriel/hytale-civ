@@ -31,7 +31,7 @@
       },
       "Instructions": [
         {
-          "$Comment": "Civ movement target: position slot 0 is the Java/Role contract for ordinary inhabitant movement commands.",
+          "$Comment": "Civ movement target: position slot 0 is the Java/Role contract for ordinary inhabitant movement commands. Explicit player movement stays above autonomous combat.",
           "Sensor": {
             "Type": "ReadPosition",
             "Slot": "CivMoveTarget",
@@ -62,6 +62,29 @@
             "UsePathfinder": true,
             "UseBestPath": false
           }
+        },
+        {
+          "$Comment": "Soldier combat target: Java only selects a native hostile target. Hytale owns seeking, weapon interaction, damage, HP and death.",
+          "Sensor": {
+            "Type": "Target",
+            "TargetSlot": "CivCombatTarget",
+            "Range": 18,
+            "AutoUnlockTarget": true
+          },
+          "BodyMotion": {
+            "Type": "Seek",
+            "StopDistance": 1.6,
+            "SlowDownDistance": 3.0,
+            "RelativeSpeed": 1.0,
+            "UsePathfinder": true
+          },
+          "Actions": [
+            {
+              "Type": "Attack",
+              "LineOfSight": true,
+              "AvoidFriendlyFire": true
+            }
+          ]
         },
         {
           "Sensor": {

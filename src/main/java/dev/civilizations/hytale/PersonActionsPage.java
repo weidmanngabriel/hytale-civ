@@ -23,12 +23,14 @@ public final class PersonActionsPage extends InteractiveCustomUIPage<PersonActio
     private static final String ACTION_MINER = "miner";
     private static final String ACTION_CONSTRUCTION_WORKER = "construction_worker";
     private static final String ACTION_FARMER = "farmer";
+    private static final String ACTION_SOLDIER = "soldier";
     private static final String ACTION_INVENTORY = "inventory";
 
     private final Runnable assignWoodcutter;
     private final Runnable assignMiner;
     private final Runnable assignConstructionWorker;
     private final Runnable assignFarmer;
+    private final Runnable assignSoldier;
     private final Runnable openInventory;
 
     public PersonActionsPage(
@@ -37,6 +39,7 @@ public final class PersonActionsPage extends InteractiveCustomUIPage<PersonActio
         Runnable assignMiner,
         Runnable assignConstructionWorker,
         Runnable assignFarmer,
+        Runnable assignSoldier,
         Runnable openInventory
     ) {
         super(playerRef, CustomPageLifetime.CanDismissOrCloseThroughInteraction, ActionData.CODEC);
@@ -44,6 +47,7 @@ public final class PersonActionsPage extends InteractiveCustomUIPage<PersonActio
         this.assignMiner = assignMiner;
         this.assignConstructionWorker = assignConstructionWorker;
         this.assignFarmer = assignFarmer;
+        this.assignSoldier = assignSoldier;
         this.openInventory = openInventory;
     }
 
@@ -58,6 +62,7 @@ public final class PersonActionsPage extends InteractiveCustomUIPage<PersonActio
         events.addEventBinding(CustomUIEventBindingType.Activating, "#WoodcutterButton", EventData.of("Action", ACTION_WOODCUTTER), false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#MinerButton", EventData.of("Action", ACTION_MINER), false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#FarmerButton", EventData.of("Action", ACTION_FARMER), false);
+        events.addEventBinding(CustomUIEventBindingType.Activating, "#SoldierButton", EventData.of("Action", ACTION_SOLDIER), false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#InventoryButton", EventData.of("Action", ACTION_INVENTORY), false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#ConstructionWorkerButton", EventData.of("Action", ACTION_CONSTRUCTION_WORKER), false);
     }
@@ -82,6 +87,9 @@ public final class PersonActionsPage extends InteractiveCustomUIPage<PersonActio
             close();
         } else if (ACTION_FARMER.equals(data.action)) {
             assignFarmer.run();
+            close();
+        } else if (ACTION_SOLDIER.equals(data.action)) {
+            assignSoldier.run();
             close();
         }
     }

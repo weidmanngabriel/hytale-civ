@@ -268,7 +268,7 @@ public final class SimulationRuntime {
             case WOODCUTTER -> tickWoodcutter(resident);
             case CONSTRUCTION_WORKER -> tickBuilder(resident);
             case FARMER -> tickFarmer(resident);
-            case MINER, UNEMPLOYED -> clearMovement(resident);
+            case MINER, SOLDIER, UNEMPLOYED -> clearMovement(resident);
         }
     }
 
@@ -534,7 +534,7 @@ public final class SimulationRuntime {
             case WOODCUTTER -> resident.woodcutterJob.state().name();
             case CONSTRUCTION_WORKER -> resident.constructionJob.state().name();
             case FARMER -> resident.farm.workState().name();
-            case MINER, UNEMPLOYED -> "IDLE";
+            case MINER, SOLDIER, UNEMPLOYED -> "IDLE";
         };
     }
 

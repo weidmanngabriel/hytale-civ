@@ -531,7 +531,7 @@ public final class SimulationViewerApp {
 
         private void drawLegend(Graphics2D g) {
             String text =
-                "W = Holzfäller   B = Bauarbeiter   Fm = Farmer   M = Minenabbauer   T = Baum   B-Quadrat = Baustelle";
+                "W = Holzfäller   B = Bauarbeiter   Fm = Farmer   M = Minenabbauer   S = Soldat   T = Baum   B-Quadrat = Baustelle";
             int width = g.getFontMetrics().stringWidth(text) + 16;
             int y = getHeight() - 14;
             g.setColor(new Color(255, 255, 255, 220));
@@ -579,6 +579,7 @@ public final class SimulationViewerApp {
                 case CONSTRUCTION_WORKER -> new Color(205, 135, 35);
                 case FARMER -> new Color(80, 130, 205);
                 case MINER -> new Color(100, 100, 110);
+                case SOLDIER -> new Color(145, 60, 60);
                 case UNEMPLOYED -> Color.GRAY;
             };
         }
@@ -589,6 +590,7 @@ public final class SimulationViewerApp {
                 case CONSTRUCTION_WORKER -> "B";
                 case FARMER -> "Fm";
                 case MINER -> "M";
+                case SOLDIER -> "S";
                 case UNEMPLOYED -> "–";
             };
         }

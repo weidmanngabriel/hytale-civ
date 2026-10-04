@@ -29,6 +29,7 @@ public final class CivInhabitantLifecycleSystem extends RefSystem<EntityStore> {
     private final WoodcutterWorkSystem woodcutterWorkSystem;
     private final MinerWorkSystem minerWorkSystem;
     private final ConstructionWorkSystem constructionWorkSystem;
+    private final SoldierWorkSystem soldierWorkSystem;
 
     public CivInhabitantLifecycleSystem(
         ComponentType<EntityStore, CivInhabitantData> inhabitantDataType,
@@ -39,7 +40,8 @@ public final class CivInhabitantLifecycleSystem extends RefSystem<EntityStore> {
         FarmNpcWorkSystem farmWorkSystem,
         WoodcutterWorkSystem woodcutterWorkSystem,
         MinerWorkSystem minerWorkSystem,
-        ConstructionWorkSystem constructionWorkSystem
+        ConstructionWorkSystem constructionWorkSystem,
+        SoldierWorkSystem soldierWorkSystem
     ) {
         this.query = Archetype.of(inhabitantDataType, NPCEntity.getComponentType());
         this.inhabitantService = inhabitantService;
@@ -50,6 +52,7 @@ public final class CivInhabitantLifecycleSystem extends RefSystem<EntityStore> {
         this.woodcutterWorkSystem = woodcutterWorkSystem;
         this.minerWorkSystem = minerWorkSystem;
         this.constructionWorkSystem = constructionWorkSystem;
+        this.soldierWorkSystem = soldierWorkSystem;
     }
 
     @Override
@@ -79,6 +82,7 @@ public final class CivInhabitantLifecycleSystem extends RefSystem<EntityStore> {
         woodcutterWorkSystem.forgetRuntime(ref);
         minerWorkSystem.forgetRuntime(ref);
         constructionWorkSystem.forgetRuntime(ref);
+        soldierWorkSystem.forgetRuntime(ref);
         activityRegistry.forget(ref);
         unitRegistry.forget(ref);
 
