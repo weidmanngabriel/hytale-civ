@@ -85,13 +85,16 @@ public final class FarmPrefabNavigationScenario {
         PrefabSimulationModel model,
         PrefabSimulationModel.Marker marker
     ) {
-        PrefabSimulationModel.Bounds search = model.blockBounds().expand(3, 3);
+        PrefabSimulationModel.Bounds bounds = model.blockBounds();
+        PrefabSimulationModel.Bounds search = bounds.expand(3, 3);
         List<BlockPosition> candidates = new ArrayList<>();
         for (int x = search.minX(); x <= search.maxX(); x++) {
             for (int y = Math.max(1, search.minY()); y <= search.maxY(); y++) {
                 for (int z = search.minZ(); z <= search.maxZ(); z++) {
                     BlockPosition position = new BlockPosition(x, y, z);
-                    if (marker.containsFeet(position) && model.isWalkableFeet(position)) {
+                    if (marker.containsFeet(position)
+                        && model.isWalkableFeet(position)
+                        && insideHorizontalFootprint(bounds, position)) {
                         candidates.add(position);
                     }
                 }
@@ -106,8 +109,16 @@ public final class FarmPrefabNavigationScenario {
                 .thenComparingInt(BlockPosition::z))
             .findFirst()
             .orElseThrow(() -> new IllegalStateException(
-                "No walkable cell inside prefab marker civ.type=" + marker.type()
+                "No walkable interior cell inside prefab marker civ.type=" + marker.type()
             ));
+    }
+
+    private static boolean insideHorizontalFootprint(
+        PrefabSimulationModel.Bounds bounds,
+        BlockPosition position
+    ) {
+        return position.x() >= bounds.minX() && position.x() <= bounds.maxX()
+            && position.z() >= bounds.minZ() && position.z() <= bounds.maxZ();
     }
 
     private static double distanceSquared(
