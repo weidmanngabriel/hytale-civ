@@ -449,6 +449,10 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         for (int supportNumber = 1; supportNumber <= due && supportNumber <= supportsPerSegment; supportNumber++) {
             int supportDepth = supportNumber * MineTuning.SUPPORT_SPACING_BLOCKS;
             if (supportPresent(world, segment, supportDepth)) {
+                if (supportNumber > highestKnown
+                    && !MineSupportPhysics.markBeamAsDeco(world, segment, supportDepth)) {
+                    continue;
+                }
                 highestKnown = Math.max(highestKnown, supportNumber);
                 continue;
             }
@@ -607,8 +611,14 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
                 + " supportsPlacedBefore=" + segment.supportsPlaced()
         );
         selection.placeNoReturn(world, origin, world.getEntityStore().getStore());
+        boolean beamMarkedAsDeco = MineSupportPhysics.markBeamAsDeco(world, segment, depth);
+        System.out.println(
+            "[Civ Mine Debug] support-deco segment=" + segment.id()
+                + " depth=" + depth
+                + " marked=" + beamMarkedAsDeco
+        );
         logSupportSnapshot(world, segment, depth, "after-place");
-        return true;
+        return beamMarkedAsDeco;
     }
 
     private static void logSupportSnapshot(World world, MineSegment segment, int depth, String phase) {
