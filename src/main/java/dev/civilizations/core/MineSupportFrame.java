@@ -6,7 +6,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Hytale-independent geometry of a mine support frame inside one tunnel face.
+ * Hytale-independent geometry of a mine support frame inside one main-tunnel face.
  *
  * <p>The Core owns which tunnel cells belong to the support. The Hytale adapter remains
  * responsible for mapping those semantic cells to the actual prefab and native block assets.</p>
@@ -18,8 +18,8 @@ public final class MineSupportFrame {
 
     public static List<Cell> cells(MineSegment segment, int depth) {
         Objects.requireNonNull(segment, "segment");
-        if (depth <= 0 || depth >= segment.lengthBlocks()) {
-            throw new IllegalArgumentException("Support depth outside segment junction.");
+        if (depth <= 0 || depth > segment.lengthBlocks()) {
+            throw new IllegalArgumentException("Support depth outside main tunnel.");
         }
 
         int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
@@ -42,8 +42,8 @@ public final class MineSupportFrame {
 
     /**
      * Returns the support part expected at a block index when that face is on the configured
-     * support cadence. This generic helper accepts the full supported 4..12 length range; callers
-     * that know the concrete segment remain responsible for excluding the segment junction.
+     * support cadence. This generic helper accepts the full supported 4..12 main-tunnel range;
+     * callers that know the concrete segment remain responsible for excluding junction faces.
      */
     public static Optional<Part> scheduledPartAtIndex(int index) {
         if (index < 0
