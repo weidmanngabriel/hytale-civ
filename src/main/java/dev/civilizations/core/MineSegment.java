@@ -16,6 +16,7 @@ public record MineSegment(
     UUID parentId,
     BlockPosition start,
     MineDirection direction,
+    int lengthBlocks,
     Status status,
     int nextBlockIndex,
     int supportsPlaced
@@ -24,7 +25,8 @@ public record MineSegment(
         if (id == null || mineId == null || start == null || direction == null || status == null) {
             throw new IllegalArgumentException("Mine segment fields must not be null.");
         }
-        if (nextBlockIndex < 0 || nextBlockIndex > MineTuning.blocksPerSegment()) {
+        MineTuning.requireValidSegmentLength(lengthBlocks);
+        if (nextBlockIndex < 0 || nextBlockIndex > blockCount(lengthBlocks)) {
             throw new IllegalArgumentException("Invalid mine segment progress.");
         }
         if (supportsPlaced < 0) {
@@ -37,37 +39,52 @@ public record MineSegment(
         UUID mineId,
         UUID parentId,
         BlockPosition start,
-        MineDirection direction
+        MineDirection direction,
+        int lengthBlocks
     ) {
-        return new MineSegment(id, mineId, parentId, start, direction, Status.RESERVED, 0, 0);
+        return new MineSegment(
+            id,
+            mineId,
+            parentId,
+            start,
+            direction,
+            lengthBlocks,
+            Status.RESERVED,
+            0,
+            0
+        );
     }
 
     public MineSegment withStatus(Status nextStatus) {
         return new MineSegment(
-            id, mineId, parentId, start, direction, nextStatus, nextBlockIndex, supportsPlaced
+            id, mineId, parentId, start, direction, lengthBlocks, nextStatus, nextBlockIndex, supportsPlaced
         );
     }
 
     public MineSegment withProgress(int nextIndex) {
         return new MineSegment(
-            id, mineId, parentId, start, direction, status, nextIndex, supportsPlaced
+            id, mineId, parentId, start, direction, lengthBlocks, status, nextIndex, supportsPlaced
         );
     }
 
     public MineSegment withSupportsPlaced(int count) {
         return new MineSegment(
-            id, mineId, parentId, start, direction, status, nextBlockIndex, count
+            id, mineId, parentId, start, direction, lengthBlocks, status, nextBlockIndex, count
         );
     }
 
+    public int blockCount() {
+        return blockCount(lengthBlocks);
+    }
+
     public boolean complete() {
-        return nextBlockIndex >= MineTuning.blocksPerSegment();
+        return nextBlockIndex >= blockCount();
     }
 
     /** Blocks ordered one full 4x4 face at a time from the entrance towards the tunnel end. */
     public List<BlockPosition> blocks() {
-        List<BlockPosition> result = new ArrayList<>(MineTuning.blocksPerSegment());
-        for (int depth = 0; depth < MineTuning.SEGMENT_LENGTH_BLOCKS; depth++) {
+        List<BlockPosition> result = new ArrayList<>(blockCount());
+        for (int depth = 0; depth < lengthBlocks; depth++) {
             for (int y = 0; y < MineTuning.TUNNEL_HEIGHT_BLOCKS; y++) {
                 for (int width = 0; width < MineTuning.TUNNEL_WIDTH_BLOCKS; width++) {
                     result.add(blockAt(depth, width, y));
@@ -78,7 +95,7 @@ public record MineSegment(
     }
 
     public BlockPosition blockAtIndex(int index) {
-        if (index < 0 || index >= MineTuning.blocksPerSegment()) {
+        if (index < 0 || index >= blockCount()) {
             throw new IndexOutOfBoundsException(index);
         }
         int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
@@ -91,7 +108,7 @@ public record MineSegment(
 
     /** Lower block coordinate at the support frame for the given 1-based tunnel depth. */
     public BlockPosition supportOrigin(int depth) {
-        if (depth <= 0 || depth > MineTuning.SEGMENT_LENGTH_BLOCKS) {
+        if (depth <= 0 || depth > lengthBlocks) {
             throw new IllegalArgumentException("Support depth outside segment.");
         }
         int step = depth - 1;
@@ -103,7 +120,7 @@ public record MineSegment(
     }
 
     public HorizontalBounds horizontalBounds() {
-        return horizontalBounds(0, MineTuning.SEGMENT_LENGTH_BLOCKS);
+        return horizontalBounds(0, lengthBlocks);
     }
 
     /**
@@ -124,13 +141,13 @@ public record MineSegment(
 
         if (nextDirection == direction) {
             return new BlockPosition(
-                start.x() + forwardX * MineTuning.SEGMENT_LENGTH_BLOCKS,
+                start.x() + forwardX * lengthBlocks,
                 start.y(),
-                start.z() + forwardZ * MineTuning.SEGMENT_LENGTH_BLOCKS
+                start.z() + forwardZ * lengthBlocks
             );
         }
 
-        int junctionDepth = MineTuning.SEGMENT_LENGTH_BLOCKS - MineTuning.TUNNEL_WIDTH_BLOCKS;
+        int junctionDepth = lengthBlocks - MineTuning.TUNNEL_WIDTH_BLOCKS;
         int junctionX = start.x() + forwardX * junctionDepth;
         int junctionZ = start.z() + forwardZ * junctionDepth;
         int lastWidthOffset = MineTuning.TUNNEL_WIDTH_BLOCKS - 1;
@@ -175,6 +192,10 @@ public record MineSegment(
             start.y() + vertical,
             start.z() + direction.dz() * depth + sideZ * width
         );
+    }
+
+    private static int blockCount(int lengthBlocks) {
+        return MineTuning.blocksPerSegment(lengthBlocks);
     }
 
     private static MineDirection opposite(MineDirection direction) {
