@@ -7,6 +7,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.MineDirection;
 import dev.civilizations.core.MineSegment;
+import dev.civilizations.core.MineTuning;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,19 +54,23 @@ public final class CivMinePersistenceService {
             segment.direction().name(),
             segment.status().name(),
             Integer.toString(segment.nextBlockIndex()),
-            Integer.toString(segment.supportsPlaced())
+            Integer.toString(segment.supportsPlaced()),
+            Integer.toString(segment.lengthBlocks())
         );
     }
 
     MineSegment decode(String encoded) {
         String[] parts = encoded.split("\\|", -1);
-        if (parts.length != 8) {
+        if (parts.length != 8 && parts.length != 9) {
             throw new IllegalArgumentException("unexpected field count");
         }
         String[] position = parts[3].split(",", -1);
         if (position.length != 3) {
             throw new IllegalArgumentException("invalid start position");
         }
+        int lengthBlocks = parts.length == 9
+            ? Integer.parseInt(parts[8])
+            : MineTuning.REFERENCE_SEGMENT_LENGTH_BLOCKS;
         return new MineSegment(
             UUID.fromString(parts[0]),
             UUID.fromString(parts[1]),
@@ -76,6 +81,7 @@ public final class CivMinePersistenceService {
                 Integer.parseInt(position[2])
             ),
             MineDirection.valueOf(parts[4]),
+            lengthBlocks,
             MineSegment.Status.valueOf(parts[5]),
             Integer.parseInt(parts[6]),
             Integer.parseInt(parts[7])
