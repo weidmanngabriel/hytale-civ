@@ -8,6 +8,14 @@ Während der Mausbewegung erzeugt oder verschiebt Civ eine native `PersistentPre
 
 Der Civ-Commit-Pfad verwendet dafür nicht mehr `BlockSelection.place`. Auch `PrefabPasteEvent` ist nicht Teil dieses Commit-Pfads.
 
+## Prefab-Rotation
+
+Die gepinnte `HytaleServer.jar` enthält `com.hypixel.hytale.server.core.prefab.PrefabRotation` mit den vier diskreten Werten `ROTATION_0`, `ROTATION_90`, `ROTATION_180` und `ROTATION_270`. Verifiziert sind außerdem `getX(x,z)`, `getZ(x,z)`, `getYaw()` und die Rotation von Block-Rotationswerten. `BlockSelection.rotate(Axis.Y, degrees, pivot)` rotiert Blöcke, Entities und Fluids um einen Pivot; `PersistentPrefabPreview.spawn(...)` akzeptiert separat eine `Rotation3f` für die Preview-Entity.
+
+Civ hält diese Hytale-Klasse aus dem Core heraus. `BuildingOrientation` ist die Hytale-unabhängige Orientierung, `HytalePrefabOrientation` bildet sie am Adapterrand auf `PrefabRotation` ab. Weil Hytales `ROTATION_270` lokale `(x,z)`-Offsets als `(-z,x)` transformiert, entspricht dieser Wert Civs Orientierung `EAST`; entsprechend gilt `NORTH -> ROTATION_0`, `EAST -> ROTATION_270`, `SOUTH -> ROTATION_180`, `WEST -> ROTATION_90`.
+
+Der aktuelle Spieler-Placement-Flow bietet noch keine Rotationsbedienung an. Neue Orientierungslogik muss deshalb zuerst Transform, Persistenz und Simulation konsistent machen, bevor eine sichtbare Rotate-UI aktiviert wird.
+
 ## Prefabs aus Asset Packs laden
 
 Die in Hytale 0.6.8 gepinnte `PrefabStore`-API unterscheidet zwischen dem normalen Asset-Prefab-Pfad und einer Suche über alle geladenen Asset Packs. `getAssetPrefab(key)` löst den Key nur gegen `getAssetPrefabsPath()` auf. `getAssetPrefabFromAnyPack(key)` verwendet dagegen `findAssetPrefabPath(key)`, iteriert dabei über `AssetModule.get().getAssetPacks()` und lädt den ersten gefundenen Pfad.
