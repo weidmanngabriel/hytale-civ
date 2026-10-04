@@ -28,6 +28,8 @@ Für JSON-Prefabs ist dabei wichtig: `findAssetPrefabPath(key)` ergänzt **nicht
 
 Prefabs, die Civ zur Laufzeit aus dem separaten `hytale-civ-assets`-Pack benötigt, werden deshalb über `getAssetPrefabFromAnyPack(key)` mit einem zur tatsächlichen Datei passenden pack-relativen Key geladen. Wird der Key in keinem geladenen Pack gefunden, gibt diese Methode `null` zurück. Der aufrufende Adapter muss diesen Fall kontrolliert behandeln; ein fehlendes optionales Runtime-Prefab darf keinen World-Thread beenden.
 
+Bei der späteren Weltabfrage darf Civ außerdem nicht davon ausgehen, dass die Schreibweise einer Block-ID exakt der Schreibweise im Prefab-JSON entspricht. Im Minen-Runtime-Test wurde der Querbalken aus `Wood_Fir_Trunk` als `wood_fir_trunk` beobachtet. Vergleiche zwischen erwarteten Prefab-Blocktypen und `BlockType.getId()` müssen deshalb für denselben Asset-Namen gegenüber Groß-/Kleinschreibung tolerant sein. Das ist nur eine ID-Normalisierung; unterschiedliche Blocktypen dürfen dadurch nicht zusammengefasst werden.
+
 ## Anker und Höhe
 
 Für einfache Creator-Prefabs liegt der logische Civ-Bauanker weiterhin einen Block unter dem anvisierten Oberflächenblock. `groundSinkBlocks` wird bei der Erzeugung dieses terrain-relativen Civ-Ankers angewendet.

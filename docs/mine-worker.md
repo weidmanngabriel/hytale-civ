@@ -29,7 +29,7 @@ Das Asset `Civilizations/Mine/Mine_Support_01.prefab.json` ist ein 4 Blöcke hoh
 
 Stützen stehen zunächst alle 4 Tunnelblöcke. Ein 8-Blöcke-Segment erhält daher einen Rahmen nach Block 4 und einen am Segmentende nach Block 8. Sobald eine Stütze erstmals fällig ist und die native Prefab-Platzierung erfolgreich angestoßen wurde, gilt dieser Setzvorgang logisch als erledigt. Wird die Stütze später vom Spieler oder von einem NPC entfernt, setzt Civ sie nicht automatisch erneut.
 
-Stützen besitzen keinen eigenen Schutzstatus. Ihre Holzblöcke bleiben normale abbaubare Weltblöcke und können durch Spieler sowie durch NPC-Abbau entfernt werden. Bei der Tunnel-Reconciliation werden korrekt positionierte Stützenblöcke lediglich nicht als nachträgliches Zumauern eines bereits gegrabenen Stollens interpretiert. Diese Ausnahme beeinflusst nur die Rekonstruktion des Tunnel-Fortschritts und verhindert nicht den normalen Blockabbau.
+Stützen besitzen keinen eigenen Schutzstatus. Ihre Holzblöcke bleiben normale abbaubare Weltblöcke und können durch Spieler sowie durch NPC-Abbau entfernt werden. Bei der Tunnel-Reconciliation werden korrekt positionierte Stützenblöcke lediglich nicht als nachträgliches Zumauern eines bereits gegrabenen Stollens interpretiert. Die Block-ID-Prüfung dafür ist gegenüber Groß-/Kleinschreibung tolerant, weil die Runtime dieselbe Asset-ID beispielsweise als `Wood_Fir_Trunk` beziehungsweise `wood_fir_trunk` liefern kann. Diese Ausnahme beeinflusst nur die Rekonstruktion des Tunnel-Fortschritts und verhindert nicht den normalen Blockabbau.
 
 ## Native Hytale-Grenze
 

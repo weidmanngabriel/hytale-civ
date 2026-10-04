@@ -368,10 +368,14 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         int y = inFace / MineTuning.TUNNEL_WIDTH_BLOCKS;
         int width = inFace % MineTuning.TUNNEL_WIDTH_BLOCKS;
         if (y == MineTuning.TUNNEL_HEIGHT_BLOCKS - 1) {
-            return SUPPORT_BEAM_BLOCK.equals(blockId);
+            return supportBlockIdMatches(SUPPORT_BEAM_BLOCK, blockId);
         }
         boolean sidePost = width == 0 || width == MineTuning.TUNNEL_WIDTH_BLOCKS - 1;
-        return sidePost && SUPPORT_POST_BLOCK.equals(blockId);
+        return sidePost && supportBlockIdMatches(SUPPORT_POST_BLOCK, blockId);
+    }
+
+    static boolean supportBlockIdMatches(String expected, String actual) {
+        return expected != null && actual != null && expected.equalsIgnoreCase(actual);
     }
 
     private MineSegment advanceOneBlock(
@@ -452,7 +456,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
                 BlockType type = loadedBlockType(world, block);
                 if (type == null || type.getId() == null) return false;
                 String expected = topBeam ? SUPPORT_BEAM_BLOCK : SUPPORT_POST_BLOCK;
-                if (!expected.equals(type.getId())) return false;
+                if (!supportBlockIdMatches(expected, type.getId())) return false;
             }
         }
         return true;

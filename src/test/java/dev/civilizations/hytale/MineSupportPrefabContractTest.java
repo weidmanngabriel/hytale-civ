@@ -114,6 +114,13 @@ final class MineSupportPrefabContractTest {
     }
 
     @Test
+    void supportIdsMatchRuntimeCaseWithoutTreatingStoneAsSupport() {
+        assertTrue(MinerWorkSystem.supportBlockIdMatches("Wood_Fir_Trunk", "wood_fir_trunk"));
+        assertTrue(MinerWorkSystem.supportBlockIdMatches("Wood_Fir_Branch_Long", "wood_fir_branch_long"));
+        assertFalse(MinerWorkSystem.supportBlockIdMatches("Wood_Fir_Trunk", "Stone"));
+    }
+
+    @Test
     void removedKnownSupportIsNotAutomaticallyReplaced() throws Exception {
         String source = Files.readString(
             Path.of("src", "main", "java", "dev", "civilizations", "hytale", "MinerWorkSystem.java")
