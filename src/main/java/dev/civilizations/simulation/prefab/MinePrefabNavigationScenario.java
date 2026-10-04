@@ -26,6 +26,10 @@ public final class MinePrefabNavigationScenario {
 
     private static final UUID SEGMENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000101");
     private static final UUID MINE_ID = UUID.fromString("00000000-0000-0000-0000-000000000102");
+    private static final int MOUNTAIN_SIDE_PADDING = 7;
+    private static final int MOUNTAIN_FORWARD_EXTENSION = 14;
+    private static final int MOUNTAIN_DOWN_EXTENSION = 4;
+    private static final int MOUNTAIN_UP_EXTENSION = 8;
 
     private final PrefabSimulationModel model;
     private final PrefabSimulationModel supportPrefab;
@@ -97,13 +101,14 @@ public final class MinePrefabNavigationScenario {
             );
             assertNoPrefabOverlap(model, segment);
 
+            MineSimulationWorld world = new MineSimulationWorld(segment, mountainBounds(segment, direction));
             return new MinePrefabNavigationScenario(
                 model,
                 support,
                 workplace,
                 connector,
                 path,
-                new MineSimulationWorld(segment),
+                world,
                 new MinerJob(segment),
                 direction,
                 orientation
@@ -178,6 +183,36 @@ public final class MinePrefabNavigationScenario {
             simulationDirection,
             orientation,
             false
+        );
+    }
+
+    private static MineSimulationWorld.Bounds mountainBounds(MineSegment segment, MineDirection direction) {
+        int minX = segment.blocks().stream().mapToInt(BlockPosition::x).min().orElseThrow();
+        int maxX = segment.blocks().stream().mapToInt(BlockPosition::x).max().orElseThrow();
+        int minY = segment.blocks().stream().mapToInt(BlockPosition::y).min().orElseThrow();
+        int maxY = segment.blocks().stream().mapToInt(BlockPosition::y).max().orElseThrow();
+        int minZ = segment.blocks().stream().mapToInt(BlockPosition::z).min().orElseThrow();
+        int maxZ = segment.blocks().stream().mapToInt(BlockPosition::z).max().orElseThrow();
+
+        if (direction.dx() != 0) {
+            minZ -= MOUNTAIN_SIDE_PADDING;
+            maxZ += MOUNTAIN_SIDE_PADDING;
+            if (direction.dx() > 0) maxX += MOUNTAIN_FORWARD_EXTENSION;
+            else minX -= MOUNTAIN_FORWARD_EXTENSION;
+        } else {
+            minX -= MOUNTAIN_SIDE_PADDING;
+            maxX += MOUNTAIN_SIDE_PADDING;
+            if (direction.dz() > 0) maxZ += MOUNTAIN_FORWARD_EXTENSION;
+            else minZ -= MOUNTAIN_FORWARD_EXTENSION;
+        }
+
+        return new MineSimulationWorld.Bounds(
+            minX,
+            maxX,
+            minY - MOUNTAIN_DOWN_EXTENSION,
+            maxY + MOUNTAIN_UP_EXTENSION,
+            minZ,
+            maxZ
         );
     }
 
