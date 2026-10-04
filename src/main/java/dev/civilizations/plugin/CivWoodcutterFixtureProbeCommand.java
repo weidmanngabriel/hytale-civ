@@ -3,7 +3,6 @@ package dev.civilizations.plugin;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Rotation3f;
-import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockBreakingDropType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockGathering;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
@@ -36,6 +35,7 @@ import java.util.concurrent.TimeUnit;
  */
 final class CivWoodcutterFixtureProbeCommand extends CommandBase {
 
+    private static final String SCENARIO = "woodcutter";
     private static final String FLAT_GENERATOR = "Flat";
     private static final String DEFAULT_STORAGE = "default";
     private static final String ROLE = "Civ_Inhabitant";
@@ -61,6 +61,10 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
 
     @Override
     protected void executeSync(CommandContext context) {
+        start();
+    }
+
+    void start() {
         Universe universe = Universe.get();
         String worldName = WoodcutterBasicScenario.TEST_WORLD_NAME;
         if (universe.getWorld(worldName) != null || universe.isWorldLoadable(worldName)) {
@@ -80,6 +84,7 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
                     fail("flat test world could not be created", throwable);
                     return;
                 }
+                CivRuntimeProbeSuite.applyWarmDilation(world);
                 world.execute(() -> preloadFixtureChunks(world));
             });
     }
@@ -302,7 +307,7 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
                         + " initialWood=" + state.initialWoodBlocks
                         + " remainingWood=" + currentWoodBlocks
                 );
-                HytaleServer.get().shutdownServer();
+                CivRuntimeProbeSuite.scenarioPassed(SCENARIO);
                 return;
             }
 
@@ -389,7 +394,7 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
         if (throwable != null) {
             throwable.printStackTrace(System.out);
         }
-        HytaleServer.get().shutdownServer();
+        CivRuntimeProbeSuite.scenarioFailed(SCENARIO, reason);
     }
 
     private record Bounds(int minX, int maxX, int minZ, int maxZ) {
