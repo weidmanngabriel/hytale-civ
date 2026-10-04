@@ -516,7 +516,6 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             }
             roll -= option.weight();
         }
-
         MineSegment next = MineSegment.reserved(
             UUID.randomUUID(),
             mine.id(),
@@ -593,6 +592,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         if (rotationDegrees != 0) {
             selection = selection.rotate(Axis.Y, rotationDegrees);
         }
+        com.hypixel.hytale.builtin.blockphysics.BlockSelectionSupportUtil.applySupportValues(selection);
 
         BlockPosition supportOrigin = segment.supportOrigin(depth);
         Vector3i origin = new Vector3i(supportOrigin.x(), supportOrigin.y(), supportOrigin.z());
@@ -602,6 +602,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
                 + " direction=" + segment.direction()
                 + " origin=" + supportOrigin
                 + " rotation=" + rotationDegrees
+                + " supportValuesApplied=true"
                 + " progress=" + segment.nextBlockIndex()
                 + " supportsPlacedBefore=" + segment.supportsPlaced()
         );
