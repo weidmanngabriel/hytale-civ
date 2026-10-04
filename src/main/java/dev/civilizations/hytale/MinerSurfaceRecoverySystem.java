@@ -159,11 +159,11 @@ public final class MinerSurfaceRecoverySystem extends EntityTickingSystem<Entity
                 || feet.y() >= segment.start().y() + MineTuning.TUNNEL_HEIGHT_BLOCKS) {
                 continue;
             }
-            BuildingBounds horizontal = segment.horizontalBounds();
-            if (feet.x() >= Math.floor(horizontal.minX())
-                && feet.x() < Math.ceil(horizontal.maxX())
-                && feet.z() >= Math.floor(horizontal.minZ())
-                && feet.z() < Math.ceil(horizontal.maxZ())) {
+            MineSegment.HorizontalBounds horizontal = segment.horizontalBounds();
+            if (feet.x() >= horizontal.minX()
+                && feet.x() <= horizontal.maxX()
+                && feet.z() >= horizontal.minZ()
+                && feet.z() <= horizontal.maxZ()) {
                 return true;
             }
         }
