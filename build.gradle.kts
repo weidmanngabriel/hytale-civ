@@ -112,6 +112,13 @@ tasks.register<JavaExec>("prefabNavigationViewer") {
     mainClass.set("dev.civilizations.simulation.viewer.PrefabNavigationViewerApp")
 }
 
+tasks.register<JavaExec>("minePrefabNavigationViewer") {
+    group = "development"
+    description = "Starts the mine prefab + A* + MinerJob navigation lab."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("dev.civilizations.simulation.viewer.MinePrefabNavigationViewerApp")
+}
+
 val hytaleJavaLauncher = javaToolchains.launcherFor {
     languageVersion = JavaLanguageVersion.of(25)
 }
