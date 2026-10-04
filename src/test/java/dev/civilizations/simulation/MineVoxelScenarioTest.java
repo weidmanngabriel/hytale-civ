@@ -32,11 +32,9 @@ final class MineVoxelScenarioTest {
         assertWorld(expected, actual, "first four tunnel depths");
 
         excavate(actual, segment, 64, 128);
-        actual.placeSupport(segment, 8);
         fill(expected, 10, 13, 20, 23, 23, 30, TestVoxelWorld.Cell.AIR);
         placeNorthGoldenSupport(expected, 27);
-        placeNorthGoldenSupport(expected, 23);
-        assertWorld(expected, actual, "complete supported segment");
+        assertWorld(expected, actual, "complete supported segment with clear junction");
     }
 
     @Test
