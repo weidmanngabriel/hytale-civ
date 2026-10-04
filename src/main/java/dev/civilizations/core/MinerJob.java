@@ -6,9 +6,9 @@ import java.util.Objects;
  * Hytale-independent state machine for excavating one mine segment.
  *
  * <p>The job owns the Civ work order only: move to the current 4x4 face, request one block
- * excavation at a time, request scheduled support placement, and finish the segment. It does not
- * perform pathfinding, world access, harvesting, prefab placement, or timing. Adapters execute an
- * intent and report the result back.</p>
+ * excavation at a time, request scheduled support placement in the main tunnel, and finish the
+ * main tunnel plus its fixed support-free junction. It does not perform pathfinding, world access,
+ * harvesting, prefab placement, or timing. Adapters execute an intent and report the result back.</p>
  */
 public final class MinerJob {
 
@@ -63,9 +63,9 @@ public final class MinerJob {
         }
 
         int completedDepth = nextIndex / FACE_SIZE;
-        boolean supportDueBeforeJunction = completedDepth < segment.lengthBlocks()
+        boolean supportDueInMainTunnel = completedDepth <= segment.lengthBlocks()
             && completedDepth % MineTuning.SUPPORT_SPACING_BLOCKS == 0;
-        if (supportDueBeforeJunction) {
+        if (supportDueInMainTunnel) {
             int expectedSupports = completedDepth / MineTuning.SUPPORT_SPACING_BLOCKS;
             if (segment.supportsPlaced() < expectedSupports) {
                 pendingSupportDepth = completedDepth;
@@ -97,7 +97,7 @@ public final class MinerJob {
     }
 
     public synchronized int currentDepth() {
-        if (segment.complete()) return segment.lengthBlocks();
+        if (segment.complete()) return segment.totalDepthBlocks();
         return segment.nextBlockIndex() / FACE_SIZE;
     }
 
@@ -114,11 +114,11 @@ public final class MinerJob {
         permits MoveToFaceIntent, BreakBlockIntent, PlaceSupportIntent, SegmentCompleteIntent {
     }
 
-    /** Zero-based tunnel depth of the 4x4 face the worker should approach. */
+    /** Zero-based depth of the 4x4 face in the main tunnel or its fixed junction. */
     public record MoveToFaceIntent(MineSegment segment, int depth) implements Intent {
         public MoveToFaceIntent {
             Objects.requireNonNull(segment, "segment");
-            if (depth < 0 || depth >= segment.lengthBlocks()) {
+            if (depth < 0 || depth >= segment.totalDepthBlocks()) {
                 throw new IllegalArgumentException("Face depth outside segment.");
             }
         }
@@ -134,12 +134,12 @@ public final class MinerJob {
         }
     }
 
-    /** One-based tunnel depth where the semantic support frame is due. */
+    /** One-based main-tunnel depth where the semantic support frame is due. */
     public record PlaceSupportIntent(MineSegment segment, int depth) implements Intent {
         public PlaceSupportIntent {
             Objects.requireNonNull(segment, "segment");
-            if (depth <= 0 || depth >= segment.lengthBlocks()) {
-                throw new IllegalArgumentException("Support depth outside segment junction.");
+            if (depth <= 0 || depth > segment.lengthBlocks()) {
+                throw new IllegalArgumentException("Support depth outside main tunnel.");
             }
         }
     }
