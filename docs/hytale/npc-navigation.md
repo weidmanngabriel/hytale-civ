@@ -8,9 +8,11 @@ Civ implementiert deshalb keine parallele Wegfindung, solange Hytales native Nav
 
 ## Aktueller Projektvertrag
 
-Die Rolle `Civ_Inhabitant` besitzt genau einen Positionsslot namens `CivMoveTarget`. Dieser liegt bewusst an Slot-Index 0 und bildet einen Java-/Asset-Vertrag, der automatisiert getestet wird.
+Die Rolle `Civ_Inhabitant` besitzt zwei native Positionsslots für Bewegung. `CivMoveTarget` liegt bewusst an Slot-Index 0 und bleibt der Standard für gewöhnliche Bewohnerbewegung. `CivMinerMoveTarget` liegt an Slot-Index 1 und wird ausschließlich für Minenabbauer verwendet. Die Slot-Reihenfolge bildet einen Java-/Asset-Vertrag und wird automatisiert getestet.
 
-`CivUnitRegistry` schreibt oder löscht dieses Ziel über Hytales `MarkedEntitySupport`. Die Rolle verarbeitet das Ziel anschließend über `ReadPosition` und `Seek`; Navigation und Walk-Bewegung bleiben damit bei Hytale.
+`CivUnitRegistry` schreibt oder löscht das aktive Ziel über Hytales `MarkedEntitySupport` und hält den jeweils anderen Slot leer. Die Rolle verarbeitet beide Ziele anschließend über `ReadPosition` und `Seek`; Navigation und Walk-Bewegung bleiben damit bei Hytale.
+
+Der normale `CivMoveTarget` verwendet Hytales Standardverhalten. Der Miner-Slot verwendet ebenfalls den nativen `Seek`-Pathfinder, setzt aber `UseBestPath: false`. Dadurch darf Hytale für ein nicht erreichbares unterirdisches Ziel keinen nur geometrisch näheren Teilpfad als Ersatz akzeptieren. Diese strengere Einstellung gilt bewusst nicht für andere Berufe.
 
 `CivManualMovementSystem` sowie Berufsadapter prüfen nur, ob ein vom Core angefordertes Ziel erreicht wurde, und melden den Abschluss an den Core zurück.
 
@@ -22,8 +24,9 @@ Der Minenabbauer verwendet deshalb folgende Navigationsregeln:
 
 - Ankunft wird dreidimensional geprüft; gleiche X/Z-Koordinaten auf einer anderen Höhe zählen nicht als erreicht.
 - Die Navigation zielt auf die Arbeitsposition der aktuellen Tunnel-Front. Ist diese Position erreicht, darf der Arbeiter die dazugehörige Arbeitsfront bearbeiten; einzelne Blöcke derselben Front erhalten keine zusätzliche künstliche Civ-Reichweitengrenze.
-- Sobald Civ ein neues Ziel bestimmt, wird dieses einmal in `CivMoveTarget` geschrieben.
+- Sobald Civ ein neues Ziel bestimmt, wird dieses einmal in `CivMinerMoveTarget` geschrieben.
 - Solange dieses Ziel unverändert bleibt, löscht, retriggert oder ersetzt Civ das native Bewegungsziel nicht. `ReadPosition` und `Seek` behalten damit die vollständige Verantwortung für Pfadsuche und Bewegung.
+- Der Miner verwendet `UseBestPath: false`, damit ein unvollständiger Ersatzpfad nicht als akzeptable Annäherung an ein unterirdisches Arbeitsziel dient.
 - Erst bei tatsächlicher Ankunft, einem neuen Gameplay-Ziel oder einem expliziten Zustandswechsel darf der Adapter das Ziel ändern oder löschen.
 
 Damit besitzt Civ keinen eigenen Stillstands-Timer, keinen eigenen Repath-Versuch und keinen zeitbasierten Abbruch einer laufenden Hytale-Navigation. Falls ein natives Ziel trotz geometrisch offenem Weg nicht erreicht wird, muss die Hytale-Navigation beziehungsweise der Ziel-/Nav-Weltzustand diagnostiziert werden, statt die Route durch Civ regelmäßig zurückzusetzen.
@@ -31,6 +34,8 @@ Damit besitzt Civ keinen eigenen Stillstands-Timer, keinen eigenen Repath-Versuc
 ## Manuelle Befehle und Arbeit
 
 Ein manueller Bewegungsauftrag liegt als `MovementIntent` im Hytale-unabhängigen `InhabitantActivity`-Zustand. Solange dieser Auftrag aktiv ist, verdrängt er autonome Berufsarbeit. Nach gemeldeter Ankunft darf die bisherige Arbeit fortgesetzt werden.
+
+Da `CivUnitRegistry` den aktuell aktiven Beruf auswertet, landet auch ein manueller Bewegungsauftrag eines Minenabbauers im Miner-Slot. Bei einem Berufswechsel wird ein vorhandenes Bewegungsziel in den zum neuen Beruf passenden Slot übertragen und der andere Slot geleert.
 
 ## Geladene Welt
 
