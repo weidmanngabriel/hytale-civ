@@ -24,6 +24,8 @@ public final class MinePrefabNavigationScenario {
         "asset-pack", "Server", "Prefabs", "Civilizations", "Mine", "Mine_Support_01.prefab.json"
     );
 
+    public static final double WORK_REACH_BLOCKS = 4.0;
+
     private static final UUID SEGMENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000101");
     private static final UUID MINE_ID = UUID.fromString("00000000-0000-0000-0000-000000000102");
     private static final int MOUNTAIN_SIDE_PADDING = 7;
@@ -42,6 +44,7 @@ public final class MinePrefabNavigationScenario {
     private final BuildingOrientation orientation;
     private int pathIndex;
     private Phase phase = Phase.NAVIGATING_TO_CONNECTOR;
+    private BlockPosition workerPosition;
     private BlockPosition lastAction;
 
     private MinePrefabNavigationScenario(
@@ -64,6 +67,7 @@ public final class MinePrefabNavigationScenario {
         this.job = job;
         this.simulationDirection = simulationDirection;
         this.orientation = orientation;
+        this.workerPosition = this.pathToConnector.get(0);
     }
 
     public static MinePrefabNavigationScenario create() {
@@ -124,7 +128,8 @@ public final class MinePrefabNavigationScenario {
         if (phase == Phase.NAVIGATING_TO_CONNECTOR) {
             if (pathIndex < pathToConnector.size() - 1) {
                 pathIndex++;
-                lastAction = pathToConnector.get(pathIndex);
+                workerPosition = pathToConnector.get(pathIndex);
+                lastAction = workerPosition;
                 return true;
             }
             phase = Phase.MINING_SEGMENT;
@@ -132,12 +137,13 @@ public final class MinePrefabNavigationScenario {
 
         MinerJob.Intent intent = job.intent();
         if (intent instanceof MinerJob.MoveToFaceIntent move) {
-            int blockIndex = Math.min(move.depth() * 16, move.segment().blocks().size() - 1);
-            lastAction = move.segment().blockAtIndex(blockIndex);
+            workerPosition = standingPosition(move.segment(), move.depth());
+            lastAction = workerPosition;
             job.movementArrived();
             return true;
         }
         if (intent instanceof MinerJob.BreakBlockIntent block) {
+            assertWithinWorkReach(workerPosition, block.block());
             lastAction = block.block();
             world.breakBlock(block.block());
             job.blockBroken();
@@ -165,16 +171,13 @@ public final class MinePrefabNavigationScenario {
     }
 
     public Snapshot snapshot() {
-        BlockPosition probe = phase == Phase.NAVIGATING_TO_CONNECTOR
-            ? pathToConnector.get(pathIndex)
-            : lastAction == null ? connector : lastAction;
         return new Snapshot(
             model,
             supportPrefab,
             workplace,
             connector,
             pathToConnector,
-            probe,
+            workerPosition,
             phase,
             job.state(),
             job.segment(),
@@ -184,6 +187,32 @@ public final class MinePrefabNavigationScenario {
             orientation,
             false
         );
+    }
+
+    private static BlockPosition standingPosition(MineSegment segment, int depth) {
+        MineDirection direction = segment.direction();
+        int sideX = -direction.dz();
+        int sideZ = direction.dx();
+        int standingWidth = 1;
+        return new BlockPosition(
+            segment.start().x() + direction.dx() * (depth - 1) + sideX * standingWidth,
+            segment.start().y(),
+            segment.start().z() + direction.dz() * (depth - 1) + sideZ * standingWidth
+        );
+    }
+
+    private static void assertWithinWorkReach(BlockPosition worker, BlockPosition target) {
+        double dx = target.x() - worker.x();
+        double dy = target.y() - worker.y();
+        double dz = target.z() - worker.z();
+        double distanceSquared = dx * dx + dy * dy + dz * dz;
+        double reachSquared = WORK_REACH_BLOCKS * WORK_REACH_BLOCKS;
+        if (distanceSquared > reachSquared + 1.0e-9) {
+            throw new IllegalStateException(
+                "Mine work target " + target + " is outside worker reach " + WORK_REACH_BLOCKS
+                    + " from " + worker
+            );
+        }
     }
 
     private static MineSimulationWorld.Bounds mountainBounds(MineSegment segment, MineDirection direction) {
