@@ -1,10 +1,19 @@
 package dev.civilizations.hytale;
 
+import com.hypixel.hytale.math.Axis;
+import dev.civilizations.core.BlockPosition;
+import dev.civilizations.core.MineDirection;
+import dev.civilizations.core.MineSegment;
+import dev.civilizations.core.MineTuning;
+import org.joml.Vector3i;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -29,12 +38,104 @@ final class MineSupportPrefabContractTest {
     }
 
     @Test
-    void supportRotationUsesDiscreteHytaleDegrees() throws Exception {
-        String source = Files.readString(
-            Path.of("src", "main", "java", "dev", "civilizations", "hytale", "MinerWorkSystem.java")
+    void supportPrefabUsesAnchorAlignedFourWidePlane() throws Exception {
+        String prefab = Files.readString(
+            Path.of("asset-pack", "Server", "Prefabs", "Civilizations", "Mine", "Mine_Support_01.prefab.json")
         );
 
-        assertTrue(source.contains("selection.rotate(Axis.Y, 90)"));
-        assertFalse(source.contains("selection.rotate(Axis.Y, 1)"));
+        assertTrue(prefab.contains("\"anchorX\": 0"));
+        assertTrue(prefab.contains("\"anchorY\": 0"));
+        assertTrue(prefab.contains("\"anchorZ\": 0"));
+        assertFalse(prefab.contains("\"z\":-1"));
+        assertTrue(prefab.contains("\"z\":0"));
+        assertTrue(prefab.contains("\"z\":3"));
+    }
+
+    @Test
+    void supportRotationMapsPrefabFrameOntoTunnelFaceInEveryDirection() {
+        for (MineDirection direction : MineDirection.values()) {
+            MineSegment segment = MineSegment.reserved(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                null,
+                new BlockPosition(20, 7, 30),
+                direction
+            ).withProgress(4 * MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS);
+
+            BlockPosition origin = segment.supportOrigin(4);
+            Set<BlockPosition> actual = new HashSet<>();
+            for (int y = 0; y < MineTuning.TUNNEL_HEIGHT_BLOCKS; y++) {
+                for (int width = 0; width < MineTuning.TUNNEL_WIDTH_BLOCKS; width++) {
+                    boolean topBeam = y == MineTuning.TUNNEL_HEIGHT_BLOCKS - 1;
+                    boolean sidePost = y < MineTuning.TUNNEL_HEIGHT_BLOCKS - 1
+                        && (width == 0 || width == MineTuning.TUNNEL_WIDTH_BLOCKS - 1);
+                    if (!topBeam && !sidePost) continue;
+
+                    Vector3i local = new Vector3i(0, y, width);
+                    Axis.Y.rotate(local, MinerWorkSystem.supportRotationDegrees(direction));
+                    actual.add(new BlockPosition(
+                        origin.x() + local.x,
+                        origin.y() + local.y,
+                        origin.z() + local.z
+                    ));
+                }
+            }
+
+            Set<BlockPosition> expected = expectedFrame(segment, 4);
+            assertEquals(expected, actual, direction.name());
+        }
+    }
+
+    @Test
+    void dueSupportBlocksAreProtectedBeforePersistedCounterCatchesUp() {
+        MineSegment segment = MineSegment.reserved(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            null,
+            new BlockPosition(0, 0, 0),
+            MineDirection.EAST
+        ).withProgress(4 * MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS);
+
+        int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
+        int faceStart = 3 * faceSize;
+
+        assertEquals(0, segment.supportsPlaced());
+        assertTrue(MinerWorkSystem.isExpectedSupportCell(segment, faceStart, "Wood_Fir_Branch_Long"));
+        assertTrue(MinerWorkSystem.isExpectedSupportCell(
+            segment,
+            faceStart + 3 * MineTuning.TUNNEL_WIDTH_BLOCKS + 2,
+            "Wood_Fir_Trunk"
+        ));
+        assertFalse(MinerWorkSystem.isExpectedSupportCell(
+            segment,
+            faceStart + MineTuning.TUNNEL_WIDTH_BLOCKS + 1,
+            "Wood_Fir_Branch_Long"
+        ));
+    }
+
+    @Test
+    void supportRotationUsesDiscreteHytaleDegrees() {
+        assertEquals(0, MinerWorkSystem.supportRotationDegrees(MineDirection.EAST));
+        assertEquals(90, MinerWorkSystem.supportRotationDegrees(MineDirection.NORTH));
+        assertEquals(180, MinerWorkSystem.supportRotationDegrees(MineDirection.WEST));
+        assertEquals(270, MinerWorkSystem.supportRotationDegrees(MineDirection.SOUTH));
+    }
+
+    private static Set<BlockPosition> expectedFrame(MineSegment segment, int depth) {
+        int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
+        int faceStart = (depth - 1) * faceSize;
+        Set<BlockPosition> result = new HashSet<>();
+        for (int y = 0; y < MineTuning.TUNNEL_HEIGHT_BLOCKS; y++) {
+            for (int width = 0; width < MineTuning.TUNNEL_WIDTH_BLOCKS; width++) {
+                boolean topBeam = y == MineTuning.TUNNEL_HEIGHT_BLOCKS - 1;
+                boolean sidePost = y < MineTuning.TUNNEL_HEIGHT_BLOCKS - 1
+                    && (width == 0 || width == MineTuning.TUNNEL_WIDTH_BLOCKS - 1);
+                if (!topBeam && !sidePost) continue;
+                result.add(segment.blockAtIndex(
+                    faceStart + y * MineTuning.TUNNEL_WIDTH_BLOCKS + width
+                ));
+            }
+        }
+        return result;
     }
 }

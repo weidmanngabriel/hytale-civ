@@ -5,27 +5,27 @@
   "anchorY": 0,
   "anchorZ": 0,
   "blocks": [
-    {"x":0,"y":0,"z":-1,"name":"Wood_Fir_Branch_Long","support":15},
-    {"x":0,"y":1,"z":-1,"name":"Wood_Fir_Branch_Long","support":15},
-    {"x":0,"y":2,"z":-1,"name":"Wood_Fir_Branch_Long","support":15},
-    {"x":0,"y":3,"z":-1,"name":"Wood_Fir_Trunk","support":15,"rotation":4},
+    {"x":0,"y":0,"z":0,"name":"Wood_Fir_Branch_Long","support":15},
+    {"x":0,"y":1,"z":0,"name":"Wood_Fir_Branch_Long","support":15},
+    {"x":0,"y":2,"z":0,"name":"Wood_Fir_Branch_Long","support":15},
     {"x":0,"y":3,"z":0,"name":"Wood_Fir_Trunk","support":15,"rotation":4},
     {"x":0,"y":3,"z":1,"name":"Wood_Fir_Trunk","support":15,"rotation":4},
-    {"x":0,"y":0,"z":2,"name":"Wood_Fir_Branch_Long","support":15},
-    {"x":0,"y":1,"z":2,"name":"Wood_Fir_Branch_Long","support":15},
-    {"x":0,"y":2,"z":2,"name":"Wood_Fir_Branch_Long","support":15},
-    {"x":0,"y":3,"z":2,"name":"Wood_Fir_Trunk","support":15,"rotation":4}
+    {"x":0,"y":3,"z":2,"name":"Wood_Fir_Trunk","support":15,"rotation":4},
+    {"x":0,"y":0,"z":3,"name":"Wood_Fir_Branch_Long","support":15},
+    {"x":0,"y":1,"z":3,"name":"Wood_Fir_Branch_Long","support":15},
+    {"x":0,"y":2,"z":3,"name":"Wood_Fir_Branch_Long","support":15},
+    {"x":0,"y":3,"z":3,"name":"Wood_Fir_Trunk","support":15,"rotation":4}
   ],
   "fluids": [
-    {"x":0,"y":0,"z":-1,"name":"Empty","level":0},
-    {"x":0,"y":1,"z":-1,"name":"Empty","level":0},
-    {"x":0,"y":2,"z":-1,"name":"Empty","level":0},
-    {"x":0,"y":3,"z":-1,"name":"Empty","level":0},
+    {"x":0,"y":0,"z":0,"name":"Empty","level":0},
+    {"x":0,"y":1,"z":0,"name":"Empty","level":0},
+    {"x":0,"y":2,"z":0,"name":"Empty","level":0},
     {"x":0,"y":3,"z":0,"name":"Empty","level":0},
     {"x":0,"y":3,"z":1,"name":"Empty","level":0},
-    {"x":0,"y":0,"z":2,"name":"Empty","level":0},
-    {"x":0,"y":1,"z":2,"name":"Empty","level":0},
-    {"x":0,"y":2,"z":2,"name":"Empty","level":0},
-    {"x":0,"y":3,"z":2,"name":"Empty","level":0}
+    {"x":0,"y":3,"z":2,"name":"Empty","level":0},
+    {"x":0,"y":0,"z":3,"name":"Empty","level":0},
+    {"x":0,"y":1,"z":3,"name":"Empty","level":0},
+    {"x":0,"y":2,"z":3,"name":"Empty","level":0},
+    {"x":0,"y":3,"z":3,"name":"Empty","level":0}
   ]
 }
