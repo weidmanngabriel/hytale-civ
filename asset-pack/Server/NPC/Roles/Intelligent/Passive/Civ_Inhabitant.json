@@ -31,7 +31,7 @@
       },
       "Instructions": [
         {
-          "$Comment": "Civ movement target: position slot 0 is the Java/Role contract for direct movement commands.",
+          "$Comment": "Civ movement target: position slot 0 is the Java/Role contract for ordinary inhabitant movement commands.",
           "Sensor": {
             "Type": "ReadPosition",
             "Slot": "CivMoveTarget",
@@ -44,6 +44,23 @@
             "SlowDownDistance": 2.0,
             "RelativeSpeed": 0.8,
             "UsePathfinder": true
+          }
+        },
+        {
+          "$Comment": "Miner movement target: position slot 1 uses native Hytale pathfinding but rejects best-effort partial paths so an underground target must be reached through a valid route.",
+          "Sensor": {
+            "Type": "ReadPosition",
+            "Slot": "CivMinerMoveTarget",
+            "MinRange": 0.8,
+            "Range": 256
+          },
+          "BodyMotion": {
+            "Type": "Seek",
+            "StopDistance": 0.8,
+            "SlowDownDistance": 2.0,
+            "RelativeSpeed": 0.8,
+            "UsePathfinder": true,
+            "UseBestPath": false
           }
         },
         {

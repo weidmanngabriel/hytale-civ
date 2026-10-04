@@ -6,10 +6,9 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CivInhabitantRoleValidationTest {
@@ -19,31 +18,33 @@ class CivInhabitantRoleValidationTest {
     );
 
     @Test
-    void civInhabitantDeclaresSingleNativeMovementPositionSlot() throws Exception {
+    void civInhabitantDeclaresOrdinaryAndMinerNativeMovementSlots() throws Exception {
         JsonNode role = new ObjectMapper().readTree(Files.readString(ROLE_PATH));
 
         assertEquals("Generic", role.path("Type").asText());
         assertTrue(role.path("NameTranslationKey").isTextual());
         assertEquals("Walk", role.path("MotionControllerList").path(0).path("Type").asText());
 
-        List<JsonNode> readPositionSensors = new ArrayList<>();
-        collectReadPositionSensors(role, readPositionSensors);
+        JsonNode idleInstructions = role.path("Instructions").path(0).path("Instructions");
+        JsonNode normalMovement = idleInstructions.path(0);
+        JsonNode minerMovement = idleInstructions.path(1);
 
-        assertEquals(
-            1,
-            readPositionSensors.size(),
-            "Java relies on CivMoveTarget being the role's only position slot (index 0)"
+        assertEquals("ReadPosition", normalMovement.path("Sensor").path("Type").asText());
+        assertEquals("CivMoveTarget", normalMovement.path("Sensor").path("Slot").asText());
+        assertEquals("Seek", normalMovement.path("BodyMotion").path("Type").asText());
+        assertTrue(normalMovement.path("BodyMotion").path("UsePathfinder").asBoolean());
+        assertFalse(
+            normalMovement.path("BodyMotion").has("UseBestPath"),
+            "ordinary inhabitants must keep Hytale's default Seek behavior"
         );
-        assertEquals("CivMoveTarget", readPositionSensors.getFirst().path("Slot").asText());
-    }
 
-    private static void collectReadPositionSensors(JsonNode node, List<JsonNode> result) {
-        if (node.isObject()
-            && "ReadPosition".equals(node.path("Type").asText())
-            && node.has("Slot")) {
-            result.add(node);
-        }
-
-        node.elements().forEachRemaining(child -> collectReadPositionSensors(child, result));
+        assertEquals("ReadPosition", minerMovement.path("Sensor").path("Type").asText());
+        assertEquals("CivMinerMoveTarget", minerMovement.path("Sensor").path("Slot").asText());
+        assertEquals("Seek", minerMovement.path("BodyMotion").path("Type").asText());
+        assertTrue(minerMovement.path("BodyMotion").path("UsePathfinder").asBoolean());
+        assertFalse(
+            minerMovement.path("BodyMotion").path("UseBestPath").asBoolean(true),
+            "miners must reject Hytale best-effort partial paths"
+        );
     }
 }
