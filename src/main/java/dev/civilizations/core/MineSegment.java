@@ -34,6 +34,27 @@ public record MineSegment(
         }
     }
 
+    /**
+     * Compatibility factory for deterministic legacy fixtures. Production tunnel planning must
+     * pass an explicit length.
+     */
+    public static MineSegment reserved(
+        UUID id,
+        UUID mineId,
+        UUID parentId,
+        BlockPosition start,
+        MineDirection direction
+    ) {
+        return reserved(
+            id,
+            mineId,
+            parentId,
+            start,
+            direction,
+            MineTuning.REFERENCE_SEGMENT_LENGTH_BLOCKS
+        );
+    }
+
     public static MineSegment reserved(
         UUID id,
         UUID mineId,
