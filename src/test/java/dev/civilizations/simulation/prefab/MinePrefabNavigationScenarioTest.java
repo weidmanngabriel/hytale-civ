@@ -64,6 +64,40 @@ final class MinePrefabNavigationScenarioTest {
     }
 
     @Test
+    void workerStaysOnTunnelFloorAndEveryBrokenBlockIsWithinFourBlockReach() {
+        MinePrefabNavigationScenario scenario = MinePrefabNavigationScenario.create();
+        int previousProgress = 0;
+        int brokenBlocksObserved = 0;
+        int guard = 1_000;
+
+        while (scenario.step() && --guard > 0) {
+            MinePrefabNavigationScenario.Snapshot snapshot = scenario.snapshot();
+            if (snapshot.phase() != MinePrefabNavigationScenario.Phase.MINING_SEGMENT) continue;
+
+            assertEquals(snapshot.segment().start().y(), snapshot.probe().y(),
+                "Once mining starts, the worker feet must stay on tunnel floor height");
+
+            int progress = snapshot.segment().nextBlockIndex();
+            if (progress > previousProgress) {
+                BlockPosition target = snapshot.lastAction();
+                BlockPosition worker = snapshot.probe();
+                double dx = target.x() - worker.x();
+                double dy = target.y() - worker.y();
+                double dz = target.z() - worker.z();
+                double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                assertTrue(distance <= MinePrefabNavigationScenario.WORK_REACH_BLOCKS + 1.0e-9,
+                    "Broken block must be within configured worker reach");
+                brokenBlocksObserved += progress - previousProgress;
+            }
+            previousProgress = progress;
+        }
+
+        assertTrue(guard > 0, "Scenario must finish without getting stuck");
+        assertEquals(MineTuning.blocksPerSegment(), brokenBlocksObserved);
+        assertEquals(MinePrefabNavigationScenario.Phase.COMPLETE, scenario.snapshot().phase());
+    }
+
+    @Test
     void allFourPlacementOrientationsRotateMineConnectorAndTunnelTogether() {
         MinePrefabNavigationScenario.Snapshot north = MinePrefabNavigationScenario.create(
             BuildingOrientation.NORTH
