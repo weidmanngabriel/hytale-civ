@@ -41,7 +41,7 @@ Damit kann beispielsweise eine Mine zuerst ihr sichtbares Obergebäude fertigste
 
 Wenn ein Prefab mindestens ein TriggerVolume mit `civ.type=building_bounds` enthält, leitet Civ den horizontalen Placement-Footprint aus der Vereinigung dieser Bounds ab. Die Reservierung hängt dadurch nicht von den aktuell enthaltenen Blockkoordinaten ab. Mehrere `building_bounds` sind zulässig.
 
-Für upgradebare Gebäude gilt als Authoring-Regel: Bereits das erste Level muss den maximal vorgesehenen horizontalen Ausbau-Footprint reservieren, damit spätere Upgrades nicht mit zwischenzeitlich daneben gebauten Civ-Gebäuden kollidiert. Die sichtbare Struktur darf innerhalb dieser Reservierung anfangs kleiner sein.
+Für upgradebare Gebäude gilt als Authoring-Regel: Bereits das erste Level muss den maximal vorgesehenen horizontalen Ausbau-Footprint reservieren, damit spätere Upgrades nicht mit zwischenzeitlich daneben gebauten Civ-Gebäuden kollidieren. Die sichtbare Struktur darf innerhalb dieser Reservierung anfangs kleiner sein.
 
 Semantische Trigger sind grundsätzlich gegenüber festen Prefab-Maßen zu bevorzugen. Bestehende externe Anschlussstellen sollten bei Upgrades stabil bleiben, sofern sie weiter benutzt werden. Ein bewusst verschobener aktiver Anschluss, etwa ein tiefer gesetzter Minen-Tunnel-Connector, wird dagegen als neue aktive Arbeitsfront behandelt; alte Tunnel können physisch bestehen bleiben, ohne weiter produktiv genutzt zu werden.
 
