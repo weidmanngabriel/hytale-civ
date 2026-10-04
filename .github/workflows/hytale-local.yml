@@ -200,10 +200,15 @@ jobs:
 
           $javacVersion = (& javac -version | Out-String).Trim()
           Write-Host $javacVersion
-          if ($LASTEXITCODE -ne 0 -or -not $javacVersion.StartsWith('javac 25')) {
-            throw 'The self-hosted runner must expose Java 25 on PATH for the Hytale runtime test.'
+          if ($LASTEXITCODE -ne 0) {
+            throw 'javac is not available on PATH for the Hytale runtime test.'
+          }
+          $versionMatch = [regex]::Match($javacVersion, '^javac\s+(\d+)')
+          if (-not $versionMatch.Success -or [int]$versionMatch.Groups[1].Value -lt 25) {
+            throw 'The self-hosted runner must expose Java 25 or later on PATH for the Hytale runtime test.'
           }
 
+          Write-Host 'PATH Java is 25+; Gradle still enforces the project Java 25 toolchain and --release 25.'
           Write-Host 'Hytale server JAR: OK'
           Write-Host 'Hytale Assets.zip: OK'
 
