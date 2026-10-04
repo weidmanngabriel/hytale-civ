@@ -18,29 +18,10 @@ jobs:
           ref: fix/mine-skip-end-support
           fetch-depth: 0
 
-      - name: Apply focused source and docs change
+      - name: Apply focused source change
         shell: python
         run: |
           from pathlib import Path
-
-          tuning = Path('src/main/java/dev/civilizations/core/MineTuning.java')
-          text = tuning.read_text()
-          old = '''    public static double secondsPerBlock() {
-              return SEGMENT_TARGET_SECONDS / blocksPerSegment();
-          }
-          '''
-          new = '''    public static double secondsPerBlock() {
-              return SEGMENT_TARGET_SECONDS / blocksPerSegment();
-          }
-
-          /** Number of regular support frames that fit before the segment junction. */
-          public static int supportFramesPerSegment() {
-              return Math.max(0, (SEGMENT_LENGTH_BLOCKS - 1) / SUPPORT_SPACING_BLOCKS);
-          }
-          '''
-          if old not in text:
-              raise SystemExit('MineTuning insertion point not found')
-          tuning.write_text(text.replace(old, new, 1))
 
           miner = Path('src/main/java/dev/civilizations/hytale/MinerWorkSystem.java')
           text = miner.read_text()
@@ -50,39 +31,7 @@ jobs:
               raise SystemExit('MinerWorkSystem support-count line not found')
           miner.write_text(text.replace(old, new, 1))
 
-          docs = Path('docs/mine-worker.md')
-          text = docs.read_text()
-          old = ('Stützen stehen zunächst alle 4 Tunnelblöcke. Ein 8-Blöcke-Segment erhält daher einen Rahmen nach Block 4 und einen am Segmentende nach Block 8. '
-                 'Sobald eine Stütze erstmals fällig ist und die native Prefab-Platzierung erfolgreich angestoßen wurde, gilt dieser Setzvorgang logisch als erledigt. '
-                 'Wird die Stütze später vom Spieler oder von einem NPC entfernt, setzt Civ sie nicht automatisch erneut.\n')
-          new = ('Stützen stehen vorerst alle 4 Tunnelblöcke, jedoch nicht direkt am Segmentende. Ein 8-Blöcke-Segment erhält daher aktuell nur den Rahmen nach Block 4; '
-                 'der frühere Rahmen nach Block 8 wird ausgelassen, damit der Übergangsbereich für gerade Fortsetzungen und insbesondere Links-/Rechtskurven frei bleibt. '
-                 'Spezielle Stützkonstruktionen für Kurven und Kreuzungen sind noch nicht umgesetzt. Sobald eine Stütze erstmals fällig ist und die native Prefab-Platzierung erfolgreich angestoßen wurde, '
-                 'gilt dieser Setzvorgang logisch als erledigt. Wird die Stütze später vom Spieler oder von einem NPC entfernt, setzt Civ sie nicht automatisch erneut.\n')
-          if old not in text:
-              raise SystemExit('mine-worker support paragraph not found')
-          docs.write_text(text.replace(old, new, 1))
-
-          test = Path('src/test/java/dev/civilizations/core/MineTuningTest.java')
-          test.write_text('''package dev.civilizations.core;
-
-          import org.junit.jupiter.api.Test;
-
-          import static org.junit.jupiter.api.Assertions.assertEquals;
-
-          class MineTuningTest {
-
-              @Test
-              void regularSupportFramesStopBeforeSegmentJunction() {
-                  assertEquals(8, MineTuning.SEGMENT_LENGTH_BLOCKS);
-                  assertEquals(4, MineTuning.SUPPORT_SPACING_BLOCKS);
-                  assertEquals(1, MineTuning.supportFramesPerSegment());
-              }
-          }
-          '''.replace('          ', ''))
-
-          workflow = Path('.github/workflows/patch-mine-end-support.yml')
-          workflow.unlink()
+          Path('.github/workflows/patch-mine-end-support.yml').unlink()
 
       - name: Commit patch
         run: |
