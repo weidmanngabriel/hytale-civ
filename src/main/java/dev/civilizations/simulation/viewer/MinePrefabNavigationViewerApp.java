@@ -167,7 +167,8 @@ public final class MinePrefabNavigationViewerApp {
                     + "Fortschritt: " + s.segment().nextBlockIndex() + " / 128\n"
                     + "Supports: " + s.segment().supportsPlaced() + " / 2\n\n"
                     + "Richtung\n" + s.simulationDirection() + "\n"
-                    + "Authored im Prefab: " + (s.directionAuthored() ? "JA" : "NEIN – Simulationskonfiguration") + "\n\n"
+                    + "Authored im Prefab: " + (s.directionAuthored() ? "JA" : "NEIN") + "\n"
+                    + "Ableitung: keine Überschneidung mit Mine_01, dann vom Gebäudezentrum weg\n\n"
                     + "Iso-Steuerung\n"
                     + "Linksklick + Ziehen = verschieben\n"
                     + "Mausrad = zoomen\n"
@@ -175,6 +176,7 @@ public final class MinePrefabNavigationViewerApp {
                     + "Legende\nGrau = echter Mine_01-Block\n"
                     + "Blau = A*-Pfad zum Connector\nRot = aktuelle Probe / Arbeitsziel\n"
                     + "Dunkel = noch nicht abgebauter Tunnelblock\n"
+                    + "Türkis = erste 4×4-Schneidfläche\n"
                     + "Braun = gesetzter Support\nMagenta = mine_tunnel_connector\n\n"
                     + "A* ist nur ein Reachability-Orakel.\nHytale Seek/NavMesh bleibt Produktionsnavigation."
             );
@@ -281,9 +283,20 @@ public final class MinePrefabNavigationViewerApp {
                 };
                 if (color != null) fill(g, e.getKey(), bounds, color);
             }
+            drawFirstFaceFlat(g, bounds, layerOnly);
             drawRoute(g, bounds);
             drawMarker(g, bounds, snapshot.connector(), "C", new Color(170, 40, 160));
             drawMarker(g, bounds, snapshot.probe(), "●", new Color(205, 45, 45));
+        }
+
+        private void drawFirstFaceFlat(Graphics2D g, PrefabSimulationModel.Bounds bounds, boolean layerOnly) {
+            g.setColor(new Color(30, 180, 190));
+            g.setStroke(new BasicStroke(2.5f));
+            for (int index = 0; index < 16; index++) {
+                BlockPosition position = snapshot.segment().blockAtIndex(index);
+                if (layerOnly && position.y() != layerY) continue;
+                g.drawRect(sx(position.x(), bounds) + 2, sz(position.z(), bounds) + 2, CELL - 4, CELL - 4);
+            }
         }
 
         private void drawRoute(Graphics2D g, PrefabSimulationModel.Bounds bounds) {
@@ -323,6 +336,8 @@ public final class MinePrefabNavigationViewerApp {
                 .thenComparingInt(c -> c.p.y()));
             for (Cube cube : cubes) drawCube(g, cube.p, cube.color);
 
+            drawFirstFaceIso(g);
+
             List<BlockPosition> path = snapshot.pathToConnector();
             g.setStroke(new BasicStroke(3f)); g.setColor(new Color(55, 115, 210));
             for (int i = 1; i < path.size(); i++) {
@@ -333,6 +348,15 @@ public final class MinePrefabNavigationViewerApp {
             g.setColor(new Color(170, 40, 160)); g.fillOval(c[0] - 8, c[1] - 18, 16, 16);
             int[] p = iso(snapshot.probe());
             g.setColor(new Color(205, 45, 45)); g.fillOval(p[0] - 8, p[1] - 18, 16, 16);
+        }
+
+        private void drawFirstFaceIso(Graphics2D g) {
+            g.setColor(new Color(30, 180, 190));
+            g.setStroke(new BasicStroke(2.5f));
+            for (int index = 0; index < 16; index++) {
+                int[] point = iso(snapshot.segment().blockAtIndex(index));
+                g.drawOval(point[0] - 5, point[1] - 14, 10, 10);
+            }
         }
 
         private void drawCube(Graphics2D g, BlockPosition p, Color base) {
