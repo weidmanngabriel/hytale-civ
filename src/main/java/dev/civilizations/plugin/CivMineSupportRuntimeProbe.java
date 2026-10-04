@@ -4,7 +4,6 @@ import com.hypixel.hytale.builtin.blockphysics.BlockSelectionSupportUtil;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Rotation3f;
-import com.hypixel.hytale.server.core.HytaleServer;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.modules.interaction.BlockHarvestUtils;
 import com.hypixel.hytale.server.core.prefab.PrefabStore;
@@ -29,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 /** Real-Hytale runtime probe for mine-support trunk deco semantics. */
 final class CivMineSupportRuntimeProbe {
 
+    private static final String SCENARIO = "minesupport";
     private static final String WORLD_NAME = "civ_mine_support_runtime";
     private static final String FLAT_GENERATOR = "Flat";
     private static final String DEFAULT_STORAGE = "default";
@@ -56,6 +56,7 @@ final class CivMineSupportRuntimeProbe {
                     fail("flat test world could not be created", throwable);
                     return;
                 }
+                CivRuntimeProbeSuite.applyWarmDilation(world);
                 world.execute(() -> preloadAndPlace(world));
             });
     }
@@ -190,7 +191,7 @@ final class CivMineSupportRuntimeProbe {
 
             System.out.println("CIV_MINE_SUPPORT_BREAKABLE removed=" + removed + " remainingBeam=3");
             System.out.println("CIV_MINE_SUPPORT_RUNTIME_PASS");
-            HytaleServer.get().shutdownServer();
+            CivRuntimeProbeSuite.scenarioPassed(SCENARIO);
         } catch (Throwable throwable) {
             fail("support breakability verification threw an exception", throwable);
         }
@@ -204,6 +205,6 @@ final class CivMineSupportRuntimeProbe {
     private static void fail(String reason, Throwable throwable) {
         System.out.println("CIV_MINE_SUPPORT_RUNTIME_FAIL " + reason);
         if (throwable != null) throwable.printStackTrace(System.out);
-        HytaleServer.get().shutdownServer();
+        CivRuntimeProbeSuite.scenarioFailed(SCENARIO, reason);
     }
 }

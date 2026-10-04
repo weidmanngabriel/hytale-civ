@@ -32,16 +32,11 @@ function Get-RegisteredScenarios {
         }
         $seen[$scenario] = $true
     }
-
     return $registered
 }
 
 function Remove-Runtime {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $RuntimeDir
-    )
-
+    param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
     if ([string]::IsNullOrWhiteSpace($RuntimeDir) -or -not (Test-Path -LiteralPath $RuntimeDir)) {
         return
     }
@@ -63,10 +58,7 @@ function Remove-Runtime {
 }
 
 function Prepare-Runtime {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string] $Scenario
-    )
+    param([Parameter(Mandatory = $true)] [string] $Scenario)
 
     $runId = if ([string]::IsNullOrWhiteSpace($env:GITHUB_RUN_ID)) { 'local' } else { $env:GITHUB_RUN_ID }
     $attempt = if ([string]::IsNullOrWhiteSpace($env:GITHUB_RUN_ATTEMPT)) { '1' } else { $env:GITHUB_RUN_ATTEMPT }
@@ -89,7 +81,6 @@ function Prepare-Runtime {
 
     Copy-Item -LiteralPath $pluginJar.FullName -Destination $modsDir -Force
     Copy-Item -LiteralPath 'asset-pack' -Destination (Join-Path $modsDir 'hytale-civ-assets') -Recurse -Force
-
     Write-Host "Prepared isolated Hytale runtime for scenario '$Scenario': $runtimeDir"
     return $runtimeDir
 }
@@ -116,47 +107,65 @@ function Assert-Evidence {
     }
 }
 
-function Run-WoodcutterScenario {
-    param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
+function Start-HytaleProbe {
+    param(
+        [Parameter(Mandatory = $true)] [string] $RuntimeDir,
+        [Parameter(Mandatory = $true)] [string] $LogPrefix,
+        [Parameter(Mandatory = $true)] [string] $BootCommand,
+        [string[]] $JvmProperties = @()
+    )
 
-    $stdoutLog = Join-Path $RuntimeDir 'server.stdout.log'
-    $stderrLog = Join-Path $RuntimeDir 'server.stderr.log'
+    $stdoutLog = Join-Path $RuntimeDir "$LogPrefix.stdout.log"
+    $stderrLog = Join-Path $RuntimeDir "$LogPrefix.stderr.log"
+    $arguments = @('-Dcivilizations.runtimeProbe=true') + $JvmProperties + @(
+        '-jar', $env:HYTALE_SERVER_JAR,
+        '--assets', $env:HYTALE_ASSETS_PATH,
+        '--auth-mode', 'offline',
+        '--disable-sentry',
+        '--boot-command', $BootCommand
+    )
+
     $process = Start-Process -FilePath 'java' `
-        -ArgumentList @(
-            '-Dcivilizations.runtimeProbe=true',
-            '-jar', $env:HYTALE_SERVER_JAR,
-            '--assets', $env:HYTALE_ASSETS_PATH,
-            '--auth-mode', 'offline',
-            '--disable-sentry',
-            '--boot-command', 'civwoodcutterprobe'
-        ) `
+        -ArgumentList $arguments `
         -WorkingDirectory $RuntimeDir `
         -RedirectStandardOutput $stdoutLog `
         -RedirectStandardError $stderrLog `
         -Wait `
         -PassThru
 
-    $combined = Read-CombinedOutput -StdoutLog $stdoutLog -StderrLog $stderrLog
+    return [PSCustomObject]@{
+        Process = $process
+        Combined = Read-CombinedOutput -StdoutLog $stdoutLog -StderrLog $stderrLog
+    }
+}
+
+function Assert-CommonRuntimeHealth {
+    param([Parameter(Mandatory = $true)] [string] $Combined)
+    if ($Combined.Contains('client.disconnection.shutdownReason.missingAssets.failedToLoad')) {
+        throw 'Hytale still reports missing assets while using --assets with the local Assets.zip.'
+    }
+    if ($Combined.Contains("chunk isn't currently loaded")) {
+        throw 'A Civ runtime scenario touched an unloaded chunk.'
+    }
+}
+
+function Run-WoodcutterScenario {
+    param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
+
+    $result = Start-HytaleProbe -RuntimeDir $RuntimeDir -LogPrefix 'woodcutter' -BootCommand 'civwoodcutterprobe'
+    $combined = $result.Combined
     Write-Host '----- Hytale woodcutter output -----'
     Write-Host $combined
     Write-Host '----- end Hytale woodcutter output -----'
-    Write-Host "Hytale server exit code: $($process.ExitCode)"
 
-    if ($combined.Contains('client.disconnection.shutdownReason.missingAssets.failedToLoad')) {
-        throw 'Hytale still reports missing assets while using --assets with the local Assets.zip.'
-    }
+    Assert-CommonRuntimeHealth -Combined $combined
     if ($combined.Contains('CIV_WOODCUTTER_RUNTIME_FAIL')) {
         throw 'The Civ woodcutter runtime scenario reported failure.'
     }
-    if ($combined.Contains("chunk isn't currently loaded")) {
-        throw 'The Civ woodcutter runtime scenario touched an unloaded chunk.'
-    }
-
     Assert-Evidence -Combined $combined -RequiredEvidence @(
         'Loaded pack: Hytale:Hytale from Assets.zip',
         'Loaded pack: Civilizations:HytaleCivAssets from hytale-civ-assets',
         'Enabled plugin Civilizations:HytaleCiv',
-        'Universe ready!',
         'Hytale Server Booted!',
         'Console executed command: civwoodcutterprobe',
         'CIV_WOODCUTTER_RUNTIME_STARTED',
@@ -168,142 +177,30 @@ function Run-WoodcutterScenario {
         'CIV_WOODCUTTER_TREE_FELLED',
         'CIV_WOODCUTTER_REENGAGED',
         'CIV_WOODCUTTER_RUNTIME_PASS',
-        'Shut down plugin Civilizations:HytaleCiv',
         'Shutdown completed!'
     )
-
-    if ($process.ExitCode -ne 0) {
-        throw "Hytale server exited with code $($process.ExitCode)."
+    if ($result.Process.ExitCode -ne 0) {
+        throw "Woodcutter server exited with code $($result.Process.ExitCode)."
     }
     Write-Host 'Real Hytale woodcutter scenario passed.'
-}
-
-function Run-PersistenceScenario {
-    param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
-
-    $prepareStdoutLog = Join-Path $RuntimeDir 'persistence.prepare.stdout.log'
-    $prepareStderrLog = Join-Path $RuntimeDir 'persistence.prepare.stderr.log'
-    $prepare = Start-Process -FilePath 'java' `
-        -ArgumentList @(
-            '-Dcivilizations.runtimeProbe=true',
-            '-Dcivilizations.persistenceProbeStage=prepare',
-            '-jar', $env:HYTALE_SERVER_JAR,
-            '--assets', $env:HYTALE_ASSETS_PATH,
-            '--auth-mode', 'offline',
-            '--disable-sentry',
-            '--boot-command', 'civpersistenceprobe'
-        ) `
-        -WorkingDirectory $RuntimeDir `
-        -RedirectStandardOutput $prepareStdoutLog `
-        -RedirectStandardError $prepareStderrLog `
-        -Wait `
-        -PassThru
-
-    $prepareCombined = Read-CombinedOutput -StdoutLog $prepareStdoutLog -StderrLog $prepareStderrLog
-    Write-Host '----- Hytale persistence prepare output -----'
-    Write-Host $prepareCombined
-    Write-Host '----- end Hytale persistence prepare output -----'
-    Write-Host "Persistence prepare exit code: $($prepare.ExitCode)"
-
-    if ($prepareCombined.Contains('CIV_PERSISTENCE_PROBE_FAIL')) {
-        throw 'The persistence prepare stage reported failure.'
-    }
-    Assert-Evidence -Combined $prepareCombined -RequiredEvidence @(
-        'CIV_PERSISTENCE_PREPARED uuid=',
-        'CIV_PERSISTENCE_WORKPLACE_INDEXED_PREPARE',
-        'CIV_PERSISTENCE_PREPARE_PASS',
-        'Shutdown completed!'
-    )
-    if ($prepare.ExitCode -ne 0) {
-        throw "Persistence prepare server exited with code $($prepare.ExitCode)."
-    }
-
-    $uuidMatch = [regex]::Match(
-        $prepareCombined,
-        'CIV_PERSISTENCE_PREPARED uuid=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})'
-    )
-    if (-not $uuidMatch.Success) {
-        throw 'Could not extract the prepared Civ inhabitant UUID from server output.'
-    }
-    $entityUuid = $uuidMatch.Groups[1].Value
-    Write-Host "Prepared persistent Civ inhabitant UUID: $entityUuid"
-
-    $restoreStdoutLog = Join-Path $RuntimeDir 'persistence.restore.stdout.log'
-    $restoreStderrLog = Join-Path $RuntimeDir 'persistence.restore.stderr.log'
-    $restore = Start-Process -FilePath 'java' `
-        -ArgumentList @(
-            '-Dcivilizations.runtimeProbe=true',
-            '-Dcivilizations.persistenceProbeStage=restore',
-            "-Dcivilizations.persistenceProbeEntityUuid=$entityUuid",
-            '-jar', $env:HYTALE_SERVER_JAR,
-            '--assets', $env:HYTALE_ASSETS_PATH,
-            '--auth-mode', 'offline',
-            '--disable-sentry',
-            '--boot-command', 'civpersistenceprobe'
-        ) `
-        -WorkingDirectory $RuntimeDir `
-        -RedirectStandardOutput $restoreStdoutLog `
-        -RedirectStandardError $restoreStderrLog `
-        -Wait `
-        -PassThru
-
-    $restoreCombined = Read-CombinedOutput -StdoutLog $restoreStdoutLog -StderrLog $restoreStderrLog
-    Write-Host '----- Hytale persistence restore output -----'
-    Write-Host $restoreCombined
-    Write-Host '----- end Hytale persistence restore output -----'
-    Write-Host "Persistence restore exit code: $($restore.ExitCode)"
-
-    if ($restoreCombined.Contains('CIV_PERSISTENCE_PROBE_FAIL')) {
-        throw 'The persistence restore stage reported failure.'
-    }
-    Assert-Evidence -Combined $restoreCombined -RequiredEvidence @(
-        "CIV_PERSISTENCE_RESTORED uuid=$entityUuid",
-        'name=Persist_Runtime_Probe',
-        'profession=CONSTRUCTION_WORKER',
-        'xp=37',
-        'workplace=00000000-0000-0000-0000-000000000002',
-        'CIV_PERSISTENCE_WORKPLACE_INDEXED_RESTORE',
-        'CIV_PERSISTENCE_RESTORE_PASS',
-        'Shutdown completed!'
-    )
-    if ($restore.ExitCode -ne 0) {
-        throw "Persistence restore server exited with code $($restore.ExitCode)."
-    }
-    Write-Host 'Real Hytale persistence scenario passed across two separate server processes.'
 }
 
 function Run-MineSupportScenario {
     param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
 
-    $stdoutLog = Join-Path $RuntimeDir 'minesupport.stdout.log'
-    $stderrLog = Join-Path $RuntimeDir 'minesupport.stderr.log'
-    $process = Start-Process -FilePath 'java' `
-        -ArgumentList @(
-            '-Dcivilizations.runtimeProbe=true',
-            '-Dcivilizations.mineSupportProbe=true',
-            '-jar', $env:HYTALE_SERVER_JAR,
-            '--assets', $env:HYTALE_ASSETS_PATH,
-            '--auth-mode', 'offline',
-            '--disable-sentry',
-            '--boot-command', 'civtest'
-        ) `
-        -WorkingDirectory $RuntimeDir `
-        -RedirectStandardOutput $stdoutLog `
-        -RedirectStandardError $stderrLog `
-        -Wait `
-        -PassThru
-
-    $combined = Read-CombinedOutput -StdoutLog $stdoutLog -StderrLog $stderrLog
+    $result = Start-HytaleProbe `
+        -RuntimeDir $RuntimeDir `
+        -LogPrefix 'minesupport' `
+        -BootCommand 'civtest' `
+        -JvmProperties @('-Dcivilizations.mineSupportProbe=true')
+    $combined = $result.Combined
     Write-Host '----- Hytale mine support output -----'
     Write-Host $combined
     Write-Host '----- end Hytale mine support output -----'
-    Write-Host "Mine support server exit code: $($process.ExitCode)"
 
+    Assert-CommonRuntimeHealth -Combined $combined
     if ($combined.Contains('CIV_MINE_SUPPORT_RUNTIME_FAIL')) {
         throw 'The Civ mine support runtime scenario reported failure.'
-    }
-    if ($combined.Contains("chunk isn't currently loaded")) {
-        throw 'The Civ mine support runtime scenario touched an unloaded chunk.'
     }
     Assert-Evidence -Combined $combined -RequiredEvidence @(
         'Loaded pack: Hytale:Hytale from Assets.zip',
@@ -318,13 +215,119 @@ function Run-MineSupportScenario {
         'CIV_MINE_SUPPORT_BREAKABLE',
         'remainingBeam=3',
         'CIV_MINE_SUPPORT_RUNTIME_PASS',
-        'Shut down plugin Civilizations:HytaleCiv',
         'Shutdown completed!'
     )
-    if ($process.ExitCode -ne 0) {
-        throw "Mine support server exited with code $($process.ExitCode)."
+    if ($result.Process.ExitCode -ne 0) {
+        throw "Mine support server exited with code $($result.Process.ExitCode)."
     }
     Write-Host 'Real Hytale mine support scenario passed.'
+}
+
+function Run-WarmRuntimeScenario {
+    param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
+
+    $result = Start-HytaleProbe -RuntimeDir $RuntimeDir -LogPrefix 'warmruntime' -BootCommand 'civwarmruntimebenchmark'
+    $combined = $result.Combined
+    Write-Host '----- Hytale warm gameplay suite output -----'
+    Write-Host $combined
+    Write-Host '----- end Hytale warm gameplay suite output -----'
+
+    Assert-CommonRuntimeHealth -Combined $combined
+    if ($combined.Contains('CIV_WARM_RUNTIME_BENCHMARK_FAIL') -or $combined.Contains('CIV_WARM_SUITE_FAIL')) {
+        throw 'The warm Hytale gameplay suite reported failure.'
+    }
+    if ($combined.Contains('CIV_WOODCUTTER_RUNTIME_FAIL') -or $combined.Contains('CIV_MINE_SUPPORT_RUNTIME_FAIL')) {
+        throw 'A real gameplay probe inside the warm Hytale suite reported failure.'
+    }
+    Assert-Evidence -Combined $combined -RequiredEvidence @(
+        'Loaded pack: Hytale:Hytale from Assets.zip',
+        'Loaded pack: Civilizations:HytaleCivAssets from hytale-civ-assets',
+        'Enabled plugin Civilizations:HytaleCiv',
+        'Hytale Server Booted!',
+        'Console executed command: civwarmruntimebenchmark',
+        'CIV_WARM_RUNTIME_BENCHMARK_STARTED realScenarios=woodcutter,minesupport warmProcess=true',
+        'CIV_WARM_SUITE_STARTED',
+        'CIV_WOODCUTTER_RUNTIME_STARTED',
+        'CIV_MINE_SUPPORT_RUNTIME_STARTED',
+        'CIV_WOODCUTTER_RUNTIME_PASS',
+        'CIV_MINE_SUPPORT_RUNTIME_PASS',
+        'CIV_WARM_SUITE_SCENARIO_PASS scenario=woodcutter',
+        'CIV_WARM_SUITE_SCENARIO_PASS scenario=minesupport',
+        'CIV_WARM_SUITE_RESULT scenarios=2',
+        'CIV_WARM_SUITE_PASS',
+        'Shutdown completed!'
+    )
+    if ($result.Process.ExitCode -ne 0) {
+        throw "Warm gameplay suite server exited with code $($result.Process.ExitCode)."
+    }
+    Write-Host 'Warm Hytale gameplay suite passed in one server process.'
+}
+
+function Run-PersistenceScenario {
+    param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
+
+    $prepare = Start-HytaleProbe `
+        -RuntimeDir $RuntimeDir `
+        -LogPrefix 'persistence.prepare' `
+        -BootCommand 'civpersistenceprobe' `
+        -JvmProperties @('-Dcivilizations.persistenceProbeStage=prepare')
+    $prepareCombined = $prepare.Combined
+    Write-Host '----- Hytale persistence prepare output -----'
+    Write-Host $prepareCombined
+    Write-Host '----- end Hytale persistence prepare output -----'
+
+    if ($prepareCombined.Contains('CIV_PERSISTENCE_PROBE_FAIL')) {
+        throw 'The persistence prepare stage reported failure.'
+    }
+    Assert-Evidence -Combined $prepareCombined -RequiredEvidence @(
+        'CIV_PERSISTENCE_PREPARED uuid=',
+        'CIV_PERSISTENCE_WORKPLACE_INDEXED_PREPARE',
+        'CIV_PERSISTENCE_PREPARE_PASS',
+        'Shutdown completed!'
+    )
+    if ($prepare.Process.ExitCode -ne 0) {
+        throw "Persistence prepare server exited with code $($prepare.Process.ExitCode)."
+    }
+
+    $uuidMatch = [regex]::Match(
+        $prepareCombined,
+        'CIV_PERSISTENCE_PREPARED uuid=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})'
+    )
+    if (-not $uuidMatch.Success) {
+        throw 'Could not extract the prepared Civ inhabitant UUID from server output.'
+    }
+    $entityUuid = $uuidMatch.Groups[1].Value
+
+    $restore = Start-HytaleProbe `
+        -RuntimeDir $RuntimeDir `
+        -LogPrefix 'persistence.restore' `
+        -BootCommand 'civpersistenceprobe' `
+        -JvmProperties @(
+            '-Dcivilizations.persistenceProbeStage=restore',
+            "-Dcivilizations.persistenceProbeEntityUuid=$entityUuid"
+        )
+    $restoreCombined = $restore.Combined
+    Write-Host '----- Hytale persistence restore output -----'
+    Write-Host $restoreCombined
+    Write-Host '----- end Hytale persistence restore output -----'
+
+    if ($restoreCombined.Contains('CIV_PERSISTENCE_PROBE_FAIL')) {
+        throw 'The persistence restore stage reported failure.'
+    }
+    Assert-Evidence -Combined $restoreCombined -RequiredEvidence @(
+        "CIV_PERSISTENCE_RESTORED uuid=$entityUuid",
+        'name=Persist_Runtime_Probe',
+        'profession=CONSTRUCTION_WORKER',
+        'xp=37',
+        'workplace=00000000-0000-0000-0000-000000000002',
+        'CIV_PERSISTENCE_WORKPLACE_INDEXED_RESTORE',
+        'CIV_PERSISTENCE_RESTORE_PASS',
+        'Shutdown completed!'
+    )
+    if ($restore.Process.ExitCode -ne 0) {
+        throw "Persistence restore server exited with code $($restore.Process.ExitCode)."
+    }
+    Write-Host 'Real Hytale persistence scenario passed across two separate server processes.'
 }
 
 if ([string]::IsNullOrWhiteSpace($env:HYTALE_SERVER_JAR) -or -not (Test-Path -LiteralPath $env:HYTALE_SERVER_JAR -PathType Leaf)) {
@@ -349,7 +352,30 @@ foreach ($scenario in $Scenarios) {
     $seenRequested[$scenario] = $true
 }
 
+$hasWoodcutter = $Scenarios -contains 'woodcutter'
+$hasMineSupport = $Scenarios -contains 'minesupport'
+$explicitWarm = $Scenarios -contains 'warmruntime'
+$bundleGameplay = $explicitWarm -or ($hasWoodcutter -and $hasMineSupport)
+
+if ($bundleGameplay) {
+    Write-Host '===== BEGIN Hytale warm gameplay suite: woodcutter + minesupport ====='
+    $runtimeDir = Prepare-Runtime -Scenario 'warm-gameplay'
+    try {
+        Run-WarmRuntimeScenario -RuntimeDir $runtimeDir
+    } finally {
+        Remove-Runtime -RuntimeDir $runtimeDir
+    }
+    Write-Host '===== END Hytale warm gameplay suite ====='
+}
+
 foreach ($scenario in $Scenarios) {
+    if ($scenario -eq 'warmruntime') {
+        continue
+    }
+    if ($bundleGameplay -and ($scenario -eq 'woodcutter' -or $scenario -eq 'minesupport')) {
+        continue
+    }
+
     Write-Host "===== BEGIN Hytale runtime scenario: $scenario ====="
     $runtimeDir = Prepare-Runtime -Scenario $scenario
     try {
