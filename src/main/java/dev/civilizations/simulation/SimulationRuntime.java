@@ -4,6 +4,7 @@ import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.ConstructionJob;
 import dev.civilizations.core.FarmBuilding;
 import dev.civilizations.core.InhabitantActivity;
+import dev.civilizations.core.MineSegment;
 import dev.civilizations.core.MovementIntent;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.WoodcutterJob;
@@ -39,6 +40,7 @@ public final class SimulationRuntime {
     private final Map<String, ConstructionSiteState> constructionSites = new LinkedHashMap<>();
     private final Map<String, List<WorldPosition>> farmFields = new LinkedHashMap<>();
 
+    private MineSimulationController mineSimulation;
     private long tickCount;
 
     public SimulationRuntime() {
@@ -71,6 +73,15 @@ public final class SimulationRuntime {
             throw new IllegalArgumentException("farm already has a farmer or cannot start");
         }
         residents.put(id, Resident.farmer(id, position, farm));
+    }
+
+    /** Adds the focused single-segment miner simulation used by tests and the desktop viewer. */
+    public void addMiner(String id, WorldPosition position, MineSegment segment) {
+        requireAvailableResidentId(id);
+        if (mineSimulation != null) {
+            throw new IllegalStateException("This focused simulation runtime already has a miner.");
+        }
+        mineSimulation = new MineSimulationController(id, position, segment);
     }
 
     public void addTree(BlockPosition tree) {
@@ -117,10 +128,12 @@ public final class SimulationRuntime {
     }
 
     public void orderManualMove(String residentId, WorldPosition destination) {
+        if (isFocusedMiner(residentId)) return;
         resident(residentId).activity.orderManualMove(destination);
     }
 
     public boolean cancelManualMove(String residentId) {
+        if (isFocusedMiner(residentId)) return false;
         return resident(residentId).activity.cancelManualMove();
     }
 
@@ -129,6 +142,9 @@ public final class SimulationRuntime {
         tickCount++;
         for (Resident resident : residents.values()) {
             tickResident(resident);
+        }
+        if (mineSimulation != null) {
+            mineSimulation.tick(tickSeconds, moveSpeed, metrics);
         }
     }
 
@@ -170,9 +186,12 @@ public final class SimulationRuntime {
     }
 
     public WorldSnapshot worldSnapshot() {
-        List<ResidentSnapshot> residentSnapshots = residents.values().stream()
+        List<ResidentSnapshot> residentSnapshots = new ArrayList<>(residents.values().stream()
             .map(this::snapshot)
-            .toList();
+            .toList());
+        if (mineSimulation != null) {
+            residentSnapshots.add(mineSimulation.residentSnapshot());
+        }
         List<TreeSnapshot> treeSnapshots = trees.values().stream()
             .map(tree -> new TreeSnapshot(tree.position, tree.reservedBy))
             .toList();
@@ -197,11 +216,13 @@ public final class SimulationRuntime {
             treeSnapshots,
             siteSnapshots,
             fieldSnapshots,
+            mineSimulation == null ? null : mineSimulation.mineSnapshot(),
             metrics.snapshot()
         );
     }
 
     public ResidentSnapshot residentSnapshot(String residentId) {
+        if (isFocusedMiner(residentId)) return mineSimulation.residentSnapshot();
         return snapshot(resident(residentId));
     }
 
@@ -235,9 +256,13 @@ public final class SimulationRuntime {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("resident id cannot be blank");
         }
-        if (residents.containsKey(id)) {
+        if (residents.containsKey(id) || isFocusedMiner(id)) {
             throw new IllegalArgumentException("resident already exists: " + id);
         }
+    }
+
+    private boolean isFocusedMiner(String id) {
+        return mineSimulation != null && mineSimulation.minerId().equals(id);
     }
 
     private Resident resident(String id) {
@@ -545,6 +570,7 @@ public final class SimulationRuntime {
         List<TreeSnapshot> trees,
         List<ConstructionSiteSnapshot> constructionSites,
         List<FarmFieldSnapshot> farmFields,
+        MineSnapshot mine,
         SimulationMetrics.Snapshot metrics
     ) {
         public WorldSnapshot {
@@ -579,6 +605,24 @@ public final class SimulationRuntime {
     }
 
     public record FarmFieldSnapshot(String farmId, WorldPosition position) {
+    }
+
+    public record MineSnapshot(
+        MineSimulationWorld.Snapshot world,
+        MineSegment segment,
+        String state,
+        String intent,
+        int currentDepth,
+        int nextBlockIndex,
+        BlockPosition targetBlock,
+        double blockWorkElapsedSeconds
+    ) {
+        public MineSnapshot {
+            Objects.requireNonNull(world, "world");
+            Objects.requireNonNull(segment, "segment");
+            Objects.requireNonNull(state, "state");
+            Objects.requireNonNull(intent, "intent");
+        }
     }
 
     private static final class Resident {
