@@ -119,7 +119,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getEntityStoreRegistry().registerSystem(new CivClaimDamageSystem(rtsInteractionController));
         getEntityStoreRegistry().registerSystem(new CivInhabitantUseSystem(rtsInteractionController));
         getEntityStoreRegistry().registerSystem(
-            new CivManualMovementSystem(unitRegistry, activityRegistry)
+            new CivManualMovementSystem(unitRegistry, activityRegistry, buildingRegistry)
         );
 
         FarmNpcWorkSystem farmNpcWorkSystem =
