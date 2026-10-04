@@ -236,4 +236,59 @@ jobs:
           if ($scenarios.Count -eq 0) {
             throw 'Authorized runtime scenario list is empty.'
           }
-          .\scripts\hytale-runtime-tests.ps1 -Scenarios $scenarios
+
+          $budgets = @{
+            woodcutter = 90
+            minesupport = 90
+            soldier = 90
+            persistence = 150
+            warmruntime = 150
+          }
+          $timeoutSeconds = 0
+          foreach ($scenario in $scenarios) {
+            if ($budgets.ContainsKey($scenario)) {
+              $timeoutSeconds += $budgets[$scenario]
+            } else {
+              $timeoutSeconds += 90
+            }
+          }
+          $timeoutSeconds = [Math]::Max(90, [Math]::Min(360, $timeoutSeconds))
+          Write-Host "Runtime time budget: $timeoutSeconds seconds for $($scenarios -join ', ')"
+
+          $scenarioLiteral = ($scenarios | ForEach-Object { "'$_'" }) -join ', '
+          $childCommand = "& '.\scripts\hytale-runtime-tests.ps1' -Scenarios @($scenarioLiteral)"
+          $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($childCommand))
+          $stdoutLog = Join-Path $env:RUNNER_TEMP ("hytale-runtime-$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT).stdout.log")
+          $stderrLog = Join-Path $env:RUNNER_TEMP ("hytale-runtime-$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT).stderr.log")
+          Remove-Item -LiteralPath $stdoutLog, $stderrLog -Force -ErrorAction SilentlyContinue
+
+          $process = Start-Process -FilePath 'powershell.exe' `
+            -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $encodedCommand) `
+            -WorkingDirectory $PWD `
+            -RedirectStandardOutput $stdoutLog `
+            -RedirectStandardError $stderrLog `
+            -PassThru
+
+          $finished = $process.WaitForExit($timeoutSeconds * 1000)
+          if (-not $finished) {
+            Write-Warning "Hytale runtime exceeded its $timeoutSeconds second budget; terminating process tree."
+            & taskkill.exe /PID $process.Id /T /F 2>&1 | Write-Host
+            $process.WaitForExit(10000) | Out-Null
+          } else {
+            $process.WaitForExit()
+          }
+
+          $stdout = if (Test-Path -LiteralPath $stdoutLog) { Get-Content -LiteralPath $stdoutLog -Raw } else { '' }
+          $stderr = if (Test-Path -LiteralPath $stderrLog) { Get-Content -LiteralPath $stderrLog -Raw } else { '' }
+          Write-Host '----- Hytale runtime stdout -----'
+          Write-Host $stdout
+          Write-Host '----- Hytale runtime stderr -----'
+          Write-Host $stderr
+          Write-Host '----- end Hytale runtime output -----'
+
+          if (-not $finished) {
+            throw "Hytale runtime scenarios exceeded the $timeoutSeconds second time budget."
+          }
+          if ($process.ExitCode -ne 0) {
+            throw "Hytale runtime scenarios exited with code $($process.ExitCode)."
+          }
