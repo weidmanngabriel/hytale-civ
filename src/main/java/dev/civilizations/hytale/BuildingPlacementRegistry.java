@@ -2,6 +2,7 @@ package dev.civilizations.hytale;
 
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
+import dev.civilizations.core.BuildingOrientation;
 import dev.civilizations.core.BuildingTypes;
 import org.joml.Vector3i;
 
@@ -83,9 +84,32 @@ public final class BuildingPlacementRegistry {
         List<PrefabPlacementService.PlacedMarker> semanticVolumes,
         PrefabPlacementService.PlacementCandidate placement
     ) {
+        return completeBuilding(
+            worldId,
+            siteId,
+            buildingType,
+            boundsMarker,
+            semanticVolumes,
+            placement,
+            BuildingOrientation.NORTH
+        );
+    }
+
+    public synchronized BuildingInstance completeBuilding(
+        UUID worldId,
+        UUID siteId,
+        String buildingType,
+        PrefabPlacementService.PlacedMarker boundsMarker,
+        List<PrefabPlacementService.PlacedMarker> semanticVolumes,
+        PrefabPlacementService.PlacementCandidate placement,
+        BuildingOrientation orientation
+    ) {
         if (worldId == null || siteId == null || boundsMarker == null
             || boundsMarker.bounds() == null) {
             throw new IllegalArgumentException("Completed building requires authored bounds.");
+        }
+        if (orientation == null) {
+            throw new IllegalArgumentException("Completed building requires an orientation.");
         }
 
         release(worldId, siteId);
@@ -97,6 +121,7 @@ public final class BuildingPlacementRegistry {
             boundsMarker.id(),
             boundsMarker.bounds(),
             semanticVolumes,
+            orientation,
             placement
         );
         List<BuildingInstance> updated =
@@ -167,13 +192,40 @@ public final class BuildingPlacementRegistry {
         String boundsVolumeId,
         BuildingBounds bounds,
         List<PrefabPlacementService.PlacedMarker> semanticVolumes,
+        BuildingOrientation orientation,
         PrefabPlacementService.PlacementCandidate placement
     ) {
         public BuildingInstance {
             if (phase < 1) {
                 throw new IllegalArgumentException("Building phase must be at least 1.");
             }
+            if (orientation == null) {
+                throw new IllegalArgumentException("Building orientation cannot be null.");
+            }
             semanticVolumes = List.copyOf(semanticVolumes);
+        }
+
+        public BuildingInstance(
+            UUID id,
+            UUID worldId,
+            String buildingType,
+            int phase,
+            String boundsVolumeId,
+            BuildingBounds bounds,
+            List<PrefabPlacementService.PlacedMarker> semanticVolumes,
+            PrefabPlacementService.PlacementCandidate placement
+        ) {
+            this(
+                id,
+                worldId,
+                buildingType,
+                phase,
+                boundsVolumeId,
+                bounds,
+                semanticVolumes,
+                BuildingOrientation.NORTH,
+                placement
+            );
         }
 
         public BuildingInstance(
@@ -185,7 +237,17 @@ public final class BuildingPlacementRegistry {
             List<PrefabPlacementService.PlacedMarker> semanticVolumes,
             PrefabPlacementService.PlacementCandidate placement
         ) {
-            this(id, worldId, buildingType, 1, boundsVolumeId, bounds, semanticVolumes, placement);
+            this(
+                id,
+                worldId,
+                buildingType,
+                1,
+                boundsVolumeId,
+                bounds,
+                semanticVolumes,
+                BuildingOrientation.NORTH,
+                placement
+            );
         }
 
         public int workerCapacity() {
