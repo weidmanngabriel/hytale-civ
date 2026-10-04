@@ -112,7 +112,8 @@ function Start-HytaleProbe {
         [Parameter(Mandatory = $true)] [string] $RuntimeDir,
         [Parameter(Mandatory = $true)] [string] $LogPrefix,
         [Parameter(Mandatory = $true)] [string] $BootCommand,
-        [string[]] $JvmProperties = @()
+        [string[]] $JvmProperties = @(),
+        [int] $TimeoutSeconds = 60
     )
 
     $stdoutLog = Join-Path $RuntimeDir "$LogPrefix.stdout.log"
@@ -130,12 +131,28 @@ function Start-HytaleProbe {
         -WorkingDirectory $RuntimeDir `
         -RedirectStandardOutput $stdoutLog `
         -RedirectStandardError $stderrLog `
-        -Wait `
         -PassThru
+
+    $finished = $process.WaitForExit($TimeoutSeconds * 1000)
+    if (-not $finished) {
+        Write-Warning "Hytale probe '$LogPrefix' exceeded $TimeoutSeconds seconds; terminating Java process tree."
+        & taskkill.exe /PID $process.Id /T /F 2>&1 | Write-Host
+        $process.WaitForExit(10000) | Out-Null
+    } else {
+        $process.WaitForExit()
+    }
+
+    $combined = Read-CombinedOutput -StdoutLog $stdoutLog -StderrLog $stderrLog
+    if (-not $finished) {
+        Write-Host "----- timed out Hytale probe output: $LogPrefix -----"
+        Write-Host $combined
+        Write-Host "----- end timed out Hytale probe output: $LogPrefix -----"
+        throw "Hytale probe '$LogPrefix' exceeded its $TimeoutSeconds second process budget."
+    }
 
     return [PSCustomObject]@{
         Process = $process
-        Combined = Read-CombinedOutput -StdoutLog $stdoutLog -StderrLog $stderrLog
+        Combined = $combined
     }
 }
 
@@ -226,7 +243,7 @@ function Run-MineSupportScenario {
 function Run-WarmRuntimeScenario {
     param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
 
-    $result = Start-HytaleProbe -RuntimeDir $RuntimeDir -LogPrefix 'warmruntime' -BootCommand 'civwarmruntimebenchmark'
+    $result = Start-HytaleProbe -RuntimeDir $RuntimeDir -LogPrefix 'warmruntime' -BootCommand 'civwarmruntimebenchmark' -TimeoutSeconds 90
     $combined = $result.Combined
     Write-Host '----- Hytale warm gameplay suite output -----'
     Write-Host $combined
