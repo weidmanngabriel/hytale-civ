@@ -17,8 +17,7 @@ class MineSupportNativeSupportValuesContractTest {
 
         String supportValuesCall =
             "BlockSelectionSupportUtil.applySupportValues(selection)";
-        String placementCall =
-            "selection.placeNoReturn(world, origin, world.getEntityStore().getStore())";
+        String placementCall = "selection.placeNoReturn(";
 
         int supportValuesIndex = source.indexOf(supportValuesCall);
         int placementIndex = source.indexOf(placementCall);
