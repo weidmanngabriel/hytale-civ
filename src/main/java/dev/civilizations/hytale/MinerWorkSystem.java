@@ -347,7 +347,11 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
     }
 
     private static boolean isExpectedSupportBlock(MineSegment segment, int index, BlockType type) {
-        if (segment.supportsPlaced() <= 0 || type == null || type.getId() == null) return false;
+        return type != null && isExpectedSupportCell(segment, index, type.getId());
+    }
+
+    static boolean isExpectedSupportCell(MineSegment segment, int index, String blockId) {
+        if (blockId == null) return false;
 
         int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
         int depth = index / faceSize;
@@ -355,12 +359,14 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         if (oneBasedDepth % MineTuning.SUPPORT_SPACING_BLOCKS != 0) return false;
 
         int supportNumber = oneBasedDepth / MineTuning.SUPPORT_SPACING_BLOCKS;
-        if (supportNumber > segment.supportsPlaced()) return false;
+        int completedDepth = segment.nextBlockIndex() / faceSize;
+        int dueSupports = completedDepth / MineTuning.SUPPORT_SPACING_BLOCKS;
+        int knownSupports = Math.max(segment.supportsPlaced(), dueSupports);
+        if (supportNumber > knownSupports) return false;
 
         int inFace = index % faceSize;
         int y = inFace / MineTuning.TUNNEL_WIDTH_BLOCKS;
         int width = inFace % MineTuning.TUNNEL_WIDTH_BLOCKS;
-        String blockId = type.getId();
         if (y == MineTuning.TUNNEL_HEIGHT_BLOCKS - 1) {
             return SUPPORT_BEAM_BLOCK.equals(blockId);
         }
@@ -413,19 +419,20 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         int completedDepth = segment.nextBlockIndex() / faceSize;
         int due = completedDepth / MineTuning.SUPPORT_SPACING_BLOCKS;
         int supportsPerSegment = MineTuning.SEGMENT_LENGTH_BLOCKS / MineTuning.SUPPORT_SPACING_BLOCKS;
-        int highestConfirmed = 0;
+        int highestKnown = segment.supportsPlaced();
 
-        for (int supportNumber = 1; supportNumber <= supportsPerSegment; supportNumber++) {
+        for (int supportNumber = 1; supportNumber <= due && supportNumber <= supportsPerSegment; supportNumber++) {
             int supportDepth = supportNumber * MineTuning.SUPPORT_SPACING_BLOCKS;
-            if (supportNumber <= due && !supportPresent(world, segment, supportDepth)) {
-                placeSupport(world, segment, supportDepth);
-            }
             if (supportPresent(world, segment, supportDepth)) {
-                highestConfirmed = supportNumber;
+                highestKnown = Math.max(highestKnown, supportNumber);
+                continue;
+            }
+            if (supportNumber > highestKnown && placeSupport(world, segment, supportDepth)) {
+                highestKnown = supportNumber;
             }
         }
 
-        return segment.withSupportsPlaced(highestConfirmed);
+        return segment.withSupportsPlaced(highestKnown);
     }
 
     private boolean supportPresent(World world, MineSegment segment, int depth) {
@@ -557,25 +564,24 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             return false;
         }
         BlockSelection selection = new BlockSelection(raw);
-        if (segment.direction() == MineDirection.NORTH || segment.direction() == MineDirection.SOUTH) {
-            selection = selection.rotate(Axis.Y, 90);
+        int rotationDegrees = supportRotationDegrees(segment.direction());
+        if (rotationDegrees != 0) {
+            selection = selection.rotate(Axis.Y, rotationDegrees);
         }
 
-        List<BlockPosition> face = new ArrayList<>();
-        int faceStart = (depth - 1) * MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
-        for (int width = 0; width < MineTuning.TUNNEL_WIDTH_BLOCKS; width++) {
-            face.add(segment.blockAtIndex(faceStart + width));
-        }
-        int desiredMinX = face.stream().mapToInt(BlockPosition::x).min().orElseThrow();
-        int desiredMinZ = face.stream().mapToInt(BlockPosition::z).min().orElseThrow();
-        Vector3i localMin = selection.getSelectionMin();
-        Vector3i origin = new Vector3i(
-            desiredMinX - localMin.x + selection.getAnchorX(),
-            segment.start().y() - localMin.y + selection.getAnchorY(),
-            desiredMinZ - localMin.z + selection.getAnchorZ()
-        );
+        BlockPosition supportOrigin = segment.supportOrigin(depth);
+        Vector3i origin = new Vector3i(supportOrigin.x(), supportOrigin.y(), supportOrigin.z());
         selection.placeNoReturn(world, origin, world.getEntityStore().getStore());
         return true;
+    }
+
+    static int supportRotationDegrees(MineDirection direction) {
+        return switch (direction) {
+            case EAST -> 0;
+            case NORTH -> 90;
+            case WEST -> 180;
+            case SOUTH -> 270;
+        };
     }
 
     private static Vector3d workTarget(MineSegment segment) {
