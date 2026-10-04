@@ -1,6 +1,7 @@
 package dev.civilizations.simulation.prefab;
 
 import dev.civilizations.core.BlockPosition;
+import dev.civilizations.core.BuildingOrientation;
 import dev.civilizations.core.MineDirection;
 import dev.civilizations.core.MineSegment;
 import dev.civilizations.core.MinerJob;
@@ -13,14 +14,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Interactive mine fixture that joins the real Mine_01 prefab to the real Core MinerJob.
- *
- * <p>The tunnel connector position is authored prefab data. The initial tunnel direction is
- * derived from the simplified authored prefab geometry: the complete first 4x4x8 segment must not
- * overlap any real Mine_01 block, and ties prefer the direction leading away from the prefab
- * centre. This is still simulation geometry, not a claim about Hytale orientation semantics.</p>
- */
+/** Interactive mine fixture joining the real Mine_01 prefab to the real Core MinerJob. */
 public final class MinePrefabNavigationScenario {
 
     public static final Path PREFAB_PATH = Path.of(
@@ -41,6 +35,7 @@ public final class MinePrefabNavigationScenario {
     private final MineSimulationWorld world;
     private final MinerJob job;
     private final MineDirection simulationDirection;
+    private final BuildingOrientation orientation;
     private int pathIndex;
     private Phase phase = Phase.NAVIGATING_TO_CONNECTOR;
     private BlockPosition lastAction;
@@ -53,7 +48,8 @@ public final class MinePrefabNavigationScenario {
         List<BlockPosition> pathToConnector,
         MineSimulationWorld world,
         MinerJob job,
-        MineDirection simulationDirection
+        MineDirection simulationDirection,
+        BuildingOrientation orientation
     ) {
         this.model = model;
         this.supportPrefab = supportPrefab;
@@ -63,13 +59,27 @@ public final class MinePrefabNavigationScenario {
         this.world = world;
         this.job = job;
         this.simulationDirection = simulationDirection;
+        this.orientation = orientation;
     }
 
     public static MinePrefabNavigationScenario create() {
+        return create(BuildingOrientation.NORTH);
+    }
+
+    public static MinePrefabNavigationScenario create(BuildingOrientation orientation) {
         try {
             PrefabSimulationLoader loader = new PrefabSimulationLoader();
-            PrefabSimulationModel model = loader.load(PREFAB_PATH);
-            PrefabSimulationModel support = loader.load(SUPPORT_PREFAB_PATH);
+            PrefabSimulationModel authoredModel = loader.load(PREFAB_PATH);
+            PrefabSimulationModel authoredSupport = loader.load(SUPPORT_PREFAB_PATH);
+
+            BlockPosition authoredConnector = markerTarget(
+                authoredModel,
+                authoredModel.requireMarker("mine_tunnel_connector")
+            );
+            SegmentCandidate authoredSegment = chooseTunnelSegment(authoredModel, authoredConnector);
+
+            PrefabSimulationModel model = PrefabSimulationTransform.rotate(authoredModel, orientation);
+            PrefabSimulationModel support = PrefabSimulationTransform.rotate(authoredSupport, orientation);
             BlockPosition workplace = markerTarget(model, model.requireMarker("workplace_access"));
             BlockPosition connector = markerTarget(model, model.requireMarker("mine_tunnel_connector"));
             List<BlockPosition> path = new PrefabAStarPathfinder().findPath(model, workplace, connector);
@@ -77,8 +87,16 @@ public final class MinePrefabNavigationScenario {
                 throw new IllegalStateException("Mine tunnel connector is not reachable from workplace");
             }
 
-            SegmentCandidate candidate = chooseTunnelSegment(model, connector);
-            MineSegment segment = candidate.segment();
+            MineDirection direction = orientation.rotate(authoredSegment.direction());
+            MineSegment segment = MineSegment.reserved(
+                SEGMENT_ID,
+                MINE_ID,
+                null,
+                configuredTunnelStart(connector, direction),
+                direction
+            );
+            assertNoPrefabOverlap(model, segment);
+
             return new MinePrefabNavigationScenario(
                 model,
                 support,
@@ -87,7 +105,8 @@ public final class MinePrefabNavigationScenario {
                 path,
                 new MineSimulationWorld(segment),
                 new MinerJob(segment),
-                candidate.direction()
+                direction,
+                orientation
             );
         } catch (IOException exception) {
             throw new IllegalStateException("Could not load mine prefab for simulation", exception);
@@ -108,10 +127,7 @@ public final class MinePrefabNavigationScenario {
 
         MinerJob.Intent intent = job.intent();
         if (intent instanceof MinerJob.MoveToFaceIntent move) {
-            int blockIndex = Math.min(
-                move.depth() * 16,
-                move.segment().blocks().size() - 1
-            );
+            int blockIndex = Math.min(move.depth() * 16, move.segment().blocks().size() - 1);
             lastAction = move.segment().blockAtIndex(blockIndex);
             job.movementArrived();
             return true;
@@ -160,6 +176,7 @@ public final class MinePrefabNavigationScenario {
             world.snapshot(),
             lastAction,
             simulationDirection,
+            orientation,
             false
         );
     }
@@ -176,16 +193,18 @@ public final class MinePrefabNavigationScenario {
 
         List<SegmentCandidate> candidates = new ArrayList<>();
         for (MineDirection direction : MineDirection.values()) {
-            BlockPosition start = configuredTunnelStart(connector, direction);
             MineSegment segment = MineSegment.reserved(
-                SEGMENT_ID, MINE_ID, null, start, direction
+                SEGMENT_ID,
+                MINE_ID,
+                null,
+                configuredTunnelStart(connector, direction),
+                direction
             );
             long overlaps = segment.blocks().stream()
                 .filter(position -> model.cellAt(position) != null)
                 .count();
-            if (overlaps != 0) {
-                continue;
-            }
+            if (overlaps != 0) continue;
+
             double outwardScore = direction.dx() * (connectorX - centerX)
                 + direction.dz() * (connectorZ - centerZ);
             candidates.add(new SegmentCandidate(direction, segment, outwardScore));
@@ -200,14 +219,19 @@ public final class MinePrefabNavigationScenario {
             ));
     }
 
+    private static void assertNoPrefabOverlap(PrefabSimulationModel model, MineSegment segment) {
+        long overlap = segment.blocks().stream().filter(position -> model.cellAt(position) != null).count();
+        if (overlap != 0) {
+            throw new IllegalStateException(
+                "Rotated mine tunnel overlaps " + overlap + " authored prefab blocks"
+            );
+        }
+    }
+
     private static BlockPosition configuredTunnelStart(
         BlockPosition connector,
         MineDirection direction
     ) {
-        // Connector is a feet-position target. Start the first cutting face one block beyond it and
-        // center the four-wide face around the connector. The chosen direction is derived from
-        // authored block geometry, but this transform is still simulator geometry rather than a
-        // claim about Hytale prefab rotation/origin semantics.
         int sideX = -direction.dz();
         int sideZ = direction.dx();
         return new BlockPosition(
@@ -251,11 +275,7 @@ public final class MinePrefabNavigationScenario {
         return dx * dx + dy * dy + dz * dz;
     }
 
-    private record SegmentCandidate(
-        MineDirection direction,
-        MineSegment segment,
-        double outwardScore
-    ) {
+    private record SegmentCandidate(MineDirection direction, MineSegment segment, double outwardScore) {
     }
 
     public enum Phase {
@@ -277,6 +297,7 @@ public final class MinePrefabNavigationScenario {
         MineSimulationWorld.Snapshot tunnelWorld,
         BlockPosition lastAction,
         MineDirection simulationDirection,
+        BuildingOrientation orientation,
         boolean directionAuthored
     ) {
         public Snapshot {
