@@ -16,6 +16,7 @@ import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
 import dev.civilizations.core.MineSegment;
+import dev.civilizations.core.MineTuning;
 import dev.civilizations.core.Profession;
 import org.joml.Vector3d;
 
@@ -43,7 +44,7 @@ public final class MinerSurfaceRecoverySystem extends EntityTickingSystem<Entity
     private final CivActivityRegistry activityRegistry;
     private final BuildingPlacementRegistry buildingRegistry;
     private final MineTunnelRegistry tunnelRegistry;
-    private final Map<CivUnitRegistry.UnitKey, Double> invalidSurfaceSeconds = new ConcurrentHashMap<>();
+    private final Map<CivUnitRegistry.UnitKey, RecoveryRuntime> runtimes = new ConcurrentHashMap<>();
 
     public MinerSurfaceRecoverySystem(
         CivUnitRegistry unitRegistry,
@@ -78,13 +79,14 @@ public final class MinerSurfaceRecoverySystem extends EntityTickingSystem<Entity
         Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
         CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
         if (!ref.isValid() || unitRegistry.getProfession(ref) != Profession.MINER) {
-            invalidSurfaceSeconds.remove(key);
+            runtimes.remove(key);
             return;
         }
 
-        // Manual commands and their resume delay always win. Recovery must never fight the player.
+        // Manual commands and their resume delay always win. They also disarm recovery so a miner
+        // may walk back to the mine normally before the watchdog becomes active again underground.
         if (!activityRegistry.autonomousWorkAllowed(ref)) {
-            invalidSurfaceSeconds.remove(key);
+            runtimes.remove(key);
             return;
         }
 
@@ -95,23 +97,37 @@ public final class MinerSurfaceRecoverySystem extends EntityTickingSystem<Entity
         UUID worldId = world.getWorldConfig().getUuid();
         BuildingPlacementRegistry.BuildingInstance mine = assignedMine(ref, worldId);
         if (mine == null) {
-            invalidSurfaceSeconds.remove(key);
+            runtimes.remove(key);
             return;
         }
 
+        RecoveryRuntime runtime = runtimes.computeIfAbsent(key, ignored -> new RecoveryRuntime());
         Vector3d position = transform.getPosition();
-        boolean suspicious = shouldRecover(worldId, mine, position);
-        if (!suspicious) {
-            invalidSurfaceSeconds.remove(key);
+        BlockPosition feet = blockPosition(position);
+        boolean inTunnel = insideKnownTunnel(worldId, mine.id(), feet);
+        boolean belowReferenceLevel = position.y < mine.bounds().minY();
+
+        // Do not arm on the miner's initial commute from elsewhere in the settlement. Recovery only
+        // becomes meaningful after the NPC has actually reached the underground mining space.
+        if (inTunnel || belowReferenceLevel) {
+            runtime.armed = true;
+            runtime.invalidSurfaceSeconds = 0.0;
             return;
         }
 
-        double elapsed = invalidSurfaceSeconds.merge(key, (double) dt, Double::sum);
-        if (elapsed < RECOVERY_DELAY_SECONDS) return;
+        if (mine.bounds().containsBlock(feet)) {
+            runtime.invalidSurfaceSeconds = 0.0;
+            return;
+        }
+
+        if (!runtime.armed) return;
+
+        runtime.invalidSurfaceSeconds += dt;
+        if (runtime.invalidSurfaceSeconds < RECOVERY_DELAY_SECONDS) return;
 
         PrefabPlacementService.PlacedMarker connector = marker(world, mine, TUNNEL_CONNECTOR);
         if (connector == null || connector.bounds() == null) {
-            invalidSurfaceSeconds.remove(key);
+            runtime.invalidSurfaceSeconds = 0.0;
             return;
         }
 
@@ -126,28 +142,21 @@ public final class MinerSurfaceRecoverySystem extends EntityTickingSystem<Entity
             Teleport.getComponentType(),
             new Teleport(target, transform.getRotation())
         );
-        invalidSurfaceSeconds.remove(key);
+        runtime.invalidSurfaceSeconds = 0.0;
     }
 
-    boolean shouldRecover(
-        UUID worldId,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        Vector3d position
-    ) {
-        if (position.y < mine.bounds().minY()) return false;
-        BlockPosition feet = new BlockPosition(
+    private static BlockPosition blockPosition(Vector3d position) {
+        return new BlockPosition(
             (int) Math.floor(position.x),
             (int) Math.floor(position.y),
             (int) Math.floor(position.z)
         );
-        if (mine.bounds().containsBlock(feet)) return false;
-        return !insideKnownTunnel(worldId, mine.id(), feet);
     }
 
     private boolean insideKnownTunnel(UUID worldId, UUID mineId, BlockPosition feet) {
         for (MineSegment segment : tunnelRegistry.segmentsForMine(worldId, mineId)) {
             if (feet.y() < segment.start().y()
-                || feet.y() >= segment.start().y() + dev.civilizations.core.MineTuning.TUNNEL_HEIGHT_BLOCKS) {
+                || feet.y() >= segment.start().y() + MineTuning.TUNNEL_HEIGHT_BLOCKS) {
                 continue;
             }
             BuildingBounds horizontal = segment.horizontalBounds();
@@ -197,5 +206,10 @@ public final class MinerSurfaceRecoverySystem extends EntityTickingSystem<Entity
             marker.id(), marker.position(), marker.tags(),
             new BuildingBounds(min.x, min.y, min.z, max.x, max.y, max.z)
         );
+    }
+
+    private static final class RecoveryRuntime {
+        private boolean armed;
+        private double invalidSurfaceSeconds;
     }
 }
