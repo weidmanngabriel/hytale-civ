@@ -1,5 +1,7 @@
 package dev.civilizations.simulation;
 
+import dev.civilizations.core.MineTuning;
+import dev.civilizations.scenario.MinerBasicScenario;
 import dev.civilizations.scenario.WoodcutterBasicScenario;
 import org.junit.jupiter.api.Test;
 
@@ -8,6 +10,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -55,6 +58,25 @@ class SimulationScenariosTest {
             first.metrics().treeSearches() > 1,
             "woodcutter should search again after completing its first tree"
         );
+    }
+
+    @Test
+    void sharedMinerScenarioCanBeSteppedToACompleteSupportedSegment() {
+        SimulationRuntime runtime = SimulationScenarios.MINER_BASIC.createRuntime();
+        SimulationRuntime.WorldSnapshot start = runtime.worldSnapshot();
+
+        assertEquals(MinerBasicScenario.ID, SimulationScenarios.MINER_BASIC.id());
+        assertNotNull(start.mine());
+        assertEquals(0, start.mine().nextBlockIndex());
+        assertEquals(0, start.mine().segment().supportsPlaced());
+
+        runtime.runForSeconds(65.0);
+
+        SimulationRuntime.MineSnapshot complete = runtime.worldSnapshot().mine();
+        assertNotNull(complete);
+        assertEquals(MineTuning.blocksPerSegment(), complete.nextBlockIndex());
+        assertEquals(2, complete.segment().supportsPlaced());
+        assertEquals("COMPLETE", complete.state());
     }
 
     @Test
