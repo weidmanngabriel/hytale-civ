@@ -36,6 +36,14 @@ public final class MineTuning {
     }
 
     /**
+     * Compatibility helper for deterministic legacy fixtures. Production segment planning must
+     * always use the explicit segment length instead of this 8-block reference overload.
+     */
+    public static int blocksPerSegment() {
+        return blocksPerSegment(REFERENCE_SEGMENT_LENGTH_BLOCKS);
+    }
+
+    /**
      * Mining keeps the established phase-one per-block speed. Variable segment length therefore
      * changes total segment duration instead of making long segments mine faster than short ones.
      */
