@@ -1,0 +1,52 @@
+name: Update mine junction docs
+
+on:
+  push:
+    branches:
+      - feature/mine-junction-core
+
+permissions:
+  contents: write
+
+jobs:
+  docs:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/mine-junction-core
+          fetch-depth: 0
+
+      - name: Update product and Hytale navigation docs
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          concept = Path('docs/concept.md')
+          text = concept.read_text()
+          old = '- Für Minenabbauer ist die automatische Wiederaufnahme bewusst gestaffelt: Nach einer manuellen Ausfahrt läuft der Bewohner zuerst zum Minenzugang und zum `mine_tunnel_connector`. Bei einer Tunnelkurve wird zusätzlich die bereits offene 4×4-Kreuzungsfläche betreten, bevor die neue seitliche Arbeitsfront beginnt.'
+          new = '- Für Minenabbauer ist die automatische Wiederaufnahme bewusst gestaffelt: Nach einer manuellen Ausfahrt läuft der Bewohner zuerst zum Minenzugang und zum `mine_tunnel_connector`. Jeder geplante Hauptgang ist 4×4 Blöcke groß, 4–12 Blöcke lang und reserviert anschließend immer eine zusätzliche stützenfreie 4×4×4-Junction. Erst wenn Hauptgang und Junction vollständig ausgehoben sind, wird geradeaus/links/rechts als nächste Richtung gewählt.'
+          if old not in text:
+              raise SystemExit('concept miner anchor not found')
+          concept.write_text(text.replace(old, new, 1))
+
+          nav = Path('docs/hytale/npc-navigation.md')
+          text = nav.read_text()
+          old = '- Bei einer Links-/Rechtskurve dient der Mittelpunkt der bereits offenen gemeinsamen 4×4-Kreuzungsfläche einmalig als Zwischenziel, bevor Civ die neue seitliche Arbeitsfront setzt. Die eigentliche Wegfindung zwischen diesen semantischen Zielen bleibt vollständig bei Hytales `Seek`.'
+          new = '- Ein Minensegment gräbt nach seinem 4–12 Blöcke langen Hauptgang immer noch eine eigene 4×4×4-Junction in derselben Richtung vollständig aus. Erst danach erzeugt Civ das nächste Segment geradeaus, links oder rechts außerhalb dieser Junction. Parent und Kind überlappen nicht; dadurch braucht die Navigation keinen künstlichen Kurven-Zwischenpunkt mehr. Die eigentliche Wegfindung zwischen Arbeitsfronten bleibt vollständig bei Hytales `Seek`.'
+          if old not in text:
+              raise SystemExit('navigation turn anchor not found')
+          nav.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Commit docs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/concept.md docs/hytale/npc-navigation.md
+          git commit -m "Document fixed mine junction flow"
+          git push origin HEAD:feature/mine-junction-core
