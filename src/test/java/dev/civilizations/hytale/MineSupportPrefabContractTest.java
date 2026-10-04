@@ -87,7 +87,7 @@ final class MineSupportPrefabContractTest {
     }
 
     @Test
-    void dueSupportBlocksAreProtectedBeforePersistedCounterCatchesUp() {
+    void dueSupportBlocksAreIgnoredOnlyByTunnelReconciliation() {
         MineSegment segment = MineSegment.reserved(
             UUID.randomUUID(),
             UUID.randomUUID(),
@@ -111,6 +111,31 @@ final class MineSupportPrefabContractTest {
             faceStart + MineTuning.TUNNEL_WIDTH_BLOCKS + 1,
             "Wood_Fir_Branch_Long"
         ));
+    }
+
+    @Test
+    void removedKnownSupportIsNotAutomaticallyReplaced() throws Exception {
+        String source = Files.readString(
+            Path.of("src", "main", "java", "dev", "civilizations", "hytale", "MinerWorkSystem.java")
+        );
+
+        assertTrue(source.contains("supportNumber > highestKnown && placeSupport"));
+        assertFalse(source.contains("supportNumber <= highestKnown && placeSupport"));
+    }
+
+    @Test
+    void supportBlocksRemainNormalMiningTargets() throws Exception {
+        String source = Files.readString(
+            Path.of("src", "main", "java", "dev", "civilizations", "hytale", "MinerWorkSystem.java")
+        );
+
+        int advanceStart = source.indexOf("private MineSegment advanceOneBlock");
+        int supportPlacementStart = source.indexOf("private MineSegment placeDueSupports", advanceStart);
+        String advanceOneBlock = source.substring(advanceStart, supportPlacementStart);
+
+        assertTrue(advanceOneBlock.contains("BlockHarvestUtils.performBlockBreak"));
+        assertFalse(advanceOneBlock.contains("isExpectedSupportBlock"));
+        assertFalse(advanceOneBlock.contains("isExpectedSupportCell"));
     }
 
     @Test

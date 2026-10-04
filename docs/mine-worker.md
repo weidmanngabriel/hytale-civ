@@ -27,7 +27,9 @@ Dieser Slice beschreibt den ersten autonomen Abbauer einer fertigen Mine.
 
 Das Asset `Civilizations/Mine/Mine_Support_01.prefab.json` ist ein 4 Blöcke hoher Holzrahmen und sitzt innerhalb des 4×4-Stollens. Das Prefab ist auf einen lokalen 4×4-Querschnitt normalisiert: Anker `(0,0,0)`, Rahmenebene `x=0`, Breite `z=0..3`. Civ setzt den Anker direkt auf `MineSegment.supportOrigin(depth)` und dreht die Auswahl abhängig von der Tunnelrichtung mit Hytales diskreten Gradwerten: Ost `0°`, Nord `90°`, West `180°`, Süd `270°`.
 
-Stützen stehen zunächst alle 4 Tunnelblöcke. Ein 8-Blöcke-Segment erhält daher einen Rahmen nach Block 4 und einen am Segmentende nach Block 8. Sobald eine Stütze fällig ist und die native Prefab-Platzierung erfolgreich angestoßen wurde, gilt sie logisch als bekannt; Civ setzt `supportsPlaced` nicht im selben Tick wieder zurück, nur weil die Weltänderung noch nicht vollständig lesbar ist. Holz an einer bereits fälligen erwarteten Stützenzelle wird deshalb auch dann nicht als normaler Abbaublock behandelt, wenn der persistierte Zähler gerade noch hinterherhinkt. Das verhindert, dass der Miner seinen frisch gesetzten Rahmen selbst wieder abbaut und anschließend erneut setzt.
+Stützen stehen zunächst alle 4 Tunnelblöcke. Ein 8-Blöcke-Segment erhält daher einen Rahmen nach Block 4 und einen am Segmentende nach Block 8. Sobald eine Stütze erstmals fällig ist und die native Prefab-Platzierung erfolgreich angestoßen wurde, gilt dieser Setzvorgang logisch als erledigt. Wird die Stütze später vom Spieler oder von einem NPC entfernt, setzt Civ sie nicht automatisch erneut.
+
+Stützen besitzen keinen eigenen Schutzstatus. Ihre Holzblöcke bleiben normale abbaubare Weltblöcke und können durch Spieler sowie durch NPC-Abbau entfernt werden. Bei der Tunnel-Reconciliation werden korrekt positionierte Stützenblöcke lediglich nicht als nachträgliches Zumauern eines bereits gegrabenen Stollens interpretiert. Diese Ausnahme beeinflusst nur die Rekonstruktion des Tunnel-Fortschritts und verhindert nicht den normalen Blockabbau.
 
 ## Native Hytale-Grenze
 
