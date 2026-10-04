@@ -175,6 +175,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
             getCommandRegistry().registerCommand(
                 new CivPersistenceProbeCommand(unitRegistry)
             );
+            getCommandRegistry().registerCommand(
+                new CivWarmRuntimeBenchmarkCommand(unitRegistry, activityRegistry)
+            );
         }
         getCommandRegistry().registerCommand(
             new CivRtsTestCommand(rtsInteractionController, selectedNpcHudController)
