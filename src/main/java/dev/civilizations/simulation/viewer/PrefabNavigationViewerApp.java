@@ -6,7 +6,6 @@ import dev.civilizations.simulation.prefab.PrefabSimulationModel;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
-import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
@@ -65,13 +64,14 @@ public final class PrefabNavigationViewerApp {
             setMinimumSize(new Dimension(1_080, 720));
             setSize(1_360, 850);
             setLocationByPlatform(true);
-
             setLayout(new BorderLayout());
             add(toolbar(), BorderLayout.NORTH);
             add(canvas, BorderLayout.CENTER);
             add(inspectorPanel(), BorderLayout.EAST);
 
-            timer = new Timer(250, event -> advance());
+            timer = new Timer(250, event -> {
+                if (running) advance();
+            });
             timer.start();
             viewSelector.setSelectedItem(ViewMode.ISOMETRIC);
             refresh();
@@ -128,7 +128,6 @@ public final class PrefabNavigationViewerApp {
             inspector.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
             inspector.setLineWrap(false);
             inspector.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-
             JPanel panel = new JPanel(new BorderLayout());
             panel.setPreferredSize(new Dimension(350, 700));
             panel.setBorder(BorderFactory.createEmptyBorder(10, 8, 10, 10));
@@ -140,10 +139,12 @@ public final class PrefabNavigationViewerApp {
         }
 
         private void advance() {
-            if (!running && routeIndex >= scenario.combinedPath().size() - 1) {
+            if (routeIndex >= scenario.combinedPath().size() - 1) {
+                running = false;
+                playPauseButton.setText("Start");
                 return;
             }
-            routeIndex = Math.min(routeIndex + 1, scenario.combinedPath().size() - 1);
+            routeIndex++;
             if (routeIndex >= scenario.combinedPath().size() - 1) {
                 running = false;
                 playPauseButton.setText("Start");
@@ -156,7 +157,6 @@ public final class PrefabNavigationViewerApp {
             canvas.setViewMode(mode == null ? ViewMode.ISOMETRIC : mode);
             canvas.setLayerY(layerY);
             canvas.setRouteIndex(routeIndex);
-
             layerLabel.setText(" Y=" + layerY + " ");
             stepLabel.setText("Pfad " + (routeIndex + 1) + " / " + scenario.combinedPath().size());
 
@@ -171,8 +171,7 @@ public final class PrefabNavigationViewerApp {
                         : "STORAGE ERREICHT";
 
             inspector.setText(
-                "Quelle\n"
-                    + FarmPrefabNavigationScenario.PREFAB_PATH + "\n\n"
+                "Quelle\n" + FarmPrefabNavigationScenario.PREFAB_PATH + "\n\n"
                     + "Echte Prefab-Daten\n"
                     + "Blöcke: " + scenario.model().cells().size() + "\n"
                     + "Tür-Fußzellen: " + scenario.model().doorFeet().size() + "\n"
@@ -184,17 +183,12 @@ public final class PrefabNavigationViewerApp {
                     + "Storage:   " + scenario.storage() + "\n"
                     + "Außen→Workplace: " + scenario.pathToWorkplace().size() + " Zellen\n"
                     + "Workplace→Storage: " + scenario.pathToStorage().size() + " Zellen\n\n"
-                    + "Aktuell\n"
-                    + "Phase: " + phase + "\n"
-                    + "Zelle: " + current + "\n\n"
+                    + "Aktuell\nPhase: " + phase + "\nZelle: " + current + "\n\n"
                     + "Legende\n"
                     + "Grau = echter Prefab-Block\n"
                     + "Braun = echter Türblock, simuliert passierbar\n"
-                    + "Blau = kompletter A*-Pfad\n"
-                    + "Rot = aktuelle Probe\n"
-                    + "W = workplace_access\n"
-                    + "S = output_storage\n"
-                    + "B = building_bounds\n\n"
+                    + "Blau = kompletter A*-Pfad\nRot = aktuelle Probe\n"
+                    + "W = workplace_access\nS = output_storage\nB = building_bounds\n\n"
                     + "WICHTIG\n"
                     + "A* prüft nur geometrische Plausibilität.\n"
                     + "Es simuliert NICHT Hytales Seek/NavMesh/Physik.\n"
@@ -246,39 +240,35 @@ public final class PrefabNavigationViewerApp {
 
         private void drawTopDown(Graphics2D g) {
             PrefabSimulationModel.Bounds bounds = scenario.model().blockBounds().expand(2, 0);
-            drawSquareGrid(g, bounds);
+            drawGrid(g, bounds);
             for (int x = bounds.minX(); x <= bounds.maxX(); x++) {
                 for (int z = bounds.minZ(); z <= bounds.maxZ(); z++) {
                     PrefabSimulationModel.Cell column = columnCell(x, z);
-                    if (column != null) {
-                        fillSquare(g, x, z, cellColor(column));
-                    }
+                    if (column != null) fillSquare(g, x, z, cellColor(column));
                 }
             }
-            drawTopDownRoute(g);
-            drawTopDownMarkers(g);
+            drawTopRoute(g);
+            drawTopMarkers(g);
         }
 
         private void drawLayer(Graphics2D g) {
             PrefabSimulationModel.Bounds bounds = scenario.model().blockBounds().expand(2, 0);
-            drawSquareGrid(g, bounds);
+            drawGrid(g, bounds);
             for (Map.Entry<BlockPosition, PrefabSimulationModel.Cell> entry : scenario.model().cells().entrySet()) {
                 if (entry.getKey().y() == layerY) {
                     fillSquare(g, entry.getKey().x(), entry.getKey().z(), cellColor(entry.getValue()));
                 }
             }
-            drawTopDownRoute(g);
-            drawTopDownMarkers(g);
+            drawTopRoute(g);
+            drawTopMarkers(g);
         }
 
-        private void drawSquareGrid(Graphics2D g, PrefabSimulationModel.Bounds bounds) {
+        private void drawGrid(Graphics2D g, PrefabSimulationModel.Bounds bounds) {
             g.setStroke(new BasicStroke(1.0f));
             for (int x = bounds.minX(); x <= bounds.maxX(); x++) {
                 for (int z = bounds.minZ(); z <= bounds.maxZ(); z++) {
-                    int sx = topX(x);
-                    int sy = topY(z);
                     g.setColor(new Color(232, 232, 232));
-                    g.drawRect(sx, sy, CELL, CELL);
+                    g.drawRect(topX(x), topY(z), CELL, CELL);
                 }
             }
         }
@@ -292,24 +282,21 @@ public final class PrefabNavigationViewerApp {
             g.drawRect(sx, sy, CELL, CELL);
         }
 
-        private void drawTopDownRoute(Graphics2D g) {
+        private void drawTopRoute(Graphics2D g) {
             List<BlockPosition> path = scenario.combinedPath();
             g.setStroke(new BasicStroke(3.0f));
             g.setColor(new Color(55, 115, 210));
             for (int i = 1; i < path.size(); i++) {
-                g.drawLine(
-                    topCenterX(path.get(i - 1).x()), topCenterY(path.get(i - 1).z()),
-                    topCenterX(path.get(i).x()), topCenterY(path.get(i).z())
-                );
+                g.drawLine(topCenterX(path.get(i - 1).x()), topCenterY(path.get(i - 1).z()),
+                    topCenterX(path.get(i).x()), topCenterY(path.get(i).z()));
             }
             BlockPosition current = path.get(routeIndex);
             g.setColor(new Color(205, 45, 45));
             g.fillOval(topCenterX(current.x()) - 7, topCenterY(current.z()) - 7, 14, 14);
         }
 
-        private void drawTopDownMarkers(Graphics2D g) {
+        private void drawTopMarkers(Graphics2D g) {
             for (PrefabSimulationModel.Marker marker : scenario.model().markers()) {
-                char label = markerLabel(marker.type());
                 int x = (int) Math.floor(marker.bounds().centerX());
                 int z = (int) Math.floor(marker.bounds().centerZ());
                 int sx = topCenterX(x);
@@ -317,7 +304,7 @@ public final class PrefabNavigationViewerApp {
                 g.setColor(markerColor(marker.type()));
                 g.fillOval(sx - 10, sy - 10, 20, 20);
                 g.setColor(Color.WHITE);
-                g.drawString(String.valueOf(label), sx - 4, sy + 5);
+                g.drawString(String.valueOf(markerLabel(marker.type())), sx - 4, sy + 5);
             }
         }
 
@@ -325,11 +312,10 @@ public final class PrefabNavigationViewerApp {
             List<Map.Entry<BlockPosition, PrefabSimulationModel.Cell>> entries =
                 new ArrayList<>(scenario.model().cells().entrySet());
             entries.sort(Comparator
-                .comparingInt((Map.Entry<BlockPosition, PrefabSimulationModel.Cell> e) ->
-                    e.getKey().x() + e.getKey().z())
-                .thenComparingInt(e -> e.getKey().y())
-                .thenComparingInt(e -> e.getKey().x()));
-
+                .comparingInt((Map.Entry<BlockPosition, PrefabSimulationModel.Cell> entry) ->
+                    entry.getKey().x() + entry.getKey().z())
+                .thenComparingInt(entry -> entry.getKey().y())
+                .thenComparingInt(entry -> entry.getKey().x()));
             for (Map.Entry<BlockPosition, PrefabSimulationModel.Cell> entry : entries) {
                 drawIsoCube(g, entry.getKey(), cellColor(entry.getValue()));
             }
@@ -338,12 +324,11 @@ public final class PrefabNavigationViewerApp {
             g.setStroke(new BasicStroke(3.0f));
             g.setColor(new Color(55, 115, 210));
             for (int i = 1; i < path.size(); i++) {
-                int[] a = iso(path.get(i - 1).x(), path.get(i - 1).y(), path.get(i - 1).z());
-                int[] b = iso(path.get(i).x(), path.get(i).y(), path.get(i).z());
+                int[] a = iso(path.get(i - 1));
+                int[] b = iso(path.get(i));
                 g.drawLine(a[0], a[1] - 10, b[0], b[1] - 10);
             }
-            BlockPosition current = path.get(routeIndex);
-            int[] probe = iso(current.x(), current.y(), current.z());
+            int[] probe = iso(path.get(routeIndex));
             g.setColor(new Color(205, 45, 45));
             g.fillOval(probe[0] - 7, probe[1] - 17, 14, 14);
 
@@ -361,28 +346,16 @@ public final class PrefabNavigationViewerApp {
         }
 
         private void drawIsoCube(Graphics2D g, BlockPosition position, Color base) {
-            int[] p = iso(position.x(), position.y(), position.z());
+            int[] p = iso(position);
             int w = 26;
             int h = 13;
             int v = 25;
-            Polygon top = polygon(
-                p[0], p[1] - v,
-                p[0] + w, p[1] - v + h,
-                p[0], p[1] - v + h * 2,
-                p[0] - w, p[1] - v + h
-            );
-            Polygon left = polygon(
-                p[0] - w, p[1] - v + h,
-                p[0], p[1] - v + h * 2,
-                p[0], p[1] + h * 2,
-                p[0] - w, p[1] + h
-            );
-            Polygon right = polygon(
-                p[0] + w, p[1] - v + h,
-                p[0], p[1] - v + h * 2,
-                p[0], p[1] + h * 2,
-                p[0] + w, p[1] + h
-            );
+            Polygon top = polygon(p[0], p[1] - v, p[0] + w, p[1] - v + h,
+                p[0], p[1] - v + h * 2, p[0] - w, p[1] - v + h);
+            Polygon left = polygon(p[0] - w, p[1] - v + h, p[0], p[1] - v + h * 2,
+                p[0], p[1] + h * 2, p[0] - w, p[1] + h);
+            Polygon right = polygon(p[0] + w, p[1] - v + h, p[0], p[1] - v + h * 2,
+                p[0], p[1] + h * 2, p[0] + w, p[1] + h);
             g.setColor(base.brighter());
             g.fillPolygon(top);
             g.setColor(base.darker());
@@ -399,9 +372,7 @@ public final class PrefabNavigationViewerApp {
             PrefabSimulationModel.Cell result = null;
             for (Map.Entry<BlockPosition, PrefabSimulationModel.Cell> entry : scenario.model().cells().entrySet()) {
                 if (entry.getKey().x() == x && entry.getKey().z() == z) {
-                    if (entry.getValue() == PrefabSimulationModel.Cell.DOOR) {
-                        return PrefabSimulationModel.Cell.DOOR;
-                    }
+                    if (entry.getValue() == PrefabSimulationModel.Cell.DOOR) return PrefabSimulationModel.Cell.DOOR;
                     result = PrefabSimulationModel.Cell.SOLID;
                 }
             }
@@ -411,15 +382,13 @@ public final class PrefabNavigationViewerApp {
         private int topX(int x) {
             PrefabSimulationModel.Bounds bounds = scenario.model().blockBounds().expand(2, 0);
             int cellsWide = bounds.maxX() - bounds.minX() + 1;
-            int origin = getWidth() / 2 - cellsWide * CELL / 2;
-            return origin + (x - bounds.minX()) * CELL;
+            return getWidth() / 2 - cellsWide * CELL / 2 + (x - bounds.minX()) * CELL;
         }
 
         private int topY(int z) {
             PrefabSimulationModel.Bounds bounds = scenario.model().blockBounds().expand(2, 0);
             int cellsDeep = bounds.maxZ() - bounds.minZ() + 1;
-            int origin = getHeight() / 2 - cellsDeep * CELL / 2;
-            return origin + (z - bounds.minZ()) * CELL;
+            return getHeight() / 2 - cellsDeep * CELL / 2 + (z - bounds.minZ()) * CELL;
         }
 
         private int topCenterX(int x) {
@@ -430,11 +399,13 @@ public final class PrefabNavigationViewerApp {
             return topY(z) + CELL / 2;
         }
 
+        private int[] iso(BlockPosition position) {
+            return iso(position.x(), position.y(), position.z());
+        }
+
         private int[] iso(int x, int y, int z) {
-            int scaleX = 27;
-            int scaleY = 13;
-            int sx = getWidth() / 2 + (x - z) * scaleX;
-            int sy = getHeight() / 2 + 55 + (x + z) * scaleY - y * 28;
+            int sx = getWidth() / 2 + (x - z) * 27;
+            int sy = getHeight() / 2 + 55 + (x + z) * 13 - y * 28;
             return new int[] {sx, sy};
         }
 
