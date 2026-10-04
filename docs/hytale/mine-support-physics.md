@@ -14,6 +14,8 @@ ConnectedBlocksUtil.setConnectedBlockAndNotifyNeighbors(...)
 
 The rotation starts from the prefab beam rotation index `4` and is composed with the mine support's Y rotation, matching `BlockSelection.rotate(...)` semantics.
 
+`BlockOperations.setBlock(...)` must receive the `ChunkSection` reference for the beam block's exact Y section, obtained through `ChunkStore.getChunkSectionReferenceAtBlock(...)`. A chunk-column / `WorldChunk` reference is not interchangeable here; using the wrong ref causes the native placement call to return `false` before the block is written.
+
 This split exists because `BlockSelection.placeNoReturn(...)` writes prefab blocks through a different low-level path than normal player placement. `BlockOperations.setBlock(...)` additionally performs Hytale's native block replacement bookkeeping, block-physics reset, area updates, block ticking, lighting, filler handling, block-entity handling and related notifications. The player path then applies `Deco` where supported and runs connected-block neighbour updates.
 
 The beam remains a normal breakable block. There is no protection flag and no global or per-world scanner. Players and NPCs can still remove the support normally after placement.

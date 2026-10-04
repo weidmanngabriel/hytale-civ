@@ -3,14 +3,12 @@ package dev.civilizations.hytale;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.math.Axis;
-import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.Rotation;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.RotationTuple;
 import com.hypixel.hytale.server.core.blocktype.component.BlockPhysics;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.BlockOperations;
-import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.connectedblocks.ConnectedBlocksUtil;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
@@ -47,15 +45,25 @@ public final class MineSupportPhysics {
         Store<ChunkStore> chunkComponents = chunkStore.getStore();
 
         for (BlockPosition block : beamBlocks(segment, depth)) {
-            WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(block.x(), block.z()));
-            if (chunk == null || chunk.getReference() == null) return false;
-            Ref<ChunkStore> chunkRef = chunk.getReference();
-            BlockSection blockSection = chunk.getBlockChunk().getSectionAtBlockY(block.y());
-            if (blockSection == null) return false;
+            Ref<ChunkStore> sectionRef = chunkStore.getChunkSectionReferenceAtBlock(
+                block.x(), block.y(), block.z()
+            );
+            if (sectionRef == null || !sectionRef.isValid()) {
+                System.out.println("[Civ Mine Debug] beam-place-failed reason=section-ref pos=" + block);
+                return false;
+            }
+            BlockSection blockSection = chunkComponents.getComponent(
+                sectionRef,
+                BlockSection.getComponentType()
+            );
+            if (blockSection == null) {
+                System.out.println("[Civ Mine Debug] beam-place-failed reason=block-section pos=" + block);
+                return false;
+            }
 
             boolean placed = BlockOperations.setBlock(
                 chunkStore,
-                chunkRef,
+                sectionRef,
                 block.x(),
                 block.y(),
                 block.z(),
@@ -65,12 +73,19 @@ public final class MineSupportPhysics {
                 0,
                 PLAYER_PLACE_FLAGS
             );
-            if (!placed) return false;
+            if (!placed) {
+                System.out.println(
+                    "[Civ Mine Debug] beam-place-failed reason=set-block pos=" + block
+                        + " blockIndex=" + blockIndex
+                        + " rotation=" + rotation.index()
+                );
+                return false;
+            }
 
             if (beamType.canBePlacedAsDeco()) {
                 BlockPhysics.markDeco(
                     chunkComponents,
-                    chunkRef,
+                    sectionRef,
                     block.x(),
                     block.y(),
                     block.z()
@@ -85,7 +100,7 @@ public final class MineSupportPhysics {
                 rotation,
                 placedAgainst,
                 target,
-                chunkRef,
+                sectionRef,
                 blockSection
             );
         }
@@ -93,14 +108,15 @@ public final class MineSupportPhysics {
     }
 
     public static boolean beamIsDeco(World world, MineSegment segment, int depth) {
-        Store<ChunkStore> chunkStore = world.getChunkStore().getStore();
+        ChunkStore chunkStore = world.getChunkStore();
+        Store<ChunkStore> chunkComponents = chunkStore.getStore();
         for (BlockPosition block : beamBlocks(segment, depth)) {
-            WorldChunk chunk = world.getChunkIfLoaded(
-                ChunkUtil.indexChunkFromBlock(block.x(), block.z())
+            Ref<ChunkStore> sectionRef = chunkStore.getChunkSectionReferenceAtBlock(
+                block.x(), block.y(), block.z()
             );
-            if (chunk == null || chunk.getReference() == null) return false;
-            BlockPhysics physics = chunkStore.getComponent(
-                chunk.getReference(),
+            if (sectionRef == null || !sectionRef.isValid()) return false;
+            BlockPhysics physics = chunkComponents.getComponent(
+                sectionRef,
                 BlockPhysics.getComponentType()
             );
             if (physics == null || !physics.isDeco(block.x(), block.y(), block.z())) return false;
