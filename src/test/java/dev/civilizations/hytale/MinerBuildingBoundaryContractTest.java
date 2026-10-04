@@ -15,8 +15,9 @@ class MinerBuildingBoundaryContractTest {
             "src/main/java/dev/civilizations/hytale/MinerWorkSystem.java"
         ));
 
-        assertTrue(source.contains("validCandidate(world, mine, initial, true)"));
-        assertTrue(source.contains("validCandidate(world, mine, candidate, false)"));
+        assertTrue(source.contains("direction, true"));
+        assertTrue(source.contains("parent.nextStart(direction), direction, false"));
+        assertTrue(source.contains("validCandidate(world, mine, candidate, allowOwnMine)"));
         assertTrue(source.contains("return safeBlock(world, mine, block, false);"));
         assertTrue(source.contains(
             "(!allowOwnMine || !building.id().equals(mine.id()))"
