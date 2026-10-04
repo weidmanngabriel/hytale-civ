@@ -95,13 +95,13 @@ final class MineSupportPrefabContractTest {
     }
 
     @Test
-    void endpointSupportIsNotExpectedForFourBlockSegment() {
+    void endpointSupportIsExpectedBeforeFixedJunctionForFourBlockMainTunnel() {
         MineSegment segment = MineSegment.reserved(
             UUID.randomUUID(), UUID.randomUUID(), null,
             new BlockPosition(0, 0, 0), MineDirection.EAST, 4
         ).withProgress(64);
         int faceStart = 3 * 16;
-        assertFalse(MinerWorkSystem.isExpectedSupportCell(
+        assertTrue(MinerWorkSystem.isExpectedSupportCell(
             segment, faceStart, "Wood_Fir_Branch_Long"
         ));
     }
@@ -151,9 +151,7 @@ final class MineSupportPrefabContractTest {
                 boolean sidePost = y < MineTuning.TUNNEL_HEIGHT_BLOCKS - 1
                     && (width == 0 || width == MineTuning.TUNNEL_WIDTH_BLOCKS - 1);
                 if (!topBeam && !sidePost) continue;
-                result.add(segment.blockAtIndex(
-                    faceStart + y * MineTuning.TUNNEL_WIDTH_BLOCKS + width
-                ));
+                result.add(segment.blockAtIndex(faceStart + y * MineTuning.TUNNEL_WIDTH_BLOCKS + width));
             }
         }
         return result;
