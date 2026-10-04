@@ -1,39 +1,92 @@
 package dev.civilizations.hytale;
 
+import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.component.Store;
+import com.hypixel.hytale.math.Axis;
+import com.hypixel.hytale.math.util.ChunkUtil;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.Rotation;
+import com.hypixel.hytale.server.core.asset.type.blocktype.config.RotationTuple;
 import com.hypixel.hytale.server.core.blocktype.component.BlockPhysics;
 import com.hypixel.hytale.server.core.universe.world.World;
+import com.hypixel.hytale.server.core.universe.world.chunk.BlockOperations;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
+import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
+import com.hypixel.hytale.server.core.universe.world.connectedblocks.ConnectedBlocksUtil;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
-import com.hypixel.hytale.component.Store;
-import com.hypixel.hytale.math.util.ChunkUtil;
 import dev.civilizations.core.BlockPosition;
+import dev.civilizations.core.MineDirection;
 import dev.civilizations.core.MineSegment;
 import dev.civilizations.core.MineTuning;
+import org.joml.Vector3i;
 
-/** Native Hytale block-physics metadata for placed mine support beams. */
+/** Native Hytale placement semantics for mine support beams. */
 public final class MineSupportPhysics {
+
+    private static final String SUPPORT_BEAM_BLOCK = "Wood_Fir_Trunk";
+    private static final int SUPPORT_BEAM_PREFAB_ROTATION = 4;
+    private static final int PLAYER_PLACE_FLAGS = 256;
 
     private MineSupportPhysics() {
     }
 
     /**
-     * Marks only the four top beam cells as Hytale block-physics deco blocks.
-     * This mirrors the native player-placement treatment for placeable decorative blocks;
-     * it is not protection and does not make the blocks unbreakable.
+     * Places the four top beam cells through the same native block-operation path used by
+     * normal player placement, then applies the same deco and connected-block follow-up.
+     * The method name is retained for compatibility with the existing mine-support flow.
      */
     public static boolean markBeamAsDeco(World world, MineSegment segment, int depth) {
-        Store<ChunkStore> chunkStore = world.getChunkStore().getStore();
+        BlockType beamType = BlockType.getAssetMap().getAsset(SUPPORT_BEAM_BLOCK);
+        if (beamType == null) return false;
+        int blockIndex = BlockType.getAssetMap().getIndex(SUPPORT_BEAM_BLOCK);
+        if (blockIndex <= 0) return false;
+
+        RotationTuple rotation = RotationTuple.get(SUPPORT_BEAM_PREFAB_ROTATION)
+            .composeOnAxis(Axis.Y, Rotation.ofDegrees(rotationDegrees(segment.direction())));
+        ChunkStore chunkStore = world.getChunkStore();
+        Store<ChunkStore> chunkComponents = chunkStore.getStore();
+
         for (BlockPosition block : beamBlocks(segment, depth)) {
-            WorldChunk chunk = world.getChunkIfLoaded(
-                ChunkUtil.indexChunkFromBlock(block.x(), block.z())
-            );
+            WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(block.x(), block.z()));
             if (chunk == null || chunk.getReference() == null) return false;
-            BlockPhysics.markDeco(
+            Ref<ChunkStore> chunkRef = chunk.getReference();
+            BlockSection blockSection = chunk.getBlockChunk().getSectionAtBlockY(block.y());
+            if (blockSection == null) return false;
+
+            boolean placed = BlockOperations.setBlock(
                 chunkStore,
-                chunk.getReference(),
+                chunkRef,
                 block.x(),
                 block.y(),
-                block.z()
+                block.z(),
+                blockIndex,
+                beamType,
+                rotation.index(),
+                0,
+                PLAYER_PLACE_FLAGS
+            );
+            if (!placed) return false;
+
+            if (beamType.canBePlacedAsDeco()) {
+                BlockPhysics.markDeco(
+                    chunkComponents,
+                    chunkRef,
+                    block.x(),
+                    block.y(),
+                    block.z()
+                );
+            }
+
+            Vector3i target = new Vector3i(block.x(), block.y(), block.z());
+            Vector3i placedAgainst = new Vector3i(block.x(), block.y() - 1, block.z());
+            ConnectedBlocksUtil.setConnectedBlockAndNotifyNeighbors(
+                chunkStore,
+                blockIndex,
+                rotation,
+                placedAgainst,
+                target,
+                chunkRef,
+                blockSection
             );
         }
         return true;
@@ -64,5 +117,14 @@ public final class MineSupportPhysics {
             result.add(segment.blockAtIndex(faceStart + topRowOffset + width));
         }
         return java.util.List.copyOf(result);
+    }
+
+    private static int rotationDegrees(MineDirection direction) {
+        return switch (direction) {
+            case EAST -> 0;
+            case NORTH -> 90;
+            case WEST -> 180;
+            case SOUTH -> 270;
+        };
     }
 }
