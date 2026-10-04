@@ -149,15 +149,15 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         }
 
         if (!runtime.reachedConnector) {
-    Vector3d target = center(connector.bounds(), connector.bounds().minY());
-    if (!arrived(position, target)) {
-        navigateTo(ref, position, target, runtime);
-        stopMiningAnimation(ref, store, runtime);
-        return;
-    }
-    runtime.reachedConnector = true;
-    runtime.navigationArrived();
-}
+            Vector3d target = center(connector.bounds(), connector.bounds().minY());
+            if (!arrived(position, target)) {
+                navigateTo(ref, position, target, runtime);
+                stopMiningAnimation(ref, store, runtime);
+                return;
+            }
+            runtime.reachedConnector = true;
+            runtime.navigationArrived();
+        }
 
         MineSegment segment = resolveSegment(world, mine, connector, runtime);
         if (segment == null) {
@@ -192,20 +192,6 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             segment = segment.withStatus(MineSegment.Status.MINING);
             tunnelRegistry.put(world, segment);
         }
-
-        if (isTurnSegment(worldId, segment) && !segment.id().equals(runtime.turnStagedSegmentId)) {
-    Vector3d junctionTarget = turnStagingTarget(segment);
-    if (!arrived(position, junctionTarget)) {
-        navigateTo(ref, position, junctionTarget, runtime);
-        stopMiningAnimation(ref, store, runtime);
-        return;
-    }
-    runtime.turnStagedSegmentId = segment.id();
-    runtime.navigationArrived();
-    unitRegistry.clearMoveTarget(ref);
-    stopMiningAnimation(ref, store, runtime);
-    return;
-}
 
         Vector3d workTarget = workTarget(segment);
         if (!arrived(position, workTarget)) {
@@ -498,7 +484,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
         int depth = index / faceSize;
         int oneBasedDepth = depth + 1;
-        if (oneBasedDepth >= segment.lengthBlocks()) return false;
+        if (oneBasedDepth > segment.lengthBlocks()) return false;
         if (oneBasedDepth % MineTuning.SUPPORT_SPACING_BLOCKS != 0) return false;
         int supportNumber = oneBasedDepth / MineTuning.SUPPORT_SPACING_BLOCKS;
         int completedDepth = segment.nextBlockIndex() / faceSize;
@@ -568,11 +554,6 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         boolean allowOwnMine
     ) {
         int minimum = MineTuning.MIN_SEGMENT_LENGTH_BLOCKS;
-        if (parent != null && direction != parent.direction()) {
-            // A 90-degree turn reuses a 4x4x4 junction cube. A four-block child would contain
-            // no new tunnel at all, so turns need at least one block beyond that junction.
-            minimum = Math.max(minimum, MineTuning.TUNNEL_WIDTH_BLOCKS + 1);
-        }
         int desired = Math.max(minimum, randomSegmentLength());
         for (int length = desired; length >= minimum; length--) {
             MineSegment candidate = MineSegment.reserved(
@@ -661,33 +642,9 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         };
     }
 
-    private boolean isTurnSegment(UUID worldId, MineSegment segment) {
-    if (segment.parentId() == null) return false;
-    MineSegment parent = tunnelRegistry.get(worldId, segment.parentId());
-    return parent != null && parent.direction() != segment.direction();
-}
-
-static Vector3d turnStagingTarget(MineSegment segment) {
-    int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
-    int sharedDepth = Math.min(MineTuning.TUNNEL_WIDTH_BLOCKS, segment.lengthBlocks());
-    double x = 0.0;
-    double z = 0.0;
-    int cells = 0;
-    for (int depth = 0; depth < sharedDepth; depth++) {
-        int first = depth * faceSize;
-        for (int width = 0; width < MineTuning.TUNNEL_WIDTH_BLOCKS; width++) {
-            BlockPosition block = segment.blockAtIndex(first + width);
-            x += block.x() + 0.5;
-            z += block.z() + 0.5;
-            cells++;
-        }
-    }
-    return new Vector3d(x / cells, segment.start().y(), z / cells);
-}
-
     private static Vector3d workTarget(MineSegment segment) {
         int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
-        int depth = Math.min(segment.lengthBlocks() - 1, segment.nextBlockIndex() / faceSize);
+        int depth = Math.min(segment.totalDepthBlocks() - 1, segment.nextBlockIndex() / faceSize);
         int first = depth * faceSize;
         double x = 0.0;
         double z = 0.0;
@@ -814,7 +771,6 @@ static Vector3d turnStagingTarget(MineSegment segment) {
         private UUID segmentId;
         private boolean enteredMine;
         private boolean reachedConnector;
-        private UUID turnStagedSegmentId;
         private boolean animationStarted;
         private double workElapsed;
         private double retryElapsed;
@@ -828,7 +784,6 @@ static Vector3d turnStagingTarget(MineSegment segment) {
             segmentId = null;
             enteredMine = false;
             reachedConnector = false;
-            turnStagedSegmentId = null;
             workElapsed = 0.0;
             navigationArrived();
         }
@@ -846,7 +801,6 @@ static Vector3d turnStagingTarget(MineSegment segment) {
             segmentId = null;
             enteredMine = false;
             reachedConnector = false;
-            turnStagedSegmentId = null;
             animationStarted = false;
             workElapsed = 0.0;
             retryElapsed = 0.0;
