@@ -10,8 +10,8 @@ import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.RemoveReason;
 import com.hypixel.hytale.component.Store;
+import com.hypixel.hytale.math.Axis;
 import com.hypixel.hytale.math.util.ChunkUtil;
-import com.hypixel.hytale.math.vector.Rotation3f;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentPrefabPreview;
@@ -24,6 +24,7 @@ import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
+import dev.civilizations.core.BuildingOrientation;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
@@ -81,6 +82,15 @@ public final class PrefabPlacementService {
         Vector3i pointedBlock,
         PlacementDefinition definition
     ) {
+        return validatePlacement(world, pointedBlock, definition, BuildingOrientation.NORTH);
+    }
+
+    public PlacementCandidate validatePlacement(
+        World world,
+        Vector3i pointedBlock,
+        PlacementDefinition definition,
+        BuildingOrientation orientation
+    ) {
         /*
          * Construction-preview spike: deliberately do not run the legacy
          * immediate-paste collision rules here. Those rules were designed for
@@ -92,7 +102,7 @@ public final class PrefabPlacementService {
          * will be reintroduced against the construction-site semantics after
          * this preview boundary is proven in-game.
          */
-        BlockSelection source = requireSource(definition);
+        BlockSelection source = requireSource(definition, orientation);
         Vector3i anchor = placementAnchor(pointedBlock, definition);
         Vector3i placementOrigin = enginePlacementOrigin(definition, anchor);
         List<PrefabCell> cells = readCells(source);
@@ -114,7 +124,8 @@ public final class PrefabPlacementService {
                     definition,
                     anchor,
                     footprint,
-                    "Die Baufläche ist noch nicht vollständig geladen."
+                    "Die Baufläche ist noch nicht vollständig geladen.",
+                    orientation
                 );
             }
             replacedBlocks.put(
@@ -127,7 +138,8 @@ public final class PrefabPlacementService {
             definition,
             anchor,
             footprint,
-            replacedBlocks
+            replacedBlocks,
+            orientation
         );
     }
 
@@ -156,7 +168,7 @@ public final class PrefabPlacementService {
             return false;
         }
 
-        BlockSelection source = requireSource(definition);
+        BlockSelection source = requireSource(definition, BuildingOrientation.NORTH);
         source.setAnchor(
             source.getAnchorX(),
             source.getAnchorY() + definition.groundSinkBlocks(),
@@ -185,7 +197,7 @@ public final class PrefabPlacementService {
         Ref<EntityStore> previewRef = PersistentPrefabPreview.spawn(
             store,
             new Vector3d(previewOrigin.x, previewOrigin.y, previewOrigin.z),
-            new Rotation3f(),
+            HytalePrefabOrientation.previewRotation(candidate.orientation()),
             candidate.definition().prefabKey(),
             Integer.MAX_VALUE
         );
@@ -213,7 +225,7 @@ public final class PrefabPlacementService {
         if (playerEntityRef == null || !playerEntityRef.isValid()) {
             return false;
         }
-        requireSource(definition);
+        requireSource(definition, BuildingOrientation.NORTH);
         cancelConstructionPreview(playerRef);
         activeConstructionPreviews.put(
             playerRef.getUuid(),
@@ -244,7 +256,7 @@ public final class PrefabPlacementService {
             previewRef = PersistentPrefabPreview.spawn(
                 store,
                 new Vector3d(previewOrigin.x, previewOrigin.y, previewOrigin.z),
-                new Rotation3f(),
+                HytalePrefabOrientation.previewRotation(candidate.orientation()),
                 active.definition().prefabKey(),
                 Integer.MAX_VALUE
             );
@@ -270,6 +282,7 @@ public final class PrefabPlacementService {
                 previewOrigin.y,
                 previewOrigin.z
             ));
+            transform.setRotation(HytalePrefabOrientation.previewRotation(candidate.orientation()));
         }
     }
 
@@ -327,7 +340,7 @@ public final class PrefabPlacementService {
     }
 
     public int constructionLayerCount(ConstructionSite site) {
-        return constructionLayers(requireSource(site.definition())).size();
+        return constructionLayers(requireSource(site.definition(), site.candidate().orientation())).size();
     }
 
     /**
@@ -340,7 +353,7 @@ public final class PrefabPlacementService {
         int layerIndex,
         CommandBuffer<EntityStore> commandBuffer
     ) {
-        BlockSelection source = requireSource(site.definition());
+        BlockSelection source = requireSource(site.definition(), site.candidate().orientation());
         List<Integer> layers = constructionLayers(source);
         if (layerIndex < 0 || layerIndex >= layers.size()) {
             return false;
@@ -552,7 +565,7 @@ public final class PrefabPlacementService {
         TriggerVolumeManager volumeManager = triggerVolumeManager(world);
         Set<String> existingVolumeIds = new HashSet<>(volumeManager.getVolumesMap().keySet());
 
-        BlockSelection prefab = requireSource(candidate.definition());
+        BlockSelection prefab = requireSource(candidate.definition(), candidate.orientation());
         prefab.place(
             playerRef,
             world,
@@ -679,13 +692,23 @@ public final class PrefabPlacementService {
 
     /**
      * Returns a detached prefab selection whose Y anchor follows the semantic authored
-     * construction ground level when present. No fixed mine depth or height is encoded.
+     * construction ground level and whose X/Z geometry is rotated around that anchor.
      */
-    private static BlockSelection requireSource(PlacementDefinition definition) {
+    private static BlockSelection requireSource(
+        PlacementDefinition definition,
+        BuildingOrientation orientation
+    ) {
         BlockSelection source = new BlockSelection(requireRawSource(definition));
         Integer groundY = constructionGroundSourceY(source);
         if (groundY != null) {
             source.setAnchor(source.getAnchorX(), groundY, source.getAnchorZ());
+        }
+        if (orientation != BuildingOrientation.NORTH) {
+            source = source.rotate(
+                Axis.Y,
+                HytalePrefabOrientation.blockSelectionDegrees(orientation),
+                new Vector3d(source.getAnchorX(), source.getAnchorY(), source.getAnchorZ())
+            );
         }
         return source;
     }
@@ -794,11 +817,13 @@ public final class PrefabPlacementService {
         Vector3i anchor,
         PlacementFootprint footprint,
         Map<BlockPosition, Integer> replacedFloorBlocks,
-        String invalidReason
+        String invalidReason,
+        BuildingOrientation orientation
     ) {
         public PlacementCandidate {
             anchor = new Vector3i(anchor);
             replacedFloorBlocks = Map.copyOf(replacedFloorBlocks);
+            orientation = orientation == null ? BuildingOrientation.NORTH : orientation;
         }
 
         public boolean valid() {
@@ -811,12 +836,23 @@ public final class PrefabPlacementService {
             PlacementFootprint footprint,
             Map<BlockPosition, Integer> replacedFloorBlocks
         ) {
+            return valid(definition, anchor, footprint, replacedFloorBlocks, BuildingOrientation.NORTH);
+        }
+
+        public static PlacementCandidate valid(
+            PlacementDefinition definition,
+            Vector3i anchor,
+            PlacementFootprint footprint,
+            Map<BlockPosition, Integer> replacedFloorBlocks,
+            BuildingOrientation orientation
+        ) {
             return new PlacementCandidate(
                 definition,
                 anchor,
                 footprint,
                 replacedFloorBlocks,
-                null
+                null,
+                orientation
             );
         }
 
@@ -826,12 +862,23 @@ public final class PrefabPlacementService {
             PlacementFootprint footprint,
             String reason
         ) {
+            return invalid(definition, anchor, footprint, reason, BuildingOrientation.NORTH);
+        }
+
+        public static PlacementCandidate invalid(
+            PlacementDefinition definition,
+            Vector3i anchor,
+            PlacementFootprint footprint,
+            String reason,
+            BuildingOrientation orientation
+        ) {
             return new PlacementCandidate(
                 definition,
                 anchor,
                 footprint,
                 Map.of(),
-                reason
+                reason,
+                orientation
             );
         }
 
@@ -841,7 +888,8 @@ public final class PrefabPlacementService {
                 anchor,
                 footprint,
                 replacedFloorBlocks,
-                reason
+                reason,
+                orientation
             );
         }
     }
