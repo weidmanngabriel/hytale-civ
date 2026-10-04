@@ -443,7 +443,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
         int completedDepth = segment.nextBlockIndex() / faceSize;
         int due = completedDepth / MineTuning.SUPPORT_SPACING_BLOCKS;
-        int supportsPerSegment = MineTuning.SEGMENT_LENGTH_BLOCKS / MineTuning.SUPPORT_SPACING_BLOCKS;
+        int supportsPerSegment = MineTuning.supportFramesPerSegment();
         int highestKnown = segment.supportsPlaced();
 
         for (int supportNumber = 1; supportNumber <= due && supportNumber <= supportsPerSegment; supportNumber++) {
