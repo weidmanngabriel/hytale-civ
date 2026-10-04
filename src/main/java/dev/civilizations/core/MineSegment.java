@@ -8,7 +8,9 @@ import java.util.UUID;
  * Persistent logical section of a mine tunnel.
  *
  * <p>{@code start} is the lower-left block of the first 4x4 cutting face when looking
- * in {@code direction}. The segment always grows horizontally and stays on one Y level.</p>
+ * in {@code direction}. {@code lengthBlocks} describes only the supported main tunnel.
+ * Every segment additionally owns a fixed 4x4x4, support-free junction immediately after
+ * the main tunnel. The segment always grows horizontally and stays on one Y level.</p>
  */
 public record MineSegment(
     UUID id,
@@ -34,10 +36,6 @@ public record MineSegment(
         }
     }
 
-    /**
-     * Compatibility factory for deterministic legacy fixtures. Production tunnel planning must
-     * pass an explicit length.
-     */
     public static MineSegment reserved(
         UUID id,
         UUID mineId,
@@ -94,6 +92,10 @@ public record MineSegment(
         );
     }
 
+    public int totalDepthBlocks() {
+        return MineTuning.totalDepthBlocks(lengthBlocks);
+    }
+
     public int blockCount() {
         return blockCount(lengthBlocks);
     }
@@ -102,10 +104,31 @@ public record MineSegment(
         return nextBlockIndex >= blockCount();
     }
 
-    /** Blocks ordered one full 4x4 face at a time from the entrance towards the tunnel end. */
+    public boolean isJunctionIndex(int index) {
+        if (index < 0 || index >= blockCount()) throw new IndexOutOfBoundsException(index);
+        return index >= MineTuning.mainTunnelBlocks(lengthBlocks);
+    }
+
+    /** Blocks ordered one full 4x4 face at a time through main tunnel and then junction. */
     public List<BlockPosition> blocks() {
         List<BlockPosition> result = new ArrayList<>(blockCount());
-        for (int depth = 0; depth < lengthBlocks; depth++) {
+        for (int depth = 0; depth < totalDepthBlocks(); depth++) {
+            for (int y = 0; y < MineTuning.TUNNEL_HEIGHT_BLOCKS; y++) {
+                for (int width = 0; width < MineTuning.TUNNEL_WIDTH_BLOCKS; width++) {
+                    result.add(blockAt(depth, width, y));
+                }
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    public List<BlockPosition> junctionBlocks() {
+        List<BlockPosition> result = new ArrayList<>(
+            MineTuning.TUNNEL_WIDTH_BLOCKS
+                * MineTuning.TUNNEL_HEIGHT_BLOCKS
+                * MineTuning.JUNCTION_LENGTH_BLOCKS
+        );
+        for (int depth = lengthBlocks; depth < totalDepthBlocks(); depth++) {
             for (int y = 0; y < MineTuning.TUNNEL_HEIGHT_BLOCKS; y++) {
                 for (int width = 0; width < MineTuning.TUNNEL_WIDTH_BLOCKS; width++) {
                     result.add(blockAt(depth, width, y));
@@ -127,10 +150,10 @@ public record MineSegment(
         return blockAt(depth, width, y);
     }
 
-    /** Lower block coordinate at the support frame for the given 1-based tunnel depth. */
+    /** Lower block coordinate at the support frame for the given 1-based main-tunnel depth. */
     public BlockPosition supportOrigin(int depth) {
         if (depth <= 0 || depth > lengthBlocks) {
-            throw new IllegalArgumentException("Support depth outside segment.");
+            throw new IllegalArgumentException("Support depth outside main tunnel.");
         }
         int step = depth - 1;
         return new BlockPosition(
@@ -141,14 +164,13 @@ public record MineSegment(
     }
 
     public HorizontalBounds horizontalBounds() {
-        return horizontalBounds(0, lengthBlocks);
+        return horizontalBounds(0, totalDepthBlocks());
     }
 
     /**
-     * Starts the next segment using the parent's oriented tunnel basis rather than world-axis
-     * min/max bounds. Straight continuations therefore remain exactly in the same 4x4 lane.
-     * A 90-degree continuation reuses the parent's final 4x4 area as a walkable junction and
-     * exits through the matching left or right edge without any diagonal offset.
+     * Starts a child immediately outside this segment's fully excavated 4x4x4 junction.
+     * The parent and child never overlap. Straight, left and right continuations all use the
+     * same reserved junction contract, leaving future drift/offsets as a start-position concern.
      */
     public BlockPosition nextStart(MineDirection nextDirection) {
         if (nextDirection == opposite(direction)) {
@@ -159,32 +181,30 @@ public record MineSegment(
         int forwardZ = direction.dz();
         int rightX = -direction.dz();
         int rightZ = direction.dx();
+        int junctionX = start.x() + forwardX * lengthBlocks;
+        int junctionZ = start.z() + forwardZ * lengthBlocks;
 
         if (nextDirection == direction) {
             return new BlockPosition(
-                start.x() + forwardX * lengthBlocks,
+                junctionX + forwardX * MineTuning.JUNCTION_LENGTH_BLOCKS,
                 start.y(),
-                start.z() + forwardZ * lengthBlocks
+                junctionZ + forwardZ * MineTuning.JUNCTION_LENGTH_BLOCKS
             );
         }
-
-        int junctionDepth = lengthBlocks - MineTuning.TUNNEL_WIDTH_BLOCKS;
-        int junctionX = start.x() + forwardX * junctionDepth;
-        int junctionZ = start.z() + forwardZ * junctionDepth;
-        int lastWidthOffset = MineTuning.TUNNEL_WIDTH_BLOCKS - 1;
 
         if (nextDirection == direction.left()) {
             return new BlockPosition(
-                junctionX + rightX * lastWidthOffset,
+                junctionX - rightX,
                 start.y(),
-                junctionZ + rightZ * lastWidthOffset
+                junctionZ - rightZ
             );
         }
         if (nextDirection == direction.right()) {
+            int lastJunctionDepth = MineTuning.JUNCTION_LENGTH_BLOCKS - 1;
             return new BlockPosition(
-                junctionX + forwardX * lastWidthOffset,
+                junctionX + rightX * MineTuning.TUNNEL_WIDTH_BLOCKS + forwardX * lastJunctionDepth,
                 start.y(),
-                junctionZ + forwardZ * lastWidthOffset
+                junctionZ + rightZ * MineTuning.TUNNEL_WIDTH_BLOCKS + forwardZ * lastJunctionDepth
             );
         }
 
