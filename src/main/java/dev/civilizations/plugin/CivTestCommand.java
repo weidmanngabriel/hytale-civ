@@ -13,6 +13,10 @@ final class CivTestCommand extends CommandBase {
 
     @Override
     protected void executeSync(CommandContext context) {
+        if (Boolean.getBoolean("civilizations.mineSupportProbe")) {
+            CivMineSupportRuntimeProbe.start();
+            return;
+        }
         context.sendMessage(Message.raw("Civilizations smoke test OK."));
     }
 }
