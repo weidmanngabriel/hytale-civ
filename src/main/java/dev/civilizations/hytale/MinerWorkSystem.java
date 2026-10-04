@@ -59,9 +59,6 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
     private static final String SUPPORT_BEAM_BLOCK = "Wood_Fir_Trunk";
     private static final double ARRIVAL_DISTANCE = 1.1;
     private static final double RETRY_SECONDS = 1.0;
-    private static final double PATH_PROGRESS_DISTANCE = 0.15;
-    private static final double PATH_RECOMPUTE_AFTER_SECONDS = 3.0;
-    private static final double PATH_RETRY_AFTER_FAILURE_SECONDS = 4.0;
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
@@ -144,7 +141,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         if (!runtime.enteredMine && entrance != null && entrance.bounds() != null) {
             Vector3d target = center(entrance.bounds(), entrance.bounds().minY());
             if (!arrived(position, target)) {
-                navigateTo(ref, world, position, target, runtime, dt);
+                navigateTo(ref, world, position, target, runtime, "workplace_access");
                 stopMiningAnimation(ref, store, runtime);
                 return;
             }
@@ -180,6 +177,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             runtime.workElapsed = 0.0;
             MineSegment next = existingChild(worldId, segment.id());
             if (next == null) next = chooseNext(world, mine, segment);
+            logSegmentTransition(position, segment, next);
             runtime.segmentId = next == null ? null : next.id();
             runtime.navigationArrived();
             return;
@@ -192,7 +190,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
 
         Vector3d workTarget = workTarget(segment);
         if (!arrived(position, workTarget)) {
-            navigateTo(ref, world, position, workTarget, runtime, dt);
+            navigateTo(ref, world, position, workTarget, runtime, "work_front segment=" + segment.id());
             stopMiningAnimation(ref, store, runtime);
             return;
         }
@@ -225,6 +223,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
                 runtime.workElapsed = 0.0;
                 MineSegment next = existingChild(worldId, segment.id());
                 if (next == null) next = chooseNext(world, mine, segment);
+                logSegmentTransition(position, segment, next);
                 runtime.segmentId = next == null ? null : next.id();
                 return;
             }
@@ -340,6 +339,17 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
             BlockPosition block = segment.blockAtIndex(index);
             BlockType type = loadedBlockType(world, block);
             if (type == null) return -1;
+            if (!isEmpty(type) && type.getId() != null && type.getId().toLowerCase().contains("wood_fir")) {
+                System.out.println(
+                    "[Civ Mine Debug] reconcile-wood segment=" + segment.id()
+                        + " index=" + index
+                        + " progress=" + segment.nextBlockIndex()
+                        + " supportsPlaced=" + segment.supportsPlaced()
+                        + " pos=" + block
+                        + " blockId=" + type.getId()
+                        + " expectedSupport=" + isExpectedSupportBlock(segment, index, type)
+                );
+            }
             if (isEmpty(type) || isExpectedSupportBlock(segment, index, type)) continue;
             return index;
         }
@@ -397,6 +407,17 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
 
         BlockType type = loadedBlockType(world, target);
         if (!isEmpty(type)) {
+            String blockId = type == null ? "null" : type.getId();
+            if (blockId != null && blockId.toLowerCase().contains("wood_fir")) {
+                System.out.println(
+                    "[Civ Mine Debug] break-attempt segment=" + segment.id()
+                        + " index=" + index
+                        + " progress=" + segment.nextBlockIndex()
+                        + " supportsPlaced=" + segment.supportsPlaced()
+                        + " target=" + target
+                        + " blockId=" + blockId
+                );
+            }
             Store<ChunkStore> chunkStore = world.getChunkStore().getStore();
             BlockHarvestUtils.performBlockBreak(
                 worker,
@@ -575,8 +596,44 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
 
         BlockPosition supportOrigin = segment.supportOrigin(depth);
         Vector3i origin = new Vector3i(supportOrigin.x(), supportOrigin.y(), supportOrigin.z());
+        System.out.println(
+            "[Civ Mine Debug] support-place segment=" + segment.id()
+                + " depth=" + depth
+                + " direction=" + segment.direction()
+                + " origin=" + supportOrigin
+                + " rotation=" + rotationDegrees
+                + " progress=" + segment.nextBlockIndex()
+                + " supportsPlacedBefore=" + segment.supportsPlaced()
+        );
         selection.placeNoReturn(world, origin, world.getEntityStore().getStore());
+        logSupportSnapshot(world, segment, depth, "after-place");
         return true;
+    }
+
+    private static void logSupportSnapshot(World world, MineSegment segment, int depth, String phase) {
+        int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
+        int faceStart = (depth - 1) * faceSize;
+        for (int y = 0; y < MineTuning.TUNNEL_HEIGHT_BLOCKS; y++) {
+            for (int width = 0; width < MineTuning.TUNNEL_WIDTH_BLOCKS; width++) {
+                boolean topBeam = y == MineTuning.TUNNEL_HEIGHT_BLOCKS - 1;
+                boolean sidePost = y < MineTuning.TUNNEL_HEIGHT_BLOCKS - 1
+                    && (width == 0 || width == MineTuning.TUNNEL_WIDTH_BLOCKS - 1);
+                if (!topBeam && !sidePost) continue;
+                int index = faceStart + y * MineTuning.TUNNEL_WIDTH_BLOCKS + width;
+                BlockPosition block = segment.blockAtIndex(index);
+                BlockType type = loadedBlockType(world, block);
+                String blockId = type == null ? "null" : type.getId();
+                System.out.println(
+                    "[Civ Mine Debug] support-cell phase=" + phase
+                        + " segment=" + segment.id()
+                        + " depth=" + depth
+                        + " index=" + index
+                        + " pos=" + block
+                        + " blockId=" + blockId
+                        + " expectedSupport=" + isExpectedSupportCell(segment, index, blockId)
+                );
+            }
+        }
     }
 
     static int supportRotationDegrees(MineDirection direction) {
@@ -608,16 +665,42 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         );
     }
 
+    private static void logSegmentTransition(Vector3d position, MineSegment completed, MineSegment next) {
+        if (next == null) {
+            System.out.println(
+                "[Civ Mine Debug] segment-complete segment=" + completed.id()
+                    + " direction=" + completed.direction()
+                    + " workerPos=" + position
+                    + " next=null"
+            );
+            return;
+        }
+        System.out.println(
+            "[Civ Mine Debug] segment-transition completed=" + completed.id()
+                + " oldDirection=" + completed.direction()
+                + " next=" + next.id()
+                + " nextDirection=" + next.direction()
+                + " nextStart=" + next.start()
+                + " nextWorkTarget=" + workTarget(next)
+                + " workerPos=" + position
+        );
+    }
+
     private void navigateTo(
         Ref<EntityStore> ref,
         World world,
         Vector3d position,
         Vector3d target,
         WorkerRuntime runtime,
-        float dt
+        String reason
     ) {
         if (runtime.navigationTarget == null
             || runtime.navigationTarget.distanceSquared(target) > 0.0001) {
+            System.out.println(
+                "[Civ Mine Debug] navigation-set reason=" + reason
+                    + " from=" + position
+                    + " target=" + target
+            );
             runtime.beginNavigation(position, target);
             unitRegistry.setMoveTarget(ref, target);
         }
