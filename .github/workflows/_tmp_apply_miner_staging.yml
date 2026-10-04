@@ -1,0 +1,299 @@
+name: Apply miner staging patch
+
+on:
+  push:
+    branches:
+      - fix/miner-entry-and-turn-staging
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/miner-entry-and-turn-staging
+          fetch-depth: 0
+
+      - name: Apply focused miner navigation changes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          miner_path = Path("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
+          source = miner_path.read_text()
+
+          old_entry = '''        Vector3d position = transform.getPosition();
+          if (!runtime.enteredMine && entrance != null && entrance.bounds() != null) {
+              Vector3d target = center(entrance.bounds(), entrance.bounds().minY());
+              if (!arrived(position, target)) {
+                  navigateTo(ref, position, target, runtime);
+                  stopMiningAnimation(ref, store, runtime);
+                  return;
+              }
+              runtime.enteredMine = true;
+              runtime.navigationArrived();
+          }
+
+          MineSegment segment = resolveSegment(world, mine, connector, runtime);
+          '''
+          new_entry = '''        Vector3d position = transform.getPosition();
+          if (!runtime.enteredMine && entrance != null && entrance.bounds() != null) {
+              Vector3d target = center(entrance.bounds(), entrance.bounds().minY());
+              if (!arrived(position, target)) {
+                  navigateTo(ref, position, target, runtime);
+                  stopMiningAnimation(ref, store, runtime);
+                  return;
+              }
+              runtime.enteredMine = true;
+              runtime.navigationArrived();
+          }
+
+          if (!runtime.reachedConnector) {
+              Vector3d target = center(connector.bounds(), connector.bounds().minY());
+              if (!arrived(position, target)) {
+                  navigateTo(ref, position, target, runtime);
+                  stopMiningAnimation(ref, store, runtime);
+                  return;
+              }
+              runtime.reachedConnector = true;
+              runtime.navigationArrived();
+          }
+
+          MineSegment segment = resolveSegment(world, mine, connector, runtime);
+          '''
+          if old_entry not in source:
+              raise SystemExit("entry sequence anchor not found")
+          source = source.replace(old_entry, new_entry, 1)
+
+          old_work = '''        Vector3d workTarget = workTarget(segment);
+          if (!arrived(position, workTarget)) {
+              navigateTo(ref, position, workTarget, runtime);
+              stopMiningAnimation(ref, store, runtime);
+              return;
+          }
+          '''
+          new_work = '''        if (isTurnSegment(worldId, segment) && !segment.id().equals(runtime.turnStagedSegmentId)) {
+              Vector3d junctionTarget = turnStagingTarget(segment);
+              if (!arrived(position, junctionTarget)) {
+                  navigateTo(ref, position, junctionTarget, runtime);
+                  stopMiningAnimation(ref, store, runtime);
+                  return;
+              }
+              runtime.turnStagedSegmentId = segment.id();
+              runtime.navigationArrived();
+              unitRegistry.clearMoveTarget(ref);
+              stopMiningAnimation(ref, store, runtime);
+              return;
+          }
+
+          Vector3d workTarget = workTarget(segment);
+          if (!arrived(position, workTarget)) {
+              navigateTo(ref, position, workTarget, runtime);
+              stopMiningAnimation(ref, store, runtime);
+              return;
+          }
+          '''
+          if old_work not in source:
+              raise SystemExit("work target anchor not found")
+          source = source.replace(old_work, new_work, 1)
+
+          old_helpers = '''    private static Vector3d workTarget(MineSegment segment) {
+          '''
+          new_helpers = '''    private boolean isTurnSegment(UUID worldId, MineSegment segment) {
+          if (segment.parentId() == null) return false;
+          MineSegment parent = tunnelRegistry.get(worldId, segment.parentId());
+          return parent != null && parent.direction() != segment.direction();
+      }
+
+      static Vector3d turnStagingTarget(MineSegment segment) {
+          int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
+          int sharedDepth = Math.min(MineTuning.TUNNEL_WIDTH_BLOCKS, segment.lengthBlocks());
+          double x = 0.0;
+          double z = 0.0;
+          int cells = 0;
+          for (int depth = 0; depth < sharedDepth; depth++) {
+              int first = depth * faceSize;
+              for (int width = 0; width < MineTuning.TUNNEL_WIDTH_BLOCKS; width++) {
+                  BlockPosition block = segment.blockAtIndex(first + width);
+                  x += block.x() + 0.5;
+                  z += block.z() + 0.5;
+                  cells++;
+              }
+          }
+          return new Vector3d(x / cells, segment.start().y(), z / cells);
+      }
+
+      private static Vector3d workTarget(MineSegment segment) {
+          '''
+          if old_helpers not in source:
+              raise SystemExit("workTarget helper anchor not found")
+          source = source.replace(old_helpers, new_helpers, 1)
+
+          old_fields = '''        private UUID segmentId;
+          private boolean enteredMine;
+          private boolean animationStarted;
+          '''
+          new_fields = '''        private UUID segmentId;
+          private boolean enteredMine;
+          private boolean reachedConnector;
+          private UUID turnStagedSegmentId;
+          private boolean animationStarted;
+          '''
+          if old_fields not in source:
+              raise SystemExit("runtime fields anchor not found")
+          source = source.replace(old_fields, new_fields, 1)
+
+          old_interrupt = '''            segmentId = null;
+              enteredMine = false;
+              workElapsed = 0.0;
+          '''
+          new_interrupt = '''            segmentId = null;
+              enteredMine = false;
+              reachedConnector = false;
+              turnStagedSegmentId = null;
+              workElapsed = 0.0;
+          '''
+          if old_interrupt not in source:
+              raise SystemExit("interrupt reset anchor not found")
+          source = source.replace(old_interrupt, new_interrupt, 1)
+
+          old_reset = '''            segmentId = null;
+              enteredMine = false;
+              animationStarted = false;
+          '''
+          new_reset = '''            segmentId = null;
+              enteredMine = false;
+              reachedConnector = false;
+              turnStagedSegmentId = null;
+              animationStarted = false;
+          '''
+          if old_reset not in source:
+              raise SystemExit("full reset anchor not found")
+          source = source.replace(old_reset, new_reset, 1)
+
+          miner_path.write_text(source)
+
+          test_path = Path("src/test/java/dev/civilizations/hytale/MinerNavigationStagingContractTest.java")
+          test_path.write_text('''package dev.civilizations.hytale;
+
+import dev.civilizations.core.BlockPosition;
+import dev.civilizations.core.MineDirection;
+import dev.civilizations.core.MineSegment;
+import org.joml.Vector3d;
+import org.junit.jupiter.api.Test;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+final class MinerNavigationStagingContractTest {
+
+    @Test
+    void connectorGateComesBeforeSegmentResolutionAndResetsAfterManualMove() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
+        );
+
+        int connectorGate = source.indexOf("if (!runtime.reachedConnector)");
+        int segmentResolution = source.indexOf("MineSegment segment = resolveSegment");
+
+        assertTrue(connectorGate >= 0, "miner must gate autonomous work on the tunnel connector");
+        assertTrue(segmentResolution > connectorGate,
+            "segment selection must happen only after the connector gate");
+        assertTrue(source.contains("reachedConnector = false;"),
+            "manual interruption/reset must require the connector again");
+    }
+
+    @Test
+    void turnStagingTargetLiesInsideTheSharedFourByFourJunction() {
+        MineSegment parent = MineSegment.reserved(
+            UUID.fromString("00000000-0000-0000-0000-000000000701"),
+            UUID.fromString("00000000-0000-0000-0000-000000000702"),
+            null,
+            new BlockPosition(10, 20, 30),
+            MineDirection.NORTH,
+            8
+        );
+        MineSegment child = MineSegment.reserved(
+            UUID.fromString("00000000-0000-0000-0000-000000000703"),
+            parent.mineId(),
+            parent.id(),
+            parent.nextStart(MineDirection.EAST),
+            MineDirection.EAST,
+            7
+        );
+
+        Vector3d target = MinerWorkSystem.turnStagingTarget(child);
+
+        double minX = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double minZ = Double.POSITIVE_INFINITY;
+        double maxZ = Double.NEGATIVE_INFINITY;
+        int faceSize = 16;
+        for (int depth = 0; depth < 4; depth++) {
+            for (int width = 0; width < 4; width++) {
+                BlockPosition block = child.blockAtIndex(depth * faceSize + width);
+                minX = Math.min(minX, block.x());
+                maxX = Math.max(maxX, block.x() + 1.0);
+                minZ = Math.min(minZ, block.z());
+                maxZ = Math.max(maxZ, block.z() + 1.0);
+            }
+        }
+
+        assertTrue(target.x > minX && target.x < maxX);
+        assertTrue(target.z > minZ && target.z < maxZ);
+        assertTrue(Math.abs(target.y - child.start().y()) < 1.0e-9);
+    }
+}
+''')
+
+          mine_doc = Path("docs/mine-worker.md")
+          text = mine_doc.read_text()
+          text = text.replace(
+              "- Der Bewohner läuft zuerst über `workplace_access` und arbeitet anschließend am `mine_tunnel_connector` beziehungsweise an einer offenen Arbeitsfront im bestehenden Stollensystem.",
+              "- Der Bewohner läuft beim Betreten beziehungsweise Wiedereintreten zuerst über `workplace_access` und danach zwingend zum `mine_tunnel_connector`. Erst wenn der Connector erreicht ist, darf Civ eine offene Arbeitsfront auswählen und als nächstes Navigationsziel setzen."
+          )
+          needle = "- Nach einem fertigen Abschnitt entscheidet der Abbauer selbst zwischen geradeaus, links und rechts. Ungültige Richtungen fallen aus der Auswahl. Geradeaus wird zunächst mit 60 %, links und rechts jeweils mit 20 % gewichtet. Ein direktes Umdrehen ist ausgeschlossen.\n"
+          addition = needle + "- Bei einer 90°-Kurve läuft der Miner vor dem eigentlichen Abbau einmal zum Mittelpunkt der bereits offenen gemeinsamen 4×4-Kreuzungsfläche. Erst danach wird die neue seitliche Arbeitsfront als Ziel gesetzt. So muss Hytales Pathfinder nie direkt eine noch geschlossene Seitenwand als erreichbares Bewegungsziel behandeln.\n"
+          if needle not in text:
+              raise SystemExit("mine doc turn anchor not found")
+          text = text.replace(needle, addition, 1)
+          text = text.replace(
+              "- Nach dem manuellen Auftrag muss der Miner nicht zwingend zu exakt der Front zurückkehren, an der er unterbrochen wurde. Beim Wiederaufnehmen sucht Civ zuerst nach einer anderen begonnenen Arbeitsfront. Gibt es keine, kann an einem abgeschlossenen Segment ein neuer gültiger Tunnelast angelegt werden. Nur wenn keine Alternative existiert, wird der unterbrochene Abschnitt wieder aufgenommen.",
+              "- Nach dem manuellen Auftrag muss der Miner nicht zwingend zu exakt der Front zurückkehren, an der er unterbrochen wurde. Beim Wiederaufnehmen läuft er zuerst über `workplace_access` und `mine_tunnel_connector`; erst danach sucht Civ nach einer anderen begonnenen Arbeitsfront. Gibt es keine, kann an einem abgeschlossenen Segment ein neuer gültiger Tunnelast angelegt werden. Nur wenn keine Alternative existiert, wird der unterbrochene Abschnitt wieder aufgenommen."
+          )
+          mine_doc.write_text(text)
+
+          nav_doc = Path("docs/hytale/npc-navigation.md")
+          text = nav_doc.read_text()
+          needle = "- Die Navigation zielt auf die Arbeitsposition der aktuellen Tunnel-Front. Ist diese Position erreicht, darf der Arbeiter die dazugehörige Arbeitsfront bearbeiten; einzelne Blöcke derselben Front erhalten keine zusätzliche künstliche Civ-Reichweitengrenze.\n"
+          addition = needle + "- Beim autonomen Betreten oder Wiedereintreten einer Mine wird die Navigation gestaffelt: zuerst `workplace_access`, danach `mine_tunnel_connector`, erst danach eine Tunnel-Arbeitsposition. Dadurch bekommt der native Pathfinder nicht direkt von oberhalb des Gebäudes ein tiefes unterirdisches Ziel.\n- Bei einer Links-/Rechtskurve dient der Mittelpunkt der bereits offenen gemeinsamen 4×4-Kreuzungsfläche einmalig als Zwischenziel, bevor Civ die neue seitliche Arbeitsfront setzt. Die eigentliche Wegfindung zwischen diesen semantischen Zielen bleibt vollständig bei Hytales `Seek`.\n"
+          if needle not in text:
+              raise SystemExit("navigation doc anchor not found")
+          nav_doc.write_text(text.replace(needle, addition, 1))
+
+          concept = Path("docs/concept.md")
+          text = concept.read_text()
+          needle = "- Ein Rechtsklick auf einen Bodenblock gibt dem ausgewählten Bewohner ein direktes Bewegungsziel. Dieser manuelle Befehl pausiert seine automatische Berufsarbeit. Sobald der Bewohner das Ziel erreicht hat, endet der manuelle Auftrag; nach einer gemeinsamen Wiederanlaufpause von zwei Sekunden darf der bereits zugewiesene Beruf automatisch mit seinem unveränderten Zustand weiterarbeiten. Der Beruf muss nicht erneut zugewiesen werden.\n"
+          addition = needle + "- Für Minenabbauer ist die automatische Wiederaufnahme bewusst gestaffelt: Nach einer manuellen Ausfahrt läuft der Bewohner zuerst zum Minenzugang und zum `mine_tunnel_connector`. Bei einer Tunnelkurve wird zusätzlich die bereits offene 4×4-Kreuzungsfläche betreten, bevor die neue seitliche Arbeitsfront beginnt.\n"
+          if needle not in text:
+              raise SystemExit("concept anchor not found")
+          concept.write_text(text.replace(needle, addition, 1))
+
+      - name: Commit focused patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main/java/dev/civilizations/hytale/MinerWorkSystem.java \
+                  src/test/java/dev/civilizations/hytale/MinerNavigationStagingContractTest.java \
+                  docs/mine-worker.md docs/hytale/npc-navigation.md docs/concept.md
+          git commit -m "Stage miner entry and tunnel turns"
+          git push origin HEAD:fix/miner-entry-and-turn-staging
