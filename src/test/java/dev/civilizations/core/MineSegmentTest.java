@@ -7,18 +7,22 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class MineSegmentTest {
 
     @Test
-    void variableSegmentsContainExactlyTheirFourByFourVolume() {
+    void variableSegmentsContainMainTunnelPlusFixedFourBlockJunction() {
         for (int length : List.of(4, 8, 12)) {
             for (MineDirection direction : MineDirection.values()) {
                 MineSegment segment = segment(direction, length);
-                assertEquals(16 * length, segment.blockCount());
-                assertEquals(16 * length, segment.blocks().size());
-                assertEquals(16 * length, new HashSet<>(segment.blocks()).size());
+                int expected = 16 * (length + MineTuning.JUNCTION_LENGTH_BLOCKS);
+                assertEquals(expected, segment.blockCount());
+                assertEquals(expected, segment.blocks().size());
+                assertEquals(expected, new HashSet<>(segment.blocks()).size());
+                assertEquals(64, segment.junctionBlocks().size());
             }
         }
     }
@@ -34,15 +38,25 @@ final class MineSegmentTest {
     }
 
     @Test
-    void straightContinuationUsesActualParentLength() {
+    void junctionStartsImmediatelyAfterMainTunnel() {
+        MineSegment segment = segment(MineDirection.SOUTH, 7);
+        int mainBlocks = MineTuning.mainTunnelBlocks(7);
+        assertFalse(segment.isJunctionIndex(mainBlocks - 1));
+        assertTrue(segment.isJunctionIndex(mainBlocks));
+        assertEquals(7, forwardDepth(segment, segment.blockAtIndex(mainBlocks)));
+    }
+
+    @Test
+    void straightContinuationStartsAfterMainTunnelAndJunction() {
         for (int length : List.of(4, 8, 12)) {
             for (MineDirection direction : MineDirection.values()) {
                 MineSegment parent = segment(direction, length);
+                int total = length + MineTuning.JUNCTION_LENGTH_BLOCKS;
                 assertEquals(
                     new BlockPosition(
-                        parent.start().x() + direction.dx() * length,
+                        parent.start().x() + direction.dx() * total,
                         parent.start().y(),
-                        parent.start().z() + direction.dz() * length
+                        parent.start().z() + direction.dz() * total
                     ),
                     parent.nextStart(direction)
                 );
@@ -51,9 +65,7 @@ final class MineSegmentTest {
     }
 
     @Test
-    void turnsReuseParentsFinalFourByFourJunction() {
-        int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
-        int expectedOverlap = MineTuning.TUNNEL_WIDTH_BLOCKS * faceSize;
+    void turnChildrenStartOutsideTheFullyReservedJunctionWithoutOverlap() {
         for (MineDirection direction : MineDirection.values()) {
             MineSegment parent = segment(direction, 8);
             for (MineDirection turn : List.of(direction.left(), direction.right())) {
@@ -67,9 +79,16 @@ final class MineSegmentTest {
                 );
                 HashSet<BlockPosition> overlap = new HashSet<>(parent.blocks());
                 overlap.retainAll(child.blocks());
-                assertEquals(expectedOverlap, overlap.size(), direction + " -> " + turn);
+                assertEquals(0, overlap.size(), direction + " -> " + turn);
             }
         }
+    }
+
+    @Test
+    void northTurnStartsMatchTheTwoOpenSidesOfItsJunction() {
+        MineSegment parent = segment(MineDirection.NORTH, 8);
+        assertEquals(new BlockPosition(9, 20, 22), parent.nextStart(MineDirection.WEST));
+        assertEquals(new BlockPosition(14, 20, 19), parent.nextStart(MineDirection.EAST));
     }
 
     @Test
@@ -81,12 +100,12 @@ final class MineSegmentTest {
     }
 
     @Test
-    void progressAndSupportBoundsFollowActualLength() {
+    void supportBoundsEndAtMainTunnelNotAtJunction() {
         MineSegment shortSegment = segment(MineDirection.SOUTH, 4);
-        assertEquals(64, shortSegment.blockCount());
+        assertEquals(128, shortSegment.blockCount());
         assertEquals(new BlockPosition(10, 20, 33), shortSegment.supportOrigin(4));
         assertThrows(IllegalArgumentException.class, () -> shortSegment.supportOrigin(5));
-        assertThrows(IndexOutOfBoundsException.class, () -> shortSegment.blockAtIndex(64));
+        assertThrows(IndexOutOfBoundsException.class, () -> shortSegment.blockAtIndex(128));
     }
 
     private static int forwardDepth(MineSegment segment, BlockPosition block) {

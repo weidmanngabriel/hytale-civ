@@ -57,18 +57,16 @@ public final class MineTunnelRegistry {
     }
 
     /**
-     * Rejects overlap with every reserved/completed segment except the direct parent.
-     * A 90-degree child is intentionally allowed to reuse its parent's final 4x4 junction.
+     * Rejects overlap with every reserved/completed segment. Main tunnel and fixed junction are
+     * both part of {@link MineSegment#blocks()}, so parent and child segments must be adjacent,
+     * never overlapping.
      */
     public boolean conflicts(UUID worldId, MineSegment candidate) {
         Set<BlockPosition> candidateBlocks = new HashSet<>(candidate.blocks());
         for (MineSegment existing : segments(worldId)) {
             if (existing.id().equals(candidate.id())) continue;
-            if (candidate.parentId() != null && existing.id().equals(candidate.parentId())) continue;
             for (BlockPosition block : existing.blocks()) {
-                if (candidateBlocks.contains(block)) {
-                    return true;
-                }
+                if (candidateBlocks.contains(block)) return true;
             }
         }
         return false;

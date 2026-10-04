@@ -29,12 +29,20 @@ final class MineVoxelScenarioTest {
         actual.placeSupport(segment, 4);
         fill(expected, 10, 13, 20, 23, 27, 30, TestVoxelWorld.Cell.AIR);
         placeNorthGoldenSupport(expected, 27);
-        assertWorld(expected, actual, "first four tunnel depths");
+        assertWorld(expected, actual, "first four main-tunnel depths");
 
         excavate(actual, segment, 64, 128);
+        actual.placeSupport(segment, 8);
         fill(expected, 10, 13, 20, 23, 23, 30, TestVoxelWorld.Cell.AIR);
         placeNorthGoldenSupport(expected, 27);
-        assertWorld(expected, actual, "complete supported segment with clear junction");
+        placeNorthGoldenSupport(expected, 23);
+        assertWorld(expected, actual, "complete eight-block supported main tunnel");
+
+        excavate(actual, segment, 128, 192);
+        fill(expected, 10, 13, 20, 23, 19, 30, TestVoxelWorld.Cell.AIR);
+        placeNorthGoldenSupport(expected, 27);
+        placeNorthGoldenSupport(expected, 23);
+        assertWorld(expected, actual, "complete main tunnel plus support-free junction");
     }
 
     @Test
@@ -48,8 +56,8 @@ final class MineVoxelScenarioTest {
         excavate(parentWorld, parent, 0, parent.blocks().size());
         excavate(childWorld, child, 0, child.blocks().size());
 
-        fill(expected, 10, 13, 20, 23, 23, 30, TestVoxelWorld.Cell.AIR);
-        fill(expected, 10, 17, 20, 23, 23, 26, TestVoxelWorld.Cell.AIR);
+        fill(expected, 10, 13, 20, 23, 19, 30, TestVoxelWorld.Cell.AIR);
+        fill(expected, 14, 25, 20, 23, 19, 22, TestVoxelWorld.Cell.AIR);
 
         Map<BlockPosition, TestVoxelWorld.Cell> actual = merged(parentWorld, childWorld, expectedBounds());
         assertEquals(expected.snapshot(expectedBounds()), actual);
@@ -66,8 +74,8 @@ final class MineVoxelScenarioTest {
         excavate(parentWorld, parent, 0, parent.blocks().size());
         excavate(childWorld, child, 0, child.blocks().size());
 
-        fill(expected, 10, 13, 20, 23, 23, 30, TestVoxelWorld.Cell.AIR);
-        fill(expected, 6, 13, 20, 23, 23, 26, TestVoxelWorld.Cell.AIR);
+        fill(expected, 10, 13, 20, 23, 19, 30, TestVoxelWorld.Cell.AIR);
+        fill(expected, -2, 9, 20, 23, 19, 22, TestVoxelWorld.Cell.AIR);
 
         Map<BlockPosition, TestVoxelWorld.Cell> actual = merged(parentWorld, childWorld, expectedBounds());
         assertEquals(expected.snapshot(expectedBounds()), actual);
@@ -163,7 +171,7 @@ final class MineVoxelScenarioTest {
     }
 
     private static TestVoxelWorld.Bounds expectedBounds() {
-        return new TestVoxelWorld.Bounds(5, 19, 19, 24, 21, 32);
+        return new TestVoxelWorld.Bounds(-3, 26, 19, 24, 18, 32);
     }
 
     private static MineSegment child(MineSegment parent, MineDirection direction) {

@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class MinerJobVoxelScenarioTest {
 
     @Test
-    void minerJobDrivesOneCompleteSupportedSegmentInTheSameVoxelWorldUsedByTheViewer() {
+    void minerJobDrivesOneCompleteSupportedMainTunnelAndJunctionInTheViewerWorld() {
         MineSegment segment = segment();
         MinerJob job = new MinerJob(segment);
         MineSimulationWorld actual = new MineSimulationWorld(segment);
@@ -47,12 +47,13 @@ final class MinerJobVoxelScenarioTest {
             }
         }
 
-        fill(expected, 10, 13, 20, 23, 23, 30, TestVoxelWorld.Cell.AIR);
+        fill(expected, 10, 13, 20, 23, 19, 30, TestVoxelWorld.Cell.AIR);
         placeNorthGoldenSupport(expected, 27);
+        placeNorthGoldenSupport(expected, 23);
 
-        assertEquals(8, movementCompletions);
-        assertEquals(128, blockBreaks);
-        assertEquals(1, supportPlacements);
+        assertEquals(12, movementCompletions);
+        assertEquals(192, blockBreaks);
+        assertEquals(2, supportPlacements);
         assertWorld(expected, actual);
     }
 
