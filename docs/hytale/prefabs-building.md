@@ -8,7 +8,7 @@ Während der Mausbewegung erzeugt oder verschiebt Civ eine native `PersistentPre
 
 Die sichtbaren Baustellen-Layer werden ohne Prefab-Entities materialisiert. Erst nach dem letzten Bauschritt wird die vollständige vorbereitete `BlockSelection` nativ platziert, damit authored Entities und TriggerVolumes entstehen.
 
-Wichtig für Hytale 0.6.8: `BlockSelection.place(...)` fügt Prefab-Entities nicht synchron in den `EntityStore` ein. `placeEntity(...)` erzeugt zunächst einen `Ref`, hängt die eigentliche Store-Insertion anschließend per `World.execute(...)` an die World-Queue und gibt den Ref schon vorher an den Entity-Consumer zurück. Ein `isValid()`-Check im unmittelbaren Consumer ist daher zu früh. Civ sammelt diese Refs zunächst nur und hängt einen eigenen Finalize-Schritt hinter Hytales Insertions in dieselbe World-Queue. Erst dort werden UUIDs gelesen und neue TriggerVolumes aus dem `TriggerVolumeManager` erfasst.
+Wichtig für Hytale 0.6.8: `BlockSelection.place(...)` fügt normale Prefab-Entities nicht synchron in den `EntityStore` ein. `placeEntity(...)` erzeugt zunächst einen `Ref`, hängt die eigentliche Store-Insertion anschließend per `World.execute(...)` an die World-Queue und gibt den Ref schon vorher an den Entity-Consumer zurück. Ein `isValid()`-Check im unmittelbaren Consumer ist daher zu früh. Civ sammelt diese Refs zunächst nur und liest UUIDs erst in einem eigenen Finalize-Schritt hinter Hytales Insertions in derselben World-Queue. Prefab-TriggerVolumes folgen dagegen einem anderen nativen Pfad: Hytales `TriggerVolumePasteHandler` registriert sie synchron während `BlockSelection.place(...)` im `TriggerVolumeManager` und cancelt ihre normale ECS-Insertion. Civ erfasst deshalb die exakt in diesem Paste entstandenen TriggerVolume-IDs über einen unmittelbaren Manager-Diff direkt um den nativen `place(...)`-Aufruf; sie müssen nicht auf die spätere Entity-Queue warten.
 
 Das fertige Civ-Gebäude wird erst nach dieser nativen Finalisierung registriert. Bei einem Upgrade bleibt die alte Phase bis dahin registriert; erst nachdem die neue Phase gültige authored Bounds geliefert und unter derselben Building-ID registriert wurde, entfernt Civ die alten TriggerVolumes und Prefab-Entities.
 
@@ -79,7 +79,7 @@ Semantische Trigger sind grundsätzlich gegenüber festen Prefab-Maßen zu bevor
 
 ## Upgrade-Sicherheit für Bewohner
 
-Beim Start eines Minen-Upgrades werden die aktuell geladenen Bewohner mit passender persistenter Arbeitsplatz-ID über Hytales native `Teleport`-ECS-Komponente aus dem Ziel-Footprint evakuiert. Vorher entfernt Civ ihre aktuellen manuellen und nativen Bewegungsziele. Der sichere Punkt wird bevorzugt aus dem authored `workplace_access` der bestehenden Mine in Außenrichtung abgeleitet. Civ läuft entlang dieser Richtung weiter, bis der Punkt sicher außerhalb des gemessenen Footprints der Zielphase liegt, und fügt anschließend Sicherheitsabstand hinzu. Fehlt ein nutzbarer Marker, gibt es einen Footprint-/Bounds-basierten Fallback.
+Beim Start eines Minen-Upgrades werden die aktuell geladenen Bewohner mit passender persistenter Arbeitsplatz-ID über Hytales native `Teleport`-ECS-Komponente aus dem Ziel-Footprint evakuiert. Vorher entfernt Civ ihre aktuellen manuellen und nativen Bewegungsziele. Der sichere Punkt wird bevorzugt aus dem authored `workplace_access` der bestehenden Mine in Außenrichtung abgeleitet. Civ läuft entlang dieser Richtung weiter, bis der Punkt sicher außerhalb des gemessenen Footprints der Zielphase liegt, und fügt anschließend Sicherheitsabstand hinzu. Mehrere Arbeiter werden quer zur ermittelten Außenrichtung verteilt; jeder finale Zielpunkt wird nochmals aus dem Ziel-Footprint herausgeschoben. Fehlt ein nutzbarer Marker, gibt es einen Footprint-/Bounds-basierten Fallback.
 
 Während der Ausbau läuft, bleibt die vorhandene Building-Instanz für Picking und Gebäude-UI sichtbar. Normale Gameplay-Abfragen nach dieser Building-ID behandeln sie jedoch als nicht verfügbar. Berufsadapter wie der Minenarbeiter erhalten dadurch kein benutzbares Arbeitsplatzgebäude und erzeugen keine autonomen Bewegungsziele zurück in den Baukörper. Das ist eine Civ-Gameplay-Sperre auf der bestehenden Hytale-Navigation, keine zweite Wegfindung.
 
@@ -87,21 +87,29 @@ Eine separate native Hytale-API, mit der Civ einen beliebigen fertigen Gebäudei
 
 ## Prefab-Entities und Abriss
 
-Die gepinnte `BlockSelection.place(...)`-API liefert über ihren Entity-Consumer Referenzen auf die beim Prefab-Paste erzeugten Entities. Diese Refs sind im unmittelbaren Callback noch nicht valide, weil Hytale die Store-Insertion erst per `World.execute(...)` queued. Civ wertet sie deshalb erst im nachgelagerten World-Queue-Finalizer aus. Für nicht-TriggerVolume-Entities wird dort die `UUIDComponent` gelesen und als Eigentum der jeweiligen Building-Instanz gespeichert. Die UUID-Liste wird zusammen mit den übrigen Gebäude-Metadaten persistiert.
+Die gepinnte `BlockSelection.place(...)`-API liefert über ihren Entity-Consumer Referenzen auf die beim Prefab-Paste erzeugten normalen Entities. Diese Refs sind im unmittelbaren Callback noch nicht valide, weil Hytale die Store-Insertion erst per `World.execute(...)` queued. Civ wertet sie deshalb erst im nachgelagerten World-Queue-Finalizer aus. Dort wird die `UUIDComponent` gelesen und als Eigentum der jeweiligen Building-Instanz gespeichert. Die UUID-Liste wird zusammen mit den übrigen Gebäude-Metadaten persistiert. Prefab-TriggerVolumes werden nicht über diese UUID-Liste verwaltet: Hytales Paste-Handler registriert sie synchron im `TriggerVolumeManager`, und Civ persistiert ihre Volume-IDs als semantische Marker.
 
-Beim Abriss werden nur diese exakt aufgezeichneten Prefab-Entities entfernt. Bereits vorher in der Welt vorhandene Entities werden weder gelöscht noch restauriert. TriggerVolumes werden separat über ihre gespeicherten Volume-IDs deregistriert. Dadurch braucht der Abriss keine unsichere Regel wie „alle Entities innerhalb des Gebäude-Bereichs außer Civ-NPCs löschen“.
+Beim Abriss werden nur diese exakt aufgezeichneten Prefab-Entities entfernt. Bereits vorher in der Welt vorhandene Entities werden weder gelöscht noch restauriert. TriggerVolumes werden separat über ihre gespeicherten Volume-IDs deregistriert. `TriggerVolumeManager.unregister(...)` ist für den von Hytales Paste-Handler registrierten Trigger-Lifecycle der relevante native Cleanup; die normale TriggerVolume-ECS-Insertion wurde beim Paste bereits gecancelt. Dadurch braucht der Abriss keine unsichere Regel wie „alle Entities innerhalb des Gebäude-Bereichs außer Civ-NPCs löschen“.
 
 Terrain wird beim Abriss nicht mehr blockweise über `WorldChunk.setBlock(...)` zurückgeschrieben. Civ erzeugt aus dem gespeicherten Snapshot eine `BlockSelection` und verwendet `placeNoReturn(...)`, damit Hytales eigener Bulk-Placement-Lifecycle für Rotation, Fluids, Block-State-/Container-Cleanup, Heightmaps und Chunk-Updates greift.
 
 Ältere persistierte Gebäude besitzen noch keine aufgezeichnete Prefab-Entity-Liste. Für sie bleibt die Liste leer; der neue Cleanup kann rückwirkend nicht beweisen, welche vorhandenen Entities ursprünglich von diesem Gebäude erzeugt wurden.
 
+## Baustellen-Persistenz
+
+Bestätigte `ConstructionSite`s sind Weltzustand und nicht an die Spielersession gebunden. Persistiert werden die Baustelle selbst, ihr Transform/Footprint, der Terrain-Snapshot, bereits abgeschlossene Bau-Layer sowie bei Upgrades die bestehende Building-ID und Zielphase. Ein Disconnect entfernt nur unbestätigte Placement-/Ghost-Sessiondaten.
+
+Beim World-Start wird der Baustellenzustand für genau diese Welt neu aus der Hytale-Ressource aufgebaut. Reservierungen werden wiederhergestellt, Upgrade-Locks erneut gesetzt und Bauarbeiter können die Baustelle ab dem gespeicherten Layer wieder übernehmen. Der Prefab-Ghost wird dabei absichtlich nicht rekonstruiert; nach dem bestätigten Linksklick ist die persistente `ConstructionSite` die autoritative Wahrheit.
+
+Der Baufortschritt gehört der Baustelle, nicht dem ausführenden NPC. Ein Bauarbeiterwechsel oder neu erzeugter Worker-Runtime-State darf deshalb nicht auf Layer 0 zurücksetzen. Persistenz-I/O wird an echte Zustandsänderungen gekoppelt: neue Baustelle, abgeschlossener Layer, Abschluss/Abbruch; es gibt keinen hochfrequenten Save-Tick.
+
 ## Aktuelle Validierungsgrenze
 
-Im derzeitigen Preview-Spike wird die frühere blockweise Kollisions-/Terrainprüfung bewusst nicht vor dem Preview-Spawn ausgeführt. Diese Prüfung stammte aus dem Sofort-Paste-Pfad und störte die isolierte Verifikation von `PersistentPrefabPreview` bei eingesenkten Baustellenankern.
+Während der Ghost bewegt wird, verwendet Civ einen leichten Footprint-Probe und prüft Kollisionen gegen fertige Gebäude sowie aktive Baustellen ereignisgesteuert bei relevanten Mauszieländerungen. Bei einer Kollision zeigt Civ clientlokal die geplante und die blockierende Boundary. Die vollständige `PrefabPlacementService.validatePlacement(...)`-Prüfung einschließlich Terrain-Snapshot läuft erst beim bestätigenden Linksklick; damit wird kein teurer vollständiger Welt-/Snapshot-Scan pro Mouse-/Engine-Tick erzeugt.
 
-Die Kollisionsregeln müssen für den Baustellen-Lifecycle erneut passend eingeführt und zur Laufzeit verifiziert werden. Die vier Orientation-Transformationen sind automatisiert gegen Core/Simulation geprüft; die sichtbare Player-Rotation selbst ist noch nicht als In-Game-UX aktiviert und daher noch nicht runtime-verifiziert.
+Die vier Orientation-Transformationen sind automatisiert gegen Core/Simulation geprüft; die sichtbare Player-Rotation selbst ist noch nicht als In-Game-UX aktiviert und daher noch nicht runtime-verifiziert.
 
-Die queued Finalisierung von Prefab-Entities/TriggerVolumes, die sichtbare Ersetzung `Mine_01 -> Mine_02 -> Mine_03`, der genaue Evakuierungspunkt und der native Abriss-Restore sind fokussiert im echten Client zu prüfen. Eine persistente Wiederaufnahme einer aktiven ConstructionSite nach Serverneustart ist noch nicht implementiert; laufende Baustellen bleiben derzeit Runtime-Zustand.
+Die queued Finalisierung normaler Prefab-Entities, die synchrone TriggerVolume-Erfassung, die sichtbare Ersetzung `Mine_01 -> Mine_02 -> Mine_03`, der genaue Evakuierungspunkt, der native Abriss-Restore und die persistente Wiederaufnahme einer aktiven ConstructionSite sind fokussiert im echten Client zu prüfen. CI prüft Compile, Tests, Build und den Bare-Hytale-Server-Probe, ersetzt aber keinen Client-Runtime-Test.
 
 ## Fertige Gebäude
 
