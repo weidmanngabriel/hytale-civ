@@ -256,11 +256,13 @@ jobs:
           Write-Host "Runtime time budget: $timeoutSeconds seconds for $($scenarios -join ', ')"
 
           $scenarioLiteral = ($scenarios | ForEach-Object { "'$_'" }) -join ', '
-          $childCommand = "& '.\scripts\hytale-runtime-tests.ps1' -Scenarios @($scenarioLiteral)"
-          $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($childCommand))
           $stdoutLog = Join-Path $env:RUNNER_TEMP ("hytale-runtime-$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT).stdout.log")
           $stderrLog = Join-Path $env:RUNNER_TEMP ("hytale-runtime-$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT).stderr.log")
-          Remove-Item -LiteralPath $stdoutLog, $stderrLog -Force -ErrorAction SilentlyContinue
+          $statusLog = Join-Path $env:RUNNER_TEMP ("hytale-runtime-$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT).status")
+          $env:HCIV_RUNTIME_STATUS_FILE = $statusLog
+          $childCommand = "try { & '.\scripts\hytale-runtime-tests.ps1' -Scenarios @($scenarioLiteral); Set-Content -LiteralPath `$env:HCIV_RUNTIME_STATUS_FILE -Value '0' -NoNewline; exit 0 } catch { Write-Error `$_; Set-Content -LiteralPath `$env:HCIV_RUNTIME_STATUS_FILE -Value '1' -NoNewline; exit 1 }"
+          $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($childCommand))
+          Remove-Item -LiteralPath $stdoutLog, $stderrLog, $statusLog -Force -ErrorAction SilentlyContinue
 
           $process = Start-Process -FilePath 'powershell.exe' `
             -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $encodedCommand) `
@@ -292,9 +294,27 @@ jobs:
           if (-not $finished) {
             throw "Hytale runtime scenarios exceeded the $timeoutSeconds second time budget."
           }
-          if ($null -eq $exitCode) {
-            throw 'Hytale runtime scenarios completed but their process exit code was unavailable.'
+
+          $statusCode = $null
+          if (Test-Path -LiteralPath $statusLog -PathType Leaf) {
+            $statusText = (Get-Content -LiteralPath $statusLog -Raw).Trim()
+            if ($statusText -match '^[01]$') {
+              $statusCode = [int]$statusText
+            } else {
+              throw "Hytale runtime status marker contained an unexpected value: '$statusText'."
+            }
           }
+
+          if ($null -eq $exitCode) {
+            if ($null -eq $statusCode) {
+              throw 'Hytale runtime scenarios completed but neither their process exit code nor child status marker was available.'
+            }
+            Write-Warning "Hytale runtime process exit code was unavailable; using child status marker $statusCode."
+            $exitCode = $statusCode
+          } elseif ($null -ne $statusCode -and $exitCode -ne $statusCode) {
+            throw "Hytale runtime process exit code $exitCode disagreed with child status marker $statusCode."
+          }
+
           if ($exitCode -ne 0) {
             throw "Hytale runtime scenarios exited with code $exitCode."
           }
