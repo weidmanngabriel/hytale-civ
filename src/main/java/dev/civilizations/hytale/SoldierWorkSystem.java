@@ -19,7 +19,6 @@ import com.hypixel.hytale.server.npc.role.support.MarkedEntitySupport;
 import com.hypixel.hytale.server.npc.role.support.WorldSupport;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.WorkDecisionSchedule;
-import org.joml.Vector3d;
 
 import java.util.List;
 import java.util.Map;
@@ -30,14 +29,14 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>Civ owns the profession, target-selection cadence and manual-order priority. Hytale owns
  * pathfinding, attack interactions, damage, HP and death. A target counts as a hostile monster in
- * this first slice when its native NPC role is hostile to players.</p>
+ * this first slice when its native NPC role is hostile to both players and NPCs, so reciprocal
+ * combat remains an engine-owned behavior rather than a Civ attitude override.</p>
  */
 public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
 
     public static final String COMBAT_TARGET_SLOT = "CivCombatTarget";
     static final double SEARCH_RADIUS = 16.0;
     private static final double RETRY_SECONDS = 0.5;
-    private static final double HOSTILITY_OVERRIDE_SECONDS = 1.5;
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
@@ -91,7 +90,6 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
         Ref<EntityStore> currentTarget = readTarget(ref, store);
         if (isUsableTarget(ref, currentTarget, store)) {
             runtime.target = currentTarget;
-            keepTargetHostileToSoldier(ref, currentTarget, store);
             return;
         }
 
@@ -105,7 +103,7 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
             return;
         }
 
-        Ref<EntityStore> target = findNearestHostileToPlayers(ref, store);
+        Ref<EntityStore> target = findNearestHostileMonster(ref, store);
         if (target == null) {
             runtime.schedule.scheduleRetry(RETRY_SECONDS);
             return;
@@ -113,7 +111,6 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
 
         setTarget(ref, target, store);
         runtime.target = target;
-        keepTargetHostileToSoldier(ref, target, store);
         runtime.schedule.scheduleRetry(RETRY_SECONDS);
     }
 
@@ -136,7 +133,7 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
         }
     }
 
-    private Ref<EntityStore> findNearestHostileToPlayers(
+    private Ref<EntityStore> findNearestHostileMonster(
         Ref<EntityStore> soldier,
         Store<EntityStore> store
     ) {
@@ -202,7 +199,8 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
 
         WorldSupport targetWorldSupport = WorldSupport.get(candidate, store);
         return targetWorldSupport != null
-            && targetWorldSupport.getDefaultPlayerAttitude() == Attitude.HOSTILE;
+            && targetWorldSupport.getDefaultPlayerAttitude() == Attitude.HOSTILE
+            && targetWorldSupport.getDefaultNPCAttitude() == Attitude.HOSTILE;
     }
 
     private static Ref<EntityStore> readTarget(
@@ -227,21 +225,6 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
 
     private static void clearTarget(Ref<EntityStore> soldier, Store<EntityStore> store) {
         setTarget(soldier, null, store);
-    }
-
-    private static void keepTargetHostileToSoldier(
-        Ref<EntityStore> soldier,
-        Ref<EntityStore> target,
-        Store<EntityStore> store
-    ) {
-        WorldSupport targetWorldSupport = WorldSupport.get(target, store);
-        if (targetWorldSupport != null) {
-            targetWorldSupport.overrideAttitude(
-                soldier,
-                Attitude.HOSTILE,
-                HOSTILITY_OVERRIDE_SECONDS
-            );
-        }
     }
 
     private static final class WorkerRuntime {
