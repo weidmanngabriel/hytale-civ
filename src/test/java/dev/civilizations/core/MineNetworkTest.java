@@ -37,8 +37,7 @@ class MineNetworkTest {
             new BlockPosition(20, 20, 30), MineNavigationAnchor.Type.WORK_FRONT, Set.of(firstAnchorId));
 
         network = network.withRoom(room).withWorkFront(front)
-            .withNavigationAnchor(firstAnchor)
-            .withNavigationAnchor(secondAnchor);
+            .withNavigationAnchors(List.of(firstAnchor, secondAnchor));
 
         assertEquals(3, network.tunnels().size());
         assertEquals(2, network.tunnel(nestedId).branchDepth());
