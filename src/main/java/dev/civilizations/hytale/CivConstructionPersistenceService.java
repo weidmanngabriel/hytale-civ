@@ -55,8 +55,14 @@ public final class CivConstructionPersistenceService {
      * This is called only when sites are created, completed or cancelled, not per construction tick.
      */
     public void saveSites(World world, List<ConstructionSiteRegistry.SiteState> states) {
+        if (world == null) return;
+        UUID worldId = world.getWorldConfig().getUuid();
         CivConstructionDataResource resource = resource(world);
-        List<ConstructionSiteRegistry.SiteState> safe = states == null ? List.of() : states;
+        List<ConstructionSiteRegistry.SiteState> safe = states == null
+            ? List.of()
+            : states.stream()
+                .filter(state -> state != null && worldId.equals(state.site().worldId()))
+                .toList();
         resource.setSites(safe.stream().map(state -> encodeSite(state.site())).toArray(String[]::new));
         resource.setProgress(safe.stream()
             .map(state -> state.site().id() + "=" + state.completedLayers())
