@@ -79,7 +79,7 @@ public final class BuildingPlacementRegistry {
     }
 
     public synchronized boolean beginUpgrade(UUID worldId, UUID buildingId) {
-        if (find(worldId, buildingId) == null) {
+        if (findStored(worldId, buildingId) == null || isUpgrading(worldId, buildingId)) {
             return false;
         }
         return upgrading.computeIfAbsent(worldId, ignored -> ConcurrentHashMap.newKeySet())
@@ -161,9 +161,10 @@ public final class BuildingPlacementRegistry {
         List<PrefabPlacementService.PlacedMarker> semanticVolumes,
         PrefabPlacementService.PlacementCandidate placement
     ) {
-        BuildingInstance existing = find(worldId, buildingId);
-        if (existing == null || boundsMarker == null || boundsMarker.bounds() == null) {
-            throw new IllegalArgumentException("Upgrade requires an existing building and authored bounds.");
+        BuildingInstance existing = findStored(worldId, buildingId);
+        if (existing == null || !isUpgrading(worldId, buildingId)
+            || boundsMarker == null || boundsMarker.bounds() == null) {
+            throw new IllegalArgumentException("Upgrade requires an active building upgrade and authored bounds.");
         }
         if (BuildingTypes.nextPhase(existing.buildingType(), existing.phase()) != targetPhase) {
             throw new IllegalArgumentException("Target phase is not the next authored building phase.");
@@ -194,7 +195,7 @@ public final class BuildingPlacementRegistry {
     }
 
     public synchronized BuildingInstance remove(UUID worldId, UUID buildingId) {
-        BuildingInstance existing = find(worldId, buildingId);
+        BuildingInstance existing = findStored(worldId, buildingId);
         if (existing == null) {
             return null;
         }
@@ -226,6 +227,7 @@ public final class BuildingPlacementRegistry {
         return List.copyOf(buildings.getOrDefault(worldId, List.of()));
     }
 
+    /** Picking keeps an upgrading building visible so its UI can show the construction state. */
     public BuildingInstance findAt(UUID worldId, Vector3i block) {
         if (worldId == null || block == null) {
             return null;
@@ -237,7 +239,19 @@ public final class BuildingPlacementRegistry {
             .orElse(null);
     }
 
+    /**
+     * Gameplay lookups treat an upgrading building as unavailable. Worker systems that resolve
+     * a persistent workplace through this method therefore stop routing into the construction area.
+     */
     public BuildingInstance find(UUID worldId, UUID buildingId) {
+        BuildingInstance building = findStored(worldId, buildingId);
+        if (building == null || isUpgrading(worldId, buildingId)) {
+            return null;
+        }
+        return building;
+    }
+
+    private BuildingInstance findStored(UUID worldId, UUID buildingId) {
         if (worldId == null || buildingId == null) {
             return null;
         }
