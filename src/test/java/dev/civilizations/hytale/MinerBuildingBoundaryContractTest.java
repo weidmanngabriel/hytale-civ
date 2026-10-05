@@ -17,7 +17,7 @@ class MinerBuildingBoundaryContractTest {
 
         assertTrue(source.contains("direction, true"));
         assertTrue(source.contains("parent.nextStart(direction), direction, false"));
-        assertTrue(source.contains("validCandidate(world, mine, candidate, allowOwnMine)"));
+        assertTrue(source.contains("validateCandidate(world, mine, candidate, allowOwnMine)"));
         assertTrue(source.contains("return safeBlock(world, mine, block, false);"));
         assertTrue(source.contains(
             "(!allowOwnMine || !building.id().equals(mine.id()))"
