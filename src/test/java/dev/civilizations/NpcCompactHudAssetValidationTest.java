@@ -20,11 +20,15 @@ class NpcCompactHudAssetValidationTest {
         assertTrue(ui.contains("Right: 24"));
         assertTrue(ui.contains("Bottom: 118"));
         assertTrue(ui.contains("Width: 340"));
-        assertTrue(ui.contains("Height: 190"));
+        assertTrue(ui.contains("Height: 300"));
         assertTrue(ui.contains("#NpcName"));
         assertTrue(ui.contains("#Profession"));
         assertTrue(ui.contains("#Activity"));
         assertTrue(ui.contains("#Experience"));
+        assertTrue(ui.contains("#Health"));
+        assertTrue(ui.contains("#Weapon"));
+        assertTrue(ui.contains("#CombatStatus"));
+        assertTrue(ui.contains("#CombatTarget"));
         assertTrue(ui.contains("#Hunger"));
         assertTrue(ui.contains("#Home"));
     }
