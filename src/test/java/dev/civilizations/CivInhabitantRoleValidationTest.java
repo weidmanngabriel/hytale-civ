@@ -73,12 +73,16 @@ class CivInhabitantRoleValidationTest {
             targetInstruction.path("Sensor").path("Type").asText()
         );
 
-        JsonNode inRange = targetInstruction.path("Instructions").path(0);
+        JsonNode defaultSubState = targetInstruction.path("Instructions").path(0);
+        assertEquals("State", defaultSubState.path("Sensor").path("Type").asText());
+        assertEquals(".Default", defaultSubState.path("Sensor").path("State").asText());
+
+        JsonNode inRange = defaultSubState.path("Instructions").path(0);
         assertEquals("CombatActionEvaluator", inRange.path("Sensor").path("Type").asText());
         assertTrue(inRange.path("Sensor").path("TargetInRange").asBoolean());
         assertEquals("CombatAbility", inRange.path("Actions").path(0).path("Type").asText());
 
-        JsonNode outOfRange = targetInstruction.path("Instructions").path(1);
+        JsonNode outOfRange = defaultSubState.path("Instructions").path(1);
         assertEquals("CombatActionEvaluator", outOfRange.path("Sensor").path("Type").asText());
         assertFalse(outOfRange.path("Sensor").path("TargetInRange").asBoolean(true));
         assertEquals("Seek", outOfRange.path("BodyMotion").path("Type").asText());
