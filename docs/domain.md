@@ -43,6 +43,19 @@ Sobald konkrete Features umgesetzt werden, werden ihre verifizierten Regeln hier
 
 Die Detailregeln dieser Bereiche werden nicht vorab festgelegt, bevor das zugehörige Produktverhalten entschieden ist.
 
+## Mine - logisches Netzwerk
+
+- Jede Civ-Mine besitzt genau ein logisches Minennetz. Die stabile Civ-Gebäude-ID der Mine ist zugleich die fachliche `mineId` dieses Netzes.
+- Ein Minennetz besitzt genau einen `MAIN`-Tunnel. Weitere Tunnel sind `BRANCH`-Tunnel und referenzieren genau einen Parent-Tunnel. Verschachtelte Branches sind ausdrücklich erlaubt.
+- `branchDepth` ist aus der Parent-Beziehung ableitbar und muss beim direkten Parent immer genau um eins steigen. Zirkuläre Tunnelhierarchien sind ungültig.
+- Ein logischer Tunnel und ein konkreter Abbauabschnitt sind unterschiedliche Begriffe. Ein Tunnel kann aus mehreren `MineSegment`-Abschnitten bestehen; ein neues Segment bedeutet nicht automatisch einen neuen Seitenstollen.
+- Ein konkretes `MineSegment` darf innerhalb eines Minennetzes höchstens einem logischen Tunnel zugeordnet sein.
+- Räume, Work Fronts und Navigationsanker gehören jeweils zu einem existierenden logischen Tunnel.
+- Work Fronts sind persistente semantische Fortsetzungspunkte. Mehrere offene Work Fronts pro Mine sind zulässig, auch wenn die aktuelle Abbauer-Implementierung sie noch nicht zur Arbeitsauswahl nutzt.
+- Navigationsanker sind bekannte sichere semantische Punkte und dürfen explizite Nachbarschaftsbeziehungen zu anderen Ankern speichern. Diese Verbindungen sind keine eigene Wegfindung; Hytales Navigation bleibt für den realen Weg zwischen Zielen zuständig.
+- Die Hytale-Welt ist die Wahrheit über tatsächlich ausgehobene Blöcke. Das Minennetz speichert keine zweite vollständige Kopie der Weltgeometrie.
+- Formphasen, Breiten-/Höhenverläufe, Drift, Höhlenklassifikation, Brücken, Beleuchtung, Dekoration und Schienen sind nicht Teil dieses Layer-1-Datenmodells und werden erst in ihren jeweiligen späteren Ebenen konkretisiert.
+
 ## Holzfäller
 
 - Holzfäller ist ein Beruf, der aktuell einem ausgewählten und beanspruchten Civ-NPC zugewiesen werden kann.
