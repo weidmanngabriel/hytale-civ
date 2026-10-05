@@ -32,11 +32,13 @@ public final class ConstructionSiteRegistry {
         return state;
     }
 
-    public void restore(Collection<PersistedSite> restored) {
-        sites.clear();
+    public void restoreWorld(UUID worldId, Collection<PersistedSite> restored) {
+        if (worldId == null) return;
+        sites.entrySet().removeIf(entry -> worldId.equals(entry.getValue().site().worldId()));
         if (restored == null) return;
         for (PersistedSite persisted : restored) {
             if (persisted == null || persisted.site() == null) continue;
+            if (!worldId.equals(persisted.site().worldId())) continue;
             register(persisted.site(), persisted.completedLayers());
         }
     }
@@ -51,6 +53,13 @@ public final class ConstructionSiteRegistry {
 
     public List<SiteState> states() {
         return List.copyOf(sites.values());
+    }
+
+    public List<SiteState> states(UUID worldId) {
+        if (worldId == null) return List.of();
+        return sites.values().stream()
+            .filter(state -> worldId.equals(state.site().worldId()))
+            .toList();
     }
 
     public List<PrefabPlacementService.ConstructionSite> sites() {
