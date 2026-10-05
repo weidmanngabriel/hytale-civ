@@ -125,7 +125,9 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         Vector3d position = transform.getPosition();
         WorkerRuntime runtime = workers.computeIfAbsent(key, ignored -> new WorkerRuntime());
 
-        if (runtime.site != null && !placementService.constructionSites().contains(runtime.site)) {
+        if (!runtime.finalizing
+            && runtime.site != null
+            && !placementService.constructionSites().contains(runtime.site)) {
             stopBuildAnimation(ref, store, runtime);
             releaseReservation(key, runtime);
             runtime.job.abandonTarget();
@@ -274,6 +276,10 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         Store<EntityStore> store,
         WorkerRuntime runtime
     ) {
+        if (runtime.finalizing) {
+            return;
+        }
+
         PrefabPlacementService.ConstructionSite site = runtime.site;
         PlayerRef owner = site == null ? null : Universe.get().getPlayer(site.ownerId());
         if (site == null || owner == null) {
@@ -288,13 +294,38 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         BuildingPlacementRegistry.BuildingInstance previousPhase = site.isUpgrade()
             ? buildingRegistry.findIncludingUpgrading(site.worldId(), site.upgradeBuildingId())
             : null;
-        PrefabPlacementService.PlacedPrefab placed =
-            placementService.completeConstruction(owner, world, site);
-        if (previousPhase != null) {
-            placementService.removeSemanticVolumes(world, previousPhase);
-            placementService.removePrefabEntities(world, previousPhase);
-        }
 
+        runtime.finalizing = true;
+        stopBuildAnimation(ref, store, runtime);
+
+        NativePrefabPlacementFinalizer.placeAsync(
+            placementService,
+            owner,
+            world,
+            site,
+            placed -> finishNativePlacement(
+                ref,
+                key,
+                world,
+                store,
+                runtime,
+                site,
+                previousPhase,
+                placed
+            )
+        );
+    }
+
+    private void finishNativePlacement(
+        Ref<EntityStore> ref,
+        CivUnitRegistry.UnitKey key,
+        World world,
+        Store<EntityStore> store,
+        WorkerRuntime runtime,
+        PrefabPlacementService.ConstructionSite site,
+        BuildingPlacementRegistry.BuildingInstance previousPhase,
+        PrefabPlacementService.PlacedPrefab placed
+    ) {
         PrefabPlacementService.PlacedMarker boundsMarker = placed.markers().stream()
             .filter(marker -> marker.hasTag(TYPE_TAG, BUILDING_BOUNDS))
             .findFirst()
@@ -310,28 +341,53 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                 .findFirst()
                 .orElse(null);
         }
-        BuildingPlacementRegistry.BuildingInstance buildingInstance = null;
-        if (boundsMarker != null) {
-            String buildingType = boundsMarker.tags().get(BUILDING_TAG);
-            List<PrefabPlacementService.PlacedMarker> semanticVolumes = placed.markers().stream()
-                .filter(marker -> buildingType == null
-                    || buildingType.equals(marker.tags().get(BUILDING_TAG)))
-                .toList();
-            buildingInstance = buildingRegistry.completeBuilding(
-                site.worldId(),
-                site.id(),
-                buildingType,
-                boundsMarker,
-                semanticVolumes,
-                site.candidate(),
-                site.candidate().orientation(),
-                placed.prefabEntityIds()
+
+        if (boundsMarker == null) {
+            System.err.println(
+                "[Civ Buildings] Native prefab finalization produced no authored bounds for site "
+                    + site.id() + "; keeping previous upgrade phase registered."
             );
-            buildingPersistence.save(
-                world,
-                buildingRegistry.buildings(site.worldId())
-            );
+            cleanupFailedPlacement(world, placed);
+            if (site.isUpgrade()) {
+                buildingRegistry.cancelUpgrade(site.worldId(), site.upgradeBuildingId());
+            }
+            buildingRegistry.release(site.worldId(), site.id());
+            releaseReservation(key, runtime);
+            runtime.finalizing = false;
+            runtime.site = null;
+            runtime.job.abandonTarget();
+            runtime.decisions.requestImmediate();
+            return;
         }
+
+        String buildingType = boundsMarker.tags().get(BUILDING_TAG);
+        List<PrefabPlacementService.PlacedMarker> semanticVolumes = placed.markers().stream()
+            .filter(marker -> buildingType == null
+                || buildingType.equals(marker.tags().get(BUILDING_TAG)))
+            .toList();
+
+        BuildingPlacementRegistry.BuildingInstance buildingInstance = buildingRegistry.completeBuilding(
+            site.worldId(),
+            site.id(),
+            buildingType,
+            boundsMarker,
+            semanticVolumes,
+            site.candidate(),
+            site.candidate().orientation(),
+            placed.prefabEntityIds()
+        );
+
+        // Only after the new phase has been successfully registered do we remove the old
+        // prefab-owned semantics/entities. The Building ID remains stable across this replacement.
+        if (previousPhase != null) {
+            placementService.removeSemanticVolumes(world, previousPhase);
+            placementService.removePrefabEntities(world, previousPhase);
+        }
+
+        buildingPersistence.save(
+            world,
+            buildingRegistry.buildings(site.worldId())
+        );
 
         if (PrefabPlacementService.WHEAT_FIELD.id().equals(site.definition().id())) {
             var fieldMarkers = placed.markers().stream()
@@ -339,15 +395,13 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
                 .toList();
             if (!fieldMarkers.isEmpty()) {
-                if (buildingInstance != null) {
-                    fieldRegistry.registerField(
-                        buildingInstance.id(),
-                        site.worldId(),
-                        fieldMarkers.getFirst().id(),
-                        fieldMarkers.getFirst().position(),
-                        fieldMarkers.getFirst().bounds()
-                    );
-                }
+                fieldRegistry.registerField(
+                    buildingInstance.id(),
+                    site.worldId(),
+                    fieldMarkers.getFirst().id(),
+                    fieldMarkers.getFirst().position(),
+                    fieldMarkers.getFirst().bounds()
+                );
             }
         } else if (PrefabPlacementService.FARM.id().equals(site.definition().id())) {
             var outputStorage = placed.markers().stream()
@@ -359,7 +413,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                 .filter(marker -> marker.hasTag(TYPE_TAG, WORKPLACE_ACCESS))
                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
                 .toList();
-            if (!entrances.isEmpty() && buildingInstance != null) {
+            if (!entrances.isEmpty()) {
                 farmRegistry.registerFarm(
                     site.worldId(),
                     buildingInstance.id(),
@@ -371,11 +425,39 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
             }
         }
 
-        stopBuildAnimation(ref, store, runtime);
+        System.out.println(
+            "[Civ Buildings] completed building=" + buildingInstance.id()
+                + " prefabEntities=" + buildingInstance.prefabEntityIds().size()
+                + " semanticVolumes=" + buildingInstance.semanticVolumes().size()
+        );
+
         releaseReservation(key, runtime);
+        runtime.finalizing = false;
         runtime.site = null;
         runtime.job.constructionCompleted();
         runtime.decisions.scheduleRetry(0.25);
+    }
+
+    private void cleanupFailedPlacement(
+        World world,
+        PrefabPlacementService.PlacedPrefab placed
+    ) {
+        var volumeManager = world.getEntityStore().getStore().getResource(
+            com.hypixel.hytale.builtin.triggervolumes.TriggerVolumesPlugin.get()
+                .getManagerResourceType()
+        );
+        placed.markers().stream()
+            .map(PrefabPlacementService.PlacedMarker::id)
+            .filter(volumeManager::hasVolume)
+            .forEach(volumeManager::unregister);
+
+        Store<EntityStore> entityStore = world.getEntityStore().getStore();
+        for (UUID entityId : placed.prefabEntityIds()) {
+            Ref<EntityStore> entityRef = world.getEntityStore().getRefFromUUID(entityId);
+            if (entityRef != null && entityRef.isValid()) {
+                entityStore.removeEntity(entityRef, com.hypixel.hytale.component.RemoveReason.REMOVE);
+            }
+        }
     }
 
     public void forgetRuntime(Ref<EntityStore> ref) {
@@ -496,5 +578,6 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         private final WorkDecisionSchedule decisions = new WorkDecisionSchedule();
         private PrefabPlacementService.ConstructionSite site;
         private boolean animationStarted;
+        private boolean finalizing;
     }
 }
