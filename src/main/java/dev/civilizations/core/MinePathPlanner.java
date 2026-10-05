@@ -119,7 +119,6 @@ public final class MinePathPlanner {
             double startAngle = currentAngle;
             double headingDelta = MineHeading.shortestSignedAngleDegrees(currentHeading, targetHeading);
             double phaseStartY = baseY;
-            double previousOffset = currentLateralOffset;
 
             for (int step = 1; step <= phaseLength; step++) {
                 double t = (double) step / phaseLength;
@@ -132,10 +131,8 @@ public final class MinePathPlanner {
                 baseZ += forwardZ;
 
                 double lateralOffset = lerp(currentLateralOffset, targetLateralOffset, t);
-                double offsetDelta = lateralOffset - previousOffset;
                 actualX = baseX - Math.sin(radians) * lateralOffset;
                 actualZ = baseZ + Math.cos(radians) * lateralOffset;
-                previousOffset += offsetDelta;
 
                 double y = phaseStartY + verticalDelta * t;
                 double width = lerp(currentWidth, targetWidth, t);
@@ -200,12 +197,20 @@ public final class MinePathPlanner {
         double radialX = dx / distance;
         double radialZ = dz / distance;
         double outwardDot = radialX * candidate.unitX() + radialZ * candidate.unitZ();
+        double currentOutwardDot = radialX * currentHeading.unitX() + radialZ * currentHeading.unitZ();
 
         if (outwardDot > 0.0) {
-            return baseWeight * Math.max(0.05, 1.0 - pressure * 0.95 * outwardDot);
+            baseWeight *= Math.max(0.05, 1.0 - pressure * 0.95 * outwardDot);
+        } else if (outwardDot < 0.0) {
+            baseWeight *= 1.0 + pressure * 1.5 * -outwardDot;
         }
-        if (outwardDot < 0.0) {
-            return baseWeight * (1.0 + pressure * 1.5 * -outwardDot);
+
+        if (currentOutwardDot > 0.0) {
+            if (candidate == currentHeading) {
+                baseWeight *= Math.max(0.05, 1.0 - pressure * 0.90 * currentOutwardDot);
+            } else {
+                baseWeight *= 1.0 + pressure * 3.0 * currentOutwardDot;
+            }
         }
         return baseWeight;
     }
