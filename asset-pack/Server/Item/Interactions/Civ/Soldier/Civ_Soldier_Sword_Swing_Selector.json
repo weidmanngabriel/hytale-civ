@@ -1,0 +1,62 @@
+{
+  "Type": "Selector",
+  "RunTime": 0.05,
+  "Effects": {
+    "Trails": [
+      {
+        "PositionOffset": {
+          "X": 1.3,
+          "Y": 0,
+          "Z": 0
+        },
+        "TargetNodeName": "Handle",
+        "TrailId": "Medium_Sword_Basic",
+        "RotationOffset": {
+          "Roll": 90.0
+        }
+      },
+      {
+        "PositionOffset": {
+          "X": 1.7,
+          "Y": 0,
+          "Z": 0
+        },
+        "TargetNodeName": "Handle",
+        "TrailId": "Sword_Distortion",
+        "RotationOffset": {
+          "Roll": 90.0
+        }
+      }
+    ]
+  },
+  "Selector": {
+    "Id": "Horizontal",
+    "Direction": "ToLeft",
+    "TestLineOfSight": true,
+    "ExtendTop": 0.5,
+    "ExtendBottom": 0.5,
+    "StartDistance": 0.1,
+    "EndDistance": 2.75,
+    "Length": 90,
+    "RollOffset": 30,
+    "YawStartOffset": -60
+  },
+  "HitEntity": {
+    "Interactions": [
+      {
+        "Type": "Replace",
+        "Var": "Swing_Left_Damage",
+        "DefaultOk": true,
+        "DefaultValue": {
+          "Interactions": [
+            "Weapon_Sword_Primary_Swing_Left_Damage"
+          ]
+        }
+      }
+    ]
+  },
+  "Next": {
+    "Type": "Simple",
+    "RunTime": 0.167
+  }
+}
