@@ -7,8 +7,13 @@
     "LocalSoundEventId": "SFX_Sword_T2_Swing_RL_Local"
   },
   "Next": {
-    "Interactions": [
-      "Civ_Soldier_Sword_Swing_Selector"
-    ]
+    "Type": "Replace",
+    "Var": "Swing_Left_Selector",
+    "DefaultOk": true,
+    "DefaultValue": {
+      "Interactions": [
+        "Civ_Soldier_Sword_Swing_Selector"
+      ]
+    }
   }
 }
