@@ -78,6 +78,12 @@ public final class CivInhabitantLifecycleSystem extends RefSystem<EntityStore> {
         Store<EntityStore> store,
         CommandBuffer<EntityStore> commandBuffer
     ) {
+        if (Boolean.getBoolean("civilizations.runtimeProbe")) {
+            System.out.println(
+                "CIV_RUNTIME_INHABITANT_REMOVE entity=" + ref.getIndex() + " reason=" + reason
+            );
+        }
+
         farmWorkSystem.forgetRuntime(ref);
         woodcutterWorkSystem.forgetRuntime(ref);
         minerWorkSystem.forgetRuntime(ref);
