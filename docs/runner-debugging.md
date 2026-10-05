@@ -34,4 +34,10 @@ Bei einem fehlgeschlagenen oder auffälligen Hytale-Local-Lauf gilt deshalb folg
 
 Das Artifact ist für Runtime-Prozessausgabe die bevorzugte Diagnosequelle, weil es die getrennten stdout-/stderr-Dateien des gestarteten Hytale-Prozesses erhält. Ein fehlender oder nicht lesbarer Artifact-Upload ist selbst ein Diagnosebefund und muss vor Änderungen am Gameplay-Code oder Harness berücksichtigt werden.
 
+## Hytale-Local: harte Zeitbudgets
+
+Ein Runtime-Szenario darf nach Ablauf seines konfigurierten Zeitbudgets nicht unbegrenzt weiterlaufen. Der Workflow überwacht den gestarteten Runtime-Wrapper deshalb mit einem festen Szenario-Budget und beendet dessen Prozessbaum nach Ablauf des Budgets. Auch der Kill-Vorgang selbst ist zeitlich begrenzt; ein hängendes `taskkill` oder ein nicht beendeter Wrapper darf den Job nicht erneut minutenlang blockieren.
+
+Für das fokussierte `soldier`-Szenario beträgt das aktuelle Budget **60 Sekunden**. Der GitHub-Actions-Schritt besitzt zusätzlich einen übergeordneten Zwei-Minuten-Sicherheits-Timeout, damit trotz Prozess-/Cleanup-Problemen ein einzelner Lauf nicht unbeschränkt hängen kann. Bei einem Timeout werden die bis dahin vorhandenen Runtime-Logs weiterhin über den `always()`-Artifact-Upload gesichert und anschließend nach der Log-first-Regel ausgewertet.
+
 Wenn der vollständige Log und das Runtime-Artifact keine ausreichenden Informationen enthalten, soll zuerst die Observability des Harness verbessert werden, bevor aufgrund fehlender Evidenz umfangreiche Code- oder Infrastrukturänderungen vorgenommen werden.
