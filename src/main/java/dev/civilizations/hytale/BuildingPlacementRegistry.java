@@ -138,6 +138,29 @@ public final class BuildingPlacementRegistry {
         }
 
         release(worldId, siteId);
+
+        BuildingInstance upgradeTarget = findUpgradeTarget(worldId, buildingType, placement);
+        if (upgradeTarget != null) {
+            int targetPhase = BuildingTypes.nextPhase(buildingType, upgradeTarget.phase());
+            if (targetPhase == 0) {
+                throw new IllegalStateException("Upgrading building has no next phase.");
+            }
+            BuildingInstance upgraded = new BuildingInstance(
+                upgradeTarget.id(),
+                worldId,
+                buildingType,
+                targetPhase,
+                boundsMarker.id(),
+                boundsMarker.bounds(),
+                semanticVolumes,
+                upgradeTarget.orientation(),
+                placement
+            );
+            replace(worldId, upgraded);
+            cancelUpgrade(worldId, upgradeTarget.id());
+            return upgraded;
+        }
+
         BuildingInstance instance = new BuildingInstance(
             siteId,
             worldId,
@@ -151,6 +174,26 @@ public final class BuildingPlacementRegistry {
         );
         replace(worldId, instance);
         return instance;
+    }
+
+    private BuildingInstance findUpgradeTarget(
+        UUID worldId,
+        String buildingType,
+        PrefabPlacementService.PlacementCandidate placement
+    ) {
+        if (placement == null || placement.footprint() == null) return null;
+        Set<UUID> worldUpgrades = upgrading.getOrDefault(worldId, Set.of());
+        return buildings.getOrDefault(worldId, List.of()).stream()
+            .filter(building -> worldUpgrades.contains(building.id()))
+            .filter(building -> building.buildingType().equals(buildingType))
+            .filter(building -> building.bounds().overlapsHorizontal(
+                placement.footprint().minX(),
+                placement.footprint().minZ(),
+                placement.footprint().maxX() + 1.0,
+                placement.footprint().maxZ() + 1.0
+            ))
+            .findFirst()
+            .orElse(null);
     }
 
     public synchronized BuildingInstance completeUpgrade(
