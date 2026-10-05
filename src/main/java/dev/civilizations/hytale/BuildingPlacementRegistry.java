@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>Construction sites reserve their block-derived footprint. Once a prefab with a
  * {@code civ.type=building_bounds} volume completes, that authored volume replaces
- * the temporary footprint as the authoritative area for picking and protection.
+ * the temporary footprint as the authoritative area for picking and protection.</p>
  */
 public final class BuildingPlacementRegistry {
 
@@ -49,6 +49,19 @@ public final class BuildingPlacementRegistry {
                 candidate.maxX() + 1.0,
                 candidate.maxZ() + 1.0
             ));
+    }
+
+    /** Returns true for both completed buildings and active construction reservations. */
+    public boolean isProtected(UUID worldId, BlockPosition block) {
+        if (worldId == null || block == null) return false;
+        boolean reserved = reservations.getOrDefault(worldId, Map.of()).values().stream()
+            .anyMatch(footprint -> block.x() >= footprint.minX()
+                && block.x() <= footprint.maxX()
+                && block.z() >= footprint.minZ()
+                && block.z() <= footprint.maxZ());
+        if (reserved) return true;
+        return buildings.getOrDefault(worldId, List.of()).stream()
+            .anyMatch(building -> building.bounds().containsBlock(block));
     }
 
     public void reserve(
@@ -116,7 +129,8 @@ public final class BuildingPlacementRegistry {
             boundsMarker,
             semanticVolumes,
             placement,
-            BuildingOrientation.NORTH
+            BuildingOrientation.NORTH,
+            List.of()
         );
     }
 
@@ -128,6 +142,21 @@ public final class BuildingPlacementRegistry {
         List<PrefabPlacementService.PlacedMarker> semanticVolumes,
         PrefabPlacementService.PlacementCandidate placement,
         BuildingOrientation orientation
+    ) {
+        return completeBuilding(
+            worldId, siteId, buildingType, boundsMarker, semanticVolumes, placement, orientation, List.of()
+        );
+    }
+
+    public synchronized BuildingInstance completeBuilding(
+        UUID worldId,
+        UUID siteId,
+        String buildingType,
+        PrefabPlacementService.PlacedMarker boundsMarker,
+        List<PrefabPlacementService.PlacedMarker> semanticVolumes,
+        PrefabPlacementService.PlacementCandidate placement,
+        BuildingOrientation orientation,
+        List<UUID> prefabEntityIds
     ) {
         if (worldId == null || siteId == null || boundsMarker == null
             || boundsMarker.bounds() == null) {
@@ -154,23 +183,26 @@ public final class BuildingPlacementRegistry {
                 boundsMarker.bounds(),
                 semanticVolumes,
                 upgradeTarget.orientation(),
-                placement
+                placement,
+                prefabEntityIds
             );
             replace(worldId, upgraded);
             cancelUpgrade(worldId, upgradeTarget.id());
             return upgraded;
         }
 
+        int phase = PrefabPlacementService.phaseForDefinition(placement == null ? null : placement.definition());
         BuildingInstance instance = new BuildingInstance(
             siteId,
             worldId,
             buildingType,
-            1,
+            phase,
             boundsMarker.id(),
             boundsMarker.bounds(),
             semanticVolumes,
             orientation,
-            placement
+            placement,
+            prefabEntityIds
         );
         replace(worldId, instance);
         return instance;
@@ -204,6 +236,20 @@ public final class BuildingPlacementRegistry {
         List<PrefabPlacementService.PlacedMarker> semanticVolumes,
         PrefabPlacementService.PlacementCandidate placement
     ) {
+        return completeUpgrade(
+            worldId, buildingId, targetPhase, boundsMarker, semanticVolumes, placement, List.of()
+        );
+    }
+
+    public synchronized BuildingInstance completeUpgrade(
+        UUID worldId,
+        UUID buildingId,
+        int targetPhase,
+        PrefabPlacementService.PlacedMarker boundsMarker,
+        List<PrefabPlacementService.PlacedMarker> semanticVolumes,
+        PrefabPlacementService.PlacementCandidate placement,
+        List<UUID> prefabEntityIds
+    ) {
         BuildingInstance existing = findStored(worldId, buildingId);
         if (existing == null || !isUpgrading(worldId, buildingId)
             || boundsMarker == null || boundsMarker.bounds() == null) {
@@ -222,7 +268,8 @@ public final class BuildingPlacementRegistry {
             boundsMarker.bounds(),
             semanticVolumes,
             existing.orientation(),
-            placement
+            placement,
+            prefabEntityIds
         );
         replace(worldId, upgraded);
         cancelUpgrade(worldId, buildingId);
@@ -294,6 +341,11 @@ public final class BuildingPlacementRegistry {
         return building;
     }
 
+    /** Administrative lifecycle lookup that intentionally includes an upgrading building. */
+    public BuildingInstance findIncludingUpgrading(UUID worldId, UUID buildingId) {
+        return findStored(worldId, buildingId);
+    }
+
     private BuildingInstance findStored(UUID worldId, UUID buildingId) {
         if (worldId == null || buildingId == null) {
             return null;
@@ -313,7 +365,8 @@ public final class BuildingPlacementRegistry {
         BuildingBounds bounds,
         List<PrefabPlacementService.PlacedMarker> semanticVolumes,
         BuildingOrientation orientation,
-        PrefabPlacementService.PlacementCandidate placement
+        PrefabPlacementService.PlacementCandidate placement,
+        List<UUID> prefabEntityIds
     ) {
         public BuildingInstance {
             if (phase < 1) {
@@ -322,7 +375,23 @@ public final class BuildingPlacementRegistry {
             if (orientation == null) {
                 throw new IllegalArgumentException("Building orientation cannot be null.");
             }
-            semanticVolumes = List.copyOf(semanticVolumes);
+            semanticVolumes = List.copyOf(semanticVolumes == null ? List.of() : semanticVolumes);
+            prefabEntityIds = List.copyOf(prefabEntityIds == null ? List.of() : prefabEntityIds);
+        }
+
+        public BuildingInstance(
+            UUID id,
+            UUID worldId,
+            String buildingType,
+            int phase,
+            String boundsVolumeId,
+            BuildingBounds bounds,
+            List<PrefabPlacementService.PlacedMarker> semanticVolumes,
+            BuildingOrientation orientation,
+            PrefabPlacementService.PlacementCandidate placement
+        ) {
+            this(id, worldId, buildingType, phase, boundsVolumeId, bounds, semanticVolumes,
+                orientation, placement, List.of());
         }
 
         public BuildingInstance(
@@ -344,7 +413,8 @@ public final class BuildingPlacementRegistry {
                 bounds,
                 semanticVolumes,
                 BuildingOrientation.NORTH,
-                placement
+                placement,
+                List.of()
             );
         }
 
@@ -366,7 +436,8 @@ public final class BuildingPlacementRegistry {
                 bounds,
                 semanticVolumes,
                 BuildingOrientation.NORTH,
-                placement
+                placement,
+                List.of()
             );
         }
 
