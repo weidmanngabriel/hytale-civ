@@ -31,6 +31,13 @@
         }
       ]
     },
+    "Melee_Selector": {
+      "Interactions": [
+        {
+          "Parent": "NPC_Attack_Selector_Left"
+        }
+      ]
+    },
     "Melee_Damage": {
       "Interactions": [
         {
