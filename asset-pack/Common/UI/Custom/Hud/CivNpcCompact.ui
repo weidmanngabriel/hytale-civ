@@ -1,6 +1,6 @@
 Group {
   Group #NpcCompactPanel {
-    Anchor: (Right: 24, Bottom: 118, Width: 340, Height: 190);
+    Anchor: (Left: 24, Bottom: 118, Width: 340, Height: 190);
     LayoutMode: Top;
     Padding: (Left: 14, Right: 14, Top: 12, Bottom: 12);
     Background: #131D30(0.90);
