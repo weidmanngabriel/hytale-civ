@@ -11,7 +11,7 @@ class CivMineDebugCommandTest {
     void extractsPositionalMineLogCategoriesFromFullCommandInput() {
         assertEquals(
             "PLANNING,GEOMETRY",
-            CivMineDebugCommand.mineLogCategoriesArgument(
+            MineLogCommandInput.categoriesArgument(
                 "civdebug mine logs on PLANNING,GEOMETRY"
             )
         );
@@ -21,12 +21,12 @@ class CivMineDebugCommandTest {
     void acceptsParserInputContainingOnlyTheExtraCategoryToken() {
         assertEquals(
             "PLANNING,GEOMETRY",
-            CivMineDebugCommand.mineLogCategoriesArgument("PLANNING,GEOMETRY")
+            MineLogCommandInput.categoriesArgument("PLANNING,GEOMETRY")
         );
     }
 
     @Test
     void noCategoryArgumentStillMeansEnableAll() {
-        assertNull(CivMineDebugCommand.mineLogCategoriesArgument("civdebug mine logs on"));
+        assertNull(MineLogCommandInput.categoriesArgument("civdebug mine logs on"));
     }
 }
