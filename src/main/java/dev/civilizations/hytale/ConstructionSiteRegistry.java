@@ -4,6 +4,7 @@ import org.joml.Vector3i;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -41,6 +42,21 @@ public final class ConstructionSiteRegistry {
             if (!worldId.equals(persisted.site().worldId())) continue;
             register(persisted.site(), persisted.completedLayers());
         }
+    }
+
+    /**
+     * Compatibility path for callers that already loaded world-local persisted sites. Prefer
+     * {@link #restoreWorld(UUID, Collection)} when the world id is known even for an empty result.
+     */
+    public void restore(Collection<PersistedSite> restored) {
+        if (restored == null || restored.isEmpty()) return;
+        Map<UUID, List<PersistedSite>> byWorld = new LinkedHashMap<>();
+        for (PersistedSite persisted : restored) {
+            if (persisted == null || persisted.site() == null) continue;
+            byWorld.computeIfAbsent(persisted.site().worldId(), ignored -> new ArrayList<>())
+                .add(persisted);
+        }
+        byWorld.forEach(this::restoreWorld);
     }
 
     public SiteState get(UUID siteId) {
