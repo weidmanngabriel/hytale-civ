@@ -35,8 +35,9 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>Many vanilla monsters ignore arbitrary NPCs by default even when they are hostile to players.
  * While a soldier actively engages such a monster, Civ refreshes the soldier in that monster's
- * native {@link TargetMemory}. This only establishes reciprocal aggro; Hytale still owns the
- * monster's combat decisions, movement, attack interactions, damage and death.</p>
+ * native {@link TargetMemory} and marks it as the closest hostile, mirroring Hytale's own combat
+ * target collector. This only establishes reciprocal aggro; Hytale still owns the monster's combat
+ * decisions, movement, attack interactions, damage and death.</p>
  */
 public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
 
@@ -224,6 +225,7 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
         if (previous <= 0.0f) {
             memory.getKnownHostilesList().add(soldier);
         }
+        memory.setClosestHostile(soldier);
     }
 
     private static Ref<EntityStore> readTarget(
