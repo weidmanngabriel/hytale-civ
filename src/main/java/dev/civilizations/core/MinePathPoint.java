@@ -8,7 +8,8 @@ public record MinePathPoint(
     double z,
     double width,
     double height,
-    MineHeading heading,
+    MineHeading planningHeading,
+    double tangentAngleDegrees,
     int formPhaseIndex
 ) {
     public MinePathPoint {
@@ -18,8 +19,13 @@ public record MinePathPoint(
         if (width <= 0.0 || height <= 0.0) {
             throw new IllegalArgumentException("Mine path dimensions must be positive.");
         }
-        if (heading == null) {
+        if (planningHeading == null) {
             throw new IllegalArgumentException("Mine path heading must not be null.");
+        }
+        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)
+            || !Double.isFinite(width) || !Double.isFinite(height)
+            || !Double.isFinite(tangentAngleDegrees)) {
+            throw new IllegalArgumentException("Mine path values must be finite.");
         }
     }
 }
