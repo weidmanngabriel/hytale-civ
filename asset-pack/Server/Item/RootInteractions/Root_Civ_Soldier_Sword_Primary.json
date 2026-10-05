@@ -1,0 +1,8 @@
+{
+  "Parent": "Root_Weapon_Sword_Primary",
+  "Tags": {
+    "Attack": [
+      "Melee"
+    ]
+  }
+}
