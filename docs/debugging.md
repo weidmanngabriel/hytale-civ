@@ -52,3 +52,24 @@ Die Messung zählt ausschließlich den vorhandenen Gameplay-Suchpfad und startet
 6. `/civdebug woodscan` erneut ausführen. Die Rückmeldung muss `disabled` sowie den finalen Snapshot enthalten.
 
 Die Millisekundenwerte sind Runtime-Messwerte und hängen von Hardware, Serverlast, Weltzustand und JVM ab. Für CI-Budgets bleiben die deterministischen `SimulationMetrics` maßgeblich.
+
+## Mine-Entscheidungslogs
+
+Die Mine besitzt opt-in strukturierte Entscheidungslogs. Standardmäßig sind sie deaktiviert; der normale Mining-Pfad schreibt deshalb keine Entscheidungsausgaben. Aktivierung und Filterung laufen über den bestehenden Debug-Befehl:
+
+- `/civdebug mine logs on` aktiviert alle Kategorien.
+- `/civdebug mine logs on PLANNING,GEOMETRY` aktiviert nur die genannten Kategorien.
+- `/civdebug mine logs status` zeigt den aktuellen Filter und alle verfügbaren Kategorien.
+- `/civdebug mine logs off` deaktiviert die Ausgabe wieder.
+
+Alternativ aktiviert die JVM-Property `-Dcivilizations.mineDebug=true` beim Pluginstart alle Kategorien. Die Ausgabe verwendet Hytales vorhandenen Plugin-Logger und hat das Format
+
+```text
+[Civ Mine][mine=<id>][front=<id>][PLANNING][DIRECTION_SELECTED] direction=NORTH weight=50 totalWeight=100 probability=0.500 roll=17
+```
+
+Die groben Filterkategorien sind `PLANNING`, `GEOMETRY`, `ROOM`, `ENVIRONMENT`, `NAVIGATION` und `ADAPTER`. Nicht jede Kategorie erzeugt im aktuellen Legacy-Minenpfad bereits Events; die noch nicht implementierten Generator-Layer sollen später dieselben Kategorien verwenden.
+
+Aktuell instrumentiert sind nur Entscheidungen und Fehler, die wirklich existieren: Auswahl beziehungsweise Wiederaufnahme einer Arbeitsfront, initiale Richtung, gewichtete Geradeaus-/Links-/Rechts-Auswahl, abgelehnte Segmentkandidaten, fehlende gültige Fortsetzung, blockierte Fronten sowie Fehler bei der Stützen-Prefab-Ausführung. Es gibt bewusst keine Ausgabe pro Mining-Tick oder abgebautem Block.
+
+`MineDecisionSink` liegt im Hytale-unabhängigen Core als optionale Beobachtergrenze. Der Hytale-Adapter `CivMineDecisionDiagnostics` filtert die Events und schreibt sie über `JavaPlugin.getLogger()` in das normale Serverlog. Der Sink darf keine Gameplay-Zustände verändern und darf insbesondere keine zusätzlichen Zufallswerte ziehen; Probability/Roll-Werte werden nur aus den ohnehin bereits ausgeführten Entscheidungen protokolliert.
