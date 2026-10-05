@@ -23,6 +23,22 @@
       "Acceleration": 10
     }
   ],
+  "InteractionVars": {
+    "Melee_Start": {
+      "Interactions": [
+        {
+          "Parent": "NPC_Attack_Melee_Simple"
+        }
+      ]
+    },
+    "Melee_Damage": {
+      "Interactions": [
+        {
+          "Parent": "NPC_Attack_Melee_Damage"
+        }
+      ]
+    }
+  },
   "Instructions": [
     {
       "Sensor": {
