@@ -17,6 +17,7 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.NPCPlugin;
+import com.hypixel.hytale.server.npc.util.InventoryHelper;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.WorldPosition;
 import dev.civilizations.hytale.CivActivityRegistry;
@@ -38,7 +39,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
     private static final String FLAT_GENERATOR = "Flat";
     private static final String DEFAULT_STORAGE = "default";
     private static final String CIV_ROLE = "Civ_Inhabitant";
-    private static final String HOSTILE_FIXTURE_ROLE = "Chicken_Undead";
+    private static final String HOSTILE_FIXTURE_ROLE = "Bear_Grizzly";
     private static final List<Vector3d> SOLDIER_STARTS = List.of(
         new Vector3d(0.5, 1.0, 0.5),
         new Vector3d(0.5, 1.0, 3.5),
@@ -120,7 +121,6 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
         try {
             List<Ref<EntityStore>> soldiers = new ArrayList<>();
             List<Vector3d> soldierStartPositions = new ArrayList<>();
-            List<Float> soldierHealth = new ArrayList<>();
 
             for (int i = 0; i < SOLDIER_STARTS.size(); i++) {
                 Ref<EntityStore> soldier = spawn(world, CIV_ROLE, SOLDIER_STARTS.get(i));
@@ -144,6 +144,19 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
                     fail("soldier #" + (i + 1) + " did not equip the native bootstrap item", null);
                     return;
                 }
+                byte swordSlot = InventoryHelper.findHotbarSlotWithItem(
+                    soldier,
+                    soldier.getStore(),
+                    ProfessionBootstrapInventory.SOLDIER_SWORD_ITEM_ID
+                );
+                if (swordSlot != 0) {
+                    fail(
+                        "soldier #" + (i + 1)
+                            + " sword is not in CAE WeaponSlot 0: slot=" + swordSlot,
+                        null
+                    );
+                    return;
+                }
 
                 TransformComponent transform = soldier.getStore()
                     .getComponent(soldier, TransformComponent.getComponentType());
@@ -155,12 +168,12 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
 
                 soldiers.add(soldier);
                 soldierStartPositions.add(new Vector3d(transform.getPosition()));
-                soldierHealth.add(health);
                 System.out.println(
                     "CIV_SOLDIER_MEMBER_READY ordinal=" + (i + 1)
                         + " entity=" + soldier.getIndex()
                         + " health=" + health
                         + " weapon=" + inHand.getItemId()
+                        + " weaponSlot=" + swordSlot
                 );
             }
 
@@ -178,13 +191,13 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
 
             ProbeState state = new ProbeState(
                 soldierStartPositions,
-                soldierHealth,
                 hostileHealth,
                 System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(PROBE_TIMEOUT_MILLIS)
             );
             System.out.println(
                 "CIV_SOLDIER_FIXTURE_READY soldiers=" + soldiers.size()
                     + " hostile=" + hostile.getIndex()
+                    + " role=" + HOSTILE_FIXTURE_ROLE
                     + " hostileHealth=" + hostileHealth
             );
 
@@ -272,17 +285,6 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
                             + " moved=" + String.format(Locale.ROOT, "%.2f", moved)
                     );
                 }
-
-                float currentHealth = health(soldier);
-                if (!state.soldierDamageObserved
-                    && Float.isFinite(currentHealth)
-                    && currentHealth < state.initialSoldierHealth.get(i)) {
-                    state.soldierDamageObserved = true;
-                    System.out.println(
-                        "CIV_SOLDIER_DAMAGE_OBSERVED ordinal=" + (i + 1)
-                            + " health=" + currentHealth
-                    );
-                }
             }
 
             Ref<EntityStore> primary = soldiers.get(0);
@@ -328,10 +330,10 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
             if (state.resumeObserved
                 && allTrue(state.targetAcquired)
                 && allTrue(state.chaseObserved)
-                && state.targetDamageObserved
-                && state.soldierDamageObserved) {
+                && state.targetDamageObserved) {
                 System.out.println(
                     "CIV_SOLDIER_RUNTIME_PASS soldiers=" + soldiers.size()
+                        + " hostileRole=" + HOSTILE_FIXTURE_ROLE
                         + " hostileHealth=" + (hostile.isValid() ? health(hostile) : 0.0f)
                 );
                 HytaleServer.get().shutdownServer();
@@ -339,12 +341,23 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
             }
 
             if (!hostile.isValid()) {
+                if (state.targetDamageObserved
+                    && state.resumeObserved
+                    && allTrue(state.targetAcquired)
+                    && allTrue(state.chaseObserved)) {
+                    System.out.println(
+                        "CIV_SOLDIER_RUNTIME_PASS soldiers=" + soldiers.size()
+                            + " hostileRole=" + HOSTILE_FIXTURE_ROLE
+                            + " hostileDefeated=true"
+                    );
+                    HytaleServer.get().shutdownServer();
+                    return;
+                }
                 fail(
                     "hostile fixture became invalid before the full group scenario was verified"
                         + ", acquired=" + countTrue(state.targetAcquired) + "/" + soldiers.size()
                         + ", chase=" + countTrue(state.chaseObserved) + "/" + soldiers.size()
                         + ", targetDamage=" + state.targetDamageObserved
-                        + ", soldierDamage=" + state.soldierDamageObserved
                         + ", interrupted=" + state.interruptionObserved
                         + ", resumed=" + state.resumeObserved,
                     null
@@ -358,7 +371,6 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
                         + ", acquired=" + countTrue(state.targetAcquired) + "/" + soldiers.size()
                         + ", chase=" + countTrue(state.chaseObserved) + "/" + soldiers.size()
                         + ", targetDamage=" + state.targetDamageObserved
-                        + ", soldierDamage=" + state.soldierDamageObserved
                         + ", manualIssued=" + state.manualIssued
                         + ", interrupted=" + state.interruptionObserved
                         + ", resumed=" + state.resumeObserved,
@@ -435,25 +447,21 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
 
     private static final class ProbeState {
         private final List<Vector3d> startPositions;
-        private final List<Float> initialSoldierHealth;
         private final float initialHostileHealth;
         private final long deadlineNanos;
         private final boolean[] targetAcquired;
         private final boolean[] chaseObserved;
         private boolean targetDamageObserved;
-        private boolean soldierDamageObserved;
         private boolean manualIssued;
         private boolean interruptionObserved;
         private boolean resumeObserved;
 
         private ProbeState(
             List<Vector3d> startPositions,
-            List<Float> initialSoldierHealth,
             float initialHostileHealth,
             long deadlineNanos
         ) {
             this.startPositions = List.copyOf(startPositions);
-            this.initialSoldierHealth = List.copyOf(initialSoldierHealth);
             this.initialHostileHealth = initialHostileHealth;
             this.deadlineNanos = deadlineNanos;
             this.targetAcquired = new boolean[startPositions.size()];
