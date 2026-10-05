@@ -1,0 +1,58 @@
+{
+  "Type": "CombatActionEvaluator",
+  "TargetMemoryDuration": 10,
+  "CombatActionEvaluator": {
+    "RunConditions": [
+      {
+        "Type": "TimeSinceLastUsed",
+        "Curve": {
+          "ResponseCurve": "Linear",
+          "XRange": [
+            0,
+            0.35
+          ]
+        }
+      }
+    ],
+    "MinRunUtility": 0.01,
+    "MinActionUtility": 0.01,
+    "AvailableActions": {
+      "SelectSwordTarget": {
+        "Type": "SelectBasicAttackTarget",
+        "Description": "Select the Civ soldier's current hostile target for a native sword attack.",
+        "WeaponSlot": 0,
+        "Conditions": [
+          {
+            "Type": "TargetDistance",
+            "Curve": {
+              "ResponseCurve": "SimpleDescendingLogistic",
+              "XRange": [
+                0,
+                16
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ActionSets": {
+      "Default": {
+        "BasicAttacks": {
+          "Attacks": [
+            "Sword_Attack"
+          ],
+          "Randomise": false,
+          "MaxRange": 2.5,
+          "Timeout": 0.5,
+          "CooldownRange": [
+            0.2,
+            0.3
+          ]
+        },
+        "Actions": [
+          "SelectSwordTarget"
+        ]
+      }
+    }
+  }
+}
