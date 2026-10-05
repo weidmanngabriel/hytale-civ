@@ -26,7 +26,13 @@ jobs:
           java-version: '25'
 
       - name: Apply focused demolition changes
-        run: python3 scripts/_apply_demolition_cleanup_patch.py
+        run: |
+          python3 scripts/_apply_demolition_cleanup_patch.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('docs/hytale/prefabs-building.md')
+          path.write_text(path.read_text(encoding='utf-8').rstrip() + '\n', encoding='utf-8')
+          PY
 
       - name: Validate patch
         run: |
