@@ -12,6 +12,7 @@ import dev.civilizations.core.InhabitantActivity;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
 import dev.civilizations.hytale.CivActivityRegistry;
 import dev.civilizations.hytale.CivBuildingPersistenceService;
+import dev.civilizations.hytale.CivMineDebugService;
 import dev.civilizations.hytale.CivNameplateStatusSystem;
 import dev.civilizations.hytale.CivPathDebugService;
 import dev.civilizations.hytale.CivPlayerRigDebugService;
@@ -31,7 +32,8 @@ final class CivDebugCommand extends AbstractPlayerCommand {
         WoodcutterScanDiagnostics woodcutterScanDiagnostics,
         CivActivityRegistry activityRegistry,
         CivNameplateStatusSystem nameplateStatusSystem,
-        CivPlayerRigDebugService playerRigDebugService
+        CivPlayerRigDebugService playerRigDebugService,
+        CivMineDebugService mineDebugService
     ) {
         super("civdebug", "Shows read-only Civilizations development diagnostics.");
         this.buildingRegistry = buildingRegistry;
@@ -41,6 +43,7 @@ final class CivDebugCommand extends AbstractPlayerCommand {
         addSubCommand(new ActivityCommand(activityRegistry));
         addSubCommand(new StatusCommand(nameplateStatusSystem));
         addSubCommand(new PlayerRigCommand(playerRigDebugService));
+        addSubCommand(new CivMineDebugCommand(mineDebugService));
         requireNoPermission();
     }
 

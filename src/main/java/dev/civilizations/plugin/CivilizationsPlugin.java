@@ -27,6 +27,7 @@ import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivInhabitantUseSystem;
 import dev.civilizations.hytale.CivManualMovementSystem;
 import dev.civilizations.hytale.CivMineDataResource;
+import dev.civilizations.hytale.CivMineDebugService;
 import dev.civilizations.hytale.CivMinePersistenceService;
 import dev.civilizations.hytale.CivNameplateStatusSystem;
 import dev.civilizations.hytale.CivPathDebugService;
@@ -107,6 +108,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
         FarmBuildingRegistry farmRegistry = new FarmBuildingRegistry(unitRegistry);
         FarmFieldRegistry fieldRegistry = new FarmFieldRegistry();
         BuildingPlacementRegistry buildingRegistry = new BuildingPlacementRegistry();
+        CivMineDebugService mineDebugService =
+            new CivMineDebugService(buildingRegistry, mineTunnelRegistry);
         PrefabPlacementService prefabPlacementService = new PrefabPlacementService();
         ConstructionSiteRegistry constructionRegistry = new ConstructionSiteRegistry();
         CivSelectedBuildingHudController selectedBuildingHudController =
@@ -231,7 +234,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 woodcutterScanDiagnostics,
                 activityRegistry,
                 nameplateStatusSystem,
-                playerRigDebugService
+                playerRigDebugService,
+                mineDebugService
             )
         );
 

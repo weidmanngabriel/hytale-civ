@@ -38,6 +38,8 @@ Civ verwendet für ausgewählte Gebäude/Baustellen und Platzierungskollisionen 
 
 Die Anzeige ist rein spielerlokal: Civ setzt dafür keine Weltblöcke, Partikel oder persistenten Hilfs-Entities. Bei einer ausgewählten Baustelle wird deren persistenter `PlacementFootprint` visualisiert; bei einem fertigen Gebäude dessen `building_bounds`.
 
+Für separat verwaltete Debug-Overlays bestätigt die gepinnte `HytaleServer.jar` zusätzlich die To-Client-Pakete `AddOrUpdateTriggerVolumeDisplay(String, TriggerVolumeDisplayEntry)` und `RemoveTriggerVolumeDisplay(String)`. Civs Mine-Debug verwendet diese keyed Variante, damit jeder Debug-Eintrag eine stabile ID besitzt und gezielt wieder entfernt werden kann, ohne `DebugUtils.clear(world)` oder temporäre Weltblöcke zu benötigen. `TriggerVolumeDisplayEntry` unterstützt dabei Box/Sphere/Cylinder sowie Position, Half-Extents, Farbe, Opacity, Name/Label und Rotation. Das Mine-Debug-Overlay ist rein lesend und spielerlokal.
+
 Während `/civbuild` bleibt Hytales nativer Prefab-Ghost die normale Platzierungsvorschau. Die zusätzliche Boundary-Anzeige wird nur benötigt, wenn der geplante Footprint ein bestehendes Gebäude oder eine aktive Baustelle schneidet. Dann zeigt Civ gleichzeitig den geplanten Bereich und die kollidierenden Bereiche. Sobald keine Kollision mehr besteht, wird die Zusatzanzeige entfernt.
 
 Diese Kollisionsdarstellung ist ereignisgetrieben: `PlayerMouseMotionEvent` stößt die Prüfung nur an, wenn sich der anvisierte Block tatsächlich geändert hat. Der schnelle Preview-Pfad liest nur die im Prefab authored Boundary-Geometrie und erzeugt keinen vollständigen Terrain-Snapshot. Die vollständige Placement-Validierung und der Terrain-Snapshot bleiben auf den bestätigenden Linksklick beschränkt.
@@ -60,7 +62,7 @@ Die derzeitige `BuildingActionsPage` deklariert drei Worker-Slots statisch, pass
 
 Die neue Boundary-Darstellung ist durch Packet-Struktur und Servercode der gepinnten JAR verifiziert, aber ihre endgültige Optik im RTS-Kameramodus braucht noch einen echten Client-Test. Besonders zu prüfen sind Höhe/Deckkraft der Footprint-Fläche und die gleichzeitige Darstellung von geplantem und blockierendem Bereich.
 
-`UpdateTriggerVolumeDisplay` verwendet denselben clientseitigen Darstellungsweg wie Hytales Trigger-Volume-Werkzeug. Solange ein Spieler parallel zu Civ-RTS auch native Trigger-Volume-Editorwerkzeuge verwendet, kann die jeweils zuletzt gesendete Anzeige die andere ersetzen. Für den normalen Civ-Spielablauf werden die Werkzeuge nicht parallel verwendet; falls sich diese Annahme ändert, braucht die Darstellung eine explizite Koordination.
+`UpdateTriggerVolumeDisplay` verwendet denselben clientseitigen Darstellungsweg wie Hytales Trigger-Volume-Werkzeug. Solange ein Spieler parallel zu Civ-RTS auch native Trigger-Volume-Editorwerkzeuge verwendet, kann die jeweils zuletzt gesendete Anzeige die andere ersetzen. Für den normalen Civ-Spielablauf werden die Werkzeuge nicht parallel verwendet; falls sich diese Annahme ändert, braucht die Darstellung eine explizite Koordination. Offen ist ebenfalls, wie sich ein später gesendetes vollständiges `UpdateTriggerVolumeDisplay` gegenüber bereits per `AddOrUpdateTriggerVolumeDisplay` gesetzten keyed Mine-Debug-Einträgen verhält; die Paketstruktur allein beweist diese Client-Merge-Semantik nicht.
 
 Die genaue visuelle Position und Größe der Compact-HUDs bleibt In-Game-Feintuning. Der aktuelle Auswahlbereich sitzt unten links bei 24 px Abstand und 118 px Abstand zum unteren Rand.
 
