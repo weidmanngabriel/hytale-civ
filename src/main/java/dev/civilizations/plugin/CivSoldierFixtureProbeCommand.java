@@ -78,7 +78,11 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
                     fail("flat test world could not be created", throwable);
                     return;
                 }
-                world.execute(() -> preloadFixtureChunks(world));
+                world.execute(() -> {
+                    world.getWorldConfig().setCanUnloadChunks(false);
+                    System.out.println("CIV_SOLDIER_CHUNK_UNLOAD_DISABLED");
+                    preloadFixtureChunks(world);
+                });
             });
     }
 
