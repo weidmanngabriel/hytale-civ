@@ -64,7 +64,37 @@
           }
         },
         {
-          "$Comment": "Soldier combat target: Java only selects a native hostile target. Hytale owns seeking, its built-in NPC melee interaction, damage, HP and death. Use the native Root_NPC_Attack_Melee path instead of adapting the player's sword Primary interaction.",
+          "$Comment": "Soldier attack range: execute the native NPC melee root only after the selected combat target is actually in melee range. This branch must stay before the chase branch so attacks are not started continuously while pathing from long range.",
+          "Sensor": {
+            "Type": "Target",
+            "TargetSlot": "CivCombatTarget",
+            "Range": 2.25,
+            "AutoUnlockTarget": true
+          },
+          "BodyMotion": {
+            "Type": "Nothing"
+          },
+          "HeadMotion": {
+            "Type": "Aim",
+            "Spread": 0,
+            "HitProbability": 1,
+            "Deflection": true
+          },
+          "Actions": [
+            {
+              "Type": "Attack",
+              "Attack": "Root_NPC_Attack_Melee",
+              "LineOfSight": true,
+              "AvoidFriendlyFire": true,
+              "AttackPauseRange": [
+                1,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "$Comment": "Soldier chase range: Java selects the hostile target; Hytale only seeks here. The attack itself is handled by the preceding short-range branch.",
           "Sensor": {
             "Type": "Target",
             "TargetSlot": "CivCombatTarget",
@@ -77,15 +107,7 @@
             "SlowDownDistance": 3.0,
             "RelativeSpeed": 1.0,
             "UsePathfinder": true
-          },
-          "Actions": [
-            {
-              "Type": "Attack",
-              "Attack": "Root_NPC_Attack_Melee",
-              "LineOfSight": true,
-              "AvoidFriendlyFire": true
-            }
-          ]
+          }
         },
         {
           "Sensor": {
