@@ -50,6 +50,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
     private static final long ASSERT_INTERVAL_MILLIS = 25L;
     private static final long PROBE_TIMEOUT_MILLIS = 45_000L;
     private static final double MINIMUM_CHASE_DISTANCE = 1.0;
+    private static final float MINIMUM_HOSTILE_HEALTH = 200.0f;
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
@@ -138,7 +139,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
 
             Ref<EntityStore> hostile = spawnFirstHostileCombatNpc(world);
             if (hostile == null) {
-                fail("no spawnable native NPC hostile to players was found", null);
+                fail("no durable spawnable native NPC hostile to players was found", null);
                 return;
             }
 
@@ -188,7 +189,8 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
 
         int attempted = 0;
         for (String roleName : roles) {
-            if (roleName == null || roleName.isBlank() || CIV_ROLE.equals(roleName)) {
+            if (roleName == null || roleName.isBlank() || CIV_ROLE.equals(roleName)
+                || isSyntheticTestRole(roleName)) {
                 continue;
             }
             attempted++;
@@ -201,13 +203,16 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
                 }
                 WorldSupport worldSupport = WorldSupport.get(candidate, candidate.getStore());
                 CombatSupport combatSupport = CombatSupport.get(candidate, candidate.getStore());
+                float candidateHealth = health(candidate);
                 if (worldSupport != null
                     && worldSupport.getDefaultPlayerAttitude() == Attitude.HOSTILE
                     && combatSupport != null
-                    && Float.isFinite(health(candidate))) {
+                    && Float.isFinite(candidateHealth)
+                    && candidateHealth >= MINIMUM_HOSTILE_HEALTH) {
                     System.out.println(
                         "CIV_SOLDIER_HOSTILE_ROLE role=" + roleName
                             + " attempts=" + attempted
+                            + " health=" + candidateHealth
                     );
                     return candidate;
                 }
@@ -381,6 +386,13 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
         EntityStatMap stats = ref.getStore().getComponent(ref, EntityStatMap.getComponentType());
         EntityStatValue health = stats == null ? null : stats.get(DefaultEntityStatTypes.getHealth());
         return health == null ? Float.NaN : health.get();
+    }
+
+    private static boolean isSyntheticTestRole(String roleName) {
+        String value = roleName.toLowerCase(Locale.ROOT);
+        return value.startsWith("test_")
+            || value.startsWith("debug_")
+            || value.startsWith("example_");
     }
 
     private static int hostileRolePriority(String roleName) {
