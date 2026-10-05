@@ -62,6 +62,19 @@ Nur einen dieser Pfade zu setzen reicht deshalb nicht zuverlässig für beliebig
 
 Danach trifft Hytale selbst die Bewegungs- und Angriffsentscheidungen. Civ erzeugt weder Angriffe noch Schaden. Dieses Muster wurde im fokussierten Soldier-Local-Szenario gegen einen nativen Predator erfolgreich mit gegenseitiger HP-Änderung verifiziert.
 
+## `SensorTarget.AutoUnlockTarget`
+
+Für den gepinnten Server 0.6.8 wurde direkt in `HytaleServer.jar` verifiziert: Ein `SensorTarget` prüft zuerst seine Anforderungen, darunter die konfigurierte Reichweite. Schlägt diese Prüfung fehl und `AutoUnlockTarget` ist `true`, löscht Hytale den markierten Zielslot.
+
+Das ist bei gestaffelten Combat-Instructions relevant. Wenn zuerst ein kurzer Nahkampf-Sensor und danach ein weiter reichender Chase-Sensor denselben Zielslot lesen, darf der Nahkampf-Sensor das Ziel bei einem bloßen Reichweitenfehler nicht freigeben. Andernfalls sieht die nachfolgende Chase-Instruction das Ziel nicht mehr.
+
+Für `CivCombatTarget` gilt deshalb:
+
+- kurzer Attack-Sensor: `AutoUnlockTarget: false`,
+- nachfolgender Chase-Sensor: darf außerhalb seiner eigenen zulässigen Gesamtreichweite weiter aufräumen.
+
+Damit bleibt ein gültiges, aber noch entferntes Ziel erhalten und Hytales `Seek` kann die Verfolgung übernehmen.
+
 ## Timing und Treffergeometrie
 
 Der native NPC-Melee-Selector ist eine gerichtete Sweep-Geometrie vor dem NPC. Ein Angriff ist daher kein automatisch treffender Homing-Hit. Der NPC muss beim Schlag ausreichend auf das Ziel ausgerichtet und in Reichweite sein.

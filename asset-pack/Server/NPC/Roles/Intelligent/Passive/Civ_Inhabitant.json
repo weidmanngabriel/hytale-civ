@@ -87,12 +87,12 @@
           }
         },
         {
-          "$Comment": "Soldier attack range: execute the native NPC melee root only after the selected combat target is actually in melee range. This branch must stay before the chase branch so attacks are not started continuously while pathing from long range.",
+          "$Comment": "Soldier attack range: execute the native NPC melee root only after the selected combat target is actually in melee range. A failed short-range check must retain CivCombatTarget so the following chase branch can still seek it.",
           "Sensor": {
             "Type": "Target",
             "TargetSlot": "CivCombatTarget",
             "Range": 2.25,
-            "AutoUnlockTarget": true
+            "AutoUnlockTarget": false
           },
           "BodyMotion": {
             "Type": "Nothing"

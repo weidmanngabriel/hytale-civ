@@ -47,4 +47,25 @@ class CivInhabitantRoleValidationTest {
             "miners must reject Hytale best-effort partial paths"
         );
     }
+
+    @Test
+    void soldierRetainsTargetWhenMeleeSensorIsOutOfRange() throws Exception {
+        JsonNode role = new ObjectMapper().readTree(Files.readString(ROLE_PATH));
+        JsonNode idleInstructions = role.path("Instructions").path(0).path("Instructions");
+        JsonNode attack = idleInstructions.path(2);
+        JsonNode chase = idleInstructions.path(3);
+
+        assertEquals("Target", attack.path("Sensor").path("Type").asText());
+        assertEquals("CivCombatTarget", attack.path("Sensor").path("TargetSlot").asText());
+        assertEquals(2.25, attack.path("Sensor").path("Range").asDouble());
+        assertFalse(
+            attack.path("Sensor").path("AutoUnlockTarget").asBoolean(true),
+            "melee range checks must retain the target so the following chase instruction can use it"
+        );
+
+        assertEquals("Target", chase.path("Sensor").path("Type").asText());
+        assertEquals("CivCombatTarget", chase.path("Sensor").path("TargetSlot").asText());
+        assertTrue(chase.path("Sensor").path("Range").asDouble() > attack.path("Sensor").path("Range").asDouble());
+        assertEquals("Seek", chase.path("BodyMotion").path("Type").asText());
+    }
 }
