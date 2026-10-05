@@ -38,7 +38,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
     private static final String FLAT_GENERATOR = "Flat";
     private static final String DEFAULT_STORAGE = "default";
     private static final String CIV_ROLE = "Civ_Inhabitant";
-    private static final String HOSTILE_FIXTURE_ROLE = "Test_Attack_Melee_All";
+    private static final String HOSTILE_FIXTURE_ROLE = "Goblin_Scrapper";
     private static final Vector3d SOLDIER_START = new Vector3d(0.5, 1.0, 0.5);
     private static final Vector3d HOSTILE_START = new Vector3d(8.5, 1.0, 0.5);
     private static final WorldPosition MANUAL_DESTINATION = new WorldPosition(-6.0, 1.0, 0.5);
@@ -138,7 +138,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
 
             Ref<EntityStore> hostile = spawnStableHostileFixture(world);
             if (hostile == null) {
-                fail("native Test_Attack_Melee_All fixture could not be spawned", null);
+                fail("native hostile fixture could not be spawned", null);
                 return;
             }
 
