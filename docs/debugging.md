@@ -68,6 +68,8 @@ Alternativ aktiviert die JVM-Property `-Dcivilizations.mineDebug=true` beim Plug
 [Civ Mine][mine=<id>][front=<id>][PLANNING][DIRECTION_SELECTED] direction=NORTH weight=50 totalWeight=100 probability=0.500 roll=17
 ```
 
+`front` wird nur ausgegeben, wenn das Ereignis bereits einer konkreten Arbeitsfront beziehungsweise einem Segment zugeordnet werden kann.
+
 Die groben Filterkategorien sind `PLANNING`, `GEOMETRY`, `ROOM`, `ENVIRONMENT`, `NAVIGATION` und `ADAPTER`. Nicht jede Kategorie erzeugt im aktuellen Legacy-Minenpfad bereits Events; die noch nicht implementierten Generator-Layer sollen später dieselben Kategorien verwenden.
 
 Aktuell instrumentiert sind nur Entscheidungen und Fehler, die wirklich existieren: Auswahl beziehungsweise Wiederaufnahme einer Arbeitsfront, initiale Richtung, gewichtete Geradeaus-/Links-/Rechts-Auswahl, abgelehnte Segmentkandidaten, fehlende gültige Fortsetzung, blockierte Fronten sowie Fehler bei der Stützen-Prefab-Ausführung. Es gibt bewusst keine Ausgabe pro Mining-Tick oder abgebautem Block.
