@@ -366,7 +366,11 @@ Persist only the state required to continue Civ's mine behaviour, for example:
 - navigation anchors;
 - important room/infrastructure metadata.
 
-The current implementation persists Civ-owned tunnel segments. The redesign should reassess this format so long-lived mines do not create unnecessarily large save data or progressively slower save/load behaviour.
+Layer 1 persists the semantic `MineNetwork` separately from concrete `MineSegment` excavation progress. The network stores logical tunnels, their parent hierarchy, segment membership, rooms, work fronts and navigation anchors. It does not persist excavated blocks, pathfinding routes, decoration, supports or other world geometry already represented by Hytale.
+
+The current miner still creates concrete `MineSegment` objects. Until Layer 4 introduces real branch selection, newly created segments are assigned to the logical main tunnel by default. This is a transition of responsibility, not a final branching rule.
+
+Existing development saves that contain segments but no network are converted at world load into one main-tunnel network using a deterministic main-tunnel ID derived from the mine building ID. All existing segments of that mine are assigned to that main tunnel. No parallel legacy runtime model is retained after conversion.
 
 Use a deterministic seed only where it materially reduces persistence or improves reproducibility without making regeneration expensive.
 
@@ -405,6 +409,16 @@ Maintain this document as the source of truth.
 ### Layer 1 - domain model and mine network
 
 Represent main tunnel, nested branches, work fronts, rooms and navigation anchors in the core model. Avoid visual/world generation work beyond what the model requires.
+
+Layer 1 is implemented with the following current model:
+
+- `MineNetwork` is the aggregate for one mine building and is keyed by the stable mine building ID.
+- `MineTunnel` represents either the one `MAIN` tunnel or a nested `BRANCH`; branch depth follows the parent hierarchy.
+- `MineRoom`, `MineWorkFront` and `MineNavigationAnchor` reference logical tunnel IDs rather than concrete block geometry.
+- `MineNavigationAnchor` may store explicit neighbouring anchor IDs, but these are semantic safe-point connections only; Hytale remains responsible for pathfinding.
+- Concrete `MineSegment` objects remain the current excavation/progress representation and are assigned to exactly one logical tunnel through that tunnel's `segmentIds`.
+- Segment parentage remains temporarily available for the existing straight/junction worker sequence, but it is no longer the authoritative representation of branch topology.
+- Form phases, geometry generation, branch probabilities and work-front scheduling remain intentionally deferred to later layers.
 
 ### Layer 2 - tunnel path and form phases
 
@@ -472,7 +486,6 @@ The following are deliberately not fully decided yet:
 - how factions and multiplayer affect interactions between multiple mines;
 - whether ore encounters later influence specialised mining behaviour;
 - whether all regular navigation anchors remain persisted after later optimization;
-- exact handling of legacy mines during the overhaul;
 - exact runtime capability of Hytale prefab molding/scanners for dynamically generated mine spaces.
 
 These should be decided only when their implementation layer needs them.
