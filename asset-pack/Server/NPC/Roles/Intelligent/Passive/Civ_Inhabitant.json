@@ -75,7 +75,7 @@
       ]
     },
     {
-      "$Comment": "Soldier combat: Civ selects and marks the target; Hytale's Combat Action Evaluator owns pursuit range, sword interaction execution, hit detection, damage, knockback and timing.",
+      "$Comment": "Soldier combat: Civ selects the hostile target and feeds native TargetMemory; Hytale's Combat Action Evaluator owns pursuit range, sword interaction execution, hit detection, damage, knockback and timing.",
       "Sensor": {
         "Type": "State",
         "State": "Combat"
@@ -83,8 +83,7 @@
       "Instructions": [
         {
           "Sensor": {
-            "Type": "HasTarget",
-            "TargetSlot": "LockedTarget"
+            "Type": "HasHostileTargetMemory"
           },
           "Instructions": [
             {
