@@ -18,23 +18,30 @@ import javax.annotation.Nonnull;
 
 /**
  * Modal RTS building catalog. Entries are kept alphabetically by display name.
+ * Mine phases are intentionally exposed here as debug entries until progression owns them.
  */
 public final class BuildingMenuPage
     extends InteractiveCustomUIPage<BuildingMenuPage.ActionData> {
 
     private static final String ACTION_FARM = "farm";
-    private static final String ACTION_MINE = "mine";
+    private static final String ACTION_MINE_1 = "mine1";
+    private static final String ACTION_MINE_2 = "mine2";
+    private static final String ACTION_MINE_3 = "mine3";
     private static final String ACTION_FIELD = "field";
     private static final String ACTION_CLOSE = "close";
 
     private final Runnable selectFarm;
-    private final Runnable selectMine;
+    private final Runnable selectMine1;
+    private final Runnable selectMine2;
+    private final Runnable selectMine3;
     private final Runnable selectField;
 
     public BuildingMenuPage(
         PlayerRef playerRef,
         Runnable selectFarm,
-        Runnable selectMine,
+        Runnable selectMine1,
+        Runnable selectMine2,
+        Runnable selectMine3,
         Runnable selectField
     ) {
         super(
@@ -43,7 +50,9 @@ public final class BuildingMenuPage
             ActionData.CODEC
         );
         this.selectFarm = selectFarm;
-        this.selectMine = selectMine;
+        this.selectMine1 = selectMine1;
+        this.selectMine2 = selectMine2;
+        this.selectMine3 = selectMine3;
         this.selectField = selectField;
     }
 
@@ -55,28 +64,19 @@ public final class BuildingMenuPage
         @Nonnull Store<EntityStore> store
     ) {
         commands.append("Pages/CivBuildingMenu.ui");
+        bind(events, "#FarmButton", ACTION_FARM);
+        bind(events, "#Mine1Button", ACTION_MINE_1);
+        bind(events, "#Mine2Button", ACTION_MINE_2);
+        bind(events, "#Mine3Button", ACTION_MINE_3);
+        bind(events, "#FieldButton", ACTION_FIELD);
+        bind(events, "#CloseButton", ACTION_CLOSE);
+    }
+
+    private static void bind(UIEventBuilder events, String selector, String action) {
         events.addEventBinding(
             CustomUIEventBindingType.Activating,
-            "#FarmButton",
-            EventData.of("Action", ACTION_FARM),
-            false
-        );
-        events.addEventBinding(
-            CustomUIEventBindingType.Activating,
-            "#MineButton",
-            EventData.of("Action", ACTION_MINE),
-            false
-        );
-        events.addEventBinding(
-            CustomUIEventBindingType.Activating,
-            "#FieldButton",
-            EventData.of("Action", ACTION_FIELD),
-            false
-        );
-        events.addEventBinding(
-            CustomUIEventBindingType.Activating,
-            "#CloseButton",
-            EventData.of("Action", ACTION_CLOSE),
+            selector,
+            EventData.of("Action", action),
             false
         );
     }
@@ -92,8 +92,18 @@ public final class BuildingMenuPage
             close();
             return;
         }
-        if (ACTION_MINE.equals(data.action)) {
-            selectMine.run();
+        if (ACTION_MINE_1.equals(data.action)) {
+            selectMine1.run();
+            close();
+            return;
+        }
+        if (ACTION_MINE_2.equals(data.action)) {
+            selectMine2.run();
+            close();
+            return;
+        }
+        if (ACTION_MINE_3.equals(data.action)) {
+            selectMine3.run();
             close();
             return;
         }
