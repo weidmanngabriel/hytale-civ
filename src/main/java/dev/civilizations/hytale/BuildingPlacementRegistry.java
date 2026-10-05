@@ -9,6 +9,7 @@ import org.joml.Vector3i;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,6 +25,7 @@ public final class BuildingPlacementRegistry {
     private final Map<UUID, Map<UUID, PrefabPlacementService.PlacementFootprint>> reservations =
         new ConcurrentHashMap<>();
     private final Map<UUID, List<BuildingInstance>> buildings = new ConcurrentHashMap<>();
+    private final Map<UUID, Set<UUID>> upgrading = new ConcurrentHashMap<>();
 
     public boolean overlaps(
         UUID worldId,
@@ -76,6 +78,29 @@ public final class BuildingPlacementRegistry {
         }
     }
 
+    public synchronized boolean beginUpgrade(UUID worldId, UUID buildingId) {
+        if (find(worldId, buildingId) == null) {
+            return false;
+        }
+        return upgrading.computeIfAbsent(worldId, ignored -> ConcurrentHashMap.newKeySet())
+            .add(buildingId);
+    }
+
+    public void cancelUpgrade(UUID worldId, UUID buildingId) {
+        if (worldId == null || buildingId == null) return;
+        Set<UUID> worldUpgrades = upgrading.get(worldId);
+        if (worldUpgrades == null) return;
+        worldUpgrades.remove(buildingId);
+        if (worldUpgrades.isEmpty()) {
+            upgrading.remove(worldId, worldUpgrades);
+        }
+    }
+
+    public boolean isUpgrading(UUID worldId, UUID buildingId) {
+        return worldId != null && buildingId != null
+            && upgrading.getOrDefault(worldId, Set.of()).contains(buildingId);
+    }
+
     public synchronized BuildingInstance completeBuilding(
         UUID worldId,
         UUID siteId,
@@ -124,12 +149,48 @@ public final class BuildingPlacementRegistry {
             orientation,
             placement
         );
+        replace(worldId, instance);
+        return instance;
+    }
+
+    public synchronized BuildingInstance completeUpgrade(
+        UUID worldId,
+        UUID buildingId,
+        int targetPhase,
+        PrefabPlacementService.PlacedMarker boundsMarker,
+        List<PrefabPlacementService.PlacedMarker> semanticVolumes,
+        PrefabPlacementService.PlacementCandidate placement
+    ) {
+        BuildingInstance existing = find(worldId, buildingId);
+        if (existing == null || boundsMarker == null || boundsMarker.bounds() == null) {
+            throw new IllegalArgumentException("Upgrade requires an existing building and authored bounds.");
+        }
+        if (BuildingTypes.nextPhase(existing.buildingType(), existing.phase()) != targetPhase) {
+            throw new IllegalArgumentException("Target phase is not the next authored building phase.");
+        }
+
+        BuildingInstance upgraded = new BuildingInstance(
+            existing.id(),
+            worldId,
+            existing.buildingType(),
+            targetPhase,
+            boundsMarker.id(),
+            boundsMarker.bounds(),
+            semanticVolumes,
+            existing.orientation(),
+            placement
+        );
+        replace(worldId, upgraded);
+        cancelUpgrade(worldId, buildingId);
+        return upgraded;
+    }
+
+    private void replace(UUID worldId, BuildingInstance instance) {
         List<BuildingInstance> updated =
             new ArrayList<>(buildings.getOrDefault(worldId, List.of()));
-        updated.removeIf(existing -> existing.id().equals(siteId));
+        updated.removeIf(existing -> existing.id().equals(instance.id()));
         updated.add(instance);
         buildings.put(worldId, List.copyOf(updated));
-        return instance;
     }
 
     public synchronized BuildingInstance remove(UUID worldId, UUID buildingId) {
@@ -145,6 +206,7 @@ public final class BuildingPlacementRegistry {
         } else {
             buildings.put(worldId, List.copyOf(updated));
         }
+        cancelUpgrade(worldId, buildingId);
         return existing;
     }
 
@@ -156,6 +218,7 @@ public final class BuildingPlacementRegistry {
             return;
         }
         reservations.remove(worldId);
+        upgrading.remove(worldId);
         buildings.put(worldId, List.copyOf(restored == null ? List.of() : restored));
     }
 
