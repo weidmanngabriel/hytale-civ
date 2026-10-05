@@ -138,7 +138,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
 
             Ref<EntityStore> hostile = spawnFirstHostileCombatNpc(world);
             if (hostile == null) {
-                fail("no spawnable native NPC hostile to both players and NPCs was found", null);
+                fail("no spawnable native NPC hostile to players was found", null);
                 return;
             }
 
@@ -203,7 +203,6 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
                 CombatSupport combatSupport = CombatSupport.get(candidate, candidate.getStore());
                 if (worldSupport != null
                     && worldSupport.getDefaultPlayerAttitude() == Attitude.HOSTILE
-                    && worldSupport.getDefaultNPCAttitude() == Attitude.HOSTILE
                     && combatSupport != null
                     && Float.isFinite(health(candidate))) {
                     System.out.println(
@@ -245,6 +244,33 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
                 System.out.println("CIV_SOLDIER_TARGET_ACQUIRED target=" + hostile.getIndex());
             }
 
+            if (!state.manualIssued && state.targetAcquired) {
+                if (!activityRegistry.orderManualMove(soldier, MANUAL_DESTINATION)) {
+                    fail("manual movement command could not be issued to soldier", null);
+                    return;
+                }
+                state.manualIssued = true;
+                System.out.println("CIV_SOLDIER_MANUAL_MOVE_ISSUED");
+            }
+
+            if (state.manualIssued && !state.interruptionObserved) {
+                if (!activityRegistry.autonomousWorkAllowed(soldier)
+                    && soldierWorkSystem.targetOf(soldier) == null) {
+                    state.interruptionObserved = true;
+                    System.out.println("CIV_SOLDIER_COMBAT_INTERRUPTED");
+                    if (!activityRegistry.cancelManualMove(soldier)) {
+                        fail("manual movement could not be completed/cancelled", null);
+                        return;
+                    }
+                }
+            } else if (state.interruptionObserved && !state.resumeObserved) {
+                Ref<EntityStore> resumedTarget = soldierWorkSystem.targetOf(soldier);
+                if (hostile.isValid() && hostile.equals(resumedTarget)) {
+                    state.resumeObserved = true;
+                    System.out.println("CIV_SOLDIER_COMBAT_RESUMED");
+                }
+            }
+
             TransformComponent transform = soldier.getStore()
                 .getComponent(soldier, TransformComponent.getComponentType());
             if (transform == null) {
@@ -283,38 +309,10 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
                 );
             }
 
-            if (!state.manualIssued
-                && state.targetAcquired
+            if (state.resumeObserved
                 && state.chaseObserved
                 && state.targetDamageObserved
                 && state.soldierDamageObserved) {
-                if (!activityRegistry.orderManualMove(soldier, MANUAL_DESTINATION)) {
-                    fail("manual movement command could not be issued to soldier", null);
-                    return;
-                }
-                state.manualIssued = true;
-                System.out.println("CIV_SOLDIER_MANUAL_MOVE_ISSUED");
-            }
-
-            if (state.manualIssued && !state.interruptionObserved) {
-                if (!activityRegistry.autonomousWorkAllowed(soldier)
-                    && soldierWorkSystem.targetOf(soldier) == null) {
-                    state.interruptionObserved = true;
-                    System.out.println("CIV_SOLDIER_COMBAT_INTERRUPTED");
-                    if (!activityRegistry.cancelManualMove(soldier)) {
-                        fail("manual movement could not be completed/cancelled", null);
-                        return;
-                    }
-                }
-            } else if (state.interruptionObserved && !state.resumeObserved) {
-                Ref<EntityStore> resumedTarget = soldierWorkSystem.targetOf(soldier);
-                if (hostile.isValid() && hostile.equals(resumedTarget)) {
-                    state.resumeObserved = true;
-                    System.out.println("CIV_SOLDIER_COMBAT_RESUMED");
-                }
-            }
-
-            if (state.resumeObserved) {
                 System.out.println(
                     "CIV_SOLDIER_RUNTIME_PASS soldierHealth=" + health(soldier)
                         + " hostileHealth=" + (hostile.isValid() ? health(hostile) : 0.0f)
@@ -323,8 +321,17 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
                 return;
             }
 
-            if (!hostile.isValid() && !state.resumeObserved) {
-                fail("hostile died before manual interruption/resume could be verified", null);
+            if (!hostile.isValid()) {
+                fail(
+                    "hostile died before the full scenario was verified"
+                        + ", acquired=" + state.targetAcquired
+                        + ", interrupted=" + state.interruptionObserved
+                        + ", resumed=" + state.resumeObserved
+                        + ", chase=" + state.chaseObserved
+                        + ", targetDamage=" + state.targetDamageObserved
+                        + ", soldierDamage=" + state.soldierDamageObserved,
+                    null
+                );
                 return;
             }
 
