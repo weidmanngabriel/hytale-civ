@@ -18,6 +18,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 public final class BuildingActionsPage extends InteractiveCustomUIPage<BuildingActionsPage.ActionData> {
+    private static final String UPGRADE = "upgrade";
     private static final String DEMOLISH = "demolish";
     private static final String CONFIRM = "confirm";
     private static final String CANCEL = "cancel";
@@ -29,6 +30,9 @@ public final class BuildingActionsPage extends InteractiveCustomUIPage<BuildingA
     private final int phase;
     private final int workerCapacity;
     private final List<WorkerOption> workers;
+    private final int nextPhase;
+    private final boolean upgrading;
+    private final Runnable upgrade;
     private final Runnable demolish;
 
     public BuildingActionsPage(
@@ -37,6 +41,9 @@ public final class BuildingActionsPage extends InteractiveCustomUIPage<BuildingA
         int phase,
         int workerCapacity,
         List<WorkerOption> workers,
+        int nextPhase,
+        boolean upgrading,
+        Runnable upgrade,
         Runnable demolish
     ) {
         super(playerRef, CustomPageLifetime.CanDismissOrCloseThroughInteraction, ActionData.CODEC);
@@ -44,6 +51,9 @@ public final class BuildingActionsPage extends InteractiveCustomUIPage<BuildingA
         this.phase = Math.max(1, phase);
         this.workerCapacity = Math.max(0, workerCapacity);
         this.workers = List.copyOf(workers == null ? List.of() : workers);
+        this.nextPhase = Math.max(0, nextPhase);
+        this.upgrading = upgrading;
+        this.upgrade = upgrade;
         this.demolish = demolish;
     }
 
@@ -85,8 +95,25 @@ public final class BuildingActionsPage extends InteractiveCustomUIPage<BuildingA
             }
         }
 
-        events.addEventBinding(CustomUIEventBindingType.Activating, "#DemolishButton",
-            EventData.of("Action", DEMOLISH), false);
+        commands.set("#UpgradeStatus.Visible", upgrading);
+        commands.set("#UpgradeButton.Visible", !upgrading && nextPhase > 0);
+        if (nextPhase > 0) {
+            commands.set("#UpgradeButton.Text", "Auf Phase " + nextPhase + " erweitern");
+        }
+        if (!upgrading && nextPhase > 0 && upgrade != null) {
+            events.addEventBinding(
+                CustomUIEventBindingType.Activating,
+                "#UpgradeButton",
+                EventData.of("Action", UPGRADE),
+                false
+            );
+        }
+
+        commands.set("#DemolishButton.Visible", !upgrading);
+        if (!upgrading) {
+            events.addEventBinding(CustomUIEventBindingType.Activating, "#DemolishButton",
+                EventData.of("Action", DEMOLISH), false);
+        }
         events.addEventBinding(CustomUIEventBindingType.Activating, "#ConfirmButton",
             EventData.of("Action", CONFIRM), false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#CancelButton",
@@ -100,7 +127,10 @@ public final class BuildingActionsPage extends InteractiveCustomUIPage<BuildingA
                                 @Nonnull ActionData data) {
         if (data.action != null && data.action.startsWith(WORKER_PREFIX)) {
             selectWorker(data.action);
-        } else if (DEMOLISH.equals(data.action)) {
+        } else if (UPGRADE.equals(data.action) && !upgrading && nextPhase > 0 && upgrade != null) {
+            upgrade.run();
+            close();
+        } else if (DEMOLISH.equals(data.action) && !upgrading) {
             showConfirmation();
         } else if (CONFIRM.equals(data.action)) {
             demolish.run();

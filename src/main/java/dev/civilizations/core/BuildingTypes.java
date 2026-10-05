@@ -38,4 +38,15 @@ public final class BuildingTypes {
         BuildingTypeDefinition definition = find(id);
         return definition == null ? 0 : definition.workerCapacity(phase);
     }
+
+    /** Returns the next authored phase, or 0 when no further phase exists. */
+    public static int nextPhase(String id, int currentPhase) {
+        BuildingTypeDefinition definition = find(id);
+        return definition == null ? 0 : definition.nextPhase(currentPhase);
+    }
+
+    public static int maxPhase(String id) {
+        BuildingTypeDefinition definition = find(id);
+        return definition == null ? 0 : definition.maxPhase();
+    }
 }

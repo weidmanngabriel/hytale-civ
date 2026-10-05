@@ -9,6 +9,7 @@ import org.joml.Vector3i;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,6 +25,7 @@ public final class BuildingPlacementRegistry {
     private final Map<UUID, Map<UUID, PrefabPlacementService.PlacementFootprint>> reservations =
         new ConcurrentHashMap<>();
     private final Map<UUID, List<BuildingInstance>> buildings = new ConcurrentHashMap<>();
+    private final Map<UUID, Set<UUID>> upgrading = new ConcurrentHashMap<>();
 
     public boolean overlaps(
         UUID worldId,
@@ -76,6 +78,29 @@ public final class BuildingPlacementRegistry {
         }
     }
 
+    public synchronized boolean beginUpgrade(UUID worldId, UUID buildingId) {
+        if (findStored(worldId, buildingId) == null || isUpgrading(worldId, buildingId)) {
+            return false;
+        }
+        return upgrading.computeIfAbsent(worldId, ignored -> ConcurrentHashMap.newKeySet())
+            .add(buildingId);
+    }
+
+    public void cancelUpgrade(UUID worldId, UUID buildingId) {
+        if (worldId == null || buildingId == null) return;
+        Set<UUID> worldUpgrades = upgrading.get(worldId);
+        if (worldUpgrades == null) return;
+        worldUpgrades.remove(buildingId);
+        if (worldUpgrades.isEmpty()) {
+            upgrading.remove(worldId, worldUpgrades);
+        }
+    }
+
+    public boolean isUpgrading(UUID worldId, UUID buildingId) {
+        return worldId != null && buildingId != null
+            && upgrading.getOrDefault(worldId, Set.of()).contains(buildingId);
+    }
+
     public synchronized BuildingInstance completeBuilding(
         UUID worldId,
         UUID siteId,
@@ -113,6 +138,29 @@ public final class BuildingPlacementRegistry {
         }
 
         release(worldId, siteId);
+
+        BuildingInstance upgradeTarget = findUpgradeTarget(worldId, buildingType, placement);
+        if (upgradeTarget != null) {
+            int targetPhase = BuildingTypes.nextPhase(buildingType, upgradeTarget.phase());
+            if (targetPhase == 0) {
+                throw new IllegalStateException("Upgrading building has no next phase.");
+            }
+            BuildingInstance upgraded = new BuildingInstance(
+                upgradeTarget.id(),
+                worldId,
+                buildingType,
+                targetPhase,
+                boundsMarker.id(),
+                boundsMarker.bounds(),
+                semanticVolumes,
+                upgradeTarget.orientation(),
+                placement
+            );
+            replace(worldId, upgraded);
+            cancelUpgrade(worldId, upgradeTarget.id());
+            return upgraded;
+        }
+
         BuildingInstance instance = new BuildingInstance(
             siteId,
             worldId,
@@ -124,16 +172,73 @@ public final class BuildingPlacementRegistry {
             orientation,
             placement
         );
-        List<BuildingInstance> updated =
-            new ArrayList<>(buildings.getOrDefault(worldId, List.of()));
-        updated.removeIf(existing -> existing.id().equals(siteId));
-        updated.add(instance);
-        buildings.put(worldId, List.copyOf(updated));
+        replace(worldId, instance);
         return instance;
     }
 
+    private BuildingInstance findUpgradeTarget(
+        UUID worldId,
+        String buildingType,
+        PrefabPlacementService.PlacementCandidate placement
+    ) {
+        if (placement == null || placement.footprint() == null) return null;
+        Set<UUID> worldUpgrades = upgrading.getOrDefault(worldId, Set.of());
+        return buildings.getOrDefault(worldId, List.of()).stream()
+            .filter(building -> worldUpgrades.contains(building.id()))
+            .filter(building -> building.buildingType().equals(buildingType))
+            .filter(building -> building.bounds().overlapsHorizontal(
+                placement.footprint().minX(),
+                placement.footprint().minZ(),
+                placement.footprint().maxX() + 1.0,
+                placement.footprint().maxZ() + 1.0
+            ))
+            .findFirst()
+            .orElse(null);
+    }
+
+    public synchronized BuildingInstance completeUpgrade(
+        UUID worldId,
+        UUID buildingId,
+        int targetPhase,
+        PrefabPlacementService.PlacedMarker boundsMarker,
+        List<PrefabPlacementService.PlacedMarker> semanticVolumes,
+        PrefabPlacementService.PlacementCandidate placement
+    ) {
+        BuildingInstance existing = findStored(worldId, buildingId);
+        if (existing == null || !isUpgrading(worldId, buildingId)
+            || boundsMarker == null || boundsMarker.bounds() == null) {
+            throw new IllegalArgumentException("Upgrade requires an active building upgrade and authored bounds.");
+        }
+        if (BuildingTypes.nextPhase(existing.buildingType(), existing.phase()) != targetPhase) {
+            throw new IllegalArgumentException("Target phase is not the next authored building phase.");
+        }
+
+        BuildingInstance upgraded = new BuildingInstance(
+            existing.id(),
+            worldId,
+            existing.buildingType(),
+            targetPhase,
+            boundsMarker.id(),
+            boundsMarker.bounds(),
+            semanticVolumes,
+            existing.orientation(),
+            placement
+        );
+        replace(worldId, upgraded);
+        cancelUpgrade(worldId, buildingId);
+        return upgraded;
+    }
+
+    private void replace(UUID worldId, BuildingInstance instance) {
+        List<BuildingInstance> updated =
+            new ArrayList<>(buildings.getOrDefault(worldId, List.of()));
+        updated.removeIf(existing -> existing.id().equals(instance.id()));
+        updated.add(instance);
+        buildings.put(worldId, List.copyOf(updated));
+    }
+
     public synchronized BuildingInstance remove(UUID worldId, UUID buildingId) {
-        BuildingInstance existing = find(worldId, buildingId);
+        BuildingInstance existing = findStored(worldId, buildingId);
         if (existing == null) {
             return null;
         }
@@ -145,6 +250,7 @@ public final class BuildingPlacementRegistry {
         } else {
             buildings.put(worldId, List.copyOf(updated));
         }
+        cancelUpgrade(worldId, buildingId);
         return existing;
     }
 
@@ -156,6 +262,7 @@ public final class BuildingPlacementRegistry {
             return;
         }
         reservations.remove(worldId);
+        upgrading.remove(worldId);
         buildings.put(worldId, List.copyOf(restored == null ? List.of() : restored));
     }
 
@@ -163,6 +270,7 @@ public final class BuildingPlacementRegistry {
         return List.copyOf(buildings.getOrDefault(worldId, List.of()));
     }
 
+    /** Picking keeps an upgrading building visible so its UI can show the construction state. */
     public BuildingInstance findAt(UUID worldId, Vector3i block) {
         if (worldId == null || block == null) {
             return null;
@@ -174,7 +282,19 @@ public final class BuildingPlacementRegistry {
             .orElse(null);
     }
 
+    /**
+     * Gameplay lookups treat an upgrading building as unavailable. Worker systems that resolve
+     * a persistent workplace through this method therefore stop routing into the construction area.
+     */
     public BuildingInstance find(UUID worldId, UUID buildingId) {
+        BuildingInstance building = findStored(worldId, buildingId);
+        if (building == null || isUpgrading(worldId, buildingId)) {
+            return null;
+        }
+        return building;
+    }
+
+    private BuildingInstance findStored(UUID worldId, UUID buildingId) {
         if (worldId == null || buildingId == null) {
             return null;
         }
