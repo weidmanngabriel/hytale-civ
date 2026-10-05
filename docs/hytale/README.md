@@ -44,6 +44,7 @@ Vor neuer Hytale-spezifischer Arbeit zuerst diese Übersicht und die relevante T
 - [Headless-Server und Runtime-Probe](server-headless.md)
 - [Threading und World-Ausführung](threading.md)
 - [Lifecycle und Runtime-Zustand](lifecycle-runtime-state.md)
+- [Performance und Worker-Scheduling](performance-scheduling.md)
 - [UI und Interaktion](ui-interaction.md)
 - [NPCs und Navigation](npc-navigation.md)
 - [Worker-Item-Animationen](worker-item-animations.md)
