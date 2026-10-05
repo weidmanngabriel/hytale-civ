@@ -58,11 +58,14 @@ class CivMinePersistenceServiceTest {
             .withRoom(new MineRoom(UUID.randomUUID(), branchId, MineRoom.Type.SMALL_NICHE,
                 new BlockPosition(12, 2, 4)))
             .withWorkFront(new MineWorkFront(UUID.randomUUID(), branchId,
-                new BlockPosition(16, 2, 3), MineWorkFront.State.OPEN))
-            .withNavigationAnchor(new MineNavigationAnchor(anchorAId, mainId,
-                new BlockPosition(5, 2, 3), MineNavigationAnchor.Type.JUNCTION, Set.of(anchorBId)))
-            .withNavigationAnchor(new MineNavigationAnchor(anchorBId, branchId,
-                new BlockPosition(10, 2, 3), MineNavigationAnchor.Type.REGULAR, Set.of(anchorAId)));
+                new BlockPosition(16, 2, 3), MineWorkFront.State.OPEN));
+
+        network = network.withNavigationAnchors(List.of(
+            new MineNavigationAnchor(anchorAId, mainId,
+                new BlockPosition(5, 2, 3), MineNavigationAnchor.Type.JUNCTION, Set.of(anchorBId)),
+            new MineNavigationAnchor(anchorBId, branchId,
+                new BlockPosition(10, 2, 3), MineNavigationAnchor.Type.REGULAR, Set.of(anchorAId))
+        ));
 
         assertEquals(network, service.decodeNetwork(service.encodeNetwork(network)));
     }
