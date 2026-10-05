@@ -17,11 +17,15 @@ import com.hypixel.hytale.server.core.inventory.InventoryComponent;
 import com.hypixel.hytale.server.core.inventory.container.CombinedItemContainer;
 import com.hypixel.hytale.server.core.inventory.container.DelegateItemContainer;
 import com.hypixel.hytale.server.core.inventory.container.filter.FilterType;
+import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
+import com.hypixel.hytale.server.core.modules.entity.teleport.Teleport;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
+import dev.civilizations.core.BuildingBounds;
+import dev.civilizations.core.BuildingTypes;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.WorldPosition;
 import org.joml.Vector3d;
@@ -424,6 +428,8 @@ public final class RtsInteractionController {
                 );
             })
             .toList();
+        int nextPhase = BuildingTypes.nextPhase(building.buildingType(), building.phase());
+        boolean upgrading = placementRegistry.isUpgrading(building.worldId(), building.id());
         event.getPlayer().getPageManager().openCustomPage(
             playerEntityRef,
             store,
@@ -433,6 +439,9 @@ public final class RtsInteractionController {
                 building.phase(),
                 building.workerCapacity(),
                 workers,
+                nextPhase,
+                upgrading,
+                nextPhase > 0 ? () -> upgradeBuilding(playerRef, building.id(), nextPhase) : null,
                 () -> demolishBuilding(playerRef, building.id())
             )
         );
@@ -455,12 +464,124 @@ public final class RtsInteractionController {
         ));
     }
 
+    private void upgradeBuilding(PlayerRef playerRef, UUID buildingId, int targetPhase) {
+        UUID worldId = playerRef.getWorldUuid();
+        World world = worldId == null ? null : Universe.get().getWorld(worldId);
+        BuildingPlacementRegistry.BuildingInstance building = placementRegistry.find(worldId, buildingId);
+        if (world == null || building == null) {
+            playerRef.sendMessage(Message.raw("Das Gebäude ist nicht mehr verfügbar."));
+            return;
+        }
+        if (!"mine".equals(building.buildingType())) {
+            playerRef.sendMessage(Message.raw("Für dieses Gebäude ist noch kein Ausbau verfügbar."));
+            return;
+        }
+        int expectedPhase = BuildingTypes.nextPhase(building.buildingType(), building.phase());
+        if (expectedPhase == 0 || expectedPhase != targetPhase) {
+            playerRef.sendMessage(Message.raw("Diese Mine kann nicht auf die gewählte Phase erweitert werden."));
+            return;
+        }
+        if (!placementRegistry.beginUpgrade(worldId, buildingId)) {
+            playerRef.sendMessage(Message.raw("Diese Mine wird bereits erweitert."));
+            return;
+        }
+
+        try {
+            placementService.createUpgradeConstructionSite(playerRef, world, building, targetPhase);
+            int evacuated = evacuateMineWorkers(world, building);
+            playerRef.sendMessage(Message.raw(
+                "Mine wird auf Phase " + targetPhase + " erweitert. " + evacuated
+                    + " Arbeiter wurden nach draußen gebracht; die Mine bleibt bis zur Fertigstellung gesperrt."
+            ));
+        } catch (RuntimeException exception) {
+            placementRegistry.cancelUpgrade(worldId, buildingId);
+            playerRef.sendMessage(Message.raw(
+                "Ausbau konnte nicht gestartet werden: " + exception.getMessage()
+            ));
+        }
+    }
+
+    private int evacuateMineWorkers(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance building
+    ) {
+        List<Ref<EntityStore>> workers = unitRegistry.workersAt(building.id());
+        Vector3d baseTarget = safePointOutsideMine(world, building);
+        int evacuated = 0;
+        for (int index = 0; index < workers.size(); index++) {
+            Ref<EntityStore> worker = workers.get(index);
+            if (worker == null || !worker.isValid()) continue;
+            Store<EntityStore> store = worker.getStore();
+            TransformComponent transform = store.getComponent(
+                worker, TransformComponent.getComponentType()
+            );
+            if (transform == null) continue;
+
+            activityRegistry.cancelManualMove(worker);
+            unitRegistry.cancelMoveTarget(worker);
+            double sideOffset = (index - (workers.size() - 1) * 0.5) * 1.25;
+            Vector3d target = new Vector3d(baseTarget.x + sideOffset, baseTarget.y, baseTarget.z);
+            store.putComponent(
+                worker,
+                Teleport.getComponentType(),
+                new Teleport(target, transform.getRotation())
+            );
+            evacuated++;
+        }
+        return evacuated;
+    }
+
+    private static Vector3d safePointOutsideMine(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance building
+    ) {
+        PrefabPlacementService.PlacedMarker entrance = building.semanticVolumes().stream()
+            .filter(volume -> volume.hasTag(TYPE_TAG, "workplace_access"))
+            .filter(volume -> volume.hasTag(BUILDING_TAG, "mine"))
+            .findFirst()
+            .orElse(null);
+        entrance = hydrateMarkerBounds(world, entrance);
+        if (entrance != null && entrance.bounds() != null) {
+            BuildingBounds bounds = entrance.bounds();
+            double entranceX = (bounds.minX() + bounds.maxX()) * 0.5;
+            double entranceZ = (bounds.minZ() + bounds.maxZ()) * 0.5;
+            double buildingX = (building.bounds().minX() + building.bounds().maxX()) * 0.5;
+            double buildingZ = (building.bounds().minZ() + building.bounds().maxZ()) * 0.5;
+            double dx = entranceX - buildingX;
+            double dz = entranceZ - buildingZ;
+            double length = Math.sqrt(dx * dx + dz * dz);
+            if (length < 0.01) {
+                dx = 0.0;
+                dz = -1.0;
+                length = 1.0;
+            }
+            return new Vector3d(
+                entranceX + dx / length * 3.0,
+                bounds.minY(),
+                entranceZ + dz / length * 3.0
+            );
+        }
+
+        int floorY = building.placement() == null
+            ? (int) Math.floor(building.bounds().minY())
+            : building.placement().footprint().floorY() + 1;
+        return new Vector3d(
+            (building.bounds().minX() + building.bounds().maxX()) * 0.5,
+            floorY,
+            building.bounds().minZ() - 3.0
+        );
+    }
+
     private void demolishBuilding(PlayerRef playerRef, UUID buildingId) {
         UUID worldId = playerRef.getWorldUuid();
         World world = worldId == null ? null : Universe.get().getWorld(worldId);
         BuildingPlacementRegistry.BuildingInstance building = placementRegistry.find(worldId, buildingId);
         if (world == null || building == null) {
             playerRef.sendMessage(Message.raw("Das Gebäude ist nicht mehr verfügbar."));
+            return;
+        }
+        if (placementRegistry.isUpgrading(worldId, buildingId)) {
+            playerRef.sendMessage(Message.raw("Ein Gebäude kann während des Ausbaus nicht abgerissen werden."));
             return;
         }
         if (!placementService.demolish(world, building)) {
@@ -548,7 +669,7 @@ public final class RtsInteractionController {
         volume.getShape().getWorldAABB(volume.getPosition(), min, max);
         return new PrefabPlacementService.PlacedMarker(
             marker.id(), marker.position(), marker.tags(),
-            new dev.civilizations.core.BuildingBounds(min.x, min.y, min.z, max.x, max.y, max.z)
+            new BuildingBounds(min.x, min.y, min.z, max.x, max.y, max.z)
         );
     }
 
@@ -707,6 +828,12 @@ public final class RtsInteractionController {
             playerRef.sendMessage(Message.raw("Wähle zuerst einen Civ-Bewohner aus."));
             return;
         }
+        if (placementRegistry.isUpgrading(mine.worldId(), mine.id())) {
+            playerRef.sendMessage(Message.raw(
+                "Diese Mine wird gerade erweitert und kann bis zur Fertigstellung nicht betreten werden."
+            ));
+            return;
+        }
         Ref<EntityStore> miner = session.selected;
         boolean hasConnector = mine.semanticVolumes().stream()
             .anyMatch(volume -> volume.hasTag(TYPE_TAG, "mine_tunnel_connector")
@@ -791,7 +918,12 @@ public final class RtsInteractionController {
         UUID ownerId = playerRef.getUuid();
         placementService.constructionSites().stream()
             .filter(site -> site.ownerId().equals(ownerId))
-            .forEach(site -> placementRegistry.release(site.worldId(), site.id()));
+            .forEach(site -> {
+                placementRegistry.release(site.worldId(), site.id());
+                if (site.isUpgrade()) {
+                    placementRegistry.cancelUpgrade(site.worldId(), site.upgradeBuildingId());
+                }
+            });
     }
 
     private void clearPlacement(PlayerRef playerRef, Session session) {

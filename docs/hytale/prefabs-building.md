@@ -49,6 +49,14 @@ Ist `construction_ground_level` vorhanden, wird zweiphasig gebaut:
 
 Damit kann beispielsweise eine Mine zuerst ihr sichtbares Obergebäude fertigstellen und danach den Schacht nach unten materialisieren. Leere Y-Schichten erzeugen keinen zusätzlichen Bauschritt.
 
+## Gebäudephasen und Upgrade-Transform
+
+Die Mine besitzt im Asset Pack drei authored Phasen: `Civilizations/Mine/Mine_01`, `Mine_02` und `Mine_03`. Ein Neubau verwendet immer `Mine_01`. Ein Ausbau lädt die nächste Phase als normale Civ-Baustelle, übernimmt aber Anker und `BuildingOrientation` der bestehenden Mine statt eine neue Spielerplatzierung zu starten.
+
+Für einen Ausbau misst `PrefabPlacementService` den Footprint der Zielphase am vorhandenen Transform neu. Der Terrain-Snapshot bleibt dagegen bewusst der Snapshot der Erstplatzierung aus Phase 1. Dadurch kann ein späterer Abriss auch nach mehreren Upgrades weiterhin den Weltzustand vor dem ursprünglichen Minenbau wiederherstellen.
+
+Die fachliche Building-ID wird bei einem Upgrade nicht ersetzt. Die Construction-Pipeline materialisiert die Zielphase wie eine normale Baustelle; bei der Fertigstellung ersetzt `BuildingPlacementRegistry` die bestehende Building-Instanz unter derselben ID durch die nächste Phase. Persistente Arbeitsplatzreferenzen bleiben dadurch stabil.
+
 ## Reservierungsfläche und `building_bounds`
 
 Wenn ein Prefab mindestens ein TriggerVolume mit `civ.type=building_bounds` enthält, leitet Civ den horizontalen Placement-Footprint aus der Vereinigung dieser Bounds ab. Die Reservierung hängt dadurch nicht von den aktuell enthaltenen Blockkoordinaten ab. Mehrere `building_bounds` sind zulässig.
@@ -57,11 +65,21 @@ Für upgradebare Gebäude gilt als Authoring-Regel: Bereits das erste Level muss
 
 Semantische Trigger sind grundsätzlich gegenüber festen Prefab-Maßen zu bevorzugen. Bestehende externe Anschlussstellen sollten bei Upgrades stabil bleiben, sofern sie weiter benutzt werden. Ein bewusst verschobener aktiver Anschluss, etwa ein tiefer gesetzter Minen-Tunnel-Connector, wird dagegen als neue aktive Arbeitsfront behandelt; alte Tunnel können physisch bestehen bleiben, ohne weiter produktiv genutzt zu werden.
 
+## Upgrade-Sicherheit für Bewohner
+
+Beim Start eines Minen-Upgrades werden die aktuell geladenen Bewohner mit passender persistenter Arbeitsplatz-ID über Hytales native `Teleport`-ECS-Komponente an einen Punkt außerhalb des Minenzugangs gesetzt. Vorher entfernt Civ ihre aktuellen manuellen und nativen Bewegungsziele. Der sichere Punkt wird bevorzugt aus dem authored `workplace_access` der Mine nach außen abgeleitet; fehlt ein nutzbarer Marker, gibt es einen Bounds-basierten Fallback.
+
+Während der Ausbau läuft, bleibt die vorhandene Building-Instanz für Picking und Gebäude-UI sichtbar. Normale Gameplay-Abfragen nach dieser Building-ID behandeln sie jedoch als nicht verfügbar. Berufsadapter wie der Minenarbeiter erhalten dadurch kein benutzbares Arbeitsplatzgebäude und erzeugen keine autonomen Bewegungsziele zurück in den Baukörper. Das ist eine Civ-Gameplay-Sperre auf der bestehenden Hytale-Navigation, keine zweite Wegfindung.
+
+Eine separate native Hytale-API, mit der Civ einen beliebigen fertigen Gebäudeinnenraum temporär als allgemeine physische No-Go-Zone für alle Entitäten oder Spieler markieren könnte, ist für die gepinnte Runtime nicht verifiziert. Deshalb wird eine solche Engine-Barriere derzeit nicht behauptet oder künstlich nachgebaut.
+
 ## Aktuelle Validierungsgrenze
 
 Im derzeitigen Preview-Spike wird die frühere blockweise Kollisions-/Terrainprüfung bewusst nicht vor dem Preview-Spawn ausgeführt. Diese Prüfung stammte aus dem Sofort-Paste-Pfad und störte die isolierte Verifikation von `PersistentPrefabPreview` bei eingesenkten Baustellenankern.
 
 Die Kollisionsregeln müssen für den Baustellen-Lifecycle erneut passend eingeführt und zur Laufzeit verifiziert werden. Die vier Orientation-Transformationen sind automatisiert gegen Core/Simulation geprüft; die sichtbare Player-Rotation selbst ist noch nicht als In-Game-UX aktiviert und daher noch nicht runtime-verifiziert.
+
+Die sichtbare Ersetzung `Mine_01 -> Mine_02 -> Mine_03`, der genaue Evakuierungspunkt und die Upgrade-UI sind noch fokussiert im echten Client zu prüfen. Ebenso ist zu beobachten, ob beim finalen nativen Prefab-Placement alte Trigger-Volume-Instanzen einer vorherigen Mine-Phase dauerhaft in der Welt verbleiben; dafür liegt noch kein fokussierter Runtime-Befund vor.
 
 ## Fertige Gebäude
 

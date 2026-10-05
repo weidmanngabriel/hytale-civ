@@ -41,8 +41,10 @@ Während der RTS-Modus aktiv ist:
 - Ein Rechtsklick auf ein fertig gebautes Civ-Gebäude öffnet dessen Gebäude-Interface, sofern nicht der bestehende Farm-Zuweisungsmodus eines ausgewählten Bauern greift.
 - Das Gebäude-Interface zeigt Gebäudename, Phase sowie die aktuelle Arbeiterbelegung als `X/Y`. Zugeordnete Bewohner erscheinen als auswählbare Einträge; nicht belegte Kapazität erscheint als freier Arbeitsplatz.
 - Ein Klick auf einen zugeordneten Bewohner schließt das Gebäude-Interface und übernimmt ihn in dieselbe RTS-Auswahl wie ein direkter Linksklick auf den Bewohner. Ein anschließender Rechtsklick auf den Boden verwendet den normalen manuellen Bewegungsbefehl. Die Arbeitsplatzzuweisung bleibt dabei bestehen.
+- Bei einem Gebäude mit einer weiteren authored Phase zeigt das Gebäude-Interface zusätzlich eine Ausbauaktion. Für die Mine sind aktuell Phase 1 → 2 und Phase 2 → 3 umgesetzt.
+- Wird eine Mine erweitert, bleiben Building-ID und persistente Arbeitsplatzzuweisungen erhalten. Aktuell geladene zugeordnete Miner werden unmittelbar nach draußen teleportiert und ihre laufenden Bewegungsziele abgebrochen. Solange der Ausbau läuft, gilt die Mine für Gameplay-Arbeitsplatzabfragen als nicht verfügbar; Miner können deshalb nicht automatisch wieder hineinlaufen. Nach Fertigstellung wird dieselbe Building-ID mit der neuen Phase und den neuen semantischen Volumes weiterverwendet.
 - Die angezeigte Arbeiterkapazität ist in diesem Slice nur Metadaten. Sie verhindert oder validiert noch keine Arbeitsplatzzuweisung.
-- <code>/civbuild</code> öffnet den Gebäudekatalog. Solange dieser geöffnet ist, sind normale RTS-Interaktionen mit der Welt pausiert.
+- <code>/civbuild</code> öffnet den Gebäudekatalog. Solange dieser geöffnet ist, sind normale RTS-Interaktionen mit der Welt pausiert. Die Mine wird dort als normales Gebäude angeboten und ein Neubau startet stets mit `Mine_01` beziehungsweise Phase 1.
 - <code>/civwiki</code> öffnet das Ingame-Wiki.
 - Gebäude im Katalog sind alphabetisch nach ihrem Anzeigenamen sortiert.
 
@@ -50,9 +52,13 @@ RTS ist eine Bedienungsart und keine Voraussetzung für die Civ-Simulation. Bewo
 
 ## Gebäudephasen und Arbeiterkapazität
 
-Fertige Civ-Gebäude besitzen neben ihrer stabilen Gebäude-ID und ihrem Typ eine persistente Phase. Neue Gebäude starten aktuell in Phase 1. Das eigentliche Upgrade-Gameplay ist noch nicht umgesetzt.
+Fertige Civ-Gebäude besitzen neben ihrer stabilen Gebäude-ID und ihrem Typ eine persistente Phase. Neue Gebäude starten in Phase 1. Gebäudetypen können weitere authored Phasen definieren; der gemeinsame Phasenkatalog bestimmt, ob im Gebäude-Interface eine nächste Phase angeboten wird.
 
-Die Arbeiterkapazität wird aus Gebäudetyp und Phase abgeleitet und nicht im UI als Sonderregel hinterlegt. Für die Mine gilt bereits als Produktvorgabe: **Phase 1 = 1 Abbauer, Phase 2 = 2 Abbauer, Phase 3 = 3 Abbauer**. Dadurch kann das Gebäude-Interface später automatisch mit der Ausbaustufe mitwachsen, ohne dass die UI die Minenregeln selbst kennen muss.
+Für die Mine ist das Upgrade-Gameplay aktuell vollständig an den normalen Construction-v1-Ablauf angeschlossen: `Mine_01` wird als Neubau gesetzt, anschließend kann dieselbe Mine auf `Mine_02` und `Mine_03` erweitert werden. Das Upgrade erzeugt keine neue fachliche Building-ID. Dadurch bleiben Arbeitsplatzreferenzen der Bewohner stabil und die neue Phase ersetzt nach Fertigstellung den bestehenden Gebäudeeintrag.
+
+Beim Start eines Minenausbaus werden aktuell geladene zugeordnete Arbeiter aus dem Gebäude an einen Punkt außerhalb des Minenzugangs teleportiert. Ihre manuellen und autonomen Bewegungsziele werden abgebrochen. Während der Ausbauzustand aktiv ist, ist das Gebäude über normale Gameplay-Lookups nicht als benutzbarer Arbeitsplatz auflösbar. Dadurch pausiert die Minenarbeit, bis die Bauarbeiter die nächste Phase fertiggestellt haben. Das Gebäude bleibt für Picking und das Gebäude-Interface sichtbar, damit der Spieler den Ausbauzustand weiterhin sehen kann.
+
+Die Arbeiterkapazität wird aus Gebäudetyp und Phase abgeleitet und nicht im UI als Sonderregel hinterlegt. Für die Mine gilt: **Phase 1 = 1 Abbauer, Phase 2 = 2 Abbauer, Phase 3 = 3 Abbauer**. Nach einem Ausbau wächst die angezeigte Kapazität daher automatisch mit der neuen Phase.
 
 Farm und Weizenfeld führen für den aktuellen Prototyp ebenfalls Kapazitätsmetadaten (Farm Phase 1: 1; Weizenfeld: 0). Diese beiden Werte sind keine Festlegung einer späteren Ausbaukurve.
 
@@ -136,6 +142,8 @@ Ein Rechtsklick auf ein fertig gebautes Civ-Gebäude innerhalb seiner `building_
 
 Das Gebäude-Interface zeigt die persistente Phase und die aus dem Gebäudetyp abgeleitete Arbeiterkapazität. Bereits zugeordnete, aktuell geladene Bewohner werden über ihre persistente Workplace-ID angezeigt und können direkt ausgewählt werden. Die Kapazitätsanzeige ist derzeit ausdrücklich keine Gameplay-Grenze.
 
+Besitzt der Gebäudetyp eine weitere Phase, zeigt dasselbe Interface eine **Erweitern**-Aktion. Für die Mine startet diese Aktion die nächste Phase als normale Civ-Baustelle am unveränderten Gebäudeanker. Während des Ausbaus bleibt das Gebäude im Interface sichtbar, kann aber von den Arbeitsplatzsystemen nicht aufgelöst werden; ein weiterer Ausbau oder Abriss ist in diesem Zustand gesperrt. Bei Fertigstellung bleibt die Building-ID erhalten und die persistierte Phase wird erhöht.
+
 Über **Abreißen** und eine separate Bestätigung kann ein Gebäude vollständig entfernt werden. Civ entfernt dabei die Prefab-Blöcke und Trigger Volumes, stellt jede vom Prefab überschriebene Position auf ihren Zustand vor dem Bau zurück und gibt die Fläche im Gebäuderegister wieder frei. Arbeitsplatzreferenzen aktuell geladener Bewohner auf das abgerissene Gebäude werden dabei entfernt. Separat platzierte Gebäude wie ein Weizenfeld gehören nicht automatisch zum Abriss eines anderen Gebäudes.
 
 Fertige Civ-Gebäude und der für einen späteren Abriss benötigte ursprüngliche Boden bleiben über Welt-/Server-Neustarts erhalten. Beim erneuten Betreten der Welt werden Schutz, Gebäudeinteraktion und gebäudespezifische Laufzeitindizes aus den gespeicherten Gebäudedaten rekonstruiert.
@@ -148,7 +156,9 @@ Bis die allgemeine Materialbeschaffung umgesetzt ist, erhält ein Bewohner beim 
 
 ### Gemeinsamer Gebäude-Lifecycle
 
-Farm und Weizenfeld sind gleichermaßen persistente Civ-Gebäude. Beide werden nach Fertigstellung über dieselbe stabile Building-ID, Gebäudetyp, Phase, Bounds/Footprint, semantische Volumes und Terrain-Snapshot gespeichert. Der Feld-Registry ist nur ein Runtime-Arbeitsindex und wird nach Weltbeitritt aus den persistenten Gebäudedaten rekonstruiert. Schutz und Abriss laufen über dieselbe Building-Infrastruktur; Abriss stellt den gespeicherten ursprünglichen Boden wieder her. Der Schutz des fertigen Weizenfelds verhindert weiterhin sämtliche direkten Spieler-Abbauversuche am geschützten Konstrukt sowie Änderungen am Feldboden und fremde Blockplatzierung. Normales Pflanzen von Weizensamen oberhalb des Feldbodens bleibt erlaubt.
+Farm und Weizenfeld sind gleichermaßen persistente Civ-Gebäude. Beide werden nach Fertigstellung über dieselbe stabile Building-ID, Gebäudetyp, Phase, Bounds/Footprint, semantische Volumes und Terrain-Snapshot gespeichert. Upgradefähige Gebäude verwenden denselben Lifecycle: Eine Erweiterung ersetzt die bestehende Building-Instanz unter derselben ID durch die nächste Phase, statt ein zweites Gebäude anzulegen. Der ursprüngliche Terrain-Snapshot der Erstplatzierung bleibt erhalten, damit ein späterer Abriss weiterhin auf den Zustand vor Phase 1 zurückführen kann.
+
+Der Feld-Registry ist nur ein Runtime-Arbeitsindex und wird nach Weltbeitritt aus den persistenten Gebäudedaten rekonstruiert. Schutz und Abriss laufen über dieselbe Building-Infrastruktur; Abriss stellt den gespeicherten ursprünglichen Boden wieder her. Der Schutz des fertigen Weizenfelds verhindert weiterhin sämtliche direkten Spieler-Abbauversuche am geschützten Konstrukt sowie Änderungen am Feldboden und fremde Blockplatzierung. Normales Pflanzen von Weizensamen oberhalb des Feldbodens bleibt erlaubt.
 
 ### Weizenfeld als eigenständiges Gebäude
 

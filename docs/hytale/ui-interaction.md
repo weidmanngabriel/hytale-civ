@@ -16,6 +16,8 @@ Ein Rechtsklick auf den aktuell ausgewählten Civ-NPC öffnet `PersonActionsPage
 
 Ein Rechtsklick auf ein fertiges Civ-Gebäude öffnet `BuildingActionsPage`. Die Seite zeigt Gebäudename, aktuelle Phase, Worker-Belegung und die aus Typ plus Phase abgeleitete Worker-Kapazität. Belegte Worker-Slots sind auswählbar; die Auswahl wird danach in denselben bestehenden RTS-Auswahlzustand übernommen, den auch ein direkter Linksklick auf einen Bewohner verwendet. Ein anschließender Rechtsklick auf den Boden verwendet deshalb unverändert den bestehenden manuellen Bewegungsbefehl.
 
+Besitzt der Gebäudetyp laut Core-Katalog eine weitere Phase, erhält `BuildingActionsPage` zusätzlich die bereits abgeleitete nächste Phase und zeigt einen statisch deklarierten Upgrade-Button mit `Auf Phase X erweitern`. Die UI entscheidet nicht selbst, welche Phasen existieren. Während eines laufenden Ausbaus zeigt dieselbe Seite einen Sperrhinweis; Upgrade- und Abriss-Button sind dann verborgen. Bei der höchsten Mine-Phase 3 existiert keine nächste Phase und entsprechend kein Upgrade-Button.
+
 ## RTS-Kamera
 
 `RtsCameraController` verwendet eine feste schräge Hytale-Custom-Kamera. Der RTS-Modus wechselt nicht in den Spectator-Modus. Das Zurückgeben der Kontrolle erfolgt über Hytales nativen `CameraManager.resetCamera`-Lifecycle.
@@ -26,7 +28,7 @@ UI und Input übersetzen Spieleraktionen in Core-Befehle oder Zustandsänderunge
 
 Bewohnerinformationen werden für die UI über `NpcInfoProvider` in einen `NpcInfoSnapshot` projiziert. Vorhandene Civ-Daten werden dort gelesen; noch nicht implementierte Systeme wie Hunger oder Familie erscheinen nur als nicht veränderliche Platzhalter. Dadurch bleiben Compact-HUD und zukünftige Detailseite von der Gameplay-Speicherung entkoppelt und können UI-Felder ergänzen oder entfernen, ohne die Bewohnerkomponente umzubauen.
 
-Worker-Kapazität ist keine UI-Regel. `BuildingActionsPage` erhält lediglich die bereits aus dem Hytale-unabhängigen Gebäudetypmodell abgeleitete Kapazität sowie die aktuell über persistente Arbeitsplatz-IDs zugeordneten Bewohner. Die UI blockiert derzeit ausdrücklich keine Überbelegung; die Kapazität ist in diesem Slice nur Information für spätere Gameplay-Regeln.
+Worker-Kapazität und Upgrade-Folge sind keine UI-Regeln. `BuildingActionsPage` erhält lediglich die bereits aus dem Hytale-unabhängigen Gebäudetypmodell abgeleitete Kapazität, nächste Phase, den laufenden Upgrade-Zustand sowie die aktuell über persistente Arbeitsplatz-IDs zugeordneten Bewohner. Die UI blockiert derzeit ausdrücklich keine Überbelegung; die Kapazität ist in diesem Slice nur Information für spätere Gameplay-Regeln.
 
 Die derzeitige `BuildingActionsPage` deklariert drei Worker-Slots statisch, passend zur aktuell höchsten bekannten Mine-Kapazität (Phase 3). Wenn spätere Gebäudetypen mehr Slots benötigen, muss das UI erweitert oder auf eine separat im Client verifizierte dynamische/Paging-Lösung umgestellt werden; die Gameplay-Metadaten selbst bleiben davon unabhängig.
 
@@ -37,3 +39,5 @@ Für die aktuell gepinnte Hytale-Version ist im Projekt keine verifizierte nativ
 Die genaue visuelle Position und Größe des Compact-HUDs ist erst nach In-Game-Verifikation endgültig. Der erste Slice startet mit 340×190 px, 24 px Abstand rechts und 118 px Abstand unten und soll anhand eines echten Spielscreenshot feinjustiert werden.
 
 Die statischen Worker-Slots müssen nach dem Fix noch einmal fokussiert im echten Client geprüft werden: Seite öffnen, freie Slots anzeigen, einen zugeordneten Worker auswählen und danach dessen normalen RTS-Bewegungsbefehl ausführen.
+
+Die neue Upgrade-Darstellung muss ebenfalls noch fokussiert im echten Client geprüft werden: Phase-1-Mine öffnen, Upgrade-Button und Sperrstatus kontrollieren, Phase 2 und 3 fertigbauen und sicherstellen, dass der Button auf Phase 3 verschwindet.

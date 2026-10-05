@@ -1,5 +1,6 @@
 package dev.civilizations.core;
 
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -32,6 +33,22 @@ public record BuildingTypeDefinition(
 
     public int workerCapacity(int phase) {
         return phase(phase).workerCapacity();
+    }
+
+    /** Returns the next authored phase, or 0 when the building is fully upgraded. */
+    public int nextPhase(int currentPhase) {
+        return phases.stream()
+            .map(PhaseDefinition::phase)
+            .filter(candidate -> candidate > currentPhase)
+            .min(Comparator.naturalOrder())
+            .orElse(0);
+    }
+
+    public int maxPhase() {
+        return phases.stream()
+            .mapToInt(PhaseDefinition::phase)
+            .max()
+            .orElseThrow();
     }
 
     public record PhaseDefinition(int phase, int workerCapacity) {

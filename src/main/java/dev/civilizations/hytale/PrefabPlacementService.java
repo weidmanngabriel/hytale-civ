@@ -70,12 +70,33 @@ public final class PrefabPlacementService {
         "Civilizations/Mine/Mine_01",
         1
     );
+    public static final PlacementDefinition MINE_02 = new PlacementDefinition(
+        "mine",
+        "Mine",
+        "Civilizations/Mine/Mine_02",
+        1
+    );
+    public static final PlacementDefinition MINE_03 = new PlacementDefinition(
+        "mine",
+        "Mine",
+        "Civilizations/Mine/Mine_03",
+        1
+    );
     public static final PlacementDefinition WHEAT_FIELD = new PlacementDefinition(
         "wheat_field",
         "Weizenfeld",
         "Civilizations/Farm/Field_01",
         1
     );
+
+    public static PlacementDefinition minePhase(int phase) {
+        return switch (phase) {
+            case 1 -> MINE;
+            case 2 -> MINE_02;
+            case 3 -> MINE_03;
+            default -> throw new IllegalArgumentException("Unknown mine phase " + phase);
+        };
+    }
 
     public PlacementCandidate validatePlacement(
         World world,
@@ -212,6 +233,61 @@ public final class PrefabPlacementService {
             playerRef.getWorldUuid(),
             candidate,
             previewRef
+        );
+        constructionSites.put(site.id(), site);
+        return site;
+    }
+
+    /**
+     * Creates an upgrade construction site at the exact transform of an existing building.
+     * The original terrain snapshot is retained so demolition after later upgrades still
+     * restores the terrain from before phase 1 was built.
+     */
+    public ConstructionSite createUpgradeConstructionSite(
+        PlayerRef playerRef,
+        World world,
+        BuildingPlacementRegistry.BuildingInstance building,
+        int targetPhase
+    ) {
+        if (playerRef == null || world == null || building == null || building.placement() == null) {
+            throw new IllegalArgumentException("Upgrade requires player, world and existing placement.");
+        }
+        if (!"mine".equals(building.buildingType())) {
+            throw new IllegalArgumentException("Only mine upgrades are authored in this slice.");
+        }
+
+        PlacementDefinition definition = minePhase(targetPhase);
+        Vector3i previousAnchor = building.placement().anchor();
+        Vector3i pointedBlock = new Vector3i(
+            previousAnchor.x,
+            previousAnchor.y + definition.groundSinkBlocks(),
+            previousAnchor.z
+        );
+        PlacementCandidate measured = validatePlacement(
+            world,
+            pointedBlock,
+            definition,
+            building.orientation()
+        );
+        if (!measured.valid()) {
+            throw new IllegalStateException(measured.invalidReason());
+        }
+
+        PlacementCandidate candidate = PlacementCandidate.valid(
+            definition,
+            measured.anchor(),
+            measured.footprint(),
+            building.placement().replacedFloorBlocks(),
+            building.orientation()
+        );
+        ConstructionSite site = new ConstructionSite(
+            UUID.randomUUID(),
+            playerRef.getUuid(),
+            playerRef.getWorldUuid(),
+            candidate,
+            null,
+            building.id(),
+            targetPhase
         );
         constructionSites.put(site.id(), site);
         return site;
@@ -405,6 +481,18 @@ public final class PrefabPlacementService {
         return placed;
     }
 
+    public void removeSemanticVolumes(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance building
+    ) {
+        if (world == null || building == null) return;
+        TriggerVolumeManager volumes = triggerVolumeManager(world);
+        building.semanticVolumes().stream()
+            .map(PlacedMarker::id)
+            .filter(volumes::hasVolume)
+            .forEach(volumes::unregister);
+    }
+
     public boolean demolish(World world, BuildingPlacementRegistry.BuildingInstance building) {
         if (world == null || building == null || building.placement() == null) {
             return false;
@@ -426,11 +514,7 @@ public final class PrefabPlacementService {
             )
         );
 
-        TriggerVolumeManager volumes = triggerVolumeManager(world);
-        building.semanticVolumes().stream()
-            .map(PlacedMarker::id)
-            .filter(volumes::hasVolume)
-            .forEach(volumes::unregister);
+        removeSemanticVolumes(world, building);
         return true;
     }
 
@@ -773,12 +857,30 @@ public final class PrefabPlacementService {
         UUID ownerId,
         UUID worldId,
         PlacementCandidate candidate,
-        Ref<EntityStore> previewRef
+        Ref<EntityStore> previewRef,
+        UUID upgradeBuildingId,
+        int targetPhase
     ) {
         public ConstructionSite {
             if (candidate == null) {
                 throw new IllegalArgumentException("candidate cannot be null");
             }
+            if (upgradeBuildingId == null && targetPhase != 0) {
+                throw new IllegalArgumentException("New construction cannot have a target upgrade phase.");
+            }
+            if (upgradeBuildingId != null && targetPhase < 2) {
+                throw new IllegalArgumentException("Upgrade target phase must be at least 2.");
+            }
+        }
+
+        public ConstructionSite(
+            UUID id,
+            UUID ownerId,
+            UUID worldId,
+            PlacementCandidate candidate,
+            Ref<EntityStore> previewRef
+        ) {
+            this(id, ownerId, worldId, candidate, previewRef, null, 0);
         }
 
         public PlacementDefinition definition() {
@@ -787,6 +889,10 @@ public final class PrefabPlacementService {
 
         public Vector3i anchor() {
             return new Vector3i(candidate.anchor());
+        }
+
+        public boolean isUpgrade() {
+            return upgradeBuildingId != null;
         }
     }
 
