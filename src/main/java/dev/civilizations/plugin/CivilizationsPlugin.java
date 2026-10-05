@@ -180,6 +180,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
 
         getCommandRegistry().registerCommand(new CivTestCommand());
         if (Boolean.getBoolean("civilizations.runtimeProbe")) {
+            getEntityStoreRegistry().registerSystem(new CivRuntimeDamageTraceSystem());
             getCommandRegistry().registerCommand(
                 new CivRuntimeProbeCommand(unitRegistry, activityRegistry)
             );
