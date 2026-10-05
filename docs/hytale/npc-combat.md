@@ -6,39 +6,67 @@ Diese Seite hält verifizierte Integrationsregeln für native Hytale-NPC-Kämpfe
 
 Civ soll für NPC-Kämpfe Hytales natives Combat-System verwenden, statt einen parallelen Civ-Schadens- oder HP-Stack aufzubauen. Zielauswahl und Gameplay-Priorität können aus Civ kommen; Bewegung, Interaction-Ausführung, Trefferprüfung, Schaden, Knockback, Entity-Stats und Tod bleiben soweit möglich bei Hytale.
 
-## NPC-`Attack` und Root-Interactions
+Vor unbekannten Hytale-Integrationen gilt außerdem der projektweite Research-first-Ablauf aus `docs/research-first.md`: vorhandene Nutzung im Projekt prüfen, offizielle Dokumentation und öffentliche Beispiele recherchieren, gepinnte JAR/Assets inspizieren und erst danach einen eigenen Mechanismus entwerfen.
 
-Hytales NPC-`Attack`-Action akzeptiert nicht automatisch jede Root-Interaction, die für einen Spieler oder ein gehaltenes Item funktioniert.
+## Zwei native NPC-Combat-Pfade
 
-Für eine Root-Interaction, die über NPC-`Attack` ausgeführt werden soll, gilt für den aktuell gepinnten Stand:
+Für den gepinnten Hytale-Stand sind mindestens zwei native NPC-Melee-Pfade relevant:
 
-- die Root-Interaction muss als `Attack` getaggt sein, zum Beispiel `"Attack": ["Melee"]`,
-- eine normale Spieler-Primary-Interaction eines Items ist deshalb nicht automatisch NPC-kompatibel,
-- eine als NPC-Angriff verwendete Interaction-Chain darf keine für NPC-Attacks verbotenen Interaction-Typen enthalten.
+1. **Leichtgewichtiger instruction-/interaction-basierter Melee-Pfad** über `Type: "Attack"` und eine NPC-kompatible Root-Interaction wie `Root_NPC_Attack_Melee`.
+2. **Combat Action Evaluator (CAE)** für intelligentere Combatants mit mehreren Abilities, Utility-Auswahl, WeaponSlot und Combat-Konfiguration.
 
-### Verifizierter Sword-Fall
+Für den aktuellen Soldier-Vertical-Slice reicht der leichte native Melee-Pfad. Civ braucht dafür keine eigene Trefferprüfung und keine nachgebaute Spieler-Schwert-Interaction.
 
-`Root_Weapon_Sword_Primary` kann nicht unverändert als NPC-Attack verwendet werden. Die normale Spieler-Schwertkette enthält über ihren Selector auch einen Blocktreffer-Zweig, der `Block_Break_Adventure` und damit eine `BreakBlockInteraction` ausführt. Der NPC-Role-Loader lehnt diese Kette als NPC-Angriff ab.
+## `Root_NPC_Attack_Melee`
 
-Die Civ-Soldier-Integration verwendet deshalb eine NPC-sichere Schwertkette:
+Die öffentliche Hytale-Dokumentation und gegen 0.6.8 verifizierte Community-Dokumentation beschreiben `Root_NPC_Attack_Melee` als den vorgesehenen einfachen NPC-Melee-Root. Seine Kette verwendet benannte `InteractionVars`:
 
-1. eine eigene als `Attack=Melee` getaggte Root-Interaction,
-2. die native Sword-Swing-Animation und ihre Laufzeiten,
-3. einen eigenen Selector mit derselben Entity-Treffergeometrie,
-4. **keinen `HitBlock`-/Blockabbau-Zweig**,
-5. für Entity-Treffer weiterhin den nativen `Swing_Left_Damage`-Replace-Var.
+- `Melee_Start` – Start/Animation/Timing,
+- `Melee_Selector` – native Entity-Treffergeometrie,
+- `Melee_Damage` – nativer `DamageEntity`-Pfad inklusive DamageEffects/Knockback.
 
-Dadurch bleibt die Schadensdefinition beim gehaltenen Item. Für `Weapon_Sword_Iron` überschreibt Hytale `Swing_Left_Damage` aktuell auf `Physical: 9`. Civ dupliziert diesen Wert nicht.
+Der Standardpfad endet bei `NPC_Attack_Melee_Damage` und verwendet native Hytale-Schadensverarbeitung. Dadurch bleiben HP, Damage-Events, Knockback und Tod Engine-Verhalten.
 
-## Warum nicht einfach eigenen Schaden berechnen?
+Ein `Generic`-Role kann diese Variablen über top-level `InteractionVars` überschreiben. In einem `Variant` unter `Modify` heißt derselbe Block `_InteractionVars`. Diese Unterscheidung ist wichtig; die falsche Schreibweise kann still wirkungslos bleiben oder ein Role-Asset ungültig machen.
 
-Das wäre eine konkurrierende Combat-Implementierung und würde unter anderem Waffenbalance, DamageEffects, Knockback, Item-Overrides und spätere Hytale-Änderungen von Civ entkoppeln. Solange die native Interaction-Kette passend zusammengesetzt werden kann, soll Civ nur die NPC-taugliche Ausführungsschicht bereitstellen und die eigentliche Schadenslogik bei Hytale lassen.
+## Warum nicht die Spieler-Schwert-Primary verwenden?
+
+`Root_Weapon_Sword_Primary` ist eine Spieler-/Item-Interaction und nicht als direkter NPC-Angriff gedacht. In Runtime-Tests wurde bestätigt:
+
+- die normale Spieler-Primary ist nicht automatisch als NPC-`Attack` freigegeben,
+- die vollständige Spieler-Schwertkette enthält zusätzlich Blocktreffer-/Blockabbau-Logik,
+- `BreakBlockInteraction` innerhalb einer NPC-`Attack`-Kette wird vom NPC-Role-Loader abgelehnt.
+
+Der erste Civ-Versuch, eine eigene Root-/Swing-/Selector-Kette aus der Spieler-Schwertkette abzuleiten, war deshalb der falsche Integrationsansatz und wurde entfernt. Der Soldier verwendet stattdessen direkt `Root_NPC_Attack_Melee`.
+
+## Waffenwerte und `InteractionVars`
+
+Hytale-Items besitzen eigene `InteractionVars`. Für `Weapon_Sword_Iron` definiert der öffentliche 0.6.x-Asset-Stand unter anderem `Swing_Left_Damage` mit `Physical: 9`; weitere Swing-/Thrust-Varianten besitzen andere Werte.
+
+Das bedeutet jedoch **nicht automatisch**, dass der leichte `Root_NPC_Attack_Melee`-Pfad die `Swing_Left_Damage`-Variable des gehaltenen Spieler-Schwerts übernimmt. Sein nativer Damage-Hook heißt `Melee_Damage`. Solange ein Runtime-Test oder die gepinnten Assets/API nicht belegen, dass der Item-Kontext automatisch in diesen Pfad übernommen wird, darf Civ diese Kopplung nicht voraussetzen.
+
+Der aktuelle Soldier verwendet deshalb zunächst den nativen NPC-Melee-Pfad ohne eigene Civ-Schadensberechnung. Falls die ausgerüstete Waffe später die tatsächliche Damage-Variante bestimmen soll, soll das über Hytales vorgesehene `InteractionVars`-/WeaponSlot-/CAE-System gelöst und separat verifiziert werden – nicht durch einen parallelen Java-Schadensstack.
+
+## Timing und Treffergeometrie
+
+Der native NPC-Melee-Selector ist eine gerichtete Sweep-Geometrie vor dem NPC. Ein Angriff ist daher kein automatisch treffender Homing-Hit. Der NPC muss beim Schlag ausreichend auf das Ziel ausgerichtet und in Reichweite sein.
+
+Vanilla-Rollen kombinieren dafür typischerweise:
+
+1. Ziel-/Range-Sensor,
+2. Body-/Head-Ausrichtung bzw. Seek,
+3. `ActionsBlocking`,
+4. kurze Vorlaufzeit,
+5. `Attack`,
+6. kurze Nachlauf-/Cooldown-Zeit.
+
+Falls der Soldier mit dem nativen Root zwar lädt, aber regelmäßig daneben schlägt oder den Attack zu früh startet, ist dieses Timing-/Range-Muster der nächste zu prüfende native Ansatz. Nicht vorschnell eigene Trefferlogik hinzufügen.
 
 ## Blockzerstörung bei kämpfenden NPCs
 
 Aus der Ablehnung von `BreakBlockInteraction` innerhalb einer NPC-`Attack`-Kette folgt **nicht**, dass ein NPC grundsätzlich keine Blöcke während eines Angriffs verändern kann. Verifiziert ist nur: Blockabbau darf nicht einfach in dieselbe NPC-`Attack`-Interaction-Chain eingebettet werden.
 
-Für spätere Einheiten wie einen Ogre mit zerstörerischem Heavy-Attack sollte Combat gegen Entities und eine mögliche Blockzerstörung deshalb zunächst als getrennte Engine-/Gameplay-Schritte modelliert und separat zur Laufzeit verifiziert werden. Keine Blockzerstörungssemantik als gesichert annehmen, bevor ein fokussierter Runtime-Test existiert.
+Für spätere Einheiten wie einen Ogre mit zerstörerischem Heavy-Attack sollten Combat gegen Entities und eine mögliche Blockzerstörung deshalb zunächst als getrennte Engine-/Gameplay-Schritte modelliert und separat zur Laufzeit verifiziert werden. Keine Blockzerstörungssemantik als gesichert annehmen, bevor ein fokussierter Runtime-Test existiert.
 
 ## Zielauswahl
 
