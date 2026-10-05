@@ -4,25 +4,34 @@ import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
+import com.hypixel.hytale.server.core.command.system.arguments.system.OptionalArg;
+import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractPlayerCommand;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import dev.civilizations.core.MineDecisionCategory;
 import dev.civilizations.hytale.CivMineDebugService;
+import dev.civilizations.hytale.CivMineDecisionDiagnostics;
 
 import java.util.Comparator;
 import java.util.Locale;
+import java.util.Set;
 
 final class CivMineDebugCommand extends AbstractPlayerCommand {
 
     private final CivMineDebugService service;
 
-    CivMineDebugCommand(CivMineDebugService service) {
+    CivMineDebugCommand(
+        CivMineDebugService service,
+        CivMineDecisionDiagnostics decisionDiagnostics
+    ) {
         super("mine", "Inspect or visualize the nearest Civ mine.");
         this.service = service;
         addSubCommand(new InfoCommand(service));
         addSubCommand(new ShowCommand(service));
         addSubCommand(new HideCommand(service));
+        addSubCommand(new LogsCommand(decisionDiagnostics));
         requireNoPermission();
     }
 
@@ -34,7 +43,7 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
         PlayerRef playerRef,
         World world
     ) {
-        context.sendMessage(Message.raw("Mine debug: use /civdebug mine info|show|hide"));
+        context.sendMessage(Message.raw("Mine debug: use /civdebug mine info|show|hide|logs"));
     }
 
     private static CivMineDebugService.MineDebugSnapshot snapshot(
@@ -190,6 +199,120 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
         ) {
             int removed = service.hide(playerRef);
             context.sendMessage(Message.raw("Mine debug ausgeblendet | removed=" + removed));
+        }
+    }
+
+    private static final class LogsCommand extends AbstractPlayerCommand {
+        private final CivMineDecisionDiagnostics diagnostics;
+
+        private LogsCommand(CivMineDecisionDiagnostics diagnostics) {
+            super("logs", "Controls structured mine decision logging.");
+            this.diagnostics = diagnostics;
+            addSubCommand(new LogsOnCommand(diagnostics));
+            addSubCommand(new LogsOffCommand(diagnostics));
+            addSubCommand(new LogsStatusCommand(diagnostics));
+            requireNoPermission();
+        }
+
+        @Override
+        protected void execute(
+            CommandContext context,
+            Store<EntityStore> store,
+            Ref<EntityStore> ref,
+            PlayerRef playerRef,
+            World world
+        ) {
+            context.sendMessage(Message.raw(
+                "Mine decision logs: " + diagnostics.statusSummary()
+                    + " | use /civdebug mine logs on [categories]|off|status"
+            ));
+        }
+    }
+
+    private static final class LogsOnCommand extends AbstractPlayerCommand {
+        private final CivMineDecisionDiagnostics diagnostics;
+        private final OptionalArg<String> categoriesArg;
+
+        private LogsOnCommand(CivMineDecisionDiagnostics diagnostics) {
+            super("on", "Enables mine decision logs, optionally for comma-separated categories.");
+            this.diagnostics = diagnostics;
+            categoriesArg = withOptionalArg(
+                "categories",
+                "Comma-separated categories, e.g. PLANNING,ROOM",
+                ArgTypes.STRING
+            );
+            requireNoPermission();
+        }
+
+        @Override
+        protected void execute(
+            CommandContext context,
+            Store<EntityStore> store,
+            Ref<EntityStore> ref,
+            PlayerRef playerRef,
+            World world
+        ) {
+            String raw = context.provided(categoriesArg) ? context.get(categoriesArg) : null;
+            try {
+                Set<MineDecisionCategory> enabled = diagnostics.enable(
+                    CivMineDecisionDiagnostics.parseCategories(raw)
+                );
+                context.sendMessage(Message.raw(
+                    "Mine decision logs enabled | categories=" + enabled.stream()
+                        .map(Enum::name)
+                        .sorted()
+                        .reduce((left, right) -> left + "," + right)
+                        .orElse("-")
+                ));
+            } catch (IllegalArgumentException exception) {
+                context.sendMessage(Message.raw(exception.getMessage()));
+            }
+        }
+    }
+
+    private static final class LogsOffCommand extends AbstractPlayerCommand {
+        private final CivMineDecisionDiagnostics diagnostics;
+
+        private LogsOffCommand(CivMineDecisionDiagnostics diagnostics) {
+            super("off", "Disables mine decision logs.");
+            this.diagnostics = diagnostics;
+            requireNoPermission();
+        }
+
+        @Override
+        protected void execute(
+            CommandContext context,
+            Store<EntityStore> store,
+            Ref<EntityStore> ref,
+            PlayerRef playerRef,
+            World world
+        ) {
+            diagnostics.disable();
+            context.sendMessage(Message.raw("Mine decision logs disabled."));
+        }
+    }
+
+    private static final class LogsStatusCommand extends AbstractPlayerCommand {
+        private final CivMineDecisionDiagnostics diagnostics;
+
+        private LogsStatusCommand(CivMineDecisionDiagnostics diagnostics) {
+            super("status", "Shows the active mine decision log filters.");
+            this.diagnostics = diagnostics;
+            requireNoPermission();
+        }
+
+        @Override
+        protected void execute(
+            CommandContext context,
+            Store<EntityStore> store,
+            Ref<EntityStore> ref,
+            PlayerRef playerRef,
+            World world
+        ) {
+            context.sendMessage(Message.raw(
+                "Mine decision logs " + diagnostics.statusSummary()
+                    + " | available=" + CivMineDecisionDiagnostics.availableCategories()
+            ));
         }
     }
 }
