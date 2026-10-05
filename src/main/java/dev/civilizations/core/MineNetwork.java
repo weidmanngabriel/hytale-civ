@@ -69,8 +69,23 @@ public record MineNetwork(
     }
 
     public MineNetwork withNavigationAnchor(MineNavigationAnchor anchor) {
-        return new MineNetwork(mineId, mainTunnelId, tunnels, rooms, workFronts,
-            replaceById(navigationAnchors, anchor, MineNavigationAnchor::id));
+        return withNavigationAnchors(List.of(anchor));
+    }
+
+    public MineNetwork withNavigationAnchors(List<MineNavigationAnchor> anchors) {
+        ArrayList<MineNavigationAnchor> next = new ArrayList<>(navigationAnchors);
+        for (MineNavigationAnchor anchor : anchors) {
+            boolean replaced = false;
+            for (int i = 0; i < next.size(); i++) {
+                if (next.get(i).id().equals(anchor.id())) {
+                    next.set(i, anchor);
+                    replaced = true;
+                    break;
+                }
+            }
+            if (!replaced) next.add(anchor);
+        }
+        return new MineNetwork(mineId, mainTunnelId, tunnels, rooms, workFronts, next);
     }
 
     private int indexOfTunnel(UUID tunnelId) {
