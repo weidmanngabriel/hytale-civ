@@ -68,8 +68,10 @@ class CivInhabitantRoleValidationTest {
         assertEquals("Combat", combatInstruction.path("Sensor").path("State").asText());
 
         JsonNode targetInstruction = combatInstruction.path("Instructions").path(0);
-        assertEquals("HasTarget", targetInstruction.path("Sensor").path("Type").asText());
-        assertEquals("LockedTarget", targetInstruction.path("Sensor").path("TargetSlot").asText());
+        assertEquals(
+            "HasHostileTargetMemory",
+            targetInstruction.path("Sensor").path("Type").asText()
+        );
 
         JsonNode inRange = targetInstruction.path("Instructions").path(0);
         assertEquals("CombatActionEvaluator", inRange.path("Sensor").path("Type").asText());
