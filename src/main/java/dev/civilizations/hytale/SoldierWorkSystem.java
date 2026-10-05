@@ -28,9 +28,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * Selects native Hytale combat targets for Civ soldiers.
  *
  * <p>Civ owns the profession, target-selection cadence and manual-order priority. Hytale owns
- * pathfinding, attack interactions, damage, HP and death. A target counts as a hostile monster in
- * this first slice when its native NPC role is hostile to both players and NPCs, so reciprocal
- * combat remains an engine-owned behavior rather than a Civ attitude override.</p>
+ * pathfinding, attack interactions, damage, HP and death. In this first slice, a native NPC counts
+ * as a hostile monster when its role is hostile to players. That matches the player's notion of a
+ * dangerous monster without requiring the role to be globally hostile to every NPC.</p>
  */
 public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
 
@@ -199,8 +199,7 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
 
         WorldSupport targetWorldSupport = WorldSupport.get(candidate, store);
         return targetWorldSupport != null
-            && targetWorldSupport.getDefaultPlayerAttitude() == Attitude.HOSTILE
-            && targetWorldSupport.getDefaultNPCAttitude() == Attitude.HOSTILE;
+            && targetWorldSupport.getDefaultPlayerAttitude() == Attitude.HOSTILE;
     }
 
     private static Ref<EntityStore> readTarget(
