@@ -138,7 +138,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
 
             Ref<EntityStore> hostile = spawnFirstHostileCombatNpc(world);
             if (hostile == null) {
-                fail("no spawnable native NPC hostile to players was found", null);
+                fail("no spawnable native NPC hostile to both players and NPCs was found", null);
                 return;
             }
 
@@ -203,6 +203,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
                 CombatSupport combatSupport = CombatSupport.get(candidate, candidate.getStore());
                 if (worldSupport != null
                     && worldSupport.getDefaultPlayerAttitude() == Attitude.HOSTILE
+                    && worldSupport.getDefaultNPCAttitude() == Attitude.HOSTILE
                     && combatSupport != null
                     && Float.isFinite(health(candidate))) {
                     System.out.println(
