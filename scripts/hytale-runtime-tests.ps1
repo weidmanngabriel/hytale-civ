@@ -107,13 +107,22 @@ function Assert-Evidence {
     }
 }
 
-function Start-HytaleProbe {
+function Assert-CommonRuntimeHealth {
+    param([Parameter(Mandatory = $true)] [string] $Combined)
+    if ($Combined.Contains('client.disconnection.shutdownReason.missingAssets.failedToLoad')) {
+        throw 'Hytale still reports missing assets while using --assets with the local Assets.zip.'
+    }
+    if ($Combined.Contains("chunk isn't currently loaded")) {
+        throw 'A Civ runtime scenario touched an unloaded chunk.'
+    }
+}
+
+function Start-ColdHytaleProbe {
     param(
         [Parameter(Mandatory = $true)] [string] $RuntimeDir,
         [Parameter(Mandatory = $true)] [string] $LogPrefix,
         [Parameter(Mandatory = $true)] [string] $BootCommand,
-        [string[]] $JvmProperties = @(),
-        [int] $TimeoutSeconds = 60
+        [string[]] $JvmProperties = @()
     )
 
     $stdoutLog = Join-Path $RuntimeDir "$LogPrefix.stdout.log"
@@ -126,50 +135,26 @@ function Start-HytaleProbe {
         '--boot-command', $BootCommand
     )
 
+    # Intentionally use the original blocking lifecycle for cold probes.
+    # The workflow owns the emergency timeout; the probe owns normal shutdown.
     $process = Start-Process -FilePath 'java' `
         -ArgumentList $arguments `
         -WorkingDirectory $RuntimeDir `
         -RedirectStandardOutput $stdoutLog `
         -RedirectStandardError $stderrLog `
+        -Wait `
         -PassThru
-
-    $finished = $process.WaitForExit($TimeoutSeconds * 1000)
-    if (-not $finished) {
-        Write-Warning "Hytale probe '$LogPrefix' exceeded $TimeoutSeconds seconds; terminating Java process tree."
-        & taskkill.exe /PID $process.Id /T /F 2>&1 | Write-Host
-        $process.WaitForExit(10000) | Out-Null
-    } else {
-        $process.WaitForExit()
-    }
-
-    $combined = Read-CombinedOutput -StdoutLog $stdoutLog -StderrLog $stderrLog
-    if (-not $finished) {
-        Write-Host "----- timed out Hytale probe output: $LogPrefix -----"
-        Write-Host $combined
-        Write-Host "----- end timed out Hytale probe output: $LogPrefix -----"
-        throw "Hytale probe '$LogPrefix' exceeded its $TimeoutSeconds second process budget."
-    }
 
     return [PSCustomObject]@{
         Process = $process
-        Combined = $combined
-    }
-}
-
-function Assert-CommonRuntimeHealth {
-    param([Parameter(Mandatory = $true)] [string] $Combined)
-    if ($Combined.Contains('client.disconnection.shutdownReason.missingAssets.failedToLoad')) {
-        throw 'Hytale still reports missing assets while using --assets with the local Assets.zip.'
-    }
-    if ($Combined.Contains("chunk isn't currently loaded")) {
-        throw 'A Civ runtime scenario touched an unloaded chunk.'
+        Combined = Read-CombinedOutput -StdoutLog $stdoutLog -StderrLog $stderrLog
     }
 }
 
 function Run-WoodcutterScenario {
     param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
 
-    $result = Start-HytaleProbe -RuntimeDir $RuntimeDir -LogPrefix 'woodcutter' -BootCommand 'civwoodcutterprobe'
+    $result = Start-ColdHytaleProbe -RuntimeDir $RuntimeDir -LogPrefix 'woodcutter' -BootCommand 'civwoodcutterprobe'
     $combined = $result.Combined
     Write-Host '----- Hytale woodcutter output -----'
     Write-Host $combined
@@ -205,7 +190,7 @@ function Run-WoodcutterScenario {
 function Run-MineSupportScenario {
     param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
 
-    $result = Start-HytaleProbe `
+    $result = Start-ColdHytaleProbe `
         -RuntimeDir $RuntimeDir `
         -LogPrefix 'minesupport' `
         -BootCommand 'civtest' `
@@ -243,7 +228,7 @@ function Run-MineSupportScenario {
 function Run-WarmRuntimeScenario {
     param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
 
-    $result = Start-HytaleProbe -RuntimeDir $RuntimeDir -LogPrefix 'warmruntime' -BootCommand 'civwarmruntimebenchmark' -TimeoutSeconds 90
+    $result = Start-ColdHytaleProbe -RuntimeDir $RuntimeDir -LogPrefix 'warmruntime' -BootCommand 'civwarmruntimebenchmark'
     $combined = $result.Combined
     Write-Host '----- Hytale warm gameplay suite output -----'
     Write-Host $combined
@@ -283,7 +268,7 @@ function Run-WarmRuntimeScenario {
 function Run-PersistenceScenario {
     param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
 
-    $prepare = Start-HytaleProbe `
+    $prepare = Start-ColdHytaleProbe `
         -RuntimeDir $RuntimeDir `
         -LogPrefix 'persistence.prepare' `
         -BootCommand 'civpersistenceprobe' `
@@ -315,7 +300,7 @@ function Run-PersistenceScenario {
     }
     $entityUuid = $uuidMatch.Groups[1].Value
 
-    $restore = Start-HytaleProbe `
+    $restore = Start-ColdHytaleProbe `
         -RuntimeDir $RuntimeDir `
         -LogPrefix 'persistence.restore' `
         -BootCommand 'civpersistenceprobe' `
@@ -369,30 +354,7 @@ foreach ($scenario in $Scenarios) {
     $seenRequested[$scenario] = $true
 }
 
-$hasWoodcutter = $Scenarios -contains 'woodcutter'
-$hasMineSupport = $Scenarios -contains 'minesupport'
-$explicitWarm = $Scenarios -contains 'warmruntime'
-$bundleGameplay = $explicitWarm -or ($hasWoodcutter -and $hasMineSupport)
-
-if ($bundleGameplay) {
-    Write-Host '===== BEGIN Hytale warm gameplay suite: woodcutter + minesupport ====='
-    $runtimeDir = Prepare-Runtime -Scenario 'warm-gameplay'
-    try {
-        Run-WarmRuntimeScenario -RuntimeDir $runtimeDir
-    } finally {
-        Remove-Runtime -RuntimeDir $runtimeDir
-    }
-    Write-Host '===== END Hytale warm gameplay suite ====='
-}
-
 foreach ($scenario in $Scenarios) {
-    if ($scenario -eq 'warmruntime') {
-        continue
-    }
-    if ($bundleGameplay -and ($scenario -eq 'woodcutter' -or $scenario -eq 'minesupport')) {
-        continue
-    }
-
     Write-Host "===== BEGIN Hytale runtime scenario: $scenario ====="
     $runtimeDir = Prepare-Runtime -Scenario $scenario
     try {
@@ -400,6 +362,7 @@ foreach ($scenario in $Scenarios) {
             'woodcutter' { Run-WoodcutterScenario -RuntimeDir $runtimeDir }
             'persistence' { Run-PersistenceScenario -RuntimeDir $runtimeDir }
             'minesupport' { Run-MineSupportScenario -RuntimeDir $runtimeDir }
+            'warmruntime' { Run-WarmRuntimeScenario -RuntimeDir $runtimeDir }
             default { throw "No runtime implementation exists for registered scenario: $scenario" }
         }
     } finally {
