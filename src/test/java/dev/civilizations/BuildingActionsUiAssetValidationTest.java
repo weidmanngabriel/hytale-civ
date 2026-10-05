@@ -9,13 +9,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BuildingActionsUiAssetValidationTest {
 
-    private static final Path UI_PATH = Path.of(
+    private static final Path ACTIONS_UI_PATH = Path.of(
         "asset-pack/Common/UI/Custom/Pages/CivBuildingActions.ui"
+    );
+    private static final Path BUILD_MENU_UI_PATH = Path.of(
+        "asset-pack/Common/UI/Custom/Pages/CivBuildingMenu.ui"
     );
 
     @Test
     void upgradeButtonDeclaresTemplateArgumentsBeforeRegularProperties() throws Exception {
-        String ui = Files.readString(UI_PATH);
+        String ui = Files.readString(ACTIONS_UI_PATH);
         int buttonStart = ui.indexOf("$C.@TextButton #UpgradeButton {");
         int buttonEnd = ui.indexOf("}\n", buttonStart);
 
@@ -32,5 +35,20 @@ class BuildingActionsUiAssetValidationTest {
             textArgument < visibleProperty,
             "Hytale CustomUI requires template arguments such as @Text before regular properties"
         );
+    }
+
+    @Test
+    void buildingActionsReserveSpaceForFutureUpgradeResources() throws Exception {
+        String ui = Files.readString(ACTIONS_UI_PATH);
+        assertTrue(ui.contains("Label #UpgradeRequirements"));
+        assertTrue(ui.contains("Benötigte Rohstoffe: noch nicht verfügbar"));
+    }
+
+    @Test
+    void debugBuildMenuExposesAllAuthoredMinePhases() throws Exception {
+        String ui = Files.readString(BUILD_MENU_UI_PATH);
+        assertTrue(ui.contains("Mine 1 – Kupfer"));
+        assertTrue(ui.contains("Mine 2 – Eisen"));
+        assertTrue(ui.contains("Mine 3 – Gold"));
     }
 }
