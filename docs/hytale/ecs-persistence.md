@@ -28,6 +28,14 @@ Bewohnerzugehörigkeit, Identität, Altersstufe, Appearance, aktiver Beruf und B
 
 Auswahl und aktuelle Bewegungs-/Worker-Zustände sind laufzeitgebunden.
 
+### World-Resources und häufige Minenupdates
+
+Civ-eigene World-Resources werden im nativen `EntityStore` aktualisiert. Häufige Minenfortschritte werden dabei nur in `CivMineDataResource` gestaged und **lösen nicht pro Segment-/Blockfortschritt `Store.saveAllResources()` aus**.
+
+Der Grund ist ein nativer Hytale-Vertrag: `saveAllResources()` startet asynchrone Saves für alle registrierten World-Resources. Mehrere dicht aufeinanderfolgende globale Flushes können sich überlappen und dieselben `*.tmp`-Dateien gleichzeitig verwenden. Das zeigte sich zur Laufzeit als `NoSuchFileException` beim atomaren Verschieben von Resource-Tempdateien, auch für Ressourcen, die Civ selbst gar nicht verändert hatte.
+
+Der normale Hytale-Autosave und der Store-Shutdown persistieren deshalb die jeweils zuletzt gestagten Minendaten. Mine-Worker dürfen den nativen globalen Resource-Save nicht als Per-Tick-/Per-Block-Persistenzmechanismus verwenden.
+
 ## Nativer Entity-Lifecycle statt Polling
 
 `CivInhabitantLifecycleSystem` ist ein Hytale-`RefSystem`, dessen Query nur Entities mit `CivInhabitantData` und `NPCEntity` beobachtet. Es gibt keinen zusätzlichen periodischen Cleanup-Scan.
