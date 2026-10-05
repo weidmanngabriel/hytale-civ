@@ -1,5 +1,6 @@
 package dev.civilizations.hytale;
 
+import com.hypixel.hytale.builtin.npccombatactionevaluator.memory.TargetMemory;
 import com.hypixel.hytale.component.ArchetypeChunk;
 import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Ref;
@@ -31,6 +32,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * pathfinding, attack interactions, damage, HP and death. In this first slice, a native NPC counts
  * as a hostile monster when its role is hostile to players. That matches the player's notion of a
  * dangerous monster without requiring the role to be globally hostile to every NPC.</p>
+ *
+ * <p>Many vanilla monsters ignore arbitrary NPCs by default even when they are hostile to players.
+ * While a soldier actively engages such a monster, Civ refreshes the soldier in that monster's
+ * native {@link TargetMemory}. This only establishes reciprocal aggro; Hytale still owns the
+ * monster's combat decisions, movement, attack interactions, damage and death.</p>
  */
 public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
 
@@ -89,6 +95,7 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
 
         Ref<EntityStore> currentTarget = readTarget(ref, store);
         if (isUsableTarget(ref, currentTarget, store)) {
+            refreshNativeRetaliationAggro(currentTarget, ref, store);
             runtime.target = currentTarget;
             return;
         }
@@ -110,6 +117,7 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
         }
 
         setTarget(ref, target, store);
+        refreshNativeRetaliationAggro(target, ref, store);
         runtime.target = target;
         runtime.schedule.scheduleRetry(RETRY_SECONDS);
     }
@@ -200,6 +208,22 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
         WorldSupport targetWorldSupport = WorldSupport.get(candidate, store);
         return targetWorldSupport != null
             && targetWorldSupport.getDefaultPlayerAttitude() == Attitude.HOSTILE;
+    }
+
+    private static void refreshNativeRetaliationAggro(
+        Ref<EntityStore> hostile,
+        Ref<EntityStore> soldier,
+        Store<EntityStore> store
+    ) {
+        TargetMemory memory = store.getComponent(hostile, TargetMemory.getComponentType());
+        if (memory == null) {
+            return;
+        }
+
+        float previous = memory.getKnownHostiles().put(soldier.getIndex(), memory.getRememberFor());
+        if (previous <= 0.0f) {
+            memory.getKnownHostilesList().add(soldier);
+        }
     }
 
     private static Ref<EntityStore> readTarget(
