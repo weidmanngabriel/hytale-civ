@@ -40,12 +40,14 @@ final class MineSupportPrefabContractTest {
         String prefab = Files.readString(
             Path.of("asset-pack", "Server", "Prefabs", "Civilizations", "Mine", "Mine_Support_01.prefab.json")
         );
-        assertTrue(prefab.contains("\"anchorX\": 0"));
-        assertTrue(prefab.contains("\"anchorY\": 0"));
-        assertTrue(prefab.contains("\"anchorZ\": 0"));
-        assertFalse(prefab.contains("\"z\":-1"));
-        assertTrue(prefab.contains("\"z\":0"));
-        assertTrue(prefab.contains("\"z\":3"));
+        String compactPrefab = prefab.replaceAll("\\s+", "");
+        assertTrue(compactPrefab.contains("\"anchorX\":0"));
+        assertTrue(compactPrefab.contains("\"anchorY\":0"));
+        assertTrue(compactPrefab.contains("\"anchorZ\":0"));
+        assertFalse(compactPrefab.contains("\"z\":-1"));
+        assertTrue(compactPrefab.contains("\"z\":0"));
+        assertTrue(compactPrefab.contains("\"z\":3"));
+        assertTrue(compactPrefab.contains("\"fluids\":[]"));
     }
 
     @Test
