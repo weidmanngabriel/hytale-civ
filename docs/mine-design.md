@@ -422,7 +422,22 @@ Layer 1 is implemented with the following current model:
 
 ### Layer 2 - tunnel path and form phases
 
-Implement headings, broad curves, footprint steering, vertical tendencies, width/height phases and lateral/vertical drift.
+Layer 2 is implemented as Hytale-independent planning in Core. It does not yet excavate world blocks and it is not yet wired into the existing `MineSegment` worker sequence; Layer 3 will consume the planned path when concrete tunnel volumes replace the old fixed 4x4 geometry.
+
+Current Layer-2 model:
+
+- `MineHeading` provides eight horizontal planning headings in 45-degree steps.
+- `MinePathPlanner` produces a deterministic continuous centerline from a seed, origin, tunnel kind and initial heading.
+- `MineTunnelPath` contains sampled centerline points plus the `MineFormPhase` sequence that produced them.
+- Heading decisions may only remain straight or move one 45-degree step left/right per phase. The actual centerline tangent interpolates continuously across the phase, so a heading change becomes a broad curve rather than a hard corner.
+- Main-tunnel initial direction weighting is currently 78% straight, 11% left and 11% right. Branches use the established 50/25/25 weighting. These are tuning values, not persistence contracts.
+- Form-phase target width and height change by at most one block from the previous phase. Main-tunnel values remain in the 6-8 range; branch values remain in the 3-5 range. Centerline samples carry interpolated continuous width/height values for later voxelization.
+- Current form-phase length tuning is 10-18 forward blocks for the main tunnel and 6-12 for branches. The final partial phase may be shorter when a caller requests an exact path length.
+- Main-tunnel vertical phase weighting is 68% down, 27% level and 5% up. Branch weighting is 35% down, 30% level and 35% up. A selected vertical change is spread continuously across the full phase and is never more than one block per phase.
+- Lateral drift is also phase-based rather than per-block noise. A phase changes its lateral offset by at most one block; the running offset is currently clamped to two blocks either side of the underlying path.
+- The 500x500 footprint remains soft. Boundary pressure starts once the square-distance from the mine center exceeds roughly 70% of the half-extent and progressively reduces outward candidate weights while increasing inward weights. No candidate is reduced to zero merely for pointing outward.
+- Layer 2 performs no Hytale world queries, collision checks, cave checks, navigation checks or block placement. Those remain later-layer responsibilities.
+- Deterministic Core tests cover the eight headings, reproducibility, size ranges, gradual dimension changes, soft boundary behaviour, downward main-tunnel tendency, approximately balanced branch vertical tendency and bounded lateral drift.
 
 ### Layer 3 - excavation geometry
 
