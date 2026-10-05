@@ -21,8 +21,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class CivPlacementFootprintProbe {
 
     private static final String TYPE_TAG = "civ.type";
+    private static final String BUILDING_TAG = "civ.building";
     private static final String BUILDING_BOUNDS = "building_bounds";
-    private static final String CONSTRUCTION_GROUND_LEVEL = "construction_ground_level";
+    private static final String FIELD = "field";
+    private static final String FARM = "farm";
 
     private final Map<String, LocalFootprint> cache = new ConcurrentHashMap<>();
 
@@ -37,7 +39,7 @@ public final class CivPlacementFootprintProbe {
             pointedBlock.z + local.minZ(),
             pointedBlock.x + local.maxX(),
             pointedBlock.z + local.maxZ(),
-            pointedBlock.y + local.floorYOffset()
+            pointedBlock.y
         );
     }
 
@@ -50,20 +52,17 @@ public final class CivPlacementFootprintProbe {
         List<Marker> bounds = markers.stream()
             .filter(marker -> BUILDING_BOUNDS.equals(marker.tags().get(TYPE_TAG)))
             .toList();
+        if (bounds.isEmpty() && PrefabPlacementService.WHEAT_FIELD.prefabKey().equals(definition.prefabKey())) {
+            bounds = markers.stream()
+                .filter(marker -> FIELD.equals(marker.tags().get(TYPE_TAG)))
+                .filter(marker -> FARM.equals(marker.tags().get(BUILDING_TAG)))
+                .toList();
+        }
         if (bounds.isEmpty()) {
             throw new IllegalStateException(
-                definition.displayName() + " requires an authored civ.type=building_bounds marker for collision preview."
+                definition.displayName() + " requires an authored lifecycle boundary marker for collision preview."
             );
         }
-        List<Marker> ground = markers.stream()
-            .filter(marker -> CONSTRUCTION_GROUND_LEVEL.equals(marker.tags().get(TYPE_TAG)))
-            .toList();
-        if (ground.size() > 1) {
-            throw new IllegalStateException("Prefab must define at most one construction ground marker.");
-        }
-        int effectiveAnchorY = ground.isEmpty()
-            ? source.getAnchorY()
-            : (int) Math.floor(ground.getFirst().minY());
 
         double localMinX = bounds.stream().mapToDouble(Marker::minX).min().orElseThrow();
         double localMinZ = bounds.stream().mapToDouble(Marker::minZ).min().orElseThrow();
@@ -73,8 +72,7 @@ public final class CivPlacementFootprintProbe {
             (int) Math.floor(localMinX - source.getAnchorX()),
             (int) Math.floor(localMinZ - source.getAnchorZ()),
             (int) Math.ceil(localMaxX - source.getAnchorX()) - 1,
-            (int) Math.ceil(localMaxZ - source.getAnchorZ()) - 1,
-            effectiveAnchorY - effectiveAnchorY
+            (int) Math.ceil(localMaxZ - source.getAnchorZ()) - 1
         );
     }
 
@@ -90,21 +88,19 @@ public final class CivPlacementFootprintProbe {
             Vector3d min = new Vector3d();
             Vector3d max = new Vector3d();
             trigger.getShape().getWorldAABB(transform.getPosition(), min, max);
-            result.add(new Marker(entry.getRawTags(), min.x, min.y, min.z, max.x, max.y, max.z));
+            result.add(new Marker(entry.getRawTags(), min.x, min.z, max.x, max.z));
         });
         return List.copyOf(result);
     }
 
-    private record LocalFootprint(int minX, int minZ, int maxX, int maxZ, int floorYOffset) {
+    private record LocalFootprint(int minX, int minZ, int maxX, int maxZ) {
     }
 
     private record Marker(
         Map<String, String> tags,
         double minX,
-        double minY,
         double minZ,
         double maxX,
-        double maxY,
         double maxZ
     ) {
     }
