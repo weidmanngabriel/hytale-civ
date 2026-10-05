@@ -6,7 +6,11 @@
 
 Während der Mausbewegung erzeugt oder verschiebt Civ eine native `PersistentPrefabPreview`-Entität am validierten Civ-Anker. Linksklick übernimmt diese Preview als Baustelle; Rechtsklick entfernt sie.
 
-Der Civ-Commit-Pfad verwendet dafür nicht mehr `BlockSelection.place`. Auch `PrefabPasteEvent` ist nicht Teil dieses Commit-Pfads.
+Die sichtbaren Baustellen-Layer werden ohne Prefab-Entities materialisiert. Erst nach dem letzten Bauschritt wird die vollständige vorbereitete `BlockSelection` nativ platziert, damit authored Entities und TriggerVolumes entstehen.
+
+Wichtig für Hytale 0.6.8: `BlockSelection.place(...)` fügt Prefab-Entities nicht synchron in den `EntityStore` ein. `placeEntity(...)` erzeugt zunächst einen `Ref`, hängt die eigentliche Store-Insertion anschließend per `World.execute(...)` an die World-Queue und gibt den Ref schon vorher an den Entity-Consumer zurück. Ein `isValid()`-Check im unmittelbaren Consumer ist daher zu früh. Civ sammelt diese Refs zunächst nur und hängt einen eigenen Finalize-Schritt hinter Hytales Insertions in dieselbe World-Queue. Erst dort werden UUIDs gelesen und neue TriggerVolumes aus dem `TriggerVolumeManager` erfasst.
+
+Das fertige Civ-Gebäude wird erst nach dieser nativen Finalisierung registriert. Bei einem Upgrade bleibt die alte Phase bis dahin registriert; erst nachdem die neue Phase gültige authored Bounds geliefert und unter derselben Building-ID registriert wurde, entfernt Civ die alten TriggerVolumes und Prefab-Entities.
 
 ## Prefab-Rotation
 
@@ -57,6 +61,8 @@ Ein regulärer Ausbau lädt die nächste Phase als normale Civ-Baustelle und üb
 
 Für einen Ausbau misst `PrefabPlacementService` den Footprint der Zielphase am vorhandenen Transform neu. Der Terrain-Snapshot wird dabei kumulativ erweitert: Alle bereits gespeicherten Positionen behalten unverändert ihren Weltzustand von vor Phase 1; nur Positionen, die eine spätere Phase erstmals berührt, werden zusätzlich mit ihrem unmittelbar vorherigen Weltzustand aufgenommen. Ein Abriss von Phase 2 oder 3 kann dadurch den gesamten von allen Phasen veränderten Bereich auf den Zustand vor der jeweils ersten Veränderung zurücksetzen.
 
+Der neue Terrain-Snapshot speichert neben der Block-ID auch Rotation, Filler, Support-Wert sowie Fluid-ID und Fluid-Level. Ältere persistierte Gebäude ohne diese Daten werden rückwärtskompatibel mit den früheren Block-IDs und neutralen Zusatzwerten geladen. Block-Component-Holder werden derzeit nicht eigenständig serialisiert; komplexe mod-/container-spezifische Blockkomponenten bleiben deshalb eine bekannte Grenze.
+
 Die fachliche Building-ID wird bei einem Upgrade nicht ersetzt. Die Construction-Pipeline materialisiert die Zielphase wie eine normale Baustelle; bei der Fertigstellung ersetzt `BuildingPlacementRegistry` die bestehende Building-Instanz unter derselben ID durch die nächste Phase. Persistente Arbeitsplatzreferenzen bleiben dadurch stabil. Miner lösen zuerst diese Building-ID auf und verwenden anschließend die aktuell an dieser Building-Instanz registrierten semantischen Volumes; neue Volume-IDs einer höheren Phase sind deshalb zulässig, solange die erforderlichen Tags weiter vorhanden sind.
 
 Beim erfolgreichen Phasenwechsel werden die semantischen TriggerVolumes der alten Phase über ihre gespeicherten IDs gezielt deregistriert. Die neue Phase liefert anschließend die aktive Menge an `workplace_access`, `mine_tunnel_connector`, `building_bounds` und weiteren semantischen Markern. Es werden nicht pauschal fremde TriggerVolumes im räumlichen Bereich gelöscht.
@@ -81,9 +87,11 @@ Eine separate native Hytale-API, mit der Civ einen beliebigen fertigen Gebäudei
 
 ## Prefab-Entities und Abriss
 
-Die gepinnte `BlockSelection.place(...)`-API liefert über ihren Entity-Consumer Referenzen auf die beim Prefab-Paste erzeugten Entities. Civ liest für nicht-TriggerVolume-Entities deren `UUIDComponent` und speichert diese UUIDs als Eigentum der jeweiligen Building-Instanz. Die UUID-Liste wird zusammen mit den übrigen Gebäude-Metadaten persistiert.
+Die gepinnte `BlockSelection.place(...)`-API liefert über ihren Entity-Consumer Referenzen auf die beim Prefab-Paste erzeugten Entities. Diese Refs sind im unmittelbaren Callback noch nicht valide, weil Hytale die Store-Insertion erst per `World.execute(...)` queued. Civ wertet sie deshalb erst im nachgelagerten World-Queue-Finalizer aus. Für nicht-TriggerVolume-Entities wird dort die `UUIDComponent` gelesen und als Eigentum der jeweiligen Building-Instanz gespeichert. Die UUID-Liste wird zusammen mit den übrigen Gebäude-Metadaten persistiert.
 
 Beim Abriss werden nur diese exakt aufgezeichneten Prefab-Entities entfernt. Bereits vorher in der Welt vorhandene Entities werden weder gelöscht noch restauriert. TriggerVolumes werden separat über ihre gespeicherten Volume-IDs deregistriert. Dadurch braucht der Abriss keine unsichere Regel wie „alle Entities innerhalb des Gebäude-Bereichs außer Civ-NPCs löschen“.
+
+Terrain wird beim Abriss nicht mehr blockweise über `WorldChunk.setBlock(...)` zurückgeschrieben. Civ erzeugt aus dem gespeicherten Snapshot eine `BlockSelection` und verwendet `placeNoReturn(...)`, damit Hytales eigener Bulk-Placement-Lifecycle für Rotation, Fluids, Block-State-/Container-Cleanup, Heightmaps und Chunk-Updates greift.
 
 Ältere persistierte Gebäude besitzen noch keine aufgezeichnete Prefab-Entity-Liste. Für sie bleibt die Liste leer; der neue Cleanup kann rückwirkend nicht beweisen, welche vorhandenen Entities ursprünglich von diesem Gebäude erzeugt wurden.
 
@@ -93,7 +101,7 @@ Im derzeitigen Preview-Spike wird die frühere blockweise Kollisions-/Terrainpr�
 
 Die Kollisionsregeln müssen für den Baustellen-Lifecycle erneut passend eingeführt und zur Laufzeit verifiziert werden. Die vier Orientation-Transformationen sind automatisiert gegen Core/Simulation geprüft; die sichtbare Player-Rotation selbst ist noch nicht als In-Game-UX aktiviert und daher noch nicht runtime-verifiziert.
 
-Die sichtbare Ersetzung `Mine_01 -> Mine_02 -> Mine_03`, der genaue Evakuierungspunkt, das Entfernen alter Prefab-Entities und TriggerVolumes sowie die Upgrade-UI sind weiterhin fokussiert im echten Client zu prüfen. Eine persistente Wiederaufnahme einer aktiven ConstructionSite nach Serverneustart ist noch nicht implementiert; laufende Baustellen bleiben derzeit Runtime-Zustand.
+Die queued Finalisierung von Prefab-Entities/TriggerVolumes, die sichtbare Ersetzung `Mine_01 -> Mine_02 -> Mine_03`, der genaue Evakuierungspunkt und der native Abriss-Restore sind fokussiert im echten Client zu prüfen. Eine persistente Wiederaufnahme einer aktiven ConstructionSite nach Serverneustart ist noch nicht implementiert; laufende Baustellen bleiben derzeit Runtime-Zustand.
 
 ## Fertige Gebäude
 

@@ -2,8 +2,8 @@ package dev.civilizations.hytale;
 
 import com.hypixel.hytale.component.ResourceType;
 import com.hypixel.hytale.component.Store;
-import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
@@ -73,6 +73,23 @@ public final class CivBuildingPersistenceService {
             floor.append(position.x()).append(',').append(position.y()).append(',')
                 .append(position.z()).append(',').append(b64(blockType.getId()));
         });
+
+        StringBuilder terrain = new StringBuilder();
+        placement.terrainSnapshot().forEach((position, snapshot) -> {
+            if (!terrain.isEmpty()) terrain.append(';');
+            BlockType blockType = BlockType.getAssetMap().getAsset(snapshot.blockId());
+            if (blockType == null) {
+                throw new IllegalStateException("Unknown terrain block id " + snapshot.blockId());
+            }
+            terrain.append(position.x()).append(',').append(position.y()).append(',')
+                .append(position.z()).append(',').append(b64(blockType.getId())).append(',')
+                .append(snapshot.rotation()).append(',')
+                .append(snapshot.filler()).append(',')
+                .append(snapshot.supportValue()).append(',')
+                .append(snapshot.fluidId()).append(',')
+                .append(snapshot.fluidLevel());
+        });
+
         StringBuilder markers = new StringBuilder();
         for (PrefabPlacementService.PlacedMarker marker : building.semanticVolumes()) {
             if (!markers.isEmpty()) markers.append(';');
@@ -100,14 +117,16 @@ public final class CivBuildingPersistenceService {
             b64(floor.toString()),
             b64(markers.toString()),
             placement.orientation().name(),
-            b64(entityIds)
+            b64(entityIds),
+            b64(terrain.toString())
         );
     }
 
     private BuildingPlacementRegistry.BuildingInstance decode(UUID worldId, String encoded) {
         String[] parts = encoded.split("\\|", -1);
         boolean legacy = parts.length == 9;
-        if (!legacy && parts.length != 10 && parts.length != 11 && parts.length != 12) {
+        if (!legacy && parts.length != 10 && parts.length != 11
+            && parts.length != 12 && parts.length != 13) {
             throw new IllegalArgumentException("unexpected field count");
         }
 
@@ -154,6 +173,42 @@ public final class CivBuildingPersistenceService {
             }
         }
 
+        Map<BlockPosition, PrefabPlacementService.TerrainBlockSnapshot> terrain =
+            new LinkedHashMap<>();
+        floor.forEach((position, blockId) ->
+            terrain.put(position, PrefabPlacementService.TerrainBlockSnapshot.legacy(blockId))
+        );
+        if (parts.length >= 13) {
+            String terrainText = unb64(parts[12]);
+            if (!terrainText.isEmpty()) {
+                for (String entry : terrainText.split(";")) {
+                    String[] values = entry.split(",", -1);
+                    if (values.length != 9) {
+                        throw new IllegalArgumentException("invalid native terrain snapshot entry");
+                    }
+                    int x = Integer.parseInt(values[0]);
+                    int y = Integer.parseInt(values[1]);
+                    int z = Integer.parseInt(values[2]);
+                    String blockKey = unb64(values[3]);
+                    int blockId = BlockType.getAssetMap().getIndex(blockKey);
+                    if (blockId < 0) {
+                        throw new IllegalArgumentException("unknown terrain block " + blockKey);
+                    }
+                    terrain.put(
+                        new BlockPosition(x, y, z),
+                        new PrefabPlacementService.TerrainBlockSnapshot(
+                            blockId,
+                            Integer.parseInt(values[4]),
+                            Integer.parseInt(values[5]),
+                            Integer.parseInt(values[6]),
+                            Integer.parseInt(values[7]),
+                            Byte.parseByte(values[8])
+                        )
+                    );
+                }
+            }
+        }
+
         List<PrefabPlacementService.PlacedMarker> markers = new ArrayList<>();
         String markerText = unb64(parts[8 + offset]);
         if (!markerText.isEmpty()) {
@@ -190,6 +245,7 @@ public final class CivBuildingPersistenceService {
                 new Vector3i(anchor[0], anchor[1], anchor[2]),
                 new PrefabPlacementService.PlacementFootprint(fp[0], fp[1], fp[2], fp[3], fp[4]),
                 floor,
+                terrain,
                 orientation
             );
         return new BuildingPlacementRegistry.BuildingInstance(
