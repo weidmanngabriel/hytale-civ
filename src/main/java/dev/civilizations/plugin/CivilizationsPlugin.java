@@ -14,10 +14,13 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.VikingNameGenerator;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
 import dev.civilizations.hytale.CivActivityRegistry;
+import dev.civilizations.hytale.CivBoundaryDisplayService;
 import dev.civilizations.hytale.CivBuildingBlockProtectionSystem;
 import dev.civilizations.hytale.CivBuildingDataResource;
 import dev.civilizations.hytale.CivBuildingPersistenceService;
 import dev.civilizations.hytale.CivClaimDamageSystem;
+import dev.civilizations.hytale.CivConstructionDataResource;
+import dev.civilizations.hytale.CivConstructionPersistenceService;
 import dev.civilizations.hytale.CivInhabitantData;
 import dev.civilizations.hytale.CivInhabitantLifecycleSystem;
 import dev.civilizations.hytale.CivInhabitantService;
@@ -28,9 +31,12 @@ import dev.civilizations.hytale.CivMinePersistenceService;
 import dev.civilizations.hytale.CivNameplateStatusSystem;
 import dev.civilizations.hytale.CivPathDebugService;
 import dev.civilizations.hytale.CivPlayerRigDebugService;
+import dev.civilizations.hytale.CivSelectedBuildingHudController;
+import dev.civilizations.hytale.CivSelectedBuildingHudSystem;
 import dev.civilizations.hytale.CivSelectedNpcHudController;
 import dev.civilizations.hytale.CivSelectedNpcHudSystem;
 import dev.civilizations.hytale.CivUnitRegistry;
+import dev.civilizations.hytale.ConstructionSiteRegistry;
 import dev.civilizations.hytale.ConstructionWorkSystem;
 import dev.civilizations.hytale.FarmBuildingRegistry;
 import dev.civilizations.hytale.FarmFieldRegistry;
@@ -50,6 +56,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
 
     private static final String CIV_INHABITANT_DATA_ID = "CivInhabitantData";
     private static final String CIV_BUILDING_DATA_ID = "CivBuildingData";
+    private static final String CIV_CONSTRUCTION_DATA_ID = "CivConstructionData";
     private static final String CIV_MINE_DATA_ID = "CivMineData";
 
     public CivilizationsPlugin(JavaPluginInit init) {
@@ -61,24 +68,27 @@ public final class CivilizationsPlugin extends JavaPlugin {
     public void setup() {
         ComponentType<EntityStore, CivInhabitantData> inhabitantDataType =
             getEntityStoreRegistry().registerComponent(
-                CivInhabitantData.class,
-                CIV_INHABITANT_DATA_ID,
-                CivInhabitantData.CODEC
+                CivInhabitantData.class, CIV_INHABITANT_DATA_ID, CivInhabitantData.CODEC
             );
         ResourceType<EntityStore, CivBuildingDataResource> buildingDataType =
             getEntityStoreRegistry().registerResource(
-                CivBuildingDataResource.class,
-                CIV_BUILDING_DATA_ID,
-                CivBuildingDataResource.CODEC
+                CivBuildingDataResource.class, CIV_BUILDING_DATA_ID, CivBuildingDataResource.CODEC
+            );
+        ResourceType<EntityStore, CivConstructionDataResource> constructionDataType =
+            getEntityStoreRegistry().registerResource(
+                CivConstructionDataResource.class,
+                CIV_CONSTRUCTION_DATA_ID,
+                CivConstructionDataResource.CODEC
             );
         ResourceType<EntityStore, CivMineDataResource> mineDataType =
             getEntityStoreRegistry().registerResource(
-                CivMineDataResource.class,
-                CIV_MINE_DATA_ID,
-                CivMineDataResource.CODEC
+                CivMineDataResource.class, CIV_MINE_DATA_ID, CivMineDataResource.CODEC
             );
+
         CivBuildingPersistenceService buildingPersistence =
             new CivBuildingPersistenceService(buildingDataType);
+        CivConstructionPersistenceService constructionPersistence =
+            new CivConstructionPersistenceService(constructionDataType);
         CivMinePersistenceService minePersistence = new CivMinePersistenceService(mineDataType);
         MineTunnelRegistry mineTunnelRegistry = new MineTunnelRegistry(minePersistence);
 
@@ -98,19 +108,32 @@ public final class CivilizationsPlugin extends JavaPlugin {
         FarmFieldRegistry fieldRegistry = new FarmFieldRegistry();
         BuildingPlacementRegistry buildingRegistry = new BuildingPlacementRegistry();
         PrefabPlacementService prefabPlacementService = new PrefabPlacementService();
-        WoodcutterScanDiagnostics woodcutterScanDiagnostics = new WoodcutterScanDiagnostics();
-        RtsInteractionController rtsInteractionController =
-            new RtsInteractionController(
-                new RtsCameraController(),
-                unitRegistry,
-                activityRegistry,
-                farmRegistry,
-                fieldRegistry,
+        ConstructionSiteRegistry constructionRegistry = new ConstructionSiteRegistry();
+        CivSelectedBuildingHudController selectedBuildingHudController =
+            new CivSelectedBuildingHudController(
                 buildingRegistry,
+                constructionRegistry,
                 prefabPlacementService,
-                buildingPersistence,
-                mineTunnelRegistry
+                unitRegistry
             );
+        CivBoundaryDisplayService boundaryDisplayService = new CivBoundaryDisplayService();
+        WoodcutterScanDiagnostics woodcutterScanDiagnostics = new WoodcutterScanDiagnostics();
+        RtsInteractionController rtsInteractionController = new RtsInteractionController(
+            new RtsCameraController(),
+            unitRegistry,
+            activityRegistry,
+            farmRegistry,
+            fieldRegistry,
+            buildingRegistry,
+            prefabPlacementService,
+            buildingPersistence,
+            mineTunnelRegistry,
+            constructionRegistry,
+            constructionPersistence,
+            selectedNpcHudController,
+            selectedBuildingHudController,
+            boundaryDisplayService
+        );
 
         getEntityStoreRegistry().registerSystem(
             new CivBuildingBlockProtectionSystem.BreakProtection(buildingRegistry)
@@ -126,32 +149,30 @@ public final class CivilizationsPlugin extends JavaPlugin {
 
         FarmNpcWorkSystem farmNpcWorkSystem =
             new FarmNpcWorkSystem(unitRegistry, activityRegistry, farmRegistry, fieldRegistry);
-        WoodcutterWorkSystem woodcutterWorkSystem =
-            new WoodcutterWorkSystem(unitRegistry, activityRegistry, woodcutterScanDiagnostics);
+        WoodcutterWorkSystem woodcutterWorkSystem = new WoodcutterWorkSystem(
+            unitRegistry, activityRegistry, woodcutterScanDiagnostics, buildingRegistry
+        );
         MinerWorkSystem minerWorkSystem =
             new MinerWorkSystem(unitRegistry, activityRegistry, buildingRegistry, mineTunnelRegistry);
-        ConstructionWorkSystem constructionWorkSystem =
-            new ConstructionWorkSystem(
-                unitRegistry,
-                activityRegistry,
-                farmRegistry,
-                fieldRegistry,
-                buildingRegistry,
-                prefabPlacementService,
-                buildingPersistence
-            );
-        SoldierWorkSystem soldierWorkSystem =
-            new SoldierWorkSystem(unitRegistry, activityRegistry);
+        ConstructionWorkSystem constructionWorkSystem = new ConstructionWorkSystem(
+            unitRegistry,
+            activityRegistry,
+            farmRegistry,
+            fieldRegistry,
+            buildingRegistry,
+            prefabPlacementService,
+            buildingPersistence,
+            constructionRegistry,
+            constructionPersistence
+        );
+        SoldierWorkSystem soldierWorkSystem = new SoldierWorkSystem(unitRegistry, activityRegistry);
 
         getEntityStoreRegistry().registerSystem(farmNpcWorkSystem);
         getEntityStoreRegistry().registerSystem(woodcutterWorkSystem);
         getEntityStoreRegistry().registerSystem(minerWorkSystem);
         getEntityStoreRegistry().registerSystem(
             new MinerSurfaceRecoverySystem(
-                unitRegistry,
-                activityRegistry,
-                buildingRegistry,
-                mineTunnelRegistry
+                unitRegistry, activityRegistry, buildingRegistry, mineTunnelRegistry
             )
         );
         getEntityStoreRegistry().registerSystem(constructionWorkSystem);
@@ -174,8 +195,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
         CivNameplateStatusSystem nameplateStatusSystem =
             new CivNameplateStatusSystem(unitRegistry, activityRegistry);
         getEntityStoreRegistry().registerSystem(nameplateStatusSystem);
+        getEntityStoreRegistry().registerSystem(new CivSelectedNpcHudSystem(selectedNpcHudController));
         getEntityStoreRegistry().registerSystem(
-            new CivSelectedNpcHudSystem(selectedNpcHudController)
+            new CivSelectedBuildingHudSystem(selectedBuildingHudController)
         );
 
         getCommandRegistry().registerCommand(new CivTestCommand());
@@ -184,12 +206,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
             getCommandRegistry().registerCommand(
                 new CivRuntimeProbeCommand(unitRegistry, activityRegistry)
             );
-            getCommandRegistry().registerCommand(
-                new CivWoodcutterFixtureProbeCommand(unitRegistry)
-            );
-            getCommandRegistry().registerCommand(
-                new CivPersistenceProbeCommand(unitRegistry)
-            );
+            getCommandRegistry().registerCommand(new CivWoodcutterFixtureProbeCommand(unitRegistry));
+            getCommandRegistry().registerCommand(new CivPersistenceProbeCommand(unitRegistry));
             getCommandRegistry().registerCommand(
                 new CivWarmRuntimeBenchmarkCommand(unitRegistry, activityRegistry)
             );
@@ -218,6 +236,12 @@ public final class CivilizationsPlugin extends JavaPlugin {
         );
 
         getEventRegistry().registerGlobal(StartWorldEvent.class, event -> {
+            // World startup is authoritative. Clear any stale in-memory site state first so an
+            // empty persisted site list cannot leave old reservations/sites alive in this JVM.
+            constructionRegistry.restoreWorld(
+                event.getWorld().getWorldConfig().getUuid(),
+                java.util.List.of()
+            );
             rtsInteractionController.handleWorldJoin(event.getWorld());
             mineTunnelRegistry.loadWorld(event.getWorld());
         });
@@ -226,10 +250,10 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 farmNpcWorkSystem.handleTriggerEnter(event.getEntityRef(), event.getVolumeId());
             }
         });
-        getEventRegistry().register(PlayerMouseButtonEvent.class, selectedNpcHudController::handleMouseButton);
         getEventRegistry().register(PlayerMouseButtonEvent.class, rtsInteractionController::handleMouseButton);
         getEventRegistry().register(PlayerMouseMotionEvent.class, rtsInteractionController::handleMouseMotion);
         getEventRegistry().register(PlayerDisconnectEvent.class, selectedNpcHudController::handleDisconnect);
+        getEventRegistry().register(PlayerDisconnectEvent.class, selectedBuildingHudController::handleDisconnect);
         getEventRegistry().register(PlayerDisconnectEvent.class, rtsInteractionController::handleDisconnect);
     }
 }
