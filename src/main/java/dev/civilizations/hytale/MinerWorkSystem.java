@@ -7,7 +7,7 @@ import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.query.Query;
-import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
+import com.hypixel.hytale.component.system.tick.DelayedEntitySystem;
 import com.hypixel.hytale.math.Axis;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.protocol.AnimationSlot;
@@ -43,9 +43,14 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
-/** Executes Civ mine work using native Hytale navigation, harvesting and prefab placement. */
-public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
+/**
+ * Executes Civ mine work using native Hytale navigation, harvesting and prefab placement.
+ * Hytale navigation continues between delayed Civ sessions so segment reconciliation and marker
+ * resolution are not repeated for every miner on every engine tick.
+ */
+public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
+    private static final float TICK_INTERVAL_SECONDS = 0.50f;
     private static final String TYPE_TAG = "civ.type";
     private static final String BUILDING_TAG = "civ.building";
     private static final String WORKPLACE_ACCESS = "workplace_access";
@@ -71,6 +76,7 @@ public final class MinerWorkSystem extends EntityTickingSystem<EntityStore> {
         BuildingPlacementRegistry buildingRegistry,
         MineTunnelRegistry tunnelRegistry
     ) {
+        super(TICK_INTERVAL_SECONDS);
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
         this.buildingRegistry = buildingRegistry;
