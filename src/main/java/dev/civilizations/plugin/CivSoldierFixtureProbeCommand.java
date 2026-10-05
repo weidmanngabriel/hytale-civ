@@ -47,7 +47,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
     private static final Vector3d HOSTILE_START = new Vector3d(8.5, 1.0, 0.5);
     private static final WorldPosition MANUAL_DESTINATION = new WorldPosition(-6.0, 1.0, 0.5);
     private static final long SETTLE_MILLIS = 500L;
-    private static final long ASSERT_INTERVAL_MILLIS = 200L;
+    private static final long ASSERT_INTERVAL_MILLIS = 25L;
     private static final long PROBE_TIMEOUT_MILLIS = 45_000L;
     private static final double MINIMUM_CHASE_DISTANCE = 1.0;
 
