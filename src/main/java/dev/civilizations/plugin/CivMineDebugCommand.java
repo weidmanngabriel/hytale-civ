@@ -4,8 +4,6 @@ import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.command.system.CommandContext;
-import com.hypixel.hytale.server.core.command.system.arguments.system.OptionalArg;
-import com.hypixel.hytale.server.core.command.system.arguments.types.ArgTypes;
 import com.hypixel.hytale.server.core.command.system.basecommands.AbstractPlayerCommand;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
@@ -231,16 +229,11 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
 
     private static final class LogsOnCommand extends AbstractPlayerCommand {
         private final CivMineDecisionDiagnostics diagnostics;
-        private final OptionalArg<String> categoriesArg;
 
         private LogsOnCommand(CivMineDecisionDiagnostics diagnostics) {
             super("on", "Enables mine decision logs, optionally for comma-separated categories.");
             this.diagnostics = diagnostics;
-            categoriesArg = withOptionalArg(
-                "categories",
-                "Comma-separated categories, e.g. PLANNING,ROOM",
-                ArgTypes.STRING
-            );
+            setAllowsExtraArguments(true);
             requireNoPermission();
         }
 
@@ -252,7 +245,7 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
             PlayerRef playerRef,
             World world
         ) {
-            String raw = context.provided(categoriesArg) ? context.get(categoriesArg) : null;
+            String raw = MineLogCommandInput.categoriesArgument(context.getInputString());
             try {
                 Set<MineDecisionCategory> enabled = diagnostics.enable(
                     CivMineDecisionDiagnostics.parseCategories(raw)
