@@ -88,41 +88,49 @@
           "Instructions": [
             {
               "Sensor": {
-                "Type": "CombatActionEvaluator",
-                "TargetInRange": true
+                "Type": "State",
+                "State": ".Default"
               },
-              "HeadMotion": {
-                "Type": "Aim",
-                "RelativeTurnSpeed": 0.5
-              },
-              "BodyMotion": {
-                "Type": "MaintainDistance",
-                "DesiredDistanceRange": [
-                  1.5,
-                  2.2
-                ],
-                "MoveThreshold": 0.1,
-                "RelativeForwardsSpeed": 0.65,
-                "RelativeBackwardsSpeed": 0.45
-              },
-              "Actions": [
+              "Instructions": [
                 {
-                  "Type": "CombatAbility"
+                  "Sensor": {
+                    "Type": "CombatActionEvaluator",
+                    "TargetInRange": true
+                  },
+                  "HeadMotion": {
+                    "Type": "Aim",
+                    "RelativeTurnSpeed": 0.5
+                  },
+                  "BodyMotion": {
+                    "Type": "MaintainDistance",
+                    "DesiredDistanceRange": [
+                      1.5,
+                      2.2
+                    ],
+                    "MoveThreshold": 0.1,
+                    "RelativeForwardsSpeed": 0.65,
+                    "RelativeBackwardsSpeed": 0.45
+                  },
+                  "Actions": [
+                    {
+                      "Type": "CombatAbility"
+                    }
+                  ]
+                },
+                {
+                  "Sensor": {
+                    "Type": "CombatActionEvaluator",
+                    "TargetInRange": false
+                  },
+                  "BodyMotion": {
+                    "Type": "Seek",
+                    "StopDistance": 1.6,
+                    "SlowDownDistance": 3.0,
+                    "RelativeSpeed": 1.0,
+                    "UsePathfinder": true
+                  }
                 }
               ]
-            },
-            {
-              "Sensor": {
-                "Type": "CombatActionEvaluator",
-                "TargetInRange": false
-              },
-              "BodyMotion": {
-                "Type": "Seek",
-                "StopDistance": 1.6,
-                "SlowDownDistance": 3.0,
-                "RelativeSpeed": 1.0,
-                "UsePathfinder": true
-              }
             }
           ]
         },
