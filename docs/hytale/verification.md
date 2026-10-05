@@ -7,13 +7,16 @@ Hytale-spezifische Implementierungen dürfen nicht auf geratenen APIs oder vermu
 ## Standardvorgehen
 
 1. Bestehenden Projektcode auf bereits etablierte Nutzung prüfen.
-2. Die im Projekt bereitgestellte `HytaleServer.jar` untersuchen.
-3. Klassen und Packages mit `jar tf` oder einem gleichwertigen ZIP/JAR-Listing finden.
-4. Relevante Klassen mit `javap` untersuchen.
-5. Wenn Signaturen nicht reichen, `javap -c -p` oder ein gleichwertiges Classfile-/Bytecode-Werkzeug verwenden.
-6. Runtime-Semantik zusätzlich mit offizieller Hytale-Dokumentation prüfen.
-7. Verhalten, das davon weiter offen bleibt, mit einem kleinen gezielten Runtime-Test verifizieren.
-8. Wiederverwendbare Erkenntnisse in der passenden Seite unter `docs/hytale/` dokumentieren.
+2. Wenn die konkrete Umsetzung eines neuen Hytale-Features noch nicht klar ist, **vor dem Entwurf einer eigenen Lösung online recherchieren**: zuerst die aktuelle offizielle Hytale-Dokumentation, danach passende öffentliche GitHub-Repositories, Beispielmods oder andere belastbare Implementierungsbeispiele nach vergleichbaren Mechaniken durchsuchen.
+3. Die im Projekt bereitgestellte `HytaleServer.jar` untersuchen.
+4. Klassen und Packages mit `jar tf` oder einem gleichwertigen ZIP/JAR-Listing finden.
+5. Relevante Klassen mit `javap` untersuchen.
+6. Wenn Signaturen nicht reichen, `javap -c -p` oder ein gleichwertiges Classfile-/Bytecode-Werkzeug verwenden.
+7. Die Ergebnisse aus Online-Recherche, JAR und bestehendem Projektcode gegeneinander prüfen. Fremde Repositories sind Beispiele, keine API-Garantie; maßgeblich bleibt die im Projekt gepinnte Hytale-Version.
+8. Verhalten, das davon weiter offen bleibt, mit einem kleinen gezielten Runtime-Test verifizieren.
+9. Wiederverwendbare Erkenntnisse in der passenden Seite unter `docs/hytale/` dokumentieren.
+
+Die Online-Recherche ist insbesondere dann Pflicht, wenn noch unklar ist, welchen nativen Hytale-Mechanismus ein Feature verwenden soll. Erst wenn offizielle Dokumentation, bestehende Beispiele und die gepinnte Server-JAR keine passende Lösung zeigen, soll Civ eine eigene Mechanik entwerfen. Dadurch vermeiden wir, Engine-Funktionen unnötig nachzubauen oder durch Versuch und Irrtum eine bereits dokumentierte Lösung erneut zu entdecken.
 
 ## Evidenzgrenzen
 
