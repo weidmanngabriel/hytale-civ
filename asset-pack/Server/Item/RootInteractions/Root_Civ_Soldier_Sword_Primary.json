@@ -1,5 +1,7 @@
 {
-  "Parent": "Root_Weapon_Sword_Primary",
+  "Interactions": [
+    "Civ_Soldier_Sword_Swing"
+  ],
   "Tags": {
     "Attack": [
       "Melee"
