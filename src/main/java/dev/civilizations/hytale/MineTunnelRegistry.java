@@ -76,13 +76,15 @@ public final class MineTunnelRegistry {
     }
 
     /**
-     * Transitional Layer-1 entry point: existing miner work belongs to the main tunnel until
-     * later branching logic explicitly selects a logical branch tunnel.
+     * Transitional Layer-1 entry point: newly created existing-miner segments default to the main
+     * tunnel. Updates to an already assigned segment preserve its logical tunnel membership.
      */
     public synchronized void put(World world, MineSegment segment) {
         UUID worldId = world.getWorldConfig().getUuid();
         MineNetwork network = ensureNetwork(worldId, segment.mineId(), segment.start());
-        putInternal(worldId, network.mainTunnelId(), segment);
+        MineTunnel assignedTunnel = tunnelForSegment(network, segment.id());
+        if (assignedTunnel == null) assignedTunnel = network.mainTunnel();
+        putInternal(worldId, assignedTunnel.id(), segment);
         save(world);
     }
 
@@ -153,8 +155,15 @@ public final class MineTunnelRegistry {
         return MineNetwork.create(mineId, mainTunnelId, origin);
     }
 
+    private static MineTunnel tunnelForSegment(MineNetwork network, UUID segmentId) {
+        return network.tunnels().stream()
+            .filter(tunnel -> tunnel.segmentIds().contains(segmentId))
+            .findFirst()
+            .orElse(null);
+    }
+
     private static boolean containsSegment(MineNetwork network, UUID segmentId) {
-        return network.tunnels().stream().anyMatch(tunnel -> tunnel.segmentIds().contains(segmentId));
+        return tunnelForSegment(network, segmentId) != null;
     }
 
     private static BlockPosition rootOrigin(Iterable<MineSegment> allSegments, MineSegment fallback) {
