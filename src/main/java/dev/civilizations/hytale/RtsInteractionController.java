@@ -690,7 +690,7 @@ public final class RtsInteractionController {
     ) {
         PrefabPlacementService.PlacedMarker entrance = building.semanticVolumes().stream()
             .filter(volume -> volume.hasTag(TYPE_TAG, "workplace_access"))
-            .filter(volume -> volume.hasTag(BUILDING_TAG, "mine"))
+            .filter(volume -> volume.hasTag(BUILDING_TAG, building.buildingType()))
             .findFirst().orElse(null);
         entrance = hydrateMarkerBounds(world, entrance);
         if (entrance != null && entrance.bounds() != null) {
@@ -765,17 +765,99 @@ public final class RtsInteractionController {
             ));
             return;
         }
+
+        int evacuated = evacuateWorkersForDemolition(world, building);
+
+        // Remove any stale upgrade-site state tied to this building from both runtime registries.
+        List<PrefabPlacementService.ConstructionSite> relatedSites = placementService.constructionSites().stream()
+            .filter(PrefabPlacementService.ConstructionSite::isUpgrade)
+            .filter(site -> buildingId.equals(site.upgradeBuildingId()))
+            .toList();
+        for (PrefabPlacementService.ConstructionSite site : relatedSites) {
+            placementService.removeConstructionSite(site);
+            constructionRegistry.remove(site.id());
+            placementRegistry.release(worldId, site.id());
+        }
+        if (!relatedSites.isEmpty()) {
+            constructionPersistence.saveSites(world, constructionRegistry.states());
+        }
+
+        // Historical builds could have leaked a reservation at upgrade completion. Remove only
+        // overlapping reservations whose ConstructionSite no longer exists.
+        Set<UUID> liveSiteIds = constructionRegistry.states(worldId).stream()
+            .map(state -> state.site().id())
+            .collect(java.util.stream.Collectors.toSet());
+        List<UUID> releasedOrphans = placementRegistry.releaseOrphanedReservationsOverlapping(
+            worldId, building.bounds(), liveSiteIds
+        );
+
         unitRegistry.workersAt(buildingId).forEach(unitRegistry::clearWorkplace);
         if ("mine".equals(building.buildingType())) mineTunnelRegistry.removeMine(world, buildingId);
         farmRegistry.removeByBuildingInstance(worldId, buildingId);
         fieldRegistry.removeByBuildingInstance(worldId, buildingId);
         placementRegistry.remove(worldId, buildingId);
         buildingPersistence.save(world, placementRegistry.buildings(worldId));
-        Session session = sessions.get(playerRef.getUuid());
-        if (session != null && buildingId.equals(session.selectedBuildingId)) clearSelection(playerRef, session);
+
+        // Selection/HUD/boundary state is transient building data too. Clear it for every viewer.
+        for (Map.Entry<UUID, Session> entry : sessions.entrySet()) {
+            Session session = entry.getValue();
+            if (session == null || !buildingId.equals(session.selectedBuildingId)) continue;
+            PlayerRef viewer = Universe.get().getPlayer(entry.getKey());
+            if (viewer != null) clearSelection(viewer, session);
+        }
+
         playerRef.sendMessage(Message.raw(
-            buildingDisplayName(building) + " abgerissen. Der ursprüngliche Boden wurde wiederhergestellt."
+            buildingDisplayName(building) + " abgerissen. Boden und Gebäudedaten wurden bereinigt."
+                + (evacuated > 0 ? " " + evacuated + " Arbeiter wurden vorher nach draußen gebracht." : "")
+                + (!releasedOrphans.isEmpty()
+                    ? " " + releasedOrphans.size() + " verwaiste Baureservierung(en) wurden entfernt."
+                    : "")
         ));
+    }
+
+    private int evacuateWorkersForDemolition(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance building
+    ) {
+        List<Ref<EntityStore>> workers = unitRegistry.workersAt(building.id());
+        if (workers.isEmpty()) return 0;
+        PrefabPlacementService.PlacementFootprint footprint = building.placement() == null
+            ? null
+            : building.placement().footprint();
+        EvacuationPlan plan = safeEvacuationPlan(world, building, footprint);
+        double sideX = -plan.outwardZ();
+        double sideZ = plan.outwardX();
+        int evacuated = 0;
+        for (int index = 0; index < workers.size(); index++) {
+            Ref<EntityStore> worker = workers.get(index);
+            if (worker == null || !worker.isValid()) continue;
+            Store<EntityStore> store = worker.getStore();
+            TransformComponent transform = store.getComponent(worker, TransformComponent.getComponentType());
+            if (transform == null) continue;
+            Vector3d position = transform.getPosition();
+            boolean mustEvacuate = "mine".equals(building.buildingType())
+                || building.bounds().contains(position.x, position.y, position.z);
+            if (!mustEvacuate) continue;
+            activityRegistry.cancelManualMove(worker);
+            unitRegistry.cancelMoveTarget(worker);
+            double sideOffset = (index - (workers.size() - 1) * 0.5) * 1.25;
+            Vector3d target = new Vector3d(
+                plan.point().x + sideX * sideOffset,
+                plan.point().y,
+                plan.point().z + sideZ * sideOffset
+            );
+            for (int push = 0; push < 12 && !outsideFootprint(footprint, target.x, target.z); push++) {
+                target.x += plan.outwardX() * 0.75;
+                target.z += plan.outwardZ() * 0.75;
+            }
+            store.putComponent(
+                worker,
+                Teleport.getComponentType(),
+                new Teleport(target, transform.getRotation())
+            );
+            evacuated++;
+        }
+        return evacuated;
     }
 
     public void handleWorldJoin(World world) {

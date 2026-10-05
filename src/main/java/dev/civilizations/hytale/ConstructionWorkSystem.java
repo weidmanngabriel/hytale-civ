@@ -349,6 +349,9 @@ public final class ConstructionWorkSystem extends DelayedEntitySystem<EntityStor
                 site.candidate(),
                 placed.prefabEntityIds()
             );
+            // Upgrades keep the stable building id, so completeUpgrade cannot infer the
+            // construction-site reservation from that id. Release the site explicitly.
+            buildingRegistry.release(site.worldId(), site.id());
         } else {
             buildingInstance = buildingRegistry.completeBuilding(
                 site.worldId(),
