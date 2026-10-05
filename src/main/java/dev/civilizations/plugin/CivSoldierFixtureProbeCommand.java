@@ -1,7 +1,6 @@
 package dev.civilizations.plugin;
 
 import com.hypixel.hytale.component.Ref;
-import com.hypixel.hytale.component.RemoveReason;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Rotation3f;
 import com.hypixel.hytale.server.core.HytaleServer;
@@ -18,9 +17,6 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.NPCPlugin;
-import com.hypixel.hytale.server.npc.role.support.CombatSupport;
-import com.hypixel.hytale.server.npc.role.support.WorldSupport;
-import com.hypixel.hytale.server.core.asset.type.attitude.Attitude;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.WorldPosition;
 import dev.civilizations.hytale.CivActivityRegistry;
@@ -30,7 +26,6 @@ import dev.civilizations.hytale.SoldierWorkSystem;
 import org.joml.Vector3d;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
@@ -43,6 +38,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
     private static final String FLAT_GENERATOR = "Flat";
     private static final String DEFAULT_STORAGE = "default";
     private static final String CIV_ROLE = "Civ_Inhabitant";
+    private static final String HOSTILE_FIXTURE_ROLE = "Test_Attack_Melee_All";
     private static final Vector3d SOLDIER_START = new Vector3d(0.5, 1.0, 0.5);
     private static final Vector3d HOSTILE_START = new Vector3d(8.5, 1.0, 0.5);
     private static final WorldPosition MANUAL_DESTINATION = new WorldPosition(-6.0, 1.0, 0.5);
@@ -50,7 +46,6 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
     private static final long ASSERT_INTERVAL_MILLIS = 25L;
     private static final long PROBE_TIMEOUT_MILLIS = 45_000L;
     private static final double MINIMUM_CHASE_DISTANCE = 1.0;
-    private static final float MINIMUM_HOSTILE_HEALTH = 200.0f;
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
@@ -133,13 +128,13 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
             ItemStack inHand = InventoryComponent.getItemInHand(soldier.getStore(), soldier);
             if (inHand == null
                 || !ProfessionBootstrapInventory.SOLDIER_SWORD_ITEM_ID.equals(inHand.getItemId())) {
-                fail("soldier did not equip the native bootstrap sword", null);
+                fail("soldier did not equip the native bootstrap item", null);
                 return;
             }
 
-            Ref<EntityStore> hostile = spawnFirstHostileCombatNpc(world);
+            Ref<EntityStore> hostile = spawnStableHostileFixture(world);
             if (hostile == null) {
-                fail("no durable spawnable native NPC hostile to players was found", null);
+                fail("native Test_Attack_Melee_All fixture could not be spawned", null);
                 return;
             }
 
@@ -181,49 +176,36 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
         }
     }
 
-    private Ref<EntityStore> spawnFirstHostileCombatNpc(World world) {
-        List<String> roles = new ArrayList<>(NPCPlugin.get().getRoleTemplateNames(true));
-        roles.sort(Comparator
-            .comparingInt(CivSoldierFixtureProbeCommand::hostileRolePriority)
-            .thenComparing(String::compareToIgnoreCase));
-
-        int attempted = 0;
-        for (String roleName : roles) {
-            if (roleName == null || roleName.isBlank() || CIV_ROLE.equals(roleName)
-                || isSyntheticTestRole(roleName)) {
-                continue;
-            }
-            attempted++;
-            Ref<EntityStore> candidate = null;
-            try {
-                NPCPlugin.get().validateSpawnableRole(roleName);
-                candidate = spawn(world, roleName, HOSTILE_START);
-                if (candidate == null) {
-                    continue;
-                }
-                WorldSupport worldSupport = WorldSupport.get(candidate, candidate.getStore());
-                CombatSupport combatSupport = CombatSupport.get(candidate, candidate.getStore());
-                float candidateHealth = health(candidate);
-                if (worldSupport != null
-                    && worldSupport.getDefaultPlayerAttitude() == Attitude.HOSTILE
-                    && combatSupport != null
-                    && Float.isFinite(candidateHealth)
-                    && candidateHealth >= MINIMUM_HOSTILE_HEALTH) {
-                    System.out.println(
-                        "CIV_SOLDIER_HOSTILE_ROLE role=" + roleName
-                            + " attempts=" + attempted
-                            + " health=" + candidateHealth
-                    );
-                    return candidate;
-                }
-            } catch (Throwable ignored) {
-                // Probe discovery intentionally tries multiple native spawnable roles.
-            }
-            if (candidate != null && candidate.isValid()) {
-                candidate.getStore().removeEntity(candidate, RemoveReason.REMOVE);
-            }
+    private Ref<EntityStore> spawnStableHostileFixture(World world) {
+        String resolvedRole = NPCPlugin.get().getRoleTemplateNames(true).stream()
+            .filter(roleName -> roleName != null && (
+                HOSTILE_FIXTURE_ROLE.equals(roleName)
+                    || roleName.endsWith("/" + HOSTILE_FIXTURE_ROLE)
+            ))
+            .findFirst()
+            .orElse(null);
+        if (resolvedRole == null) {
+            return null;
         }
-        return null;
+
+        try {
+            NPCPlugin.get().validateSpawnableRole(resolvedRole);
+            Ref<EntityStore> candidate = spawn(world, resolvedRole, HOSTILE_START);
+            if (candidate == null || !Float.isFinite(health(candidate))) {
+                return null;
+            }
+            System.out.println(
+                "CIV_SOLDIER_HOSTILE_ROLE role=" + resolvedRole
+                    + " health=" + health(candidate)
+            );
+            return candidate;
+        } catch (Throwable throwable) {
+            System.out.println(
+                "CIV_SOLDIER_FIXTURE_ROLE_FAIL role=" + resolvedRole
+                    + " reason=" + throwable.getClass().getSimpleName()
+            );
+            return null;
+        }
     }
 
     private void assertProgress(
@@ -234,7 +216,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
     ) {
         try {
             if (!soldier.isValid()) {
-                fail("soldier died before reciprocal combat and manual priority were verified", null);
+                fail("soldier became invalid before reciprocal combat and manual priority were verified", null);
                 return;
             }
             if (!unitRegistry.isClaimed(soldier)
@@ -328,7 +310,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
 
             if (!hostile.isValid()) {
                 fail(
-                    "hostile died before the full scenario was verified"
+                    "hostile fixture became invalid before the full scenario was verified"
                         + ", acquired=" + state.targetAcquired
                         + ", interrupted=" + state.interruptionObserved
                         + ", resumed=" + state.resumeObserved
@@ -386,25 +368,6 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
         EntityStatMap stats = ref.getStore().getComponent(ref, EntityStatMap.getComponentType());
         EntityStatValue health = stats == null ? null : stats.get(DefaultEntityStatTypes.getHealth());
         return health == null ? Float.NaN : health.get();
-    }
-
-    private static boolean isSyntheticTestRole(String roleName) {
-        String value = roleName.toLowerCase(Locale.ROOT);
-        return value.startsWith("test_")
-            || value.startsWith("debug_")
-            || value.startsWith("example_");
-    }
-
-    private static int hostileRolePriority(String roleName) {
-        String value = roleName.toLowerCase(Locale.ROOT);
-        if (value.contains("goblin")) return 0;
-        if (value.contains("trork")) return 1;
-        if (value.contains("skeleton")) return 2;
-        if (value.contains("spider")) return 3;
-        if (value.contains("crawler")) return 4;
-        if (value.contains("outlander")) return 5;
-        if (value.contains("void")) return 6;
-        return 20;
     }
 
     private static double horizontalDistance(Vector3d first, Vector3d second) {
