@@ -12135,25 +12135,29 @@
       "x": -3,
       "y": 1,
       "z": 8,
-      "name": "Rock_Stone"
+      "name": "Wood_Fir_Trunk",
+      "support": 15
     },
     {
       "x": -3,
       "y": 2,
       "z": 8,
-      "name": "Rock_Stone"
+      "name": "Wood_Fir_Trunk",
+      "support": 15
     },
     {
       "x": -3,
       "y": 3,
       "z": 8,
-      "name": "Rock_Stone"
+      "name": "Wood_Fir_Trunk",
+      "support": 15
     },
     {
       "x": -3,
       "y": 4,
       "z": 8,
-      "name": "Rock_Stone"
+      "name": "Wood_Fir_Trunk",
+      "support": 15
     },
     {
       "x": -3,
@@ -12219,29 +12223,25 @@
       "x": -3,
       "y": 1,
       "z": 9,
-      "name": "Wood_Fir_Trunk",
-      "support": 15
+      "name": "Rock_Stone"
     },
     {
       "x": -3,
       "y": 2,
       "z": 9,
-      "name": "Wood_Fir_Trunk",
-      "support": 15
+      "name": "Rock_Stone"
     },
     {
       "x": -3,
       "y": 3,
       "z": 9,
-      "name": "Wood_Fir_Trunk",
-      "support": 15
+      "name": "Rock_Stone"
     },
     {
       "x": -3,
       "y": 4,
       "z": 9,
-      "name": "Wood_Fir_Trunk",
-      "support": 15
+      "name": "Rock_Stone"
     },
     {
       "x": -3,
@@ -14753,7 +14753,9 @@
       "x": -2,
       "y": 5,
       "z": 8,
-      "name": "Rock_Stone"
+      "name": "Wood_Fir_Trunk",
+      "support": 15,
+      "rotation": 5
     },
     {
       "x": -2,
@@ -14849,9 +14851,7 @@
       "x": -2,
       "y": 5,
       "z": 9,
-      "name": "Wood_Fir_Trunk",
-      "support": 15,
-      "rotation": 5
+      "name": "Rock_Stone"
     },
     {
       "x": -2,
@@ -17317,7 +17317,9 @@
       "x": -1,
       "y": 5,
       "z": 8,
-      "name": "Rock_Stone"
+      "name": "Wood_Fir_Trunk",
+      "support": 15,
+      "rotation": 5
     },
     {
       "x": -1,
@@ -17413,9 +17415,7 @@
       "x": -1,
       "y": 5,
       "z": 9,
-      "name": "Wood_Fir_Trunk",
-      "support": 15,
-      "rotation": 5
+      "name": "Rock_Stone"
     },
     {
       "x": -1,
@@ -19879,7 +19879,9 @@
       "x": 0,
       "y": 5,
       "z": 8,
-      "name": "Rock_Stone"
+      "name": "Wood_Fir_Trunk",
+      "support": 15,
+      "rotation": 5
     },
     {
       "x": 0,
@@ -19975,9 +19977,7 @@
       "x": 0,
       "y": 5,
       "z": 9,
-      "name": "Wood_Fir_Trunk",
-      "support": 15,
-      "rotation": 5
+      "name": "Rock_Stone"
     },
     {
       "x": 0,
@@ -22477,7 +22477,9 @@
       "x": 1,
       "y": 5,
       "z": 8,
-      "name": "Rock_Stone"
+      "name": "Wood_Fir_Trunk",
+      "support": 15,
+      "rotation": 5
     },
     {
       "x": 1,
@@ -22573,9 +22575,7 @@
       "x": 1,
       "y": 5,
       "z": 9,
-      "name": "Wood_Fir_Trunk",
-      "support": 15,
-      "rotation": 5
+      "name": "Rock_Stone"
     },
     {
       "x": 1,
@@ -24941,25 +24941,29 @@
       "x": 2,
       "y": 1,
       "z": 8,
-      "name": "Rock_Stone"
+      "name": "Wood_Fir_Trunk",
+      "support": 15
     },
     {
       "x": 2,
       "y": 2,
       "z": 8,
-      "name": "Rock_Stone"
+      "name": "Wood_Fir_Trunk",
+      "support": 15
     },
     {
       "x": 2,
       "y": 3,
       "z": 8,
-      "name": "Rock_Stone"
+      "name": "Wood_Fir_Trunk",
+      "support": 15
     },
     {
       "x": 2,
       "y": 4,
       "z": 8,
-      "name": "Rock_Stone"
+      "name": "Wood_Fir_Trunk",
+      "support": 15
     },
     {
       "x": 2,
@@ -25025,29 +25029,25 @@
       "x": 2,
       "y": 1,
       "z": 9,
-      "name": "Wood_Fir_Trunk",
-      "support": 15
+      "name": "Rock_Stone"
     },
     {
       "x": 2,
       "y": 2,
       "z": 9,
-      "name": "Wood_Fir_Trunk",
-      "support": 15
+      "name": "Rock_Stone"
     },
     {
       "x": 2,
       "y": 3,
       "z": 9,
-      "name": "Wood_Fir_Trunk",
-      "support": 15
+      "name": "Rock_Stone"
     },
     {
       "x": 2,
       "y": 4,
       "z": 9,
-      "name": "Wood_Fir_Trunk",
-      "support": 15
+      "name": "Rock_Stone"
     },
     {
       "x": 2,

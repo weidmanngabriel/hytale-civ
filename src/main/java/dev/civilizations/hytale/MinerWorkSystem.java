@@ -129,9 +129,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             stopMiningAnimation(ref, store, runtime);
             return;
         }
-        if (!mine.id().equals(runtime.mineId)) {
+        if (!mine.id().equals(runtime.mineId) || mine.phase() != runtime.minePhase) {
             stopMiningAnimation(ref, store, runtime);
-            runtime.reset(mine.id());
+            runtime.reset(mine.id(), mine.phase());
         }
 
         PrefabPlacementService.PlacedMarker entrance = marker(world, mine, WORKPLACE_ACCESS);
@@ -774,6 +774,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
     private static final class WorkerRuntime {
         private UUID mineId;
+        private int minePhase;
         private UUID segmentId;
         private boolean enteredMine;
         private boolean reachedConnector;
@@ -802,8 +803,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             navigationTarget = null;
         }
 
-        private void reset(UUID nextMineId) {
+        private void reset(UUID nextMineId, int nextMinePhase) {
             mineId = nextMineId;
+            minePhase = nextMinePhase;
             segmentId = null;
             enteredMine = false;
             reachedConnector = false;
