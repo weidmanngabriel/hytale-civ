@@ -109,8 +109,8 @@ $C.@DecoratedContainer {
       }
 
       $C.@TextButton #UpgradeButton {
-        Visible: false;
         @Text = "Erweitern";
+        Visible: false;
         Anchor: (Width: 260, Height: 48, Bottom: 12);
       }
 
