@@ -8,5 +8,6 @@ public enum Profession {
     FARMER,
     WOODCUTTER,
     MINER,
-    CONSTRUCTION_WORKER
+    CONSTRUCTION_WORKER,
+    SOLDIER
 }

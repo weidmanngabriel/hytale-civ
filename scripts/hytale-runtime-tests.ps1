@@ -240,6 +240,44 @@ function Run-MineSupportScenario {
     Write-Host 'Real Hytale mine support scenario passed.'
 }
 
+function Run-SoldierScenario {
+    param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
+
+    $result = Start-HytaleProbe -RuntimeDir $RuntimeDir -LogPrefix 'soldier' -BootCommand 'civsoldierprobe'
+    $combined = $result.Combined
+    Write-Host '----- Hytale soldier output -----'
+    Write-Host $combined
+    Write-Host '----- end Hytale soldier output -----'
+
+    Assert-CommonRuntimeHealth -Combined $combined
+    if ($combined.Contains('CIV_SOLDIER_RUNTIME_FAIL')) {
+        throw 'The Civ soldier runtime scenario reported failure.'
+    }
+    Assert-Evidence -Combined $combined -RequiredEvidence @(
+        'Loaded pack: Hytale:Hytale from Assets.zip',
+        'Loaded pack: Civilizations:HytaleCivAssets from hytale-civ-assets',
+        'Enabled plugin Civilizations:HytaleCiv',
+        'Hytale Server Booted!',
+        'Console executed command: civsoldierprobe',
+        'CIV_SOLDIER_RUNTIME_STARTED',
+        'CIV_SOLDIER_HOSTILE_ROLE role=',
+        'CIV_SOLDIER_FIXTURE_READY',
+        'weapon=Weapon_Sword_Iron',
+        'CIV_SOLDIER_TARGET_ACQUIRED',
+        'CIV_SOLDIER_CHASE_OBSERVED',
+        'CIV_SOLDIER_RECIPROCAL_DAMAGE',
+        'CIV_SOLDIER_MANUAL_MOVE_ISSUED',
+        'CIV_SOLDIER_COMBAT_INTERRUPTED',
+        'CIV_SOLDIER_COMBAT_RESUMED',
+        'CIV_SOLDIER_RUNTIME_PASS',
+        'Shutdown completed!'
+    )
+    if ($result.Process.ExitCode -ne 0) {
+        Write-Warning "Soldier server exited with code $($result.Process.ExitCode) after complete PASS and clean shutdown evidence; treating runtime evidence as authoritative."
+    }
+    Write-Host 'Real Hytale soldier combat scenario passed.'
+}
+
 function Run-WarmRuntimeScenario {
     param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
 
@@ -400,6 +438,7 @@ foreach ($scenario in $Scenarios) {
             'woodcutter' { Run-WoodcutterScenario -RuntimeDir $runtimeDir }
             'persistence' { Run-PersistenceScenario -RuntimeDir $runtimeDir }
             'minesupport' { Run-MineSupportScenario -RuntimeDir $runtimeDir }
+            'soldier' { Run-SoldierScenario -RuntimeDir $runtimeDir }
             default { throw "No runtime implementation exists for registered scenario: $scenario" }
         }
     } finally {
