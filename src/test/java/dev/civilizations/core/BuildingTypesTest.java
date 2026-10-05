@@ -18,13 +18,29 @@ final class BuildingTypesTest {
     }
 
     @Test
+    void mineUpgradeProgressionStopsAfterPhaseThree() {
+        assertEquals(2, BuildingTypes.nextPhase("mine", 1));
+        assertEquals(3, BuildingTypes.nextPhase("mine", 2));
+        assertEquals(0, BuildingTypes.nextPhase("mine", 3));
+        assertEquals(3, BuildingTypes.maxPhase("mine"));
+    }
+
+    @Test
+    void singlePhaseBuildingsDoNotOfferAnUpgrade() {
+        assertEquals(0, BuildingTypes.nextPhase("farm", 1));
+        assertEquals(0, BuildingTypes.nextPhase("wheat_field", 1));
+    }
+
+    @Test
     void currentFarmAndFieldMetadataMatchesImplementedRoles() {
         assertEquals(1, BuildingTypes.workerCapacity("farm", 1));
         assertEquals(0, BuildingTypes.workerCapacity("wheat_field", 1));
     }
 
     @Test
-    void unknownBuildingTypeDoesNotInventCapacity() {
+    void unknownBuildingTypeDoesNotInventCapacityOrUpgrade() {
         assertEquals(0, BuildingTypes.workerCapacity("unknown", 1));
+        assertEquals(0, BuildingTypes.nextPhase("unknown", 1));
+        assertEquals(0, BuildingTypes.maxPhase("unknown"));
     }
 }
