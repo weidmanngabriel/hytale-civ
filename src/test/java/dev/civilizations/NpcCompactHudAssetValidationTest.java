@@ -14,10 +14,10 @@ class NpcCompactHudAssetValidationTest {
     );
 
     @Test
-    void compactHudContainsStableDynamicFieldIdsAndBottomRightAnchor() throws Exception {
+    void compactHudContainsStableDynamicFieldIdsAndBottomLeftAnchor() throws Exception {
         String ui = Files.readString(HUD_PATH);
 
-        assertTrue(ui.contains("Right: 24"));
+        assertTrue(ui.contains("Left: 24"));
         assertTrue(ui.contains("Bottom: 118"));
         assertTrue(ui.contains("Width: 340"));
         assertTrue(ui.contains("Height: 300"));

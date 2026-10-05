@@ -10,15 +10,13 @@ import com.hypixel.hytale.server.core.event.events.ecs.BreakBlockEvent;
 import com.hypixel.hytale.server.core.event.events.ecs.PlaceBlockEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
+import dev.civilizations.core.BlockPosition;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Prevents direct player block edits inside completed Civ building bounds.
- *
- * <p>Demolition is intentionally not implemented here. A later Civ demolition command can
- * remove the building registration before changing its blocks.
+ * Prevents direct player block edits inside completed Civ buildings and active construction sites.
  */
 public final class CivBuildingBlockProtectionSystem {
 
@@ -54,6 +52,10 @@ public final class CivBuildingBlockProtectionSystem {
             && target.y > building.placement().footprint().floorY();
     }
 
+    private static BlockPosition position(org.joml.Vector3i target) {
+        return target == null ? null : new BlockPosition(target.x, target.y, target.z);
+    }
+
     public static final class BreakProtection
         extends EntityEventSystem<EntityStore, BreakBlockEvent> {
 
@@ -85,9 +87,7 @@ public final class CivBuildingBlockProtectionSystem {
             if (player == null) {
                 return;
             }
-            BuildingPlacementRegistry.BuildingInstance building =
-                buildings.findAt(player.getWorldUuid(), event.getTargetBlock());
-            if (building != null) {
+            if (buildings.isProtected(player.getWorldUuid(), position(event.getTargetBlock()))) {
                 event.setCancelled(true);
             }
         }
@@ -126,7 +126,13 @@ public final class CivBuildingBlockProtectionSystem {
             }
             BuildingPlacementRegistry.BuildingInstance building =
                 buildings.findAt(player.getWorldUuid(), event.getTargetBlock());
-            if (building != null && !allowsFarmingPlacement(building, event)) {
+            if (building != null) {
+                if (!allowsFarmingPlacement(building, event)) {
+                    event.setCancelled(true);
+                }
+                return;
+            }
+            if (buildings.isProtected(player.getWorldUuid(), position(event.getTargetBlock()))) {
                 event.setCancelled(true);
             }
         }

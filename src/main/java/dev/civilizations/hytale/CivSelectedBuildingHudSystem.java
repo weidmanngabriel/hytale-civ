@@ -8,13 +8,13 @@ import com.hypixel.hytale.component.system.tick.DelayedEntitySystem;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 
-/** Refreshes the selected NPC HUD in infrequent native delayed ECS sessions. */
-public final class CivSelectedNpcHudSystem extends DelayedEntitySystem<EntityStore> {
+/** Refreshes selected building/site information in infrequent native delayed ECS sessions. */
+public final class CivSelectedBuildingHudSystem extends DelayedEntitySystem<EntityStore> {
 
     private static final float REFRESH_INTERVAL_SECONDS = 0.75f;
-    private final CivSelectedNpcHudController hudController;
+    private final CivSelectedBuildingHudController hudController;
 
-    public CivSelectedNpcHudSystem(CivSelectedNpcHudController hudController) {
+    public CivSelectedBuildingHudSystem(CivSelectedBuildingHudController hudController) {
         super(REFRESH_INTERVAL_SECONDS);
         this.hudController = hudController;
     }

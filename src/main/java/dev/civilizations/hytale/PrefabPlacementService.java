@@ -13,6 +13,7 @@ import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.math.Axis;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentPrefabPreview;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
@@ -66,19 +67,19 @@ public final class PrefabPlacementService {
     );
     public static final PlacementDefinition MINE = new PlacementDefinition(
         "mine",
-        "Mine",
+        "Mine 1 – Kupfer",
         "Civilizations/Mine/Mine_01",
         1
     );
     public static final PlacementDefinition MINE_02 = new PlacementDefinition(
         "mine",
-        "Mine",
+        "Mine 2 – Eisen",
         "Civilizations/Mine/Mine_02",
         1
     );
     public static final PlacementDefinition MINE_03 = new PlacementDefinition(
         "mine",
-        "Mine",
+        "Mine 3 – Gold",
         "Civilizations/Mine/Mine_03",
         1
     );
@@ -98,6 +99,13 @@ public final class PrefabPlacementService {
         };
     }
 
+    public static int phaseForDefinition(PlacementDefinition definition) {
+        if (definition == null || !"mine".equals(definition.id())) return 1;
+        if (MINE_02.prefabKey().equals(definition.prefabKey())) return 2;
+        if (MINE_03.prefabKey().equals(definition.prefabKey())) return 3;
+        return 1;
+    }
+
     public PlacementCandidate validatePlacement(
         World world,
         Vector3i pointedBlock,
@@ -112,17 +120,6 @@ public final class PrefabPlacementService {
         PlacementDefinition definition,
         BuildingOrientation orientation
     ) {
-        /*
-         * Construction-preview spike: deliberately do not run the legacy
-         * immediate-paste collision rules here. Those rules were designed for
-         * BlockSelection.place and reject the intentionally sunk Y - 1
-         * construction anchor before PersistentPrefabPreview can even spawn.
-         *
-         * Keep only the transform/footprint calculation so we can verify the
-         * engine preview lifecycle independently. Terrain/overlap validation
-         * will be reintroduced against the construction-site semantics after
-         * this preview boundary is proven in-game.
-         */
         BlockSelection source = requireSource(definition, orientation);
         Vector3i anchor = placementAnchor(pointedBlock, definition);
         Vector3i placementOrigin = enginePlacementOrigin(definition, anchor);
@@ -137,6 +134,7 @@ public final class PrefabPlacementService {
         }
 
         Map<BlockPosition, Integer> replacedBlocks = new LinkedHashMap<>();
+        Map<BlockPosition, TerrainBlockSnapshot> terrainSnapshot = new LinkedHashMap<>();
         for (PrefabCell cell : cells) {
             Vector3i position = worldPosition(source, placementOrigin, cell);
             WorldChunk chunk = loadedChunk(world, position.x, position.z);
@@ -149,9 +147,19 @@ public final class PrefabPlacementService {
                     orientation
                 );
             }
-            replacedBlocks.put(
-                new BlockPosition(position.x, position.y, position.z),
-                chunk.getBlock(position.x, position.y, position.z)
+            BlockPosition blockPosition = new BlockPosition(position.x, position.y, position.z);
+            int blockId = chunk.getBlock(position.x, position.y, position.z);
+            replacedBlocks.put(blockPosition, blockId);
+            terrainSnapshot.put(
+                blockPosition,
+                new TerrainBlockSnapshot(
+                    blockId,
+                    chunk.getRotationIndex(position.x, position.y, position.z),
+                    chunk.getFiller(position.x, position.y, position.z),
+                    chunk.getSupportValue(position.x, position.y, position.z),
+                    chunk.getFluidId(position.x, position.y, position.z),
+                    chunk.getFluidLevel(position.x, position.y, position.z)
+                )
             );
         }
 
@@ -160,6 +168,7 @@ public final class PrefabPlacementService {
             anchor,
             footprint,
             replacedBlocks,
+            terrainSnapshot,
             orientation
         );
     }
@@ -240,8 +249,8 @@ public final class PrefabPlacementService {
 
     /**
      * Creates an upgrade construction site at the exact transform of an existing building.
-     * The original terrain snapshot is retained so demolition after later upgrades still
-     * restores the terrain from before phase 1 was built.
+     * The original terrain snapshot is retained and extended only for world positions that
+     * the previous phases never touched.
      */
     public ConstructionSite createUpgradeConstructionSite(
         PlayerRef playerRef,
@@ -273,11 +282,22 @@ public final class PrefabPlacementService {
             throw new IllegalStateException(measured.invalidReason());
         }
 
+        Map<BlockPosition, Integer> originalWorld = new LinkedHashMap<>(
+            building.placement().replacedFloorBlocks()
+        );
+        measured.replacedFloorBlocks().forEach(originalWorld::putIfAbsent);
+
+        Map<BlockPosition, TerrainBlockSnapshot> originalTerrain = new LinkedHashMap<>(
+            building.placement().terrainSnapshot()
+        );
+        measured.terrainSnapshot().forEach(originalTerrain::putIfAbsent);
+
         PlacementCandidate candidate = PlacementCandidate.valid(
             definition,
             measured.anchor(),
             measured.footprint(),
-            building.placement().replacedFloorBlocks(),
+            originalWorld,
+            originalTerrain,
             building.orientation()
         );
         ConstructionSite site = new ConstructionSite(
@@ -466,10 +486,7 @@ public final class PrefabPlacementService {
         return true;
     }
 
-    /**
-     * Performs the final native prefab placement so prefab entities and trigger volumes
-     * are created only after all visible construction layers have been built.
-     */
+    /** Legacy synchronous completion path. New construction uses NativePrefabPlacementFinalizer. */
     public PlacedPrefab completeConstruction(
         PlayerRef playerRef,
         World world,
@@ -493,6 +510,27 @@ public final class PrefabPlacementService {
             .forEach(volumes::unregister);
     }
 
+    public void removePrefabEntities(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance building
+    ) {
+        if (world == null || building == null || building.prefabEntityIds().isEmpty()) return;
+        Store<EntityStore> store = world.getEntityStore().getStore();
+        int removed = 0;
+        for (UUID entityId : building.prefabEntityIds()) {
+            Ref<EntityStore> ref = world.getEntityStore().getRefFromUUID(entityId);
+            if (ref != null && ref.isValid()) {
+                store.removeEntity(ref, RemoveReason.REMOVE);
+                removed++;
+            }
+        }
+        System.out.println(
+            "[Civ Buildings] removed prefab entities building=" + building.id()
+                + " tracked=" + building.prefabEntityIds().size()
+                + " removed=" + removed
+        );
+    }
+
     public boolean demolish(World world, BuildingPlacementRegistry.BuildingInstance building) {
         if (world == null || building == null || building.placement() == null) {
             return false;
@@ -505,16 +543,40 @@ public final class PrefabPlacementService {
             }
         }
 
-        candidate.replacedFloorBlocks().forEach((position, blockId) ->
-            loadedChunk(world, position.x(), position.z()).setBlock(
+        BlockSelection restore = new BlockSelection();
+        candidate.terrainSnapshot().forEach((position, snapshot) -> {
+            if (snapshot.blockId() == BlockType.EMPTY_ID) {
+                restore.addEmptyAtWorldPos(position.x(), position.y(), position.z());
+            } else {
+                restore.addBlockAtWorldPos(
+                    position.x(),
+                    position.y(),
+                    position.z(),
+                    snapshot.blockId(),
+                    snapshot.rotation(),
+                    snapshot.filler(),
+                    snapshot.supportValue()
+                );
+            }
+            restore.addFluidAtWorldPos(
                 position.x(),
                 position.y(),
                 position.z(),
-                blockId
-            )
+                snapshot.fluidId(),
+                snapshot.fluidLevel()
+            );
+        });
+
+        // Use Hytale's own bulk placement lifecycle for restoration so fluids, rotations,
+        // block containers/state cleanup, heightmaps and chunk updates follow native semantics.
+        restore.placeNoReturn(
+            world,
+            new Vector3i(0, 0, 0),
+            world.getEntityStore().getStore()
         );
 
         removeSemanticVolumes(world, building);
+        removePrefabEntities(world, building);
         return true;
     }
 
@@ -648,6 +710,7 @@ public final class PrefabPlacementService {
 
         TriggerVolumeManager volumeManager = triggerVolumeManager(world);
         Set<String> existingVolumeIds = new HashSet<>(volumeManager.getVolumesMap().keySet());
+        List<UUID> prefabEntityIds = new ArrayList<>();
 
         BlockSelection prefab = requireSource(candidate.definition(), candidate.orientation());
         prefab.place(
@@ -655,7 +718,19 @@ public final class PrefabPlacementService {
             world,
             enginePlacementOrigin(candidate),
             null,
-            BlockSelection.DEFAULT_ENTITY_CONSUMER,
+            entityRef -> {
+                if (entityRef == null || !entityRef.isValid()) return;
+                Store<EntityStore> entityStore = entityRef.getStore();
+                TriggerVolume trigger = entityStore.getComponent(
+                    entityRef,
+                    TriggerVolumesPlugin.get().getTriggerVolumeComponentType()
+                );
+                if (trigger != null) return;
+                UUIDComponent uuid = entityStore.getComponent(entityRef, UUIDComponent.getComponentType());
+                if (uuid != null && uuid.getUuid() != null) {
+                    prefabEntityIds.add(uuid.getUuid());
+                }
+            },
             false,
             null,
             false
@@ -665,7 +740,7 @@ public final class PrefabPlacementService {
             .filter(volume -> !existingVolumeIds.contains(volume.getId()))
             .map(PrefabPlacementService::toMarker)
             .toList();
-        return new PlacedPrefab(candidate, markers);
+        return new PlacedPrefab(candidate, markers, prefabEntityIds);
     }
 
     private static TriggerVolumeManager triggerVolumeManager(World world) {
@@ -729,10 +804,6 @@ public final class PrefabPlacementService {
         );
     }
 
-    /**
-     * Converts Civ's terrain-relative anchor into the origin expected by Hytale's
-     * prefab placement APIs. The sink is part of the Civ terrain convention.
-     */
     private static Vector3i enginePlacementOrigin(PlacementCandidate candidate) {
         return enginePlacementOrigin(candidate.definition(), candidate.anchor());
     }
@@ -748,12 +819,6 @@ public final class PrefabPlacementService {
         );
     }
 
-    /**
-     * PersistentPrefabPreview loads the authored prefab key directly and therefore uses
-     * the authored anchor rather than Civ's semantic construction-ground anchor. Apply
-     * only the anchor delta to the preview entity so it renders where the prepared
-     * BlockSelection will eventually be placed.
-     */
     private static Vector3i persistentPreviewOrigin(PlacementCandidate candidate) {
         BlockSelection raw = requireRawSource(candidate.definition());
         Integer groundY = constructionGroundSourceY(raw);
@@ -774,10 +839,6 @@ public final class PrefabPlacementService {
         return List.copyOf(cells);
     }
 
-    /**
-     * Returns a detached prefab selection whose Y anchor follows the semantic authored
-     * construction ground level and whose X/Z geometry is rotated around that anchor.
-     */
     private static BlockSelection requireSource(
         PlacementDefinition definition,
         BuildingOrientation orientation
@@ -843,6 +904,19 @@ public final class PrefabPlacementService {
                 && maxX >= other.minX
                 && minZ <= other.maxZ
                 && maxZ >= other.minZ;
+        }
+    }
+
+    public record TerrainBlockSnapshot(
+        int blockId,
+        int rotation,
+        int filler,
+        int supportValue,
+        int fluidId,
+        byte fluidLevel
+    ) {
+        public static TerrainBlockSnapshot legacy(int blockId) {
+            return new TerrainBlockSnapshot(blockId, 0, 0, 0, 0, (byte) 0);
         }
     }
 
@@ -912,9 +986,14 @@ public final class PrefabPlacementService {
         }
     }
 
-    public record PlacedPrefab(PlacementCandidate candidate, List<PlacedMarker> markers) {
+    public record PlacedPrefab(
+        PlacementCandidate candidate,
+        List<PlacedMarker> markers,
+        List<UUID> prefabEntityIds
+    ) {
         public PlacedPrefab {
             markers = List.copyOf(markers);
+            prefabEntityIds = List.copyOf(prefabEntityIds == null ? List.of() : prefabEntityIds);
         }
     }
 
@@ -923,12 +1002,22 @@ public final class PrefabPlacementService {
         Vector3i anchor,
         PlacementFootprint footprint,
         Map<BlockPosition, Integer> replacedFloorBlocks,
+        Map<BlockPosition, TerrainBlockSnapshot> terrainSnapshot,
         String invalidReason,
         BuildingOrientation orientation
     ) {
         public PlacementCandidate {
             anchor = new Vector3i(anchor);
             replacedFloorBlocks = Map.copyOf(replacedFloorBlocks);
+            if (terrainSnapshot == null || terrainSnapshot.isEmpty()) {
+                Map<BlockPosition, TerrainBlockSnapshot> legacySnapshot = new LinkedHashMap<>();
+                replacedFloorBlocks.forEach((position, blockId) ->
+                    legacySnapshot.put(position, TerrainBlockSnapshot.legacy(blockId))
+                );
+                terrainSnapshot = Map.copyOf(legacySnapshot);
+            } else {
+                terrainSnapshot = Map.copyOf(terrainSnapshot);
+            }
             orientation = orientation == null ? BuildingOrientation.NORTH : orientation;
         }
 
@@ -952,11 +1041,30 @@ public final class PrefabPlacementService {
             Map<BlockPosition, Integer> replacedFloorBlocks,
             BuildingOrientation orientation
         ) {
+            return valid(
+                definition,
+                anchor,
+                footprint,
+                replacedFloorBlocks,
+                Map.of(),
+                orientation
+            );
+        }
+
+        public static PlacementCandidate valid(
+            PlacementDefinition definition,
+            Vector3i anchor,
+            PlacementFootprint footprint,
+            Map<BlockPosition, Integer> replacedFloorBlocks,
+            Map<BlockPosition, TerrainBlockSnapshot> terrainSnapshot,
+            BuildingOrientation orientation
+        ) {
             return new PlacementCandidate(
                 definition,
                 anchor,
                 footprint,
                 replacedFloorBlocks,
+                terrainSnapshot,
                 null,
                 orientation
             );
@@ -983,6 +1091,7 @@ public final class PrefabPlacementService {
                 anchor,
                 footprint,
                 Map.of(),
+                Map.of(),
                 reason,
                 orientation
             );
@@ -994,6 +1103,7 @@ public final class PrefabPlacementService {
                 anchor,
                 footprint,
                 replacedFloorBlocks,
+                terrainSnapshot,
                 reason,
                 orientation
             );

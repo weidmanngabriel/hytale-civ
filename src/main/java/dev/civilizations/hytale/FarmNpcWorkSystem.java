@@ -6,7 +6,7 @@ import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.query.Query;
-import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
+import com.hypixel.hytale.component.system.tick.DelayedEntitySystem;
 import com.hypixel.hytale.protocol.BlockRotation;
 import com.hypixel.hytale.protocol.Rotation;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
@@ -31,10 +31,15 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Translates the core farm work state into native Hytale planting, growth,
  * harvesting, movement and storage operations.
+ *
+ * <p>Hytale navigation and trigger-volume events keep movement responsive between Civ work
+ * sessions. The system itself intentionally runs in short delayed sessions instead of once for
+ * every farmer on every engine tick.</p>
  */
-public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
+public final class FarmNpcWorkSystem extends DelayedEntitySystem<EntityStore> {
 
     private static final Logger LOGGER = Logger.getLogger(FarmNpcWorkSystem.class.getName());
+    private static final float TICK_INTERVAL_SECONDS = 0.75f;
     private static final double ARRIVAL_DISTANCE = 0.45;
     private static final String WHEAT_ITEM_ID = "Plant_Crop_Wheat_Item";
     private static final String WHEAT_SEED_ITEM_ID = "Plant_Seeds_Wheat";
@@ -61,6 +66,7 @@ public final class FarmNpcWorkSystem extends EntityTickingSystem<EntityStore> {
         FarmBuildingRegistry farmRegistry,
         FarmFieldRegistry fieldRegistry
     ) {
+        super(TICK_INTERVAL_SECONDS);
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
         this.farmRegistry = farmRegistry;

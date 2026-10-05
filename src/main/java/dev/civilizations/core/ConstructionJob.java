@@ -6,7 +6,8 @@ import java.util.Objects;
  * Hytale-independent state machine for one construction worker assignment.
  *
  * <p>The adapter chooses a construction site and maps each completed build step to real
- * prefab materialization. Core owns only the worker lifecycle and pacing.</p>
+ * prefab materialization. Core owns only the worker lifecycle and pacing. Durable completed
+ * construction progress belongs to the construction site and is injected when a worker takes it.</p>
  */
 public final class ConstructionJob {
 
@@ -33,36 +34,38 @@ public final class ConstructionJob {
     }
 
     public synchronized boolean assignTarget(WorkTarget target) {
+        return assignTarget(target, 0);
+    }
+
+    /** Assigns a site while retaining construction progress owned by that site. */
+    public synchronized boolean assignTarget(WorkTarget target, int completedSteps) {
         Objects.requireNonNull(target, "target");
-        if (state != WorkState.SEARCHING) {
-            return false;
+        if (state != WorkState.SEARCHING) return false;
+        if (completedSteps < 0 || completedSteps > target.totalSteps()) {
+            throw new IllegalArgumentException("completedSteps must be between 0 and totalSteps");
         }
         this.target = target;
-        completedSteps = 0;
+        this.completedSteps = completedSteps;
         stepElapsedSeconds = 0.0;
-        state = WorkState.WALKING_TO_SITE;
+        state = completedSteps >= target.totalSteps()
+            ? WorkState.READY_TO_COMPLETE
+            : WorkState.WALKING_TO_SITE;
         return true;
     }
 
     public synchronized boolean movementArrived() {
-        if (state != WorkState.WALKING_TO_SITE) {
-            return false;
-        }
+        if (state != WorkState.WALKING_TO_SITE) return false;
         stepElapsedSeconds = 0.0;
         state = WorkState.BUILDING;
         return true;
     }
 
-    /**
-     * Advances work and returns the number of newly completed construction steps.
-     */
+    /** Advances work and returns the number of newly completed construction steps. */
     public synchronized int advanceWork(double deltaSeconds) {
         if (deltaSeconds < 0.0 || !Double.isFinite(deltaSeconds)) {
             throw new IllegalArgumentException("deltaSeconds must be finite and >= 0");
         }
-        if (state != WorkState.BUILDING) {
-            return 0;
-        }
+        if (state != WorkState.BUILDING) return 0;
 
         stepElapsedSeconds += deltaSeconds;
         int newlyCompleted = 0;
@@ -81,9 +84,7 @@ public final class ConstructionJob {
     }
 
     public synchronized boolean constructionCompleted() {
-        if (state != WorkState.READY_TO_COMPLETE) {
-            return false;
-        }
+        if (state != WorkState.READY_TO_COMPLETE) return false;
         reset();
         return true;
     }
@@ -111,19 +112,13 @@ public final class ConstructionJob {
         return state;
     }
 
-    public record WorkTarget(
-        String siteId,
-        WorldPosition workPoint,
-        int totalSteps
-    ) {
+    public record WorkTarget(String siteId, WorldPosition workPoint, int totalSteps) {
         public WorkTarget {
             if (siteId == null || siteId.isBlank()) {
                 throw new IllegalArgumentException("siteId cannot be blank");
             }
             Objects.requireNonNull(workPoint, "workPoint");
-            if (totalSteps <= 0) {
-                throw new IllegalArgumentException("totalSteps must be > 0");
-            }
+            if (totalSteps <= 0) throw new IllegalArgumentException("totalSteps must be > 0");
         }
     }
 
