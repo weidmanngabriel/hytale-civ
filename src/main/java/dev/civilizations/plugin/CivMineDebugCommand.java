@@ -60,19 +60,6 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
         context.sendMessage(Message.raw("Keine Civ-Mine im Umkreis von 128 Blöcken gefunden."));
     }
 
-    static String mineLogCategoriesArgument(String input) {
-        if (input == null || input.isBlank()) return null;
-        String trimmed = input.trim();
-        String lower = trimmed.toLowerCase(Locale.ROOT);
-        int onIndex = lower.lastIndexOf(" on");
-        if (onIndex >= 0) {
-            String trailing = trimmed.substring(onIndex + 3).trim();
-            return trailing.isEmpty() ? null : trailing;
-        }
-        if (!trimmed.contains(" ")) return trimmed;
-        return null;
-    }
-
     private static final class InfoCommand extends AbstractPlayerCommand {
         private final CivMineDebugService service;
 
@@ -258,7 +245,7 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
             PlayerRef playerRef,
             World world
         ) {
-            String raw = mineLogCategoriesArgument(context.getInputString());
+            String raw = MineLogCommandInput.categoriesArgument(context.getInputString());
             try {
                 Set<MineDecisionCategory> enabled = diagnostics.enable(
                     CivMineDecisionDiagnostics.parseCategories(raw)
