@@ -13,6 +13,7 @@ import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.math.Axis;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.entity.UUIDComponent;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.modules.entity.component.PersistentPrefabPreview;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
@@ -66,19 +67,19 @@ public final class PrefabPlacementService {
     );
     public static final PlacementDefinition MINE = new PlacementDefinition(
         "mine",
-        "Mine",
+        "Mine 1 – Kupfer",
         "Civilizations/Mine/Mine_01",
         1
     );
     public static final PlacementDefinition MINE_02 = new PlacementDefinition(
         "mine",
-        "Mine",
+        "Mine 2 – Eisen",
         "Civilizations/Mine/Mine_02",
         1
     );
     public static final PlacementDefinition MINE_03 = new PlacementDefinition(
         "mine",
-        "Mine",
+        "Mine 3 – Gold",
         "Civilizations/Mine/Mine_03",
         1
     );
@@ -96,6 +97,13 @@ public final class PrefabPlacementService {
             case 3 -> MINE_03;
             default -> throw new IllegalArgumentException("Unknown mine phase " + phase);
         };
+    }
+
+    public static int phaseForDefinition(PlacementDefinition definition) {
+        if (definition == null || !"mine".equals(definition.id())) return 1;
+        if (MINE_02.prefabKey().equals(definition.prefabKey())) return 2;
+        if (MINE_03.prefabKey().equals(definition.prefabKey())) return 3;
+        return 1;
     }
 
     public PlacementCandidate validatePlacement(
@@ -240,8 +248,8 @@ public final class PrefabPlacementService {
 
     /**
      * Creates an upgrade construction site at the exact transform of an existing building.
-     * The original terrain snapshot is retained so demolition after later upgrades still
-     * restores the terrain from before phase 1 was built.
+     * The original terrain snapshot is retained and extended only for world positions that
+     * the previous phases never touched.
      */
     public ConstructionSite createUpgradeConstructionSite(
         PlayerRef playerRef,
@@ -273,11 +281,16 @@ public final class PrefabPlacementService {
             throw new IllegalStateException(measured.invalidReason());
         }
 
+        Map<BlockPosition, Integer> originalWorld = new LinkedHashMap<>(
+            building.placement().replacedFloorBlocks()
+        );
+        measured.replacedFloorBlocks().forEach(originalWorld::putIfAbsent);
+
         PlacementCandidate candidate = PlacementCandidate.valid(
             definition,
             measured.anchor(),
             measured.footprint(),
-            building.placement().replacedFloorBlocks(),
+            originalWorld,
             building.orientation()
         );
         ConstructionSite site = new ConstructionSite(
@@ -493,6 +506,20 @@ public final class PrefabPlacementService {
             .forEach(volumes::unregister);
     }
 
+    public void removePrefabEntities(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance building
+    ) {
+        if (world == null || building == null || building.prefabEntityIds().isEmpty()) return;
+        Store<EntityStore> store = world.getEntityStore().getStore();
+        for (UUID entityId : building.prefabEntityIds()) {
+            Ref<EntityStore> ref = world.getEntityStore().getRefFromUUID(entityId);
+            if (ref != null && ref.isValid()) {
+                store.removeEntity(ref, RemoveReason.REMOVE);
+            }
+        }
+    }
+
     public boolean demolish(World world, BuildingPlacementRegistry.BuildingInstance building) {
         if (world == null || building == null || building.placement() == null) {
             return false;
@@ -515,6 +542,7 @@ public final class PrefabPlacementService {
         );
 
         removeSemanticVolumes(world, building);
+        removePrefabEntities(world, building);
         return true;
     }
 
@@ -648,6 +676,7 @@ public final class PrefabPlacementService {
 
         TriggerVolumeManager volumeManager = triggerVolumeManager(world);
         Set<String> existingVolumeIds = new HashSet<>(volumeManager.getVolumesMap().keySet());
+        List<UUID> prefabEntityIds = new ArrayList<>();
 
         BlockSelection prefab = requireSource(candidate.definition(), candidate.orientation());
         prefab.place(
@@ -655,7 +684,19 @@ public final class PrefabPlacementService {
             world,
             enginePlacementOrigin(candidate),
             null,
-            BlockSelection.DEFAULT_ENTITY_CONSUMER,
+            entityRef -> {
+                if (entityRef == null || !entityRef.isValid()) return;
+                Store<EntityStore> entityStore = entityRef.getStore();
+                TriggerVolume trigger = entityStore.getComponent(
+                    entityRef,
+                    TriggerVolumesPlugin.get().getTriggerVolumeComponentType()
+                );
+                if (trigger != null) return;
+                UUIDComponent uuid = entityStore.getComponent(entityRef, UUIDComponent.getComponentType());
+                if (uuid != null && uuid.getUuid() != null) {
+                    prefabEntityIds.add(uuid.getUuid());
+                }
+            },
             false,
             null,
             false
@@ -665,7 +706,7 @@ public final class PrefabPlacementService {
             .filter(volume -> !existingVolumeIds.contains(volume.getId()))
             .map(PrefabPlacementService::toMarker)
             .toList();
-        return new PlacedPrefab(candidate, markers);
+        return new PlacedPrefab(candidate, markers, prefabEntityIds);
     }
 
     private static TriggerVolumeManager triggerVolumeManager(World world) {
@@ -912,9 +953,14 @@ public final class PrefabPlacementService {
         }
     }
 
-    public record PlacedPrefab(PlacementCandidate candidate, List<PlacedMarker> markers) {
+    public record PlacedPrefab(
+        PlacementCandidate candidate,
+        List<PlacedMarker> markers,
+        List<UUID> prefabEntityIds
+    ) {
         public PlacedPrefab {
             markers = List.copyOf(markers);
+            prefabEntityIds = List.copyOf(prefabEntityIds == null ? List.of() : prefabEntityIds);
         }
     }
 

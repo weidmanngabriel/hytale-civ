@@ -126,7 +126,12 @@ public final class CivilizationsPlugin extends JavaPlugin {
         FarmNpcWorkSystem farmNpcWorkSystem =
             new FarmNpcWorkSystem(unitRegistry, activityRegistry, farmRegistry, fieldRegistry);
         WoodcutterWorkSystem woodcutterWorkSystem =
-            new WoodcutterWorkSystem(unitRegistry, activityRegistry, woodcutterScanDiagnostics);
+            new WoodcutterWorkSystem(
+                unitRegistry,
+                activityRegistry,
+                woodcutterScanDiagnostics,
+                buildingRegistry
+            );
         MinerWorkSystem minerWorkSystem =
             new MinerWorkSystem(unitRegistry, activityRegistry, buildingRegistry, mineTunnelRegistry);
         ConstructionWorkSystem constructionWorkSystem =

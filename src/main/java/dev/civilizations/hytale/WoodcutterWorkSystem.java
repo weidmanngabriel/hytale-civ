@@ -64,21 +64,15 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     private static final double RETRY_SECONDS = 1.0;
     private static final double DIAGNOSTIC_INTERVAL_SECONDS = 5.0;
     private static final double WORK_TARGET_SCORE_EPSILON = 0.0001;
-    // The ItemPlayerAnimations child loops Hytale's native axe swing client-side, so Civ only
-    // sends one start and one stop for each chopping phase instead of retriggering every swing.
     private static final String WOODCUTTING_ITEM_ANIMATIONS = "Civ_Woodcutter_Axe";
     private static final String WOODCUTTING_ANIMATION = "SwingLeft";
 
-    /**
-     * A Hytale tree can contain diagonally touching branches and roots. Treat all 26 adjacent
-     * positions in the surrounding 3x3x3 cube as connected, while the existing tree bounds and
-     * MAX_TREE_BLOCKS limit still cap how far one target may spread.
-     */
     private static final int[][] TREE_CONNECTED_OFFSETS = createTreeConnectedOffsets();
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
     private final WoodcutterScanDiagnostics scanDiagnostics;
+    private final BuildingPlacementRegistry buildingRegistry;
     private final Map<CivUnitRegistry.UnitKey, WorkerRuntime> workers =
         new ConcurrentHashMap<>();
     private final Map<ReservedBlock, CivUnitRegistry.UnitKey> treeReservations =
@@ -87,11 +81,13 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
     public WoodcutterWorkSystem(
         CivUnitRegistry unitRegistry,
         CivActivityRegistry activityRegistry,
-        WoodcutterScanDiagnostics scanDiagnostics
+        WoodcutterScanDiagnostics scanDiagnostics,
+        BuildingPlacementRegistry buildingRegistry
     ) {
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
         this.scanDiagnostics = scanDiagnostics;
+        this.buildingRegistry = buildingRegistry;
     }
 
     @Override
@@ -458,9 +454,6 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             }
 
             blocks.add(current);
-            // Only wood positions Civ is about to remove can be restored. Using the worker's
-            // standing Y as the cutoff catches roots and buried trunk pieces without filling
-            // unrelated pre-existing air pockets around the tree.
             if (current.y() < fillBelowY) {
                 Integer fillBlock = findNaturalFillBlock(world, current);
                 if (fillBlock != null) {
@@ -533,7 +526,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         return breaking != null && WOOD_GATHER_TYPE.equals(breaking.getGatherType());
     }
 
-    private static Vector3d findWorkTarget(
+    private Vector3d findWorkTarget(
         World world,
         Vector3d workerPosition,
         TreeStructure tree
@@ -651,7 +644,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         );
     }
 
-    private static Vector3d validWorkSurface(
+    private Vector3d validWorkSurface(
         World world,
         Vector3d workerPosition,
         int x,
@@ -666,8 +659,8 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             || !isEmpty(getLoadedBlockType(world, x, feetY + 1, z))
             || isEmpty(supportType)
             || isWoodStructureBlock(supportType)
-            || isInsideTriggerVolume(world, feet)
-            || isInsideTriggerVolume(world, support)) {
+            || isInsideProtectedArea(world, feet)
+            || isInsideProtectedArea(world, support)) {
             return null;
         }
 
@@ -729,13 +722,20 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         }
     }
 
-    private static boolean treeTouchesProtectedVolume(World world, TreeStructure tree) {
+    private boolean treeTouchesProtectedVolume(World world, TreeStructure tree) {
         for (BlockPosition block : tree.blocks()) {
-            if (isInsideTriggerVolume(world, block)) {
+            if (isInsideProtectedArea(world, block)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private boolean isInsideProtectedArea(World world, BlockPosition block) {
+        if (buildingRegistry.isProtected(world.getWorldConfig().getUuid(), block)) {
+            return true;
+        }
+        return isInsideTriggerVolume(world, block);
     }
 
     private static boolean isInsideTriggerVolume(World world, BlockPosition block) {
@@ -785,7 +785,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             .orElse(null);
     }
 
-    private static boolean fellTree(
+    private boolean fellTree(
         World world,
         Ref<EntityStore> workerRef,
         Store<EntityStore> entityStore,
@@ -800,7 +800,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
 
         List<Vector3i> breakTargets = new ArrayList<>();
         for (BlockPosition block : ordered) {
-            if (isInsideTriggerVolume(world, block)) {
+            if (isInsideProtectedArea(world, block)) {
                 return false;
             }
             if (!isWoodStructureBlock(getLoadedBlockType(world, block.x(), block.y(), block.z()))) {
@@ -832,7 +832,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
 
         for (Map.Entry<BlockPosition, Integer> fill : tree.rootFillBlocks().entrySet()) {
             BlockPosition position = fill.getKey();
-            if (isInsideTriggerVolume(world, position)
+            if (isInsideProtectedArea(world, position)
                 || !isEmpty(getLoadedBlockType(
                     world,
                     position.x(),

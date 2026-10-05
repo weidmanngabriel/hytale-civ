@@ -20,7 +20,8 @@ import java.util.UUID;
 
 /**
  * Persists the Civ-owned metadata that native prefab/trigger-volume persistence does not contain:
- * stable building id, type/phase, placement transform and the terrain snapshot required for demolition.
+ * stable building id, type/phase, placement transform, owned prefab entities and the terrain
+ * snapshot required for demolition.
  */
 public final class CivBuildingPersistenceService {
 
@@ -81,6 +82,10 @@ public final class CivBuildingPersistenceService {
                 .append(b64(marker.tags().getOrDefault("civ.type", ""))).append(',')
                 .append(b64(marker.tags().getOrDefault("civ.building", "")));
         }
+        String entityIds = building.prefabEntityIds().stream()
+            .map(UUID::toString)
+            .reduce((left, right) -> left + "," + right)
+            .orElse("");
         var fp = placement.footprint();
         var b = building.bounds();
         return String.join("|",
@@ -94,14 +99,15 @@ public final class CivBuildingPersistenceService {
             b.minX() + "," + b.minY() + "," + b.minZ() + "," + b.maxX() + "," + b.maxY() + "," + b.maxZ(),
             b64(floor.toString()),
             b64(markers.toString()),
-            placement.orientation().name()
+            placement.orientation().name(),
+            b64(entityIds)
         );
     }
 
     private BuildingPlacementRegistry.BuildingInstance decode(UUID worldId, String encoded) {
         String[] parts = encoded.split("\\|", -1);
         boolean legacy = parts.length == 9;
-        if (!legacy && parts.length != 10 && parts.length != 11) {
+        if (!legacy && parts.length != 10 && parts.length != 11 && parts.length != 12) {
             throw new IllegalArgumentException("unexpected field count");
         }
 
@@ -112,14 +118,14 @@ public final class CivBuildingPersistenceService {
         String boundsVolumeId = unb64(parts[2 + offset]);
         PrefabPlacementService.PlacementDefinition definition = switch (parts[3 + offset]) {
             case "farm" -> PrefabPlacementService.FARM;
-            case "mine" -> PrefabPlacementService.MINE;
+            case "mine" -> PrefabPlacementService.minePhase(phase);
             case "wheat_field" -> PrefabPlacementService.WHEAT_FIELD;
             default -> throw new IllegalArgumentException("unknown prefab " + parts[3 + offset]);
         };
         int[] anchor = ints(parts[4 + offset], 3);
         int[] fp = ints(parts[5 + offset], 5);
         double[] bounds = doubles(parts[6 + offset], 6);
-        BuildingOrientation orientation = parts.length == 11
+        BuildingOrientation orientation = parts.length >= 11
             ? BuildingOrientation.valueOf(parts[10])
             : BuildingOrientation.NORTH;
 
@@ -168,6 +174,16 @@ public final class CivBuildingPersistenceService {
             }
         }
 
+        List<UUID> prefabEntityIds = new ArrayList<>();
+        if (parts.length >= 12) {
+            String entityText = unb64(parts[11]);
+            if (!entityText.isBlank()) {
+                for (String entityId : entityText.split(",")) {
+                    prefabEntityIds.add(UUID.fromString(entityId));
+                }
+            }
+        }
+
         PrefabPlacementService.PlacementCandidate placement =
             PrefabPlacementService.PlacementCandidate.valid(
                 definition,
@@ -184,7 +200,9 @@ public final class CivBuildingPersistenceService {
             boundsVolumeId,
             new BuildingBounds(bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]),
             markers,
-            placement
+            orientation,
+            placement,
+            prefabEntityIds
         );
     }
 

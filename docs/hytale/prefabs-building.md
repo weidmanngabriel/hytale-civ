@@ -51,27 +51,41 @@ Damit kann beispielsweise eine Mine zuerst ihr sichtbares Obergebäude fertigste
 
 ## Gebäudephasen und Upgrade-Transform
 
-Die Mine besitzt im Asset Pack drei authored Phasen: `Civilizations/Mine/Mine_01`, `Mine_02` und `Mine_03`. Ein Neubau verwendet immer `Mine_01`. Ein Ausbau lädt die nächste Phase als normale Civ-Baustelle, übernimmt aber Anker und `BuildingOrientation` der bestehenden Mine statt eine neue Spielerplatzierung zu starten.
+Die Mine besitzt im Asset Pack drei authored Phasen: `Civilizations/Mine/Mine_01`, `Mine_02` und `Mine_03`. Im aktuellen Debug-Baumenü sind sie direkt als `Mine 1 – Kupfer`, `Mine 2 – Eisen` und `Mine 3 – Gold` auswählbar. Das ist ausdrücklich Entwicklungszugriff; ein späteres Progressionssystem soll direkte höhere Phasen aus dem normalen Spieler-Baufluss entfernen.
 
-Für einen Ausbau misst `PrefabPlacementService` den Footprint der Zielphase am vorhandenen Transform neu. Der Terrain-Snapshot bleibt dagegen bewusst der Snapshot der Erstplatzierung aus Phase 1. Dadurch kann ein späterer Abriss auch nach mehreren Upgrades weiterhin den Weltzustand vor dem ursprünglichen Minenbau wiederherstellen.
+Ein regulärer Ausbau lädt die nächste Phase als normale Civ-Baustelle und übernimmt Anker und `BuildingOrientation` der bestehenden Mine statt eine neue Spielerplatzierung zu starten.
 
-Die fachliche Building-ID wird bei einem Upgrade nicht ersetzt. Die Construction-Pipeline materialisiert die Zielphase wie eine normale Baustelle; bei der Fertigstellung ersetzt `BuildingPlacementRegistry` die bestehende Building-Instanz unter derselben ID durch die nächste Phase. Persistente Arbeitsplatzreferenzen bleiben dadurch stabil.
+Für einen Ausbau misst `PrefabPlacementService` den Footprint der Zielphase am vorhandenen Transform neu. Der Terrain-Snapshot wird dabei kumulativ erweitert: Alle bereits gespeicherten Positionen behalten unverändert ihren Weltzustand von vor Phase 1; nur Positionen, die eine spätere Phase erstmals berührt, werden zusätzlich mit ihrem unmittelbar vorherigen Weltzustand aufgenommen. Ein Abriss von Phase 2 oder 3 kann dadurch den gesamten von allen Phasen veränderten Bereich auf den Zustand vor der jeweils ersten Veränderung zurücksetzen.
+
+Die fachliche Building-ID wird bei einem Upgrade nicht ersetzt. Die Construction-Pipeline materialisiert die Zielphase wie eine normale Baustelle; bei der Fertigstellung ersetzt `BuildingPlacementRegistry` die bestehende Building-Instanz unter derselben ID durch die nächste Phase. Persistente Arbeitsplatzreferenzen bleiben dadurch stabil. Miner lösen zuerst diese Building-ID auf und verwenden anschließend die aktuell an dieser Building-Instanz registrierten semantischen Volumes; neue Volume-IDs einer höheren Phase sind deshalb zulässig, solange die erforderlichen Tags weiter vorhanden sind.
+
+Beim erfolgreichen Phasenwechsel werden die semantischen TriggerVolumes der alten Phase über ihre gespeicherten IDs gezielt deregistriert. Die neue Phase liefert anschließend die aktive Menge an `workplace_access`, `mine_tunnel_connector`, `building_bounds` und weiteren semantischen Markern. Es werden nicht pauschal fremde TriggerVolumes im räumlichen Bereich gelöscht.
 
 ## Reservierungsfläche und `building_bounds`
 
 Wenn ein Prefab mindestens ein TriggerVolume mit `civ.type=building_bounds` enthält, leitet Civ den horizontalen Placement-Footprint aus der Vereinigung dieser Bounds ab. Die Reservierung hängt dadurch nicht von den aktuell enthaltenen Blockkoordinaten ab. Mehrere `building_bounds` sind zulässig.
 
-Für upgradebare Gebäude gilt als Authoring-Regel: Bereits das erste Level muss den maximal vorgesehenen horizontalen Ausbau-Footprint reservieren, damit spätere Upgrades nicht mit zwischenzeitlich daneben gebauten Civ-Gebäuden kollidieren. Die sichtbare Struktur darf innerhalb dieser Reservierung anfangs kleiner sein.
+Aktive Baustellen besitzen bereits vor Fertigstellung einen reservierten `PlacementFootprint`. Diese Reservation gilt als temporärer Civ-Schutzbereich: Holzfäller dürfen dort keine Bäume als Ziel wählen oder fällen, und direkte Spieler-Blockänderungen werden ebenfalls blockiert. Dafür werden keine vorzeitig als „fertig“ registrierten Arbeitsplatz-TriggerVolumes benötigt.
+
+Für upgradebare Gebäude gilt als Authoring-Regel: Bereits das erste Level soll den maximal vorgesehenen horizontalen Ausbau-Footprint reservieren, wenn spätere Nachbarbebauung dauerhaft ausgeschlossen werden soll. Beim aktiven Upgrade wird zusätzlich der tatsächlich gemessene Footprint der Zielphase als Baustelle reserviert.
 
 Semantische Trigger sind grundsätzlich gegenüber festen Prefab-Maßen zu bevorzugen. Bestehende externe Anschlussstellen sollten bei Upgrades stabil bleiben, sofern sie weiter benutzt werden. Ein bewusst verschobener aktiver Anschluss, etwa ein tiefer gesetzter Minen-Tunnel-Connector, wird dagegen als neue aktive Arbeitsfront behandelt; alte Tunnel können physisch bestehen bleiben, ohne weiter produktiv genutzt zu werden.
 
 ## Upgrade-Sicherheit für Bewohner
 
-Beim Start eines Minen-Upgrades werden die aktuell geladenen Bewohner mit passender persistenter Arbeitsplatz-ID über Hytales native `Teleport`-ECS-Komponente an einen Punkt außerhalb des Minenzugangs gesetzt. Vorher entfernt Civ ihre aktuellen manuellen und nativen Bewegungsziele. Der sichere Punkt wird bevorzugt aus dem authored `workplace_access` der Mine nach außen abgeleitet; fehlt ein nutzbarer Marker, gibt es einen Bounds-basierten Fallback.
+Beim Start eines Minen-Upgrades werden die aktuell geladenen Bewohner mit passender persistenter Arbeitsplatz-ID über Hytales native `Teleport`-ECS-Komponente aus dem Ziel-Footprint evakuiert. Vorher entfernt Civ ihre aktuellen manuellen und nativen Bewegungsziele. Der sichere Punkt wird bevorzugt aus dem authored `workplace_access` der bestehenden Mine in Außenrichtung abgeleitet. Civ läuft entlang dieser Richtung weiter, bis der Punkt sicher außerhalb des gemessenen Footprints der Zielphase liegt, und fügt anschließend Sicherheitsabstand hinzu. Fehlt ein nutzbarer Marker, gibt es einen Footprint-/Bounds-basierten Fallback.
 
 Während der Ausbau läuft, bleibt die vorhandene Building-Instanz für Picking und Gebäude-UI sichtbar. Normale Gameplay-Abfragen nach dieser Building-ID behandeln sie jedoch als nicht verfügbar. Berufsadapter wie der Minenarbeiter erhalten dadurch kein benutzbares Arbeitsplatzgebäude und erzeugen keine autonomen Bewegungsziele zurück in den Baukörper. Das ist eine Civ-Gameplay-Sperre auf der bestehenden Hytale-Navigation, keine zweite Wegfindung.
 
 Eine separate native Hytale-API, mit der Civ einen beliebigen fertigen Gebäudeinnenraum temporär als allgemeine physische No-Go-Zone für alle Entitäten oder Spieler markieren könnte, ist für die gepinnte Runtime nicht verifiziert. Deshalb wird eine solche Engine-Barriere derzeit nicht behauptet oder künstlich nachgebaut.
+
+## Prefab-Entities und Abriss
+
+Die gepinnte `BlockSelection.place(...)`-API liefert über ihren Entity-Consumer Referenzen auf die beim Prefab-Paste erzeugten Entities. Civ liest für nicht-TriggerVolume-Entities deren `UUIDComponent` und speichert diese UUIDs als Eigentum der jeweiligen Building-Instanz. Die UUID-Liste wird zusammen mit den übrigen Gebäude-Metadaten persistiert.
+
+Beim Abriss werden nur diese exakt aufgezeichneten Prefab-Entities entfernt. Bereits vorher in der Welt vorhandene Entities werden weder gelöscht noch restauriert. TriggerVolumes werden separat über ihre gespeicherten Volume-IDs deregistriert. Dadurch braucht der Abriss keine unsichere Regel wie „alle Entities innerhalb des Gebäude-Bereichs außer Civ-NPCs löschen“.
+
+Ältere persistierte Gebäude besitzen noch keine aufgezeichnete Prefab-Entity-Liste. Für sie bleibt die Liste leer; der neue Cleanup kann rückwirkend nicht beweisen, welche vorhandenen Entities ursprünglich von diesem Gebäude erzeugt wurden.
 
 ## Aktuelle Validierungsgrenze
 
@@ -79,7 +93,7 @@ Im derzeitigen Preview-Spike wird die frühere blockweise Kollisions-/Terrainpr�
 
 Die Kollisionsregeln müssen für den Baustellen-Lifecycle erneut passend eingeführt und zur Laufzeit verifiziert werden. Die vier Orientation-Transformationen sind automatisiert gegen Core/Simulation geprüft; die sichtbare Player-Rotation selbst ist noch nicht als In-Game-UX aktiviert und daher noch nicht runtime-verifiziert.
 
-Die sichtbare Ersetzung `Mine_01 -> Mine_02 -> Mine_03`, der genaue Evakuierungspunkt und die Upgrade-UI sind noch fokussiert im echten Client zu prüfen. Ebenso ist zu beobachten, ob beim finalen nativen Prefab-Placement alte Trigger-Volume-Instanzen einer vorherigen Mine-Phase dauerhaft in der Welt verbleiben; dafür liegt noch kein fokussierter Runtime-Befund vor.
+Die sichtbare Ersetzung `Mine_01 -> Mine_02 -> Mine_03`, der genaue Evakuierungspunkt, das Entfernen alter Prefab-Entities und TriggerVolumes sowie die Upgrade-UI sind weiterhin fokussiert im echten Client zu prüfen. Eine persistente Wiederaufnahme einer aktiven ConstructionSite nach Serverneustart ist noch nicht implementiert; laufende Baustellen bleiben derzeit Runtime-Zustand.
 
 ## Fertige Gebäude
 

@@ -197,6 +197,8 @@ public final class RtsInteractionController {
                 playerRef,
                 () -> startPlacement(playerRef, session, PrefabPlacementService.FARM),
                 () -> startPlacement(playerRef, session, PrefabPlacementService.MINE),
+                () -> startPlacement(playerRef, session, PrefabPlacementService.MINE_02),
+                () -> startPlacement(playerRef, session, PrefabPlacementService.MINE_03),
                 () -> startPlacement(playerRef, session, PrefabPlacementService.WHEAT_FIELD)
             )
         );
@@ -486,14 +488,20 @@ public final class RtsInteractionController {
             return;
         }
 
+        PrefabPlacementService.ConstructionSite site = null;
         try {
-            placementService.createUpgradeConstructionSite(playerRef, world, building, targetPhase);
-            int evacuated = evacuateMineWorkers(world, building);
+            site = placementService.createUpgradeConstructionSite(playerRef, world, building, targetPhase);
+            placementRegistry.reserve(worldId, site.id(), site.candidate().footprint());
+            int evacuated = evacuateMineWorkers(world, building, site.candidate().footprint());
             playerRef.sendMessage(Message.raw(
                 "Mine wird auf Phase " + targetPhase + " erweitert. " + evacuated
                     + " Arbeiter wurden nach draußen gebracht; die Mine bleibt bis zur Fertigstellung gesperrt."
             ));
         } catch (RuntimeException exception) {
+            if (site != null) {
+                placementRegistry.release(worldId, site.id());
+                placementService.removeConstructionSite(site);
+            }
             placementRegistry.cancelUpgrade(worldId, buildingId);
             playerRef.sendMessage(Message.raw(
                 "Ausbau konnte nicht gestartet werden: " + exception.getMessage()
@@ -503,10 +511,11 @@ public final class RtsInteractionController {
 
     private int evacuateMineWorkers(
         World world,
-        BuildingPlacementRegistry.BuildingInstance building
+        BuildingPlacementRegistry.BuildingInstance building,
+        PrefabPlacementService.PlacementFootprint targetFootprint
     ) {
         List<Ref<EntityStore>> workers = unitRegistry.workersAt(building.id());
-        Vector3d baseTarget = safePointOutsideMine(world, building);
+        Vector3d baseTarget = safePointOutsideMine(world, building, targetFootprint);
         int evacuated = 0;
         for (int index = 0; index < workers.size(); index++) {
             Ref<EntityStore> worker = workers.get(index);
@@ -533,7 +542,8 @@ public final class RtsInteractionController {
 
     private static Vector3d safePointOutsideMine(
         World world,
-        BuildingPlacementRegistry.BuildingInstance building
+        BuildingPlacementRegistry.BuildingInstance building,
+        PrefabPlacementService.PlacementFootprint targetFootprint
     ) {
         PrefabPlacementService.PlacedMarker entrance = building.semanticVolumes().stream()
             .filter(volume -> volume.hasTag(TYPE_TAG, "workplace_access"))
@@ -543,33 +553,55 @@ public final class RtsInteractionController {
         entrance = hydrateMarkerBounds(world, entrance);
         if (entrance != null && entrance.bounds() != null) {
             BuildingBounds bounds = entrance.bounds();
-            double entranceX = (bounds.minX() + bounds.maxX()) * 0.5;
-            double entranceZ = (bounds.minZ() + bounds.maxZ()) * 0.5;
+            double x = (bounds.minX() + bounds.maxX()) * 0.5;
+            double z = (bounds.minZ() + bounds.maxZ()) * 0.5;
             double buildingX = (building.bounds().minX() + building.bounds().maxX()) * 0.5;
             double buildingZ = (building.bounds().minZ() + building.bounds().maxZ()) * 0.5;
-            double dx = entranceX - buildingX;
-            double dz = entranceZ - buildingZ;
+            double dx = x - buildingX;
+            double dz = z - buildingZ;
             double length = Math.sqrt(dx * dx + dz * dz);
             if (length < 0.01) {
                 dx = 0.0;
                 dz = -1.0;
                 length = 1.0;
             }
-            return new Vector3d(
-                entranceX + dx / length * 3.0,
-                bounds.minY(),
-                entranceZ + dz / length * 3.0
-            );
+            double stepX = dx / length;
+            double stepZ = dz / length;
+            for (int step = 0; step < 64; step++) {
+                x += stepX;
+                z += stepZ;
+                if (outsideFootprint(targetFootprint, x, z)) {
+                    return new Vector3d(
+                        x + stepX * 1.5,
+                        bounds.minY(),
+                        z + stepZ * 1.5
+                    );
+                }
+            }
         }
 
-        int floorY = building.placement() == null
+        int floorY = targetFootprint == null
             ? (int) Math.floor(building.bounds().minY())
-            : building.placement().footprint().floorY() + 1;
-        return new Vector3d(
-            (building.bounds().minX() + building.bounds().maxX()) * 0.5,
-            floorY,
-            building.bounds().minZ() - 3.0
-        );
+            : targetFootprint.floorY() + 1;
+        double centerX = targetFootprint == null
+            ? (building.bounds().minX() + building.bounds().maxX()) * 0.5
+            : (targetFootprint.minX() + targetFootprint.maxX() + 1) * 0.5;
+        double outsideZ = targetFootprint == null
+            ? building.bounds().minZ() - 2.0
+            : targetFootprint.minZ() - 2.0;
+        return new Vector3d(centerX, floorY, outsideZ);
+    }
+
+    private static boolean outsideFootprint(
+        PrefabPlacementService.PlacementFootprint footprint,
+        double x,
+        double z
+    ) {
+        return footprint == null
+            || x < footprint.minX()
+            || x >= footprint.maxX() + 1.0
+            || z < footprint.minZ()
+            || z >= footprint.maxZ() + 1.0;
     }
 
     private void demolishBuilding(PlayerRef playerRef, UUID buildingId) {
