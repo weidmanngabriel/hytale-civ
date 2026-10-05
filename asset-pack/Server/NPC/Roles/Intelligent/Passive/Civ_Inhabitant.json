@@ -23,6 +23,29 @@
       "Acceleration": 10
     }
   ],
+  "InteractionVars": {
+    "Melee_Start": {
+      "Interactions": [
+        {
+          "Parent": "NPC_Attack_Melee_Simple"
+        }
+      ]
+    },
+    "Melee_Selector": {
+      "Interactions": [
+        {
+          "Parent": "NPC_Attack_Selector_Left"
+        }
+      ]
+    },
+    "Melee_Damage": {
+      "Interactions": [
+        {
+          "Parent": "NPC_Attack_Melee_Damage"
+        }
+      ]
+    }
+  },
   "Instructions": [
     {
       "Sensor": {
@@ -31,7 +54,7 @@
       },
       "Instructions": [
         {
-          "$Comment": "Civ movement target: position slot 0 is the Java/Role contract for ordinary inhabitant movement commands.",
+          "$Comment": "Civ movement target: position slot 0 is the Java/Role contract for ordinary inhabitant movement commands. Explicit player movement stays above autonomous combat.",
           "Sensor": {
             "Type": "ReadPosition",
             "Slot": "CivMoveTarget",
@@ -61,6 +84,52 @@
             "RelativeSpeed": 0.8,
             "UsePathfinder": true,
             "UseBestPath": false
+          }
+        },
+        {
+          "$Comment": "Soldier attack range: execute the native NPC melee root only after the selected combat target is actually in melee range. This branch must stay before the chase branch so attacks are not started continuously while pathing from long range.",
+          "Sensor": {
+            "Type": "Target",
+            "TargetSlot": "CivCombatTarget",
+            "Range": 2.25,
+            "AutoUnlockTarget": true
+          },
+          "BodyMotion": {
+            "Type": "Nothing"
+          },
+          "HeadMotion": {
+            "Type": "Aim",
+            "Spread": 0,
+            "HitProbability": 1,
+            "Deflection": true
+          },
+          "Actions": [
+            {
+              "Type": "Attack",
+              "Attack": "Root_NPC_Attack_Melee",
+              "LineOfSight": true,
+              "AvoidFriendlyFire": true,
+              "AttackPauseRange": [
+                1,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "$Comment": "Soldier chase range: Java selects the hostile target; Hytale only seeks here. The attack itself is handled by the preceding short-range branch.",
+          "Sensor": {
+            "Type": "Target",
+            "TargetSlot": "CivCombatTarget",
+            "Range": 18,
+            "AutoUnlockTarget": true
+          },
+          "BodyMotion": {
+            "Type": "Seek",
+            "StopDistance": 1.6,
+            "SlowDownDistance": 3.0,
+            "RelativeSpeed": 1.0,
+            "UsePathfinder": true
           }
         },
         {

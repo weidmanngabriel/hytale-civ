@@ -47,6 +47,7 @@ Vor neuer Hytale-spezifischer Arbeit zuerst diese Übersicht und die relevante T
 - [Performance und Worker-Scheduling](performance-scheduling.md)
 - [UI und Interaktion](ui-interaction.md)
 - [NPCs und Navigation](npc-navigation.md)
+- [NPC-Combat](npc-combat.md)
 - [Worker-Item-Animationen](worker-item-animations.md)
 - [ECS und Persistenz](ecs-persistence.md)
 - [Prefabs und Bauen](prefabs-building.md)

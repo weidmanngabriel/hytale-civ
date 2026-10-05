@@ -47,6 +47,7 @@ import dev.civilizations.hytale.MinerWorkSystem;
 import dev.civilizations.hytale.PrefabPlacementService;
 import dev.civilizations.hytale.RtsCameraController;
 import dev.civilizations.hytale.RtsInteractionController;
+import dev.civilizations.hytale.SoldierWorkSystem;
 import dev.civilizations.hytale.VikingAppearanceGenerator;
 import dev.civilizations.hytale.WoodcutterScanDiagnostics;
 import dev.civilizations.hytale.WoodcutterWorkSystem;
@@ -164,6 +165,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
             constructionRegistry,
             constructionPersistence
         );
+        SoldierWorkSystem soldierWorkSystem = new SoldierWorkSystem(unitRegistry, activityRegistry);
 
         getEntityStoreRegistry().registerSystem(farmNpcWorkSystem);
         getEntityStoreRegistry().registerSystem(woodcutterWorkSystem);
@@ -174,6 +176,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
             )
         );
         getEntityStoreRegistry().registerSystem(constructionWorkSystem);
+        getEntityStoreRegistry().registerSystem(soldierWorkSystem);
         getEntityStoreRegistry().registerSystem(
             new CivInhabitantLifecycleSystem(
                 inhabitantDataType,
@@ -184,7 +187,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 farmNpcWorkSystem,
                 woodcutterWorkSystem,
                 minerWorkSystem,
-                constructionWorkSystem
+                constructionWorkSystem,
+                soldierWorkSystem
             )
         );
 
@@ -198,6 +202,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
 
         getCommandRegistry().registerCommand(new CivTestCommand());
         if (Boolean.getBoolean("civilizations.runtimeProbe")) {
+            getEntityStoreRegistry().registerSystem(new CivRuntimeDamageTraceSystem());
             getCommandRegistry().registerCommand(
                 new CivRuntimeProbeCommand(unitRegistry, activityRegistry)
             );
@@ -205,6 +210,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
             getCommandRegistry().registerCommand(new CivPersistenceProbeCommand(unitRegistry));
             getCommandRegistry().registerCommand(
                 new CivWarmRuntimeBenchmarkCommand(unitRegistry, activityRegistry)
+            );
+            getCommandRegistry().registerCommand(
+                new CivSoldierFixtureProbeCommand(unitRegistry, activityRegistry, soldierWorkSystem)
             );
         }
         getCommandRegistry().registerCommand(

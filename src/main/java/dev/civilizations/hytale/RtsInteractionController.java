@@ -867,6 +867,7 @@ public final class RtsInteractionController {
             case WOODCUTTER -> "Holzfäller";
             case MINER -> "Minenabbauer";
             case CONSTRUCTION_WORKER -> "Bauarbeiter";
+            case SOLDIER -> "Soldat";
         };
     }
 
@@ -882,6 +883,7 @@ public final class RtsInteractionController {
             () -> assignMinerProfession(playerRef, target),
             () -> assignConstructionWorker(playerRef, target),
             () -> assignFarmerProfession(playerRef, target),
+            () -> assignSoldier(playerRef, target),
             () -> openNpcInventory(playerRef, target)
         );
     }
@@ -917,6 +919,7 @@ public final class RtsInteractionController {
                 () -> assignMinerProfession(playerRef, selected),
                 () -> assignConstructionWorker(playerRef, selected),
                 () -> assignFarmerProfession(playerRef, selected),
+                () -> assignSoldier(playerRef, selected),
                 () -> openNpcInventory(playerRef, selected)
             )
         );
@@ -1041,6 +1044,18 @@ public final class RtsInteractionController {
         unitRegistry.assignProfession(selected, Profession.CONSTRUCTION_WORKER);
         playerRef.sendMessage(Message.raw(
             "Bauarbeiter zugewiesen. Der Bewohner übernimmt automatisch die nächste freie Baustelle."
+        ));
+    }
+
+    private void assignSoldier(PlayerRef playerRef, Ref<EntityStore> selected) {
+        if (!unitRegistry.isClaimed(selected)) return;
+        farmRegistry.unassignFarmer(selected);
+        unitRegistry.clearWorkplace(selected);
+        activityRegistry.cancelManualMove(selected);
+        unitRegistry.cancelMoveTarget(selected);
+        unitRegistry.assignProfession(selected, Profession.SOLDIER);
+        playerRef.sendMessage(Message.raw(
+            "Soldat zugewiesen. Er greift selbstständig nahe feindliche Monster an."
         ));
     }
 

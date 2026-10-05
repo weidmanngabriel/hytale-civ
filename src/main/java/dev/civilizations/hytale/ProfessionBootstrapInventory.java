@@ -23,6 +23,7 @@ public final class ProfessionBootstrapInventory {
     static final String WOODCUTTER_AXE_ITEM_ID = "Weapon_Axe_Iron";
     static final String MINER_PICKAXE_ITEM_ID = "Tool_Pickaxe_Iron";
     static final String CONSTRUCTION_HAMMER_ITEM_ID = "Tool_Hammer_Iron";
+    public static final String SOLDIER_SWORD_ITEM_ID = "Weapon_Sword_Iron";
 
     public void enterProfession(Ref<EntityStore> ref, Profession profession) {
         if (profession == null) return;
@@ -31,6 +32,7 @@ public final class ProfessionBootstrapInventory {
             case WOODCUTTER -> enterToolProfession(ref, WOODCUTTER_AXE_ITEM_ID);
             case MINER -> enterToolProfession(ref, MINER_PICKAXE_ITEM_ID);
             case CONSTRUCTION_WORKER -> enterToolProfession(ref, CONSTRUCTION_HAMMER_ITEM_ID);
+            case SOLDIER -> enterToolProfession(ref, SOLDIER_SWORD_ITEM_ID);
             default -> {
             }
         }
@@ -43,6 +45,7 @@ public final class ProfessionBootstrapInventory {
             case WOODCUTTER -> leaveToolProfession(ref, WOODCUTTER_AXE_ITEM_ID);
             case MINER -> leaveToolProfession(ref, MINER_PICKAXE_ITEM_ID);
             case CONSTRUCTION_WORKER -> leaveToolProfession(ref, CONSTRUCTION_HAMMER_ITEM_ID);
+            case SOLDIER -> leaveToolProfession(ref, SOLDIER_SWORD_ITEM_ID);
             default -> {
             }
         }
