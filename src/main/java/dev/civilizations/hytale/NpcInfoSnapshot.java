@@ -8,7 +8,8 @@ public record NpcInfoSnapshot(
     Identity identity,
     Work work,
     Needs needs,
-    Family family
+    Family family,
+    Combat combat
 ) {
 
     public static final String UNAVAILABLE = "—";
@@ -39,6 +40,14 @@ public record NpcInfoSnapshot(
         String home,
         String spouse,
         String children
+    ) {
+    }
+
+    public record Combat(
+        String health,
+        String weapon,
+        String status,
+        String target
     ) {
     }
 }

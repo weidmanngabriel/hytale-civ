@@ -39,6 +39,10 @@ public final class CivNpcCompactHud extends CustomUIHud {
         commands.set("#Profession.Text", value.work().profession());
         commands.set("#Activity.Text", value.work().activity());
         commands.set("#Experience.Text", value.work().professionXp() + " XP");
+        commands.set("#Health.Text", value.combat().health());
+        commands.set("#Weapon.Text", value.combat().weapon());
+        commands.set("#CombatStatus.Text", value.combat().status());
+        commands.set("#CombatTarget.Text", value.combat().target());
         commands.set("#Hunger.Text", value.needs().hunger());
         commands.set("#Home.Text", value.family().home());
     }
