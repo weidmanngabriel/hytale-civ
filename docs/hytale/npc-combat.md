@@ -15,7 +15,7 @@ Für den gepinnten Hytale-Stand sind mindestens zwei native NPC-Melee-Pfade rele
 1. **Leichtgewichtiger instruction-/interaction-basierter Melee-Pfad** über `Type: "Attack"` und eine NPC-kompatible Root-Interaction wie `Root_NPC_Attack_Melee`.
 2. **Combat Action Evaluator (CAE)** für intelligentere Combatants mit mehreren Abilities, Utility-Auswahl, WeaponSlot und Combat-Konfiguration.
 
-Für den aktuellen Soldier-Vertical-Slice reicht der leichte native Melee-Pfad. Civ braucht dafür keine eigene Trefferprüfung und keine nachgebaute Spieler-Schwert-Interaction.
+Für den aktuellen Soldier-Vertical-Slice reicht für den Soldier selbst der leichte native Melee-Pfad. Civ braucht dafür keine eigene Trefferprüfung und keine nachgebaute Spieler-Schwert-Interaction.
 
 ## `Root_NPC_Attack_Melee`
 
@@ -45,7 +45,22 @@ Hytale-Items besitzen eigene `InteractionVars`. Für `Weapon_Sword_Iron` definie
 
 Das bedeutet jedoch **nicht automatisch**, dass der leichte `Root_NPC_Attack_Melee`-Pfad die `Swing_Left_Damage`-Variable des gehaltenen Spieler-Schwerts übernimmt. Sein nativer Damage-Hook heißt `Melee_Damage`. Solange ein Runtime-Test oder die gepinnten Assets/API nicht belegen, dass der Item-Kontext automatisch in diesen Pfad übernommen wird, darf Civ diese Kopplung nicht voraussetzen.
 
-Der aktuelle Soldier verwendet deshalb zunächst den nativen NPC-Melee-Pfad ohne eigene Civ-Schadensberechnung. Falls die ausgerüstete Waffe später die tatsächliche Damage-Variante bestimmen soll, soll das über Hytales vorgesehene `InteractionVars`-/WeaponSlot-/CAE-System gelöst und separat verifiziert werden – nicht durch einen parallelen Java-Schadensstack.
+Der aktuelle Soldier verwendet deshalb zunächst den nativen NPC-Melee-Pfad ohne eigene Civ-Schadensberechnung. Der verifizierte Runtime-Pfad verursacht dabei aktuell 5 native Schadenspunkte pro Treffer. Falls die ausgerüstete Waffe später die tatsächliche Damage-Variante bestimmen soll, soll das über Hytales vorgesehenes `InteractionVars`-/WeaponSlot-/CAE-System gelöst und separat verifiziert werden – nicht durch einen parallelen Java-Schadensstack.
+
+## Native Zielübergabe und Gegenwehr
+
+Ein wichtiges Ergebnis der Soldier-Runtime-Tests ist, dass Hytale nicht für alle NPC-Rollen denselben aktiven Combat-Target-Zustand verwendet.
+
+- Leichtgewichtige Role-/Predator-Templates verwenden typischerweise einen markierten Zielslot wie `LockedTarget` und wechseln in einen nativen `Combat`-State.
+- CAE-Rollen verwenden `TargetMemory`; Hytales eigener Combat-Target-Collector pflegt dort sowohl `knownHostiles` als auch `closestHostile`.
+
+Nur einen dieser Pfade zu setzen reicht deshalb nicht zuverlässig für beliebige Vanilla-Monster. Der Civ-Soldier-Adapter spiegelt beim Engagement beide **vorhandenen nativen Mechanismen**:
+
+1. `LockedTarget` auf den Soldier setzen; unbekannte Slots werden von Rollen ignoriert,
+2. einen vorhandenen `Combat`-State beim neuen Engagement einmal aktivieren, statt ihn jeden Tick neu zu starten,
+3. bei vorhandenem `TargetMemory` den Soldier in `knownHostiles` halten und als `closestHostile` setzen.
+
+Danach trifft Hytale selbst die Bewegungs- und Angriffsentscheidungen. Civ erzeugt weder Angriffe noch Schaden. Dieses Muster wurde im fokussierten Soldier-Local-Szenario gegen einen nativen Predator erfolgreich mit gegenseitiger HP-Änderung verifiziert.
 
 ## Timing und Treffergeometrie
 
@@ -72,6 +87,10 @@ Für spätere Einheiten wie einen Ogre mit zerstörerischem Heavy-Attack sollten
 
 Für den Soldier werden normale Monster derzeit über Hytales NPC-Rollen-Metadaten als Ziele klassifiziert. Ein für Spieler feindlicher nativer NPC (`DefaultPlayerAttitude = HOSTILE`) gilt als angreifbares Monster. Die frühere strengere Annahme, ein Ziel müsse zusätzlich standardmäßig allen NPCs gegenüber feindlich sein, war für normale Goblins zu restriktiv.
 
+## Headless-Runtime-Fixtures
+
+Eine geladene Test-Entity ist nicht automatisch dauerhaft gepinnt. Im Soldier-Probe wurde verifiziert, dass die temporäre Headless-Testwelt nach einigen Sekunden Chunks entladen konnte, obwohl die Entities nicht gestorben waren. Für dieses fokussierte Fixture wird deshalb `WorldConfig.setCanUnloadChunks(false)` verwendet. Ein ungültiger Entity-`Ref` darf in Runtime-Probes nicht ohne weitere Evidenz als Tod interpretiert werden.
+
 ## Runtime-Verifikation
 
 Interaction-Asset-Kompatibilität ist runtime-abhängig. Ein erfolgreicher Java-/Gradle-Build beweist nicht, dass Hytale eine NPC-Role mit der gewählten Attack-Chain akzeptiert oder die Interaction tatsächlich ausführt.
@@ -83,4 +102,4 @@ Bei Änderungen an NPC-Combat daher, wenn im aktuellen Chat ausdrücklich erlaub
 3. bei Fehlern zuerst Runtime-Artifact/Server-Logs lesen,
 4. erst dann Interaction- oder Harness-Code ändern.
 
-Das Soldier-Szenario soll mindestens Zielerfassung, Verfolgung, manuelle Unterbrechung/Resume sowie tatsächlich gemessene native HP-Änderungen überprüfen.
+Das Soldier-Szenario soll mindestens Zielerfassung, Verfolgung, manuelle Unterbrechung/Resume sowie tatsächlich gemessene native HP-Änderungen in beide Richtungen überprüfen.

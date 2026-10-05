@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /** Executes persistent construction jobs in short native delayed ECS sessions. */
 public final class ConstructionWorkSystem extends DelayedEntitySystem<EntityStore> {
 
-    private static final float TICK_INTERVAL_SECONDS = 0.20f;
+    private static final float TICK_INTERVAL_SECONDS = 0.50f;
     private static final double ARRIVAL_DISTANCE = 1.25;
     private static final double RETRY_SECONDS = 1.5;
     private static final String BUILD_ITEM_ANIMATIONS = "Civ_Construction_Hammer";
