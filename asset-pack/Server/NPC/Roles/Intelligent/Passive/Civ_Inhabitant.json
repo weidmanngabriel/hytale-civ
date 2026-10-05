@@ -64,7 +64,7 @@
           }
         },
         {
-          "$Comment": "Soldier combat target: Java only selects a native hostile target. Hytale owns seeking, weapon interaction, damage, HP and death. The explicit NPC-tagged root interaction reuses Hytale's sword attack chain instead of the player's untagged Primary slot.",
+          "$Comment": "Soldier combat target: Java only selects a native hostile target. Hytale owns seeking, its built-in NPC melee interaction, damage, HP and death. Use the native Root_NPC_Attack_Melee path instead of adapting the player's sword Primary interaction.",
           "Sensor": {
             "Type": "Target",
             "TargetSlot": "CivCombatTarget",
@@ -81,7 +81,7 @@
           "Actions": [
             {
               "Type": "Attack",
-              "Attack": "Root_Civ_Soldier_Sword_Primary",
+              "Attack": "Root_NPC_Attack_Melee",
               "LineOfSight": true,
               "AvoidFriendlyFire": true
             }
