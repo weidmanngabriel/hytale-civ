@@ -227,6 +227,7 @@ jobs:
           }
 
       - name: Run selected Hytale scenarios
+        timeout-minutes: 2
         shell: 'powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"'
         env:
           REQUESTED_SCENARIOS: ${{ needs.authorize.outputs.scenarios }}
@@ -240,7 +241,7 @@ jobs:
           $budgets = @{
             woodcutter = 90
             minesupport = 90
-            soldier = 90
+            soldier = 60
             persistence = 150
             warmruntime = 150
           }
@@ -252,7 +253,7 @@ jobs:
               $timeoutSeconds += 90
             }
           }
-          $timeoutSeconds = [Math]::Max(90, [Math]::Min(360, $timeoutSeconds))
+          $timeoutSeconds = [Math]::Max(60, [Math]::Min(360, $timeoutSeconds))
           Write-Host "Runtime time budget: $timeoutSeconds seconds for $($scenarios -join ', ')"
 
           $scenarioLiteral = ($scenarios | ForEach-Object { "'$_'" }) -join ', '
@@ -275,10 +276,19 @@ jobs:
           $finished = $process.WaitForExit($timeoutSeconds * 1000)
           if (-not $finished) {
             Write-Warning "Hytale runtime exceeded its $timeoutSeconds second budget; terminating process tree."
-            & taskkill.exe /PID $process.Id /T /F 2>&1 | Write-Host
-            $process.WaitForExit(10000) | Out-Null
+            $killer = Start-Process -FilePath 'taskkill.exe' `
+              -ArgumentList @('/PID', [string]$process.Id, '/T', '/F') `
+              -WindowStyle Hidden `
+              -PassThru
+            if (-not $killer.WaitForExit(5000)) {
+              Stop-Process -Id $killer.Id -Force -ErrorAction SilentlyContinue
+              Write-Warning 'taskkill itself exceeded 5 seconds and was terminated.'
+            }
+            if (-not $process.WaitForExit(5000)) {
+              Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+              Write-Warning 'Runtime wrapper process still existed after taskkill and was force-stopped.'
+            }
           } else {
-            $process.WaitForExit()
             $process.Refresh()
             $exitCode = $process.ExitCode
           }
