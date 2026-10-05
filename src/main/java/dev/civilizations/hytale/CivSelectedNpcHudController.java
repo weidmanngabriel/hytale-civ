@@ -1,11 +1,8 @@
 package dev.civilizations.hytale;
 
 import com.hypixel.hytale.component.Ref;
-import com.hypixel.hytale.protocol.MouseButtonState;
-import com.hypixel.hytale.protocol.MouseButtonType;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
-import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 
@@ -31,6 +28,7 @@ public final class CivSelectedNpcHudController {
     }
 
     public void setRtsActive(PlayerRef playerRef, boolean active) {
+        if (playerRef == null) return;
         if (active) {
             rtsActivePlayers.add(playerRef.getUuid());
             return;
@@ -39,53 +37,51 @@ public final class CivSelectedNpcHudController {
         clear(playerRef);
     }
 
-    public void handleMouseButton(PlayerMouseButtonEvent event) {
-        PlayerRef playerRef = event.getPlayerRefComponent();
-        if (event.getMouseButton().state != MouseButtonState.Pressed
-            || event.getMouseButton().mouseButtonType != MouseButtonType.Left
-            || !rtsActivePlayers.contains(playerRef.getUuid())) {
-            return;
-        }
-
-        Ref<EntityStore> target = event.getTargetEntityRef();
-        if (target == null || !target.isValid() || !unitRegistry.isClaimed(target)) {
+    public void select(PlayerRef playerRef, Ref<EntityStore> target) {
+        if (playerRef == null || target == null || !target.isValid()
+            || !unitRegistry.isClaimed(target)) {
             clear(playerRef);
             return;
         }
-
+        rtsActivePlayers.add(playerRef.getUuid());
         selectedByPlayer.put(playerRef.getUuid(), target);
-        refresh(event.getPlayer());
+        refresh(playerRef);
+    }
+
+    public boolean isSelected(PlayerRef playerRef, Ref<EntityStore> target) {
+        if (playerRef == null || target == null || !target.isValid()) return false;
+        Ref<EntityStore> selected = selectedByPlayer.get(playerRef.getUuid());
+        return selected != null && selected.isValid()
+            && unitRegistry.keyOf(selected).equals(unitRegistry.keyOf(target));
     }
 
     public void refresh(Player player) {
-        if (player == null) {
-            return;
-        }
-        PlayerRef playerRef = player.getPlayerRef();
-        if (playerRef == null || !rtsActivePlayers.contains(playerRef.getUuid())) {
-            return;
-        }
+        if (player != null) refresh(player.getPlayerRef());
+    }
 
+    public void refresh(PlayerRef playerRef) {
+        if (playerRef == null || !rtsActivePlayers.contains(playerRef.getUuid())) return;
         Ref<EntityStore> selected = selectedByPlayer.get(playerRef.getUuid());
         if (selected == null || !selected.isValid() || !unitRegistry.isClaimed(selected)) {
             clear(playerRef);
             return;
         }
-
         NpcInfoSnapshot snapshot = infoProvider.snapshot(selected);
         if (snapshot == null) {
             clear(playerRef);
             return;
         }
-
+        Ref<EntityStore> playerEntityRef = playerRef.getReference();
+        if (playerEntityRef == null || !playerEntityRef.isValid()) return;
+        Player player = playerEntityRef.getStore().getComponent(playerEntityRef, Player.getComponentType());
+        if (player == null) return;
         var hudManager = player.getHudManager();
         var existing = hudManager.getCustomHud(CivNpcCompactHud.HUD_KEY);
         if (existing instanceof CivNpcCompactHud compactHud) {
             compactHud.refresh(snapshot);
-            return;
+        } else {
+            hudManager.addCustomHud(playerRef, new CivNpcCompactHud(playerRef, snapshot));
         }
-
-        hudManager.addCustomHud(playerRef, new CivNpcCompactHud(playerRef, snapshot));
     }
 
     public void handleDisconnect(PlayerDisconnectEvent event) {
@@ -94,12 +90,11 @@ public final class CivSelectedNpcHudController {
         rtsActivePlayers.remove(playerRef.getUuid());
     }
 
-    private void clear(PlayerRef playerRef) {
+    public void clear(PlayerRef playerRef) {
+        if (playerRef == null) return;
         selectedByPlayer.remove(playerRef.getUuid());
         Ref<EntityStore> playerEntityRef = playerRef.getReference();
-        if (playerEntityRef == null || !playerEntityRef.isValid()) {
-            return;
-        }
+        if (playerEntityRef == null || !playerEntityRef.isValid()) return;
         Player player = playerEntityRef.getStore().getComponent(playerEntityRef, Player.getComponentType());
         if (player != null) {
             player.getHudManager().removeCustomHud(playerRef, CivNpcCompactHud.HUD_KEY);
