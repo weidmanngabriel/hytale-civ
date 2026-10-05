@@ -53,16 +53,23 @@ public final class CivMinePersistenceService {
         return List.copyOf(result);
     }
 
+    /**
+     * Stages the latest mine topology/progress in the native world resource.
+     *
+     * <p>Mine progress changes frequently while workers excavate. Calling Store.saveAllResources()
+     * here would start an asynchronous save for every world resource on every segment update. Those
+     * global saves can overlap and race on Hytale's shared *.tmp resource files. The normal Hytale
+     * autosave and store shutdown lifecycle persist this staged resource instead.</p>
+     */
     public void save(World world, List<MineSegment> segments) {
         resource(world).setSegments(segments.stream().map(this::encode).toArray(String[]::new));
-        world.getEntityStore().getStore().saveAllResources();
     }
 
+    /** Stages segments and semantic mine-network metadata without forcing a global resource flush. */
     public void save(World world, List<MineSegment> segments, List<MineNetwork> networks) {
         CivMineDataResource resource = resource(world);
         resource.setSegments(segments.stream().map(this::encode).toArray(String[]::new));
         resource.setNetworks(networks.stream().map(this::encodeNetwork).toArray(String[]::new));
-        world.getEntityStore().getStore().saveAllResources();
     }
 
     private CivMineDataResource resource(World world) {
