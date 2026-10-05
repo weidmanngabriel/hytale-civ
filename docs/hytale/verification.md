@@ -41,6 +41,14 @@ Verwende auf den Themenseiten möglichst diese Begriffe:
 - **Projektvertrag:** eine von Civ bewusst gewählte Konvention, die durch Tests oder Code abgesichert ist.
 - **Offen:** für die aktuelle Hytale-Version nicht ausreichend belegt.
 
+Die Hytale-Dokumentation ist eine **Current-Truth-Dokumentation**. Wenn neue Evidenz eine frühere Annahme widerlegt oder präzisiert, muss die betroffene Aussage im selben Change korrigiert oder entfernt werden. Widerlegte Ansätze dürfen nicht als weiterhin gültige Anleitung stehen bleiben. Historische Fehlversuche werden nur dann aufbewahrt, wenn sie als Architekturentscheidung oder Warnung weiterhin relevant sind; dafür eignen sich ADRs oder ausdrücklich als historisch markierte Abschnitte.
+
+## Verifikation reiner Dokumentationsänderungen
+
+Änderungen, die ausschließlich Dokumentation betreffen und weder Code, Assets, Build-Konfiguration noch Runtime-Verhalten verändern, benötigen **keinen eigenen Test-, Build- oder Hytale-Local-Lauf**. Inhalt, Links und betroffene Querverweise sollen direkt geprüft werden; ein automatisch durch GitHub ausgelöster Workflow muss für eine reine Doku-Änderung nicht zusätzlich als fachlicher Testschritt abgewartet oder manuell erneut gestartet werden.
+
+Sobald eine Änderung neben Dokumentation auch Code, Assets, Konfiguration oder ausführbares Verhalten verändert, gelten wieder die normalen Verifikationsregeln für diese Änderung.
+
 ## Keine Ersatzimplementierung ohne Prüfung
 
 Bevor Civ eigene Navigation, UI-Primitive, Interaktionslogik, Assettypen, Game-Mode-Verhalten, Farming-, Container- oder Weltmechanik baut, zuerst prüfen, ob Hytale eine passende native Funktion bereitstellt. Native Engine-Fähigkeiten werden bevorzugt adaptiert, solange sie die Produktanforderung erfüllen.
