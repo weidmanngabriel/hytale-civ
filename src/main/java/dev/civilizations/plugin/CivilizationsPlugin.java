@@ -28,6 +28,7 @@ import dev.civilizations.hytale.CivInhabitantUseSystem;
 import dev.civilizations.hytale.CivManualMovementSystem;
 import dev.civilizations.hytale.CivMineDataResource;
 import dev.civilizations.hytale.CivMineDebugService;
+import dev.civilizations.hytale.CivMineDecisionDiagnostics;
 import dev.civilizations.hytale.CivMinePersistenceService;
 import dev.civilizations.hytale.CivNameplateStatusSystem;
 import dev.civilizations.hytale.CivPathDebugService;
@@ -92,6 +93,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
             new CivConstructionPersistenceService(constructionDataType);
         CivMinePersistenceService minePersistence = new CivMinePersistenceService(mineDataType);
         MineTunnelRegistry mineTunnelRegistry = new MineTunnelRegistry(minePersistence);
+        CivMineDecisionDiagnostics mineDecisionDiagnostics = new CivMineDecisionDiagnostics(
+            getLogger(), Boolean.getBoolean("civilizations.mineDebug")
+        );
 
         CivInhabitantService inhabitantService = new CivInhabitantService(
             inhabitantDataType,
@@ -155,8 +159,13 @@ public final class CivilizationsPlugin extends JavaPlugin {
         WoodcutterWorkSystem woodcutterWorkSystem = new WoodcutterWorkSystem(
             unitRegistry, activityRegistry, woodcutterScanDiagnostics, buildingRegistry
         );
-        MinerWorkSystem minerWorkSystem =
-            new MinerWorkSystem(unitRegistry, activityRegistry, buildingRegistry, mineTunnelRegistry);
+        MinerWorkSystem minerWorkSystem = new MinerWorkSystem(
+            unitRegistry,
+            activityRegistry,
+            buildingRegistry,
+            mineTunnelRegistry,
+            mineDecisionDiagnostics
+        );
         ConstructionWorkSystem constructionWorkSystem = new ConstructionWorkSystem(
             unitRegistry,
             activityRegistry,
@@ -235,7 +244,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 activityRegistry,
                 nameplateStatusSystem,
                 playerRigDebugService,
-                mineDebugService
+                mineDebugService,
+                mineDecisionDiagnostics
             )
         );
 

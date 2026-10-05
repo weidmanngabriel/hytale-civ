@@ -13,6 +13,7 @@ import dev.civilizations.hytale.BuildingPlacementRegistry;
 import dev.civilizations.hytale.CivActivityRegistry;
 import dev.civilizations.hytale.CivBuildingPersistenceService;
 import dev.civilizations.hytale.CivMineDebugService;
+import dev.civilizations.hytale.CivMineDecisionDiagnostics;
 import dev.civilizations.hytale.CivNameplateStatusSystem;
 import dev.civilizations.hytale.CivPathDebugService;
 import dev.civilizations.hytale.CivPlayerRigDebugService;
@@ -33,7 +34,8 @@ final class CivDebugCommand extends AbstractPlayerCommand {
         CivActivityRegistry activityRegistry,
         CivNameplateStatusSystem nameplateStatusSystem,
         CivPlayerRigDebugService playerRigDebugService,
-        CivMineDebugService mineDebugService
+        CivMineDebugService mineDebugService,
+        CivMineDecisionDiagnostics mineDecisionDiagnostics
     ) {
         super("civdebug", "Shows read-only Civilizations development diagnostics.");
         this.buildingRegistry = buildingRegistry;
@@ -43,7 +45,7 @@ final class CivDebugCommand extends AbstractPlayerCommand {
         addSubCommand(new ActivityCommand(activityRegistry));
         addSubCommand(new StatusCommand(nameplateStatusSystem));
         addSubCommand(new PlayerRigCommand(playerRigDebugService));
-        addSubCommand(new CivMineDebugCommand(mineDebugService));
+        addSubCommand(new CivMineDebugCommand(mineDebugService, mineDecisionDiagnostics));
         requireNoPermission();
     }
 

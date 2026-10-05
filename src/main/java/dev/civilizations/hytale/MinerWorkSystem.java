@@ -27,6 +27,8 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
+import dev.civilizations.core.MineDecisionCategory;
+import dev.civilizations.core.MineDecisionSink;
 import dev.civilizations.core.MineDirection;
 import dev.civilizations.core.MineSegment;
 import dev.civilizations.core.MineTuning;
@@ -38,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -68,6 +71,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private final CivActivityRegistry activityRegistry;
     private final BuildingPlacementRegistry buildingRegistry;
     private final MineTunnelRegistry tunnelRegistry;
+    private final MineDecisionSink decisionSink;
     private final Map<CivUnitRegistry.UnitKey, WorkerRuntime> workers = new ConcurrentHashMap<>();
 
     public MinerWorkSystem(
@@ -76,11 +80,22 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         BuildingPlacementRegistry buildingRegistry,
         MineTunnelRegistry tunnelRegistry
     ) {
+        this(unitRegistry, activityRegistry, buildingRegistry, tunnelRegistry, MineDecisionSink.NONE);
+    }
+
+    public MinerWorkSystem(
+        CivUnitRegistry unitRegistry,
+        CivActivityRegistry activityRegistry,
+        BuildingPlacementRegistry buildingRegistry,
+        MineTunnelRegistry tunnelRegistry,
+        MineDecisionSink decisionSink
+    ) {
         super(TICK_INTERVAL_SECONDS);
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
         this.buildingRegistry = buildingRegistry;
         this.tunnelRegistry = tunnelRegistry;
+        this.decisionSink = decisionSink == null ? MineDecisionSink.NONE : decisionSink;
     }
 
     @Override
@@ -246,8 +261,26 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     ) {
         runtime.workElapsed = 0.0;
         MineSegment next = existingChild(world.getWorldConfig().getUuid(), completed.id());
-        if (next == null) next = chooseNext(world, mine, completed);
-        logSegmentTransition(workerPosition, completed, next);
+        if (next != null) {
+            decisionSink.record(
+                mine.id(), next.id(), MineDecisionCategory.PLANNING, "FRONT_SELECTED",
+                "reason", "EXISTING_CHILD",
+                "parent", completed.id(),
+                "direction", next.direction(),
+                "length", next.lengthBlocks()
+            );
+        } else {
+            next = chooseNext(world, mine, completed);
+        }
+        logSegmentTransition(mine.id(), workerPosition, completed, next);
+        if (next == null) {
+            decisionSink.record(
+                mine.id(), completed.id(), MineDecisionCategory.PLANNING, "BRANCH_ENDED",
+                "reason", "NO_VALID_CONTINUATION",
+                "direction", completed.direction(),
+                "length", completed.lengthBlocks()
+            );
+        }
         runtime.segmentId = next == null ? null : next.id();
         runtime.navigationArrived();
     }
@@ -284,6 +317,12 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         MineSegment reopened = earliestReopenedCompletedSegment(world, mine.id());
         if (reopened != null) {
+            decisionSink.record(
+                mine.id(), reopened.id(), MineDecisionCategory.PLANNING, "FRONT_SELECTED",
+                "reason", "REOPENED_WORLD_STATE",
+                "direction", reopened.direction(),
+                "progress", reopened.nextBlockIndex()
+            );
             runtime.segmentId = reopened.id();
             return reopened;
         }
@@ -293,17 +332,41 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
         MineSegment unfinished = tunnelRegistry.unfinishedForMine(worldId, mine.id());
         if (unfinished != null) {
+            decisionSink.record(
+                mine.id(), unfinished.id(), MineDecisionCategory.PLANNING, "FRONT_SELECTED",
+                "reason", "UNFINISHED_EXISTING",
+                "status", unfinished.status(),
+                "direction", unfinished.direction()
+            );
             runtime.segmentId = unfinished.id();
             return unfinished;
         }
         if (!tunnelRegistry.segmentsForMine(worldId, mine.id()).isEmpty()) return null;
 
         MineDirection direction = outwardDirection(mine.bounds(), connector.bounds());
+        decisionSink.record(
+            mine.id(), null, MineDecisionCategory.PLANNING, "INITIAL_DIRECTION_SELECTED",
+            "direction", direction,
+            "reason", "MINE_CONNECTOR_OUTWARD"
+        );
         MineSegment initial = fittingCandidate(
             world, mine, null, initialStart(connector.bounds(), direction), direction, true
         );
-        if (initial == null) return null;
+        if (initial == null) {
+            decisionSink.record(
+                mine.id(), null, MineDecisionCategory.PLANNING, "FRONT_ABANDONED",
+                "reason", "NO_VALID_INITIAL_SEGMENT",
+                "direction", direction
+            );
+            return null;
+        }
         tunnelRegistry.put(world, initial);
+        decisionSink.record(
+            mine.id(), initial.id(), MineDecisionCategory.PLANNING, "FRONT_CREATED",
+            "reason", "INITIAL_SEGMENT",
+            "direction", initial.direction(),
+            "length", initial.lengthBlocks()
+        );
         runtime.segmentId = initial.id();
         return initial;
     }
@@ -321,7 +384,16 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 || !candidate.id().equals(runtime.interruptedSegmentId))
             .toList();
         if (!alternatives.isEmpty()) {
-            return alternatives.get(ThreadLocalRandom.current().nextInt(alternatives.size()));
+            int roll = ThreadLocalRandom.current().nextInt(alternatives.size());
+            MineSegment selected = alternatives.get(roll);
+            decisionSink.record(
+                mine.id(), selected.id(), MineDecisionCategory.PLANNING, "FRONT_SELECTED",
+                "reason", "RESUME_ALTERNATIVE",
+                "candidateCount", alternatives.size(),
+                "rollIndex", roll,
+                "direction", selected.direction()
+            );
+            return selected;
         }
 
         MineSegment fresh = chooseFreshBranch(world, mine);
@@ -332,9 +404,24 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         if (runtime.interruptedSegmentId != null) {
             MineSegment interrupted = tunnelRegistry.get(worldId, runtime.interruptedSegmentId);
-            if (interrupted != null && interrupted.status() != MineSegment.Status.BLOCKED) return interrupted;
+            if (interrupted != null && interrupted.status() != MineSegment.Status.BLOCKED) {
+                decisionSink.record(
+                    mine.id(), interrupted.id(), MineDecisionCategory.PLANNING, "FRONT_SELECTED",
+                    "reason", "RESUME_INTERRUPTED_FALLBACK",
+                    "direction", interrupted.direction()
+                );
+                return interrupted;
+            }
         }
-        return tunnelRegistry.unfinishedForMine(worldId, mine.id());
+        MineSegment fallback = tunnelRegistry.unfinishedForMine(worldId, mine.id());
+        if (fallback != null) {
+            decisionSink.record(
+                mine.id(), fallback.id(), MineDecisionCategory.PLANNING, "FRONT_SELECTED",
+                "reason", "RESUME_UNFINISHED_FALLBACK",
+                "direction", fallback.direction()
+            );
+        }
+        return fallback;
     }
 
     private MineSegment chooseFreshBranch(World world, BuildingPlacementRegistry.BuildingInstance mine) {
@@ -345,7 +432,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             addIfValid(world, mine, parent, parent.direction().left(), MineTuning.LEFT_WEIGHT, valid);
             addIfValid(world, mine, parent, parent.direction().right(), MineTuning.RIGHT_WEIGHT, valid);
         }
-        return selectWeighted(valid);
+        return selectWeighted(mine.id(), null, "FRESH_BRANCH", valid);
     }
 
     private MineSegment earliestReopenedCompletedSegment(World world, UUID mineId) {
@@ -406,6 +493,12 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (!safeBlock(world, mine, target)) {
             MineSegment blocked = segment.withStatus(MineSegment.Status.BLOCKED);
             tunnelRegistry.put(world, blocked);
+            decisionSink.record(
+                mine.id(), segment.id(), MineDecisionCategory.PLANNING, "FRONT_ABANDONED",
+                "reason", "UNSAFE_BLOCK",
+                "block", target,
+                "blockIndex", index
+            );
             return null;
         }
 
@@ -467,7 +560,15 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
     private boolean placeSupport(World world, MineSegment segment, int depth) {
         BlockSelection raw = PrefabStore.get().getAssetPrefabFromAnyPack(SUPPORT_PREFAB_KEY);
-        if (raw == null) return false;
+        if (raw == null) {
+            decisionSink.record(
+                segment.mineId(), segment.id(), MineDecisionCategory.ADAPTER, "PREFAB_PLACEMENT_FAILED",
+                "prefab", SUPPORT_PREFAB_KEY,
+                "reason", "ASSET_NOT_FOUND",
+                "depth", depth
+            );
+            return false;
+        }
         BlockSelection selection = new BlockSelection(raw);
         int rotation = supportRotationDegrees(segment.direction());
         if (rotation != 0) selection = selection.rotate(Axis.Y, rotation);
@@ -478,7 +579,16 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             new Vector3i(support.x(), support.y(), support.z()),
             world.getEntityStore().getStore()
         );
-        return MineSupportPhysics.markBeamAsDeco(world, segment, depth);
+        boolean marked = MineSupportPhysics.markBeamAsDeco(world, segment, depth);
+        if (!marked) {
+            decisionSink.record(
+                segment.mineId(), segment.id(), MineDecisionCategory.ADAPTER, "PREFAB_PLACEMENT_FAILED",
+                "prefab", SUPPORT_PREFAB_KEY,
+                "reason", "SUPPORT_BEAM_NOT_CONFIRMED",
+                "depth", depth
+            );
+        }
+        return marked;
     }
 
     private static boolean isExpectedSupportBlock(MineSegment segment, int index, BlockType type) {
@@ -532,7 +642,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         addIfValid(world, mine, parent, parent.direction(), MineTuning.STRAIGHT_WEIGHT, valid);
         addIfValid(world, mine, parent, parent.direction().left(), MineTuning.LEFT_WEIGHT, valid);
         addIfValid(world, mine, parent, parent.direction().right(), MineTuning.RIGHT_WEIGHT, valid);
-        MineSegment next = selectWeighted(valid);
+        MineSegment next = selectWeighted(mine.id(), parent.id(), "CONTINUATION", valid);
         if (next != null) tunnelRegistry.put(world, next);
         return next;
     }
@@ -566,7 +676,16 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 UUID.randomUUID(), mine.id(), parent == null ? null : parent.id(),
                 start, direction, length
             );
-            if (validCandidate(world, mine, candidate, allowOwnMine)) return candidate;
+            CandidateValidation validation = validateCandidate(world, mine, candidate, allowOwnMine);
+            if (validation.valid()) return candidate;
+            decisionSink.record(
+                mine.id(), candidate.id(), MineDecisionCategory.GEOMETRY, "CANDIDATE_REJECTED",
+                "parent", parent == null ? "null" : parent.id(),
+                "direction", direction,
+                "length", length,
+                "reason", validation.reason(),
+                "block", validation.block() == null ? "-" : validation.block()
+            );
         }
         return null;
     }
@@ -578,28 +697,56 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         );
     }
 
-    private static MineSegment selectWeighted(List<WeightedCandidate> valid) {
+    private MineSegment selectWeighted(
+        UUID mineId,
+        UUID frontId,
+        String decision,
+        List<WeightedCandidate> valid
+    ) {
         if (valid.isEmpty()) return null;
         int total = valid.stream().mapToInt(WeightedCandidate::weight).sum();
         int roll = ThreadLocalRandom.current().nextInt(total);
+        int remaining = roll;
+        MineSegment selected = valid.getLast().segment();
+        int selectedWeight = valid.getLast().weight();
         for (WeightedCandidate option : valid) {
-            if (roll < option.weight()) return option.segment();
-            roll -= option.weight();
+            if (remaining < option.weight()) {
+                selected = option.segment();
+                selectedWeight = option.weight();
+                break;
+            }
+            remaining -= option.weight();
         }
-        return valid.getLast().segment();
+        decisionSink.record(
+            mineId, selected.id(), MineDecisionCategory.PLANNING, "DIRECTION_SELECTED",
+            "decision", decision,
+            "parent", selected.parentId() == null ? "null" : selected.parentId(),
+            "direction", selected.direction(),
+            "length", selected.lengthBlocks(),
+            "candidateCount", valid.size(),
+            "weight", selectedWeight,
+            "totalWeight", total,
+            "probability", String.format(Locale.ROOT, "%.3f", selectedWeight / (double) total),
+            "roll", roll
+        );
+        return selected;
     }
 
-    private boolean validCandidate(
+    private CandidateValidation validateCandidate(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
         MineSegment segment,
         boolean allowOwnMine
     ) {
-        if (tunnelRegistry.conflicts(world.getWorldConfig().getUuid(), segment)) return false;
-        for (BlockPosition block : segment.blocks()) {
-            if (!safeBlock(world, mine, block, allowOwnMine)) return false;
+        if (tunnelRegistry.conflicts(world.getWorldConfig().getUuid(), segment)) {
+            return CandidateValidation.rejected("TUNNEL_COLLISION", null);
         }
-        return true;
+        for (BlockPosition block : segment.blocks()) {
+            if (!safeBlock(world, mine, block, allowOwnMine)) {
+                return CandidateValidation.rejected("UNSAFE_WORLD_GEOMETRY", block);
+            }
+        }
+        return CandidateValidation.VALID;
     }
 
     private boolean safeBlock(
@@ -747,15 +894,20 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         return position.distanceSquared(target) <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
     }
 
-    private static void logSegmentTransition(Vector3d position, MineSegment completed, MineSegment next) {
-        System.out.println(
-            "[Civ Mine Debug] segment-transition completed=" + completed.id()
-                + " oldDirection=" + completed.direction()
-                + " oldLength=" + completed.lengthBlocks()
-                + " next=" + (next == null ? "null" : next.id())
-                + " nextDirection=" + (next == null ? "null" : next.direction())
-                + " nextLength=" + (next == null ? "null" : next.lengthBlocks())
-                + " workerPos=" + position
+    private void logSegmentTransition(
+        UUID mineId,
+        Vector3d position,
+        MineSegment completed,
+        MineSegment next
+    ) {
+        decisionSink.record(
+            mineId, completed.id(), MineDecisionCategory.PLANNING, "SEGMENT_COMPLETED",
+            "direction", completed.direction(),
+            "length", completed.lengthBlocks(),
+            "next", next == null ? "null" : next.id(),
+            "nextDirection", next == null ? "null" : next.direction(),
+            "nextLength", next == null ? "null" : next.lengthBlocks(),
+            "workerPos", position
         );
     }
 
@@ -770,6 +922,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     }
 
     private record WeightedCandidate(MineSegment segment, int weight) {
+    }
+
+    private record CandidateValidation(boolean valid, String reason, BlockPosition block) {
+        private static final CandidateValidation VALID = new CandidateValidation(true, "OK", null);
+
+        private static CandidateValidation rejected(String reason, BlockPosition block) {
+            return new CandidateValidation(false, reason, block);
+        }
     }
 
     private static final class WorkerRuntime {
