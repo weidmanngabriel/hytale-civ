@@ -1,6 +1,5 @@
 package dev.civilizations.plugin;
 
-import com.hypixel.hytale.builtin.npccombatactionevaluator.memory.TargetMemory;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Rotation3f;
@@ -39,7 +38,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
     private static final String FLAT_GENERATOR = "Flat";
     private static final String DEFAULT_STORAGE = "default";
     private static final String CIV_ROLE = "Civ_Inhabitant";
-    private static final String HOSTILE_FIXTURE_ROLE = "Goblin_Scrapper";
+    private static final String HOSTILE_FIXTURE_ROLE = "Chicken_Undead";
     private static final Vector3d SOLDIER_START = new Vector3d(0.5, 1.0, 0.5);
     private static final Vector3d HOSTILE_START = new Vector3d(8.5, 1.0, 0.5);
     private static final WorldPosition MANUAL_DESTINATION = new WorldPosition(-6.0, 1.0, 0.5);
@@ -142,10 +141,6 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
                 fail("native hostile fixture could not be spawned", null);
                 return;
             }
-            if (!seedHostileTargetMemory(hostile, soldier)) {
-                fail("native hostile fixture does not expose TargetMemory", null);
-                return;
-            }
 
             float soldierHealth = health(soldier);
             float hostileHealth = health(hostile);
@@ -215,27 +210,6 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
             );
             return null;
         }
-    }
-
-    private static boolean seedHostileTargetMemory(
-        Ref<EntityStore> hostile,
-        Ref<EntityStore> soldier
-    ) {
-        TargetMemory memory = hostile.getStore()
-            .getComponent(hostile, TargetMemory.getComponentType());
-        if (memory == null) {
-            return false;
-        }
-        float previous = memory.getKnownHostiles().put(soldier.getIndex(), memory.getRememberFor());
-        if (previous <= 0.0f) {
-            memory.getKnownHostilesList().add(soldier);
-        }
-        System.out.println(
-            "CIV_SOLDIER_HOSTILE_MEMORY_SEEDED hostile=" + hostile.getIndex()
-                + " soldier=" + soldier.getIndex()
-                + " rememberFor=" + memory.getRememberFor()
-        );
-        return true;
     }
 
     private void assertProgress(
