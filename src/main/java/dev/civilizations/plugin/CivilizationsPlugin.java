@@ -228,6 +228,12 @@ public final class CivilizationsPlugin extends JavaPlugin {
         );
 
         getEventRegistry().registerGlobal(StartWorldEvent.class, event -> {
+            // World startup is authoritative. Clear any stale in-memory site state first so an
+            // empty persisted site list cannot leave old reservations/sites alive in this JVM.
+            constructionRegistry.restoreWorld(
+                event.getWorld().getWorldConfig().getUuid(),
+                java.util.List.of()
+            );
             rtsInteractionController.handleWorldJoin(event.getWorld());
             mineTunnelRegistry.loadWorld(event.getWorld());
         });
