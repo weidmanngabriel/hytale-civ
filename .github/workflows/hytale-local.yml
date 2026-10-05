@@ -269,6 +269,7 @@ jobs:
             -RedirectStandardError $stderrLog `
             -PassThru
 
+          $exitCode = $null
           $finished = $process.WaitForExit($timeoutSeconds * 1000)
           if (-not $finished) {
             Write-Warning "Hytale runtime exceeded its $timeoutSeconds second budget; terminating process tree."
@@ -276,6 +277,8 @@ jobs:
             $process.WaitForExit(10000) | Out-Null
           } else {
             $process.WaitForExit()
+            $process.Refresh()
+            $exitCode = $process.ExitCode
           }
 
           $stdout = if (Test-Path -LiteralPath $stdoutLog) { Get-Content -LiteralPath $stdoutLog -Raw } else { '' }
@@ -289,6 +292,9 @@ jobs:
           if (-not $finished) {
             throw "Hytale runtime scenarios exceeded the $timeoutSeconds second time budget."
           }
-          if ($process.ExitCode -ne 0) {
-            throw "Hytale runtime scenarios exited with code $($process.ExitCode)."
+          if ($null -eq $exitCode) {
+            throw 'Hytale runtime scenarios completed but their process exit code was unavailable.'
+          }
+          if ($exitCode -ne 0) {
+            throw "Hytale runtime scenarios exited with code $exitCode."
           }
