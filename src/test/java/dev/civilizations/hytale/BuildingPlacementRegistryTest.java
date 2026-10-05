@@ -1,6 +1,7 @@
 package dev.civilizations.hytale;
 
 import dev.civilizations.core.BlockPosition;
+import dev.civilizations.core.BuildingBounds;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -44,4 +45,28 @@ final class BuildingPlacementRegistryTest {
         assertFalse(registry.overlaps(worldId, footprint));
         assertTrue(registry.buildings(worldId).isEmpty());
     }
+    @Test
+    void demolitionCleanupReleasesOnlyOrphanedOverlappingReservations() {
+        BuildingPlacementRegistry registry = new BuildingPlacementRegistry();
+        UUID worldId = UUID.randomUUID();
+        UUID orphanId = UUID.randomUUID();
+        UUID liveId = UUID.randomUUID();
+        UUID farId = UUID.randomUUID();
+        registry.reserve(worldId, orphanId, new PrefabPlacementService.PlacementFootprint(10, 10, 12, 12, 64));
+        registry.reserve(worldId, liveId, new PrefabPlacementService.PlacementFootprint(11, 11, 13, 13, 64));
+        registry.reserve(worldId, farId, new PrefabPlacementService.PlacementFootprint(30, 30, 32, 32, 64));
+
+        List<UUID> removed = registry.releaseOrphanedReservationsOverlapping(
+            worldId,
+            new BuildingBounds(9, 60, 9, 14, 70, 14),
+            java.util.Set.of(liveId)
+        );
+
+        assertTrue(removed.contains(orphanId));
+        assertFalse(removed.contains(liveId));
+        assertFalse(registry.isProtected(worldId, new BlockPosition(10, 64, 10)));
+        assertTrue(registry.isProtected(worldId, new BlockPosition(12, 64, 12)));
+        assertTrue(registry.isProtected(worldId, new BlockPosition(31, 64, 31)));
+    }
+
 }

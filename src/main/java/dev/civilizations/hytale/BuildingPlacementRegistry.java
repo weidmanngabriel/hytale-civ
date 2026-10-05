@@ -91,6 +91,34 @@ public final class BuildingPlacementRegistry {
         }
     }
 
+    /**
+     * Removes only orphaned reservations overlapping a demolished building. Live construction
+     * sites are preserved so demolition cannot accidentally unlock unrelated active work.
+     */
+    public synchronized List<UUID> releaseOrphanedReservationsOverlapping(
+        UUID worldId,
+        BuildingBounds bounds,
+        Set<UUID> liveSiteIds
+    ) {
+        if (worldId == null || bounds == null) return List.of();
+        Map<UUID, PrefabPlacementService.PlacementFootprint> worldReservations =
+            reservations.get(worldId);
+        if (worldReservations == null || worldReservations.isEmpty()) return List.of();
+        Set<UUID> live = liveSiteIds == null ? Set.of() : liveSiteIds;
+        List<UUID> removed = new ArrayList<>();
+        worldReservations.entrySet().removeIf(entry -> {
+            if (live.contains(entry.getKey())) return false;
+            PrefabPlacementService.PlacementFootprint footprint = entry.getValue();
+            boolean overlaps = footprint != null && bounds.overlapsHorizontal(
+                footprint.minX(), footprint.minZ(), footprint.maxX() + 1.0, footprint.maxZ() + 1.0
+            );
+            if (overlaps) removed.add(entry.getKey());
+            return overlaps;
+        });
+        if (worldReservations.isEmpty()) reservations.remove(worldId, worldReservations);
+        return List.copyOf(removed);
+    }
+
     public synchronized boolean beginUpgrade(UUID worldId, UUID buildingId) {
         if (findStored(worldId, buildingId) == null || isUpgrading(worldId, buildingId)) {
             return false;
