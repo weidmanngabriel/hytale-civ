@@ -8,7 +8,7 @@ import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.query.Query;
-import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
+import com.hypixel.hytale.component.system.tick.DelayedEntitySystem;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.protocol.AnimationSlot;
 import com.hypixel.hytale.protocol.BlockMaterial;
@@ -45,9 +45,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Executes headless woodcutter intents against Hytale's world, navigation and native harvesting.
+ * Hytale navigation keeps moving between Civ work sessions; expensive validation/search work is
+ * intentionally bounded to delayed sessions rather than every engine tick.
  */
-public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore> {
+public final class WoodcutterWorkSystem extends DelayedEntitySystem<EntityStore> {
 
+    private static final float TICK_INTERVAL_SECONDS = 0.50f;
     private static final String WOOD_GATHER_TYPE = "Woods";
     private static final String CIV_TYPE_TAG = "civ.type";
     private static final String BUILDING_BOUNDS_TAG = "building_bounds";
@@ -84,6 +87,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
         WoodcutterScanDiagnostics scanDiagnostics,
         BuildingPlacementRegistry buildingRegistry
     ) {
+        super(TICK_INTERVAL_SECONDS);
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
         this.scanDiagnostics = scanDiagnostics;
@@ -778,6 +782,7 @@ public final class WoodcutterWorkSystem extends EntityTickingSystem<EntityStore>
             }
             counts.merge(id, 1, Integer::sum);
         }
+
         return counts.entrySet().stream()
             .max(Map.Entry.<Integer, Integer>comparingByValue()
                 .thenComparing(Map.Entry.comparingByKey()))
