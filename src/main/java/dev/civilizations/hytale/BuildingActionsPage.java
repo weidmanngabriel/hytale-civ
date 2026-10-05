@@ -95,6 +95,7 @@ public final class BuildingActionsPage extends InteractiveCustomUIPage<BuildingA
             }
         }
 
+        commands.set("#UpgradeRequirements.Visible", upgrading || nextPhase > 0);
         commands.set("#UpgradeStatus.Visible", upgrading);
         commands.set("#UpgradeButton.Visible", !upgrading && nextPhase > 0);
         if (nextPhase > 0) {
