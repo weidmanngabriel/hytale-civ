@@ -285,8 +285,15 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
             return;
         }
 
+        BuildingPlacementRegistry.BuildingInstance previousPhase = site.isUpgrade()
+            ? buildingRegistry.findIncludingUpgrading(site.worldId(), site.upgradeBuildingId())
+            : null;
         PrefabPlacementService.PlacedPrefab placed =
             placementService.completeConstruction(owner, world, site);
+        if (previousPhase != null) {
+            placementService.removeSemanticVolumes(world, previousPhase);
+            placementService.removePrefabEntities(world, previousPhase);
+        }
 
         PrefabPlacementService.PlacedMarker boundsMarker = placed.markers().stream()
             .filter(marker -> marker.hasTag(TYPE_TAG, BUILDING_BOUNDS))
@@ -316,7 +323,9 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                 buildingType,
                 boundsMarker,
                 semanticVolumes,
-                site.candidate()
+                site.candidate(),
+                site.candidate().orientation(),
+                placed.prefabEntityIds()
             );
             buildingPersistence.save(
                 world,
