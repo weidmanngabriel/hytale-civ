@@ -37,6 +37,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+/** Main RTS input adapter. Clicks select Civ targets; a second left click opens their detail UI. */
 public final class RtsInteractionController {
 
     private static final String TYPE_TAG = "civ.type";
@@ -51,6 +52,12 @@ public final class RtsInteractionController {
     private final PrefabPlacementService placementService;
     private final CivBuildingPersistenceService buildingPersistence;
     private final MineTunnelRegistry mineTunnelRegistry;
+    private final ConstructionSiteRegistry constructionRegistry;
+    private final CivConstructionPersistenceService constructionPersistence;
+    private final CivSelectedNpcHudController npcHudController;
+    private final CivSelectedBuildingHudController buildingHudController;
+    private final CivBoundaryDisplayService boundaryDisplay;
+    private final CivPlacementFootprintProbe footprintProbe = new CivPlacementFootprintProbe();
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
     private final Set<UUID> claimArmed = ConcurrentHashMap.newKeySet();
 
@@ -63,7 +70,12 @@ public final class RtsInteractionController {
         BuildingPlacementRegistry placementRegistry,
         PrefabPlacementService placementService,
         CivBuildingPersistenceService buildingPersistence,
-        MineTunnelRegistry mineTunnelRegistry
+        MineTunnelRegistry mineTunnelRegistry,
+        ConstructionSiteRegistry constructionRegistry,
+        CivConstructionPersistenceService constructionPersistence,
+        CivSelectedNpcHudController npcHudController,
+        CivSelectedBuildingHudController buildingHudController,
+        CivBoundaryDisplayService boundaryDisplay
     ) {
         this.cameraController = cameraController;
         this.unitRegistry = unitRegistry;
@@ -74,6 +86,11 @@ public final class RtsInteractionController {
         this.placementService = placementService;
         this.buildingPersistence = buildingPersistence;
         this.mineTunnelRegistry = mineTunnelRegistry;
+        this.constructionRegistry = constructionRegistry;
+        this.constructionPersistence = constructionPersistence;
+        this.npcHudController = npcHudController;
+        this.buildingHudController = buildingHudController;
+        this.boundaryDisplay = boundaryDisplay;
     }
 
     public boolean toggle(PlayerRef playerRef) {
@@ -81,6 +98,7 @@ public final class RtsInteractionController {
         Session active = sessions.get(playerId);
         if (active != null) {
             clearPlacement(playerRef, active);
+            clearSelection(playerRef, active);
             cameraController.disable(playerRef);
             sessions.remove(playerId, active);
             playerRef.sendMessage(Message.raw("Civ RTS test disabled."));
@@ -88,6 +106,7 @@ public final class RtsInteractionController {
         }
         sessions.put(playerId, new Session());
         cameraController.enable(playerRef);
+        npcHudController.setRtsActive(playerRef, true);
         playerRef.sendMessage(Message.raw(
             "Civ RTS test enabled. /civbuild öffnet das Baumenü; /civwiki öffnet die Civ-Hilfe."
         ));
@@ -96,9 +115,7 @@ public final class RtsInteractionController {
 
     public void armClaim(PlayerRef playerRef) {
         claimArmed.add(playerRef.getUuid());
-        playerRef.sendMessage(Message.raw(
-            "Civ claim armed. Left click an NPC in First Person or RTS mode."
-        ));
+        playerRef.sendMessage(Message.raw("Civ claim armed. Left click an NPC in First Person or RTS mode."));
     }
 
     public void armFarmPlacement(PlayerRef playerRef) {
@@ -113,16 +130,8 @@ public final class RtsInteractionController {
     public void handleMouseButton(PlayerMouseButtonEvent event) {
         PlayerRef playerRef = event.getPlayerRefComponent();
         if (event.getMouseButton().state != MouseButtonState.Pressed) return;
-
-        Session session = sessions.get(playerRef.getUuid());
         MouseButtonType button = event.getMouseButton().mouseButtonType;
-        if (session == null && button == MouseButtonType.Right) {
-            Ref<EntityStore> target = event.getTargetEntityRef();
-            playerRef.sendMessage(Message.raw(
-                "[Civ debug] FP right-click event received; target="
-                    + (target == null ? "none" : (target.isValid() ? "valid" : "invalid"))
-            ));
-        }
+        Session session = sessions.get(playerRef.getUuid());
 
         if (button == MouseButtonType.Left
             && claimArmed.contains(playerRef.getUuid())
@@ -134,49 +143,148 @@ public final class RtsInteractionController {
         }
         if (session == null) return;
 
-        if (button == MouseButtonType.Left) {
-            if (session.placementDefinition != null) {
+        if (session.placementDefinition != null) {
+            if (button == MouseButtonType.Left) {
                 confirmPlacement(playerRef, session, event.getTargetBlock());
-            } else {
-                handleSelection(event, playerRef, session);
+            } else if (button == MouseButtonType.Right) {
+                String name = session.placementDefinition.displayName();
+                clearPlacement(playerRef, session);
+                playerRef.sendMessage(Message.raw(name + "-Platzierung abgebrochen."));
             }
             event.setCancelled(true);
             return;
         }
 
-        if (button == MouseButtonType.Right) {
-            if (session.placementDefinition != null) {
-                String name = session.placementDefinition.displayName();
-                clearPlacement(playerRef, session);
-                playerRef.sendMessage(Message.raw(name + "-Platzierung abgebrochen."));
+        Ref<EntityStore> targetEntity = event.getTargetEntityRef();
+        if (targetEntity != null && targetEntity.isValid() && unitRegistry.isClaimed(targetEntity)) {
+            if (sameNpc(session, targetEntity)) {
+                if (button == MouseButtonType.Left) openPersonActions(event, playerRef, targetEntity);
             } else {
-                handleRightClick(event, playerRef, session);
+                selectNpc(playerRef, session, targetEntity);
             }
+            event.setCancelled(true);
+            return;
+        }
+
+        Vector3i targetBlock = event.getTargetBlock();
+        UUID worldId = playerRef.getWorldUuid();
+        if (targetBlock != null && worldId != null) {
+            ConstructionSiteRegistry.SiteState siteState = constructionRegistry.findAt(worldId, targetBlock);
+            if (siteState != null) {
+                UUID siteId = siteState.site().id();
+                if (siteId.equals(session.selectedSiteId)) {
+                    if (button == MouseButtonType.Left) openConstructionDetails(event, playerRef, siteState);
+                } else {
+                    selectSite(playerRef, session, siteState);
+                }
+                event.setCancelled(true);
+                return;
+            }
+
+            BuildingPlacementRegistry.BuildingInstance building = placementRegistry.findAt(worldId, targetBlock);
+            if (building != null) {
+                if (building.id().equals(session.selectedBuildingId)) {
+                    if (button == MouseButtonType.Left) {
+                        openBuildingActions(event, playerRef, session, building);
+                    } else if (button == MouseButtonType.Right) {
+                        handleBuildingContextRightClick(playerRef, session, building);
+                    }
+                } else {
+                    selectBuilding(playerRef, session, building);
+                }
+                event.setCancelled(true);
+                return;
+            }
+        }
+
+        if (button == MouseButtonType.Right && session.commandNpc != null && targetBlock != null) {
+            removeInvalidCommandNpc(session);
+            if (session.commandNpc != null) {
+                boolean accepted = activityRegistry.orderManualMove(
+                    session.commandNpc,
+                    new WorldPosition(targetBlock.x + 0.5, targetBlock.y + 1.0, targetBlock.z + 0.5)
+                );
+                playerRef.sendMessage(Message.raw(
+                    "Bewegungsbefehl " + targetBlock.x + ", " + targetBlock.y + ", " + targetBlock.z
+                        + " an " + (accepted ? 1 : 0) + " Civ-Bewohner."
+                ));
+                event.setCancelled(true);
+                return;
+            }
+        }
+
+        if (button == MouseButtonType.Left) {
+            clearSelection(playerRef, session);
             event.setCancelled(true);
         }
     }
 
     public void handleMouseMotion(PlayerMouseMotionEvent event) {
-        // Native Builder Paste owns the construction ghost.
+        PlayerRef playerRef = event.getPlayer() == null ? null : event.getPlayer().getPlayerRef();
+        if (playerRef == null) return;
+        Session session = sessions.get(playerRef.getUuid());
+        if (session == null || session.placementDefinition == null) return;
+        Vector3i target = event.getTargetBlock();
+        if (target == null) {
+            if (session.collisionBoundaryVisible) boundaryDisplay.clear(playerRef);
+            session.collisionBoundaryVisible = false;
+            session.previewTarget = null;
+            return;
+        }
+        if (session.previewTarget != null && session.previewTarget.equals(target)) return;
+        session.previewTarget = new Vector3i(target);
+        updatePlacementBoundaries(playerRef, session, target);
+    }
+
+    private void updatePlacementBoundaries(PlayerRef playerRef, Session session, Vector3i target) {
+        UUID worldId = playerRef.getWorldUuid();
+        if (worldId == null || session.placementDefinition == null) return;
+        PrefabPlacementService.PlacementFootprint footprint;
+        try {
+            footprint = footprintProbe.footprint(target, session.placementDefinition);
+        } catch (RuntimeException exception) {
+            boundaryDisplay.clear(playerRef);
+            session.collisionBoundaryVisible = false;
+            return;
+        }
+        List<BuildingBounds> buildings = placementRegistry.buildings(worldId).stream()
+            .map(BuildingPlacementRegistry.BuildingInstance::bounds)
+            .filter(bounds -> bounds.overlapsHorizontal(
+                footprint.minX(), footprint.minZ(), footprint.maxX() + 1.0, footprint.maxZ() + 1.0
+            ))
+            .toList();
+        List<PrefabPlacementService.PlacementFootprint> sites = constructionRegistry
+            .overlapping(worldId, footprint, null).stream()
+            .map(state -> state.site().candidate().footprint())
+            .toList();
+        if (buildings.isEmpty() && sites.isEmpty()) {
+            if (session.collisionBoundaryVisible) boundaryDisplay.clear(playerRef);
+            session.collisionBoundaryVisible = false;
+            return;
+        }
+        boundaryDisplay.showPlacementCollision(playerRef, footprint, buildings, sites);
+        session.collisionBoundaryVisible = true;
     }
 
     public void handleDisconnect(PlayerDisconnectEvent event) {
         PlayerRef playerRef = event.getPlayerRef();
         Session session = sessions.remove(playerRef.getUuid());
         claimArmed.remove(playerRef.getUuid());
-        if (session != null) clearPlacement(playerRef, session);
-        releaseConstructionReservations(playerRef);
-        placementService.cancelConstructionSites(playerRef);
+        if (session != null) {
+            clearPlacement(playerRef, session);
+            clearSelection(playerRef, session);
+        }
+        // Confirmed ConstructionSites are world state. Disconnect deliberately does not release them.
     }
 
     public void cancelConstructionSites(PlayerRef playerRef) {
-        releaseConstructionReservations(playerRef);
-        int removed = placementService.cancelConstructionSites(playerRef);
-        playerRef.sendMessage(Message.raw(
-            removed == 0
-                ? "Keine Civ-Baustellenvorschau zum Entfernen."
-                : removed + " Civ-Baustellenvorschau(en) entfernt."
-        ));
+        Session session = sessions.get(playerRef.getUuid());
+        if (session != null && session.placementDefinition != null) {
+            clearPlacement(playerRef, session);
+            playerRef.sendMessage(Message.raw("Aktuelle Civ-Bauplatzierung abgebrochen."));
+        } else {
+            playerRef.sendMessage(Message.raw("Keine aktive Civ-Bauplatzierung."));
+        }
     }
 
     public void openBuildingMenu(
@@ -188,8 +296,8 @@ public final class RtsInteractionController {
         if (session == null || playerEntityRef == null || !playerEntityRef.isValid()) return;
         Player player = store.getComponent(playerEntityRef, Player.getComponentType());
         if (player == null) return;
-
         clearPlacement(playerRef, session);
+        clearSelection(playerRef, session);
         player.getPageManager().openCustomPage(
             playerEntityRef,
             store,
@@ -223,6 +331,7 @@ public final class RtsInteractionController {
         PrefabPlacementService.PlacementDefinition definition
     ) {
         clearPlacement(playerRef, session);
+        clearSelection(playerRef, session);
         try {
             if (!placementService.startNativeConstructionGhost(playerRef, definition)) {
                 playerRef.sendMessage(Message.raw(
@@ -253,25 +362,28 @@ public final class RtsInteractionController {
             playerRef.sendMessage(Message.raw("Could not resolve your current world."));
             return;
         }
-
         PrefabPlacementService.PlacementDefinition definition = session.placementDefinition;
         try {
-            PrefabPlacementService.PlacementCandidate candidate =
-                validatePlacement(worldId, world, targetBlock, definition);
+            PrefabPlacementService.PlacementCandidate candidate = validatePlacement(
+                worldId, world, targetBlock, definition
+            );
             if (!candidate.valid()) {
                 playerRef.sendMessage(Message.raw(
                     definition.displayName() + " kann hier nicht gebaut werden: " + candidate.invalidReason()
                 ));
-                session.previewTarget = new Vector3i(targetBlock);
-                session.previewCandidate = candidate;
+                updatePlacementBoundaries(playerRef, session, targetBlock);
                 return;
             }
             PrefabPlacementService.ConstructionSite site =
                 placementService.createConstructionSiteAtClick(playerRef, candidate);
             placementRegistry.reserve(worldId, site.id(), candidate.footprint());
+            constructionRegistry.register(site);
+            constructionPersistence.saveSites(world, constructionRegistry.states());
             session.placementDefinition = null;
             session.previewTarget = null;
             session.previewCandidate = null;
+            session.collisionBoundaryVisible = false;
+            boundaryDisplay.clear(playerRef);
             playerRef.sendMessage(Message.raw(definition.displayName() + " als Baustelle gesetzt."));
         } catch (RuntimeException exception) {
             playerRef.sendMessage(Message.raw(
@@ -314,7 +426,6 @@ public final class RtsInteractionController {
             playerRef.sendMessage(Message.raw("Target is not an NPCEntity and cannot be claimed."));
             return;
         }
-
         CivUnitRegistry.UnitKey key = unitRegistry.keyOf(target);
         CivUnitRegistry.ClaimResult bufferedResult = commandBuffer == null
             ? null : unitRegistry.toggleClaimBuffered(target, commandBuffer);
@@ -323,14 +434,15 @@ public final class RtsInteractionController {
         if (!claimed) {
             activityRegistry.forget(target);
             farmRegistry.unassignFarmer(target);
-            sessions.values().forEach(otherSession -> {
-                if (otherSession.selected != null
-                    && unitRegistry.keyOf(otherSession.selected).equals(key)) {
-                    otherSession.selected = null;
+            sessions.values().forEach(session -> {
+                if (session.selectedNpc != null && unitRegistry.keyOf(session.selectedNpc).equals(key)) {
+                    session.selectedNpc = null;
+                }
+                if (session.commandNpc != null && unitRegistry.keyOf(session.commandNpc).equals(key)) {
+                    session.commandNpc = null;
                 }
             });
         }
-
         if (claimed) {
             CivInhabitantData data = bufferedResult == null
                 ? unitRegistry.getInhabitantData(target) : bufferedResult.inhabitantData();
@@ -341,74 +453,56 @@ public final class RtsInteractionController {
         }
     }
 
-    private void handleSelection(
-        PlayerMouseButtonEvent event,
-        PlayerRef playerRef,
-        Session session
-    ) {
-        Ref<EntityStore> target = event.getTargetEntityRef();
-        if (target == null) {
-            session.selected = null;
-            playerRef.sendMessage(Message.raw("Selection cleared."));
-            return;
-        }
-        if (!unitRegistry.isClaimed(target)) {
-            playerRef.sendMessage(Message.raw("That entity is not a Civ unit. Use /civclaim first."));
-            return;
-        }
-        session.selected = target;
-        playerRef.sendMessage(Message.raw(
-            "Civ-Bewohner ausgewählt. Rechtsklick auf ihn öffnet die Aktionen."
-        ));
+    private void selectNpc(PlayerRef playerRef, Session session, Ref<EntityStore> target) {
+        session.selectedNpc = target;
+        session.commandNpc = target;
+        session.selectedBuildingId = null;
+        session.selectedSiteId = null;
+        buildingHudController.clear(playerRef);
+        boundaryDisplay.clear(playerRef);
+        npcHudController.select(playerRef, target);
     }
 
-    private void handleRightClick(
-        PlayerMouseButtonEvent event,
+    private void selectBuilding(
         PlayerRef playerRef,
-        Session session
+        Session session,
+        BuildingPlacementRegistry.BuildingInstance building
     ) {
-        removeInvalidSelection(session);
-        Ref<EntityStore> targetEntity = event.getTargetEntityRef();
-        if (targetEntity != null && isSelected(session, targetEntity)) {
-            openPersonActions(event, playerRef, session.selected);
-            return;
-        }
+        session.selectedNpc = null;
+        session.selectedSiteId = null;
+        session.selectedBuildingId = building.id();
+        npcHudController.clear(playerRef);
+        buildingHudController.selectBuilding(playerRef, building.worldId(), building.id());
+        boundaryDisplay.showBuilding(playerRef, building.bounds(), buildingDisplayName(building));
+    }
 
-        Vector3i targetBlock = event.getTargetBlock();
-        if (targetBlock == null) {
-            playerRef.sendMessage(Message.raw("Kein Bodenziel unter dem Cursor."));
-            return;
-        }
+    private void selectSite(
+        PlayerRef playerRef,
+        Session session,
+        ConstructionSiteRegistry.SiteState state
+    ) {
+        PrefabPlacementService.ConstructionSite site = state.site();
+        session.selectedNpc = null;
+        session.selectedBuildingId = null;
+        session.selectedSiteId = site.id();
+        npcHudController.clear(playerRef);
+        buildingHudController.selectSite(playerRef, site.worldId(), site.id());
+        boundaryDisplay.showSite(playerRef, site.candidate().footprint(), site.definition().displayName());
+    }
 
-        UUID worldId = playerRef.getWorldUuid();
-        BuildingPlacementRegistry.BuildingInstance building = placementRegistry.findAt(worldId, targetBlock);
-        if (building != null) {
-            FarmBuildingRegistry.FarmSite farm =
-                farmRegistry.findByBuildingInstance(worldId, building.id());
-            if (session.selected != null && farm != null) {
-                assignSelectedFarmer(playerRef, session, farm);
-            } else if (session.selected != null
-                && "mine".equals(building.buildingType())
-                && unitRegistry.getProfession(session.selected) == Profession.MINER) {
-                assignSelectedMiner(playerRef, session, building);
-            } else {
-                openBuildingActions(event, playerRef, session, building);
-            }
-            return;
-        }
+    private void clearSelection(PlayerRef playerRef, Session session) {
+        session.selectedNpc = null;
+        session.commandNpc = null;
+        session.selectedBuildingId = null;
+        session.selectedSiteId = null;
+        npcHudController.clear(playerRef);
+        buildingHudController.clear(playerRef);
+        boundaryDisplay.clear(playerRef);
+    }
 
-        if (session.selected == null) {
-            playerRef.sendMessage(Message.raw("Wähle zuerst einen Civ-Bewohner aus."));
-            return;
-        }
-        boolean accepted = activityRegistry.orderManualMove(
-            session.selected,
-            new WorldPosition(targetBlock.x + 0.5, targetBlock.y + 1.0, targetBlock.z + 0.5)
-        );
-        playerRef.sendMessage(Message.raw(
-            "Bewegungsbefehl " + targetBlock.x + ", " + targetBlock.y + ", " + targetBlock.z
-                + " an " + (accepted ? 1 : 0) + " Civ-Bewohner."
-        ));
+    private boolean sameNpc(Session session, Ref<EntityStore> target) {
+        return session.selectedNpc != null && session.selectedNpc.isValid()
+            && unitRegistry.keyOf(session.selectedNpc).equals(unitRegistry.keyOf(target));
     }
 
     private void openBuildingActions(
@@ -449,6 +543,48 @@ public final class RtsInteractionController {
         );
     }
 
+    private void openConstructionDetails(
+        PlayerMouseButtonEvent event,
+        PlayerRef playerRef,
+        ConstructionSiteRegistry.SiteState state
+    ) {
+        PrefabPlacementService.ConstructionSite site = state.site();
+        int total = placementService.constructionLayerCount(site);
+        int phase = site.isUpgrade()
+            ? site.targetPhase()
+            : PrefabPlacementService.phaseForDefinition(site.definition());
+        BuildingInfoSnapshot snapshot = new BuildingInfoSnapshot(
+            site.definition().displayName(),
+            "Phase " + phase,
+            "Im Bau",
+            state.completedLayers() + "/" + total + " Bauabschnitte",
+            "Bauarbeiter automatisch"
+        );
+        Ref<EntityStore> playerEntityRef = event.getPlayerRef();
+        event.getPlayer().getPageManager().openCustomPage(
+            playerEntityRef,
+            playerEntityRef.getStore(),
+            new ConstructionDetailsPage(playerRef, snapshot)
+        );
+    }
+
+    private void handleBuildingContextRightClick(
+        PlayerRef playerRef,
+        Session session,
+        BuildingPlacementRegistry.BuildingInstance building
+    ) {
+        removeInvalidCommandNpc(session);
+        if (session.commandNpc == null) return;
+        FarmBuildingRegistry.FarmSite farm =
+            farmRegistry.findByBuildingInstance(building.worldId(), building.id());
+        if (farm != null) {
+            assignSelectedFarmer(playerRef, session, farm);
+        } else if ("mine".equals(building.buildingType())
+            && unitRegistry.getProfession(session.commandNpc) == Profession.MINER) {
+            assignSelectedMiner(playerRef, session, building);
+        }
+    }
+
     private void selectWorkerFromBuilding(
         PlayerRef playerRef,
         Session session,
@@ -458,12 +594,10 @@ public final class RtsInteractionController {
             playerRef.sendMessage(Message.raw("Der Arbeiter ist nicht mehr verfügbar."));
             return;
         }
-        session.selected = worker;
+        selectNpc(playerRef, session, worker);
         CivInhabitantData data = unitRegistry.getInhabitantData(worker);
         String name = data == null || !data.hasIdentity() ? "Civ-Bewohner" : data.fullName();
-        playerRef.sendMessage(Message.raw(
-            name + " ausgewählt. Rechtsklick auf den Boden gibt einen manuellen Bewegungsbefehl."
-        ));
+        playerRef.sendMessage(Message.raw(name + " ausgewählt."));
     }
 
     private void upgradeBuilding(PlayerRef playerRef, UUID buildingId, int targetPhase) {
@@ -492,6 +626,8 @@ public final class RtsInteractionController {
         try {
             site = placementService.createUpgradeConstructionSite(playerRef, world, building, targetPhase);
             placementRegistry.reserve(worldId, site.id(), site.candidate().footprint());
+            constructionRegistry.register(site);
+            constructionPersistence.saveSites(world, constructionRegistry.states());
             int evacuated = evacuateMineWorkers(world, building, site.candidate().footprint());
             playerRef.sendMessage(Message.raw(
                 "Mine wird auf Phase " + targetPhase + " erweitert. " + evacuated
@@ -499,13 +635,13 @@ public final class RtsInteractionController {
             ));
         } catch (RuntimeException exception) {
             if (site != null) {
+                constructionRegistry.remove(site.id());
                 placementRegistry.release(worldId, site.id());
                 placementService.removeConstructionSite(site);
+                constructionPersistence.saveSites(world, constructionRegistry.states());
             }
             placementRegistry.cancelUpgrade(worldId, buildingId);
-            playerRef.sendMessage(Message.raw(
-                "Ausbau konnte nicht gestartet werden: " + exception.getMessage()
-            ));
+            playerRef.sendMessage(Message.raw("Ausbau konnte nicht gestartet werden: " + exception.getMessage()));
         }
     }
 
@@ -515,21 +651,28 @@ public final class RtsInteractionController {
         PrefabPlacementService.PlacementFootprint targetFootprint
     ) {
         List<Ref<EntityStore>> workers = unitRegistry.workersAt(building.id());
-        Vector3d baseTarget = safePointOutsideMine(world, building, targetFootprint);
+        EvacuationPlan plan = safeEvacuationPlan(world, building, targetFootprint);
+        double sideX = -plan.outwardZ();
+        double sideZ = plan.outwardX();
         int evacuated = 0;
         for (int index = 0; index < workers.size(); index++) {
             Ref<EntityStore> worker = workers.get(index);
             if (worker == null || !worker.isValid()) continue;
             Store<EntityStore> store = worker.getStore();
-            TransformComponent transform = store.getComponent(
-                worker, TransformComponent.getComponentType()
-            );
+            TransformComponent transform = store.getComponent(worker, TransformComponent.getComponentType());
             if (transform == null) continue;
-
             activityRegistry.cancelManualMove(worker);
             unitRegistry.cancelMoveTarget(worker);
             double sideOffset = (index - (workers.size() - 1) * 0.5) * 1.25;
-            Vector3d target = new Vector3d(baseTarget.x + sideOffset, baseTarget.y, baseTarget.z);
+            Vector3d target = new Vector3d(
+                plan.point().x + sideX * sideOffset,
+                plan.point().y,
+                plan.point().z + sideZ * sideOffset
+            );
+            for (int push = 0; push < 12 && !outsideFootprint(targetFootprint, target.x, target.z); push++) {
+                target.x += plan.outwardX() * 0.75;
+                target.z += plan.outwardZ() * 0.75;
+            }
             store.putComponent(
                 worker,
                 Teleport.getComponentType(),
@@ -540,7 +683,7 @@ public final class RtsInteractionController {
         return evacuated;
     }
 
-    private static Vector3d safePointOutsideMine(
+    private static EvacuationPlan safeEvacuationPlan(
         World world,
         BuildingPlacementRegistry.BuildingInstance building,
         PrefabPlacementService.PlacementFootprint targetFootprint
@@ -548,8 +691,7 @@ public final class RtsInteractionController {
         PrefabPlacementService.PlacedMarker entrance = building.semanticVolumes().stream()
             .filter(volume -> volume.hasTag(TYPE_TAG, "workplace_access"))
             .filter(volume -> volume.hasTag(BUILDING_TAG, "mine"))
-            .findFirst()
-            .orElse(null);
+            .findFirst().orElse(null);
         entrance = hydrateMarkerBounds(world, entrance);
         if (entrance != null && entrance.bounds() != null) {
             BuildingBounds bounds = entrance.bounds();
@@ -565,21 +707,24 @@ public final class RtsInteractionController {
                 dz = -1.0;
                 length = 1.0;
             }
-            double stepX = dx / length;
-            double stepZ = dz / length;
+            double outwardX = dx / length;
+            double outwardZ = dz / length;
             for (int step = 0; step < 64; step++) {
-                x += stepX;
-                z += stepZ;
+                x += outwardX;
+                z += outwardZ;
                 if (outsideFootprint(targetFootprint, x, z)) {
-                    return new Vector3d(
-                        x + stepX * 1.5,
-                        bounds.minY(),
-                        z + stepZ * 1.5
+                    return new EvacuationPlan(
+                        new Vector3d(
+                            x + outwardX * 1.5,
+                            bounds.minY(),
+                            z + outwardZ * 1.5
+                        ),
+                        outwardX,
+                        outwardZ
                     );
                 }
             }
         }
-
         int floorY = targetFootprint == null
             ? (int) Math.floor(building.bounds().minY())
             : targetFootprint.floorY() + 1;
@@ -589,7 +734,7 @@ public final class RtsInteractionController {
         double outsideZ = targetFootprint == null
             ? building.bounds().minZ() - 2.0
             : targetFootprint.minZ() - 2.0;
-        return new Vector3d(centerX, floorY, outsideZ);
+        return new EvacuationPlan(new Vector3d(centerX, floorY, outsideZ), 0.0, -1.0);
     }
 
     private static boolean outsideFootprint(
@@ -598,10 +743,8 @@ public final class RtsInteractionController {
         double z
     ) {
         return footprint == null
-            || x < footprint.minX()
-            || x >= footprint.maxX() + 1.0
-            || z < footprint.minZ()
-            || z >= footprint.maxZ() + 1.0;
+            || x < footprint.minX() || x >= footprint.maxX() + 1.0
+            || z < footprint.minZ() || z >= footprint.maxZ() + 1.0;
     }
 
     private void demolishBuilding(PlayerRef playerRef, UUID buildingId) {
@@ -622,15 +765,14 @@ public final class RtsInteractionController {
             ));
             return;
         }
-
         unitRegistry.workersAt(buildingId).forEach(unitRegistry::clearWorkplace);
-        if ("mine".equals(building.buildingType())) {
-            mineTunnelRegistry.removeMine(world, buildingId);
-        }
+        if ("mine".equals(building.buildingType())) mineTunnelRegistry.removeMine(world, buildingId);
         farmRegistry.removeByBuildingInstance(worldId, buildingId);
         fieldRegistry.removeByBuildingInstance(worldId, buildingId);
         placementRegistry.remove(worldId, buildingId);
         buildingPersistence.save(world, placementRegistry.buildings(worldId));
+        Session session = sessions.get(playerRef.getUuid());
+        if (session != null && buildingId.equals(session.selectedBuildingId)) clearSelection(playerRef, session);
         playerRef.sendMessage(Message.raw(
             buildingDisplayName(building) + " abgerissen. Der ursprüngliche Boden wurde wiederhergestellt."
         ));
@@ -641,6 +783,21 @@ public final class RtsInteractionController {
         UUID worldId = world.getWorldConfig().getUuid();
         List<BuildingPlacementRegistry.BuildingInstance> restored = buildingPersistence.load(world);
         placementRegistry.restoreWorld(worldId, restored);
+
+        List<ConstructionSiteRegistry.PersistedSite> restoredSites = constructionPersistence.load(world);
+        constructionRegistry.restore(restoredSites);
+        for (ConstructionSiteRegistry.SiteState state : constructionRegistry.states()) {
+            PrefabPlacementService.ConstructionSite site = state.site();
+            if (!worldId.equals(site.worldId())) continue;
+            placementRegistry.reserve(worldId, site.id(), site.candidate().footprint());
+            if (site.isUpgrade() && !placementRegistry.beginUpgrade(worldId, site.upgradeBuildingId())) {
+                System.err.println(
+                    "[Civ Construction] Could not restore upgrade lock building=" + site.upgradeBuildingId()
+                        + " site=" + site.id()
+                );
+            }
+        }
+
         farmRegistry.clearWorld(worldId);
         fieldRegistry.clearWorld(worldId);
         for (BuildingPlacementRegistry.BuildingInstance building : restored) {
@@ -651,17 +808,10 @@ public final class RtsInteractionController {
                     .filter(volume -> volume.hasTag(BUILDING_TAG, "farm"))
                     .findFirst().orElse(null);
                 if (fieldMarker != null) {
-                    PrefabPlacementService.PlacedMarker hydratedFieldMarker =
-                        hydrateMarkerBounds(world, fieldMarker);
-                    if (hydratedFieldMarker != null && hydratedFieldMarker.bounds() != null) {
+                    PrefabPlacementService.PlacedMarker hydrated = hydrateMarkerBounds(world, fieldMarker);
+                    if (hydrated != null && hydrated.bounds() != null) {
                         fieldRegistry.registerField(
-                            building.id(), worldId, hydratedFieldMarker.id(),
-                            hydratedFieldMarker.position(), hydratedFieldMarker.bounds()
-                        );
-                    } else {
-                        System.err.println(
-                            "[Civ Farm] Could not restore wheat field bounds for volume "
-                                + fieldMarker.id() + "; field registration skipped."
+                            building.id(), worldId, hydrated.id(), hydrated.position(), hydrated.bounds()
                         );
                     }
                 }
@@ -691,8 +841,7 @@ public final class RtsInteractionController {
     ) {
         if (marker == null || marker.bounds() != null || world == null) return marker;
         var volumeManager = world.getEntityStore().getStore().getResource(
-            com.hypixel.hytale.builtin.triggervolumes.TriggerVolumesPlugin.get()
-                .getManagerResourceType()
+            com.hypixel.hytale.builtin.triggervolumes.TriggerVolumesPlugin.get().getManagerResourceType()
         );
         var volume = volumeManager == null ? null : volumeManager.getVolume(marker.id());
         if (volume == null || volume.getShape() == null || volume.getPosition() == null) return marker;
@@ -706,10 +855,8 @@ public final class RtsInteractionController {
     }
 
     private static String buildingDisplayName(BuildingPlacementRegistry.BuildingInstance building) {
-        if (building != null && building.placement() != null) {
-            return building.placement().definition().displayName();
-        }
-        return "Gebäude";
+        return building != null && building.placement() != null
+            ? building.placement().definition().displayName() : "Gebäude";
     }
 
     private static String professionDisplayName(Profession profession) {
@@ -727,10 +874,7 @@ public final class RtsInteractionController {
         return target != null && target.isValid() && unitRegistry.isClaimed(target);
     }
 
-    public PersonActionsPage createFirstPersonActionsPage(
-        PlayerRef playerRef,
-        Ref<EntityStore> target
-    ) {
+    public PersonActionsPage createFirstPersonActionsPage(PlayerRef playerRef, Ref<EntityStore> target) {
         if (target == null || !target.isValid() || !unitRegistry.isClaimed(target)) return null;
         return new PersonActionsPage(
             playerRef,
@@ -788,7 +932,6 @@ public final class RtsInteractionController {
         Store<EntityStore> playerStore = playerEntityRef.getStore();
         Player player = playerStore.getComponent(playerEntityRef, Player.getComponentType());
         if (player == null) return;
-
         Store<EntityStore> npcStore = target.getStore();
         CombinedItemContainer inventory = InventoryComponent.getCombined(
             npcStore, target, InventoryComponent.HOTBAR_FIRST
@@ -796,18 +939,9 @@ public final class RtsInteractionController {
         DelegateItemContainer readOnlyInventory = new DelegateItemContainer(inventory);
         readOnlyInventory.setGlobalFilter(FilterType.DENY_ALL);
         player.getPageManager().setPageWithWindows(
-            playerEntityRef,
-            playerStore,
-            Page.Bench,
-            true,
+            playerEntityRef, playerStore, Page.Bench, true,
             new Window[] {new ContainerWindow(readOnlyInventory)}
         );
-    }
-
-    private boolean isSelected(Session session, Ref<EntityStore> target) {
-        return session.selected != null
-            && unitRegistry.isClaimed(target)
-            && unitRegistry.keyOf(session.selected).equals(unitRegistry.keyOf(target));
     }
 
     private void assignSelectedFarmer(
@@ -815,20 +949,13 @@ public final class RtsInteractionController {
         Session session,
         FarmBuildingRegistry.FarmSite farm
     ) {
-        removeInvalidSelection(session);
-        if (session.selected == null) {
-            playerRef.sendMessage(Message.raw(
-                "Select one claimed Civ NPC before right clicking the farm entrance."
-            ));
-            return;
-        }
-        Ref<EntityStore> farmer = session.selected;
+        removeInvalidCommandNpc(session);
+        if (session.commandNpc == null) return;
+        Ref<EntityStore> farmer = session.commandNpc;
         FarmFieldRegistry.FieldSite field =
             fieldRegistry.nearestField(farm.worldId(), farm.building().entranceBlock());
         if (field == null) {
-            playerRef.sendMessage(Message.raw(
-                "Baue zuerst ein fertiges Weizenfeld in der Nähe der Farm."
-            ));
+            playerRef.sendMessage(Message.raw("Baue zuerst ein fertiges Weizenfeld in der Nähe der Farm."));
             return;
         }
         FarmBuildingRegistry.AssignmentResult result = farmRegistry.assignFarmer(farmer, farm);
@@ -839,14 +966,10 @@ public final class RtsInteractionController {
                 unitRegistry.assignProfession(farmer, Profession.FARMER);
                 unitRegistry.assignWorkplace(farmer, farm.buildingInstanceId());
                 unitRegistry.setMoveTarget(farmer, farm.entranceTarget());
-                playerRef.sendMessage(Message.raw(
-                    "Bauer zugewiesen. Er läuft von der Farm zum nächsten Weizenfeld, arbeitet dort und kehrt zur Farm zurück."
-                ));
+                playerRef.sendMessage(Message.raw("Bauer zugewiesen."));
             }
-            case ALREADY_ASSIGNED ->
-                playerRef.sendMessage(Message.raw("That NPC is already assigned to this farm."));
-            case OCCUPIED ->
-                playerRef.sendMessage(Message.raw("That farm already has a Farmer."));
+            case ALREADY_ASSIGNED -> playerRef.sendMessage(Message.raw("That NPC is already assigned to this farm."));
+            case OCCUPIED -> playerRef.sendMessage(Message.raw("That farm already has a Farmer."));
         }
     }
 
@@ -855,25 +978,20 @@ public final class RtsInteractionController {
         Session session,
         BuildingPlacementRegistry.BuildingInstance mine
     ) {
-        removeInvalidSelection(session);
-        if (session.selected == null) {
-            playerRef.sendMessage(Message.raw("Wähle zuerst einen Civ-Bewohner aus."));
-            return;
-        }
+        removeInvalidCommandNpc(session);
+        if (session.commandNpc == null) return;
         if (placementRegistry.isUpgrading(mine.worldId(), mine.id())) {
             playerRef.sendMessage(Message.raw(
                 "Diese Mine wird gerade erweitert und kann bis zur Fertigstellung nicht betreten werden."
             ));
             return;
         }
-        Ref<EntityStore> miner = session.selected;
+        Ref<EntityStore> miner = session.commandNpc;
         boolean hasConnector = mine.semanticVolumes().stream()
             .anyMatch(volume -> volume.hasTag(TYPE_TAG, "mine_tunnel_connector")
                 && volume.hasTag(BUILDING_TAG, "mine"));
         if (!hasConnector) {
-            playerRef.sendMessage(Message.raw(
-                "Diese Mine hat keinen gültigen Tunnelanschluss und kann noch keinen Abbauer beschäftigen."
-            ));
+            playerRef.sendMessage(Message.raw("Diese Mine hat keinen gültigen Tunnelanschluss."));
             return;
         }
         farmRegistry.unassignFarmer(miner);
@@ -881,61 +999,41 @@ public final class RtsInteractionController {
         unitRegistry.cancelMoveTarget(miner);
         unitRegistry.assignProfession(miner, Profession.MINER);
         unitRegistry.assignWorkplace(miner, mine.id());
-        playerRef.sendMessage(Message.raw(
-            "Minenabbauer zugewiesen. Er geht zum Tunnelanschluss und beginnt dort selbstständig mit dem Stollen."
-        ));
+        playerRef.sendMessage(Message.raw("Minenabbauer zugewiesen."));
     }
 
     private void assignFarmerProfession(PlayerRef playerRef, Ref<EntityStore> selected) {
-        if (!unitRegistry.isClaimed(selected)) {
-            playerRef.sendMessage(Message.raw("Der ausgewählte Civ-Bewohner ist nicht mehr verfügbar."));
-            return;
-        }
+        if (!unitRegistry.isClaimed(selected)) return;
         farmRegistry.unassignFarmer(selected);
         unitRegistry.clearWorkplace(selected);
         activityRegistry.cancelManualMove(selected);
         unitRegistry.cancelMoveTarget(selected);
         unitRegistry.assignProfession(selected, Profession.FARMER);
-        playerRef.sendMessage(Message.raw(
-            "Bauer zugewiesen. Weise ihm jetzt per Rechtsklick den Arbeitsbereich einer fertigen Farm zu."
-        ));
+        playerRef.sendMessage(Message.raw("Bauer zugewiesen."));
     }
 
     private void assignMinerProfession(PlayerRef playerRef, Ref<EntityStore> selected) {
-        if (!unitRegistry.isClaimed(selected)) {
-            playerRef.sendMessage(Message.raw("Der ausgewählte Civ-Bewohner ist nicht mehr verfügbar."));
-            return;
-        }
+        if (!unitRegistry.isClaimed(selected)) return;
         farmRegistry.unassignFarmer(selected);
         unitRegistry.clearWorkplace(selected);
         activityRegistry.cancelManualMove(selected);
         unitRegistry.cancelMoveTarget(selected);
         unitRegistry.assignProfession(selected, Profession.MINER);
-        playerRef.sendMessage(Message.raw(
-            "Minenabbauer zugewiesen. Weise ihm jetzt per Rechtsklick eine fertige Mine zu."
-        ));
+        playerRef.sendMessage(Message.raw("Minenabbauer zugewiesen."));
     }
 
     private void assignWoodcutter(PlayerRef playerRef, Ref<EntityStore> selected) {
-        if (!unitRegistry.isClaimed(selected)) {
-            playerRef.sendMessage(Message.raw("The selected Civ NPC is no longer available."));
-            return;
-        }
+        if (!unitRegistry.isClaimed(selected)) return;
         farmRegistry.unassignFarmer(selected);
         unitRegistry.clearWorkplace(selected);
         activityRegistry.cancelManualMove(selected);
         unitRegistry.cancelMoveTarget(selected);
         unitRegistry.assignProfession(selected, Profession.WOODCUTTER);
-        playerRef.sendMessage(Message.raw(
-            "Woodcutter assigned. The NPC will search nearby for the closest tree and fell it."
-        ));
+        playerRef.sendMessage(Message.raw("Woodcutter assigned."));
     }
 
     private void assignConstructionWorker(PlayerRef playerRef, Ref<EntityStore> selected) {
-        if (!unitRegistry.isClaimed(selected)) {
-            playerRef.sendMessage(Message.raw("The selected Civ NPC is no longer available."));
-            return;
-        }
+        if (!unitRegistry.isClaimed(selected)) return;
         farmRegistry.unassignFarmer(selected);
         unitRegistry.clearWorkplace(selected);
         activityRegistry.cancelManualMove(selected);
@@ -946,28 +1044,18 @@ public final class RtsInteractionController {
         ));
     }
 
-    private void releaseConstructionReservations(PlayerRef playerRef) {
-        UUID ownerId = playerRef.getUuid();
-        placementService.constructionSites().stream()
-            .filter(site -> site.ownerId().equals(ownerId))
-            .forEach(site -> {
-                placementRegistry.release(site.worldId(), site.id());
-                if (site.isUpgrade()) {
-                    placementRegistry.cancelUpgrade(site.worldId(), site.upgradeBuildingId());
-                }
-            });
-    }
-
     private void clearPlacement(PlayerRef playerRef, Session session) {
         placementService.cancelConstructionPreview(playerRef);
         session.placementDefinition = null;
         session.previewTarget = null;
         session.previewCandidate = null;
+        session.collisionBoundaryVisible = false;
+        boundaryDisplay.clear(playerRef);
     }
 
-    private void removeInvalidSelection(Session session) {
-        if (session.selected != null && !unitRegistry.isClaimed(session.selected)) {
-            session.selected = null;
+    private void removeInvalidCommandNpc(Session session) {
+        if (session.commandNpc != null && !unitRegistry.isClaimed(session.commandNpc)) {
+            session.commandNpc = null;
         }
     }
 
@@ -975,10 +1063,17 @@ public final class RtsInteractionController {
         return playerRef != null && claimArmed.remove(playerRef.getUuid());
     }
 
+    private record EvacuationPlan(Vector3d point, double outwardX, double outwardZ) {
+    }
+
     private static final class Session {
-        private Ref<EntityStore> selected;
+        private Ref<EntityStore> selectedNpc;
+        private Ref<EntityStore> commandNpc;
+        private UUID selectedBuildingId;
+        private UUID selectedSiteId;
         private PrefabPlacementService.PlacementDefinition placementDefinition;
         private Vector3i previewTarget;
         private PrefabPlacementService.PlacementCandidate previewCandidate;
+        private boolean collisionBoundaryVisible;
     }
 }

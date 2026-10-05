@@ -1,0 +1,52 @@
+$C = "../Common.ui";
+
+$C.@PageOverlay {}
+
+$C.@DecoratedContainer {
+  Anchor: (Left: 170, Width: 520, Height: 420);
+
+  #Title {
+    Group {
+      $C.@Title { @Text = "Baustelle"; }
+    }
+  }
+
+  #Content {
+    LayoutMode: Top;
+    FlexWeight: 1;
+
+    Label #BuildingName {
+      Text: "Gebäude";
+      Style: (FontSize: 22, TextColor: #ffffff);
+      Anchor: (Bottom: 4);
+    }
+
+    Label #Phase {
+      Text: "Phase 1";
+      Style: (FontSize: 15, TextColor: #b9b9b9);
+      Anchor: (Bottom: 18);
+    }
+
+    Label #Status {
+      Text: "Im Bau";
+      Style: (FontSize: 18, TextColor: #d7c28b);
+      Anchor: (Bottom: 14);
+    }
+
+    Label #Progress {
+      Text: "0/0 Bauabschnitte";
+      Style: (FontSize: 17, TextColor: #ffffff);
+      Anchor: (Bottom: 12);
+    }
+
+    Label #Workers {
+      Text: "Bauarbeiter automatisch";
+      Style: (FontSize: 16, TextColor: #c9d4e8);
+    }
+  }
+
+  $C.@TextButton #CloseButton {
+    @Text = "Schließen";
+    Anchor: (Bottom: 16, Right: 16, Width: 160, Height: 44);
+  }
+}

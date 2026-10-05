@@ -5,38 +5,33 @@ import com.hypixel.hytale.component.CommandBuffer;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.query.Query;
-import com.hypixel.hytale.component.system.tick.EntityTickingSystem;
+import com.hypixel.hytale.component.system.tick.DelayedEntitySystem;
 import com.hypixel.hytale.protocol.AnimationSlot;
 import com.hypixel.hytale.protocol.BlockMaterial;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.entity.AnimationUtils;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
-import com.hypixel.hytale.server.core.universe.PlayerRef;
-import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import dev.civilizations.core.ConstructionJob;
 import dev.civilizations.core.MovementIntent;
 import dev.civilizations.core.Profession;
-import dev.civilizations.core.WorldPosition;
 import dev.civilizations.core.WorkDecisionSchedule;
+import dev.civilizations.core.WorldPosition;
 import org.joml.Vector3d;
-import org.joml.Vector3i;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Executes construction-worker intents using native Hytale navigation, animation and prefab
- * placement. The worker stays at one reachable point while the prefab materializes by Y-layer.
- */
-public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStore> {
+/** Executes persistent construction jobs in short native delayed ECS sessions. */
+public final class ConstructionWorkSystem extends DelayedEntitySystem<EntityStore> {
 
+    private static final float TICK_INTERVAL_SECONDS = 0.20f;
     private static final double ARRIVAL_DISTANCE = 1.25;
-    private static final double RETRY_SECONDS = 1.0;
+    private static final double RETRY_SECONDS = 1.5;
     private static final String BUILD_ITEM_ANIMATIONS = "Civ_Construction_Hammer";
     private static final String BUILD_ANIMATION = "Build";
 
@@ -46,7 +41,6 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
     private static final String WORKPLACE_ACCESS = "workplace_access";
     private static final String FIELD = "field";
     private static final String FARM = "farm";
-    private static final String WHEAT_FIELD = "wheat_field";
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
@@ -55,11 +49,11 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
     private final BuildingPlacementRegistry buildingRegistry;
     private final PrefabPlacementService placementService;
     private final CivBuildingPersistenceService buildingPersistence;
+    private final ConstructionSiteRegistry constructionRegistry;
+    private final CivConstructionPersistenceService constructionPersistence;
 
-    private final Map<CivUnitRegistry.UnitKey, WorkerRuntime> workers =
-        new ConcurrentHashMap<>();
-    private final Map<UUID, CivUnitRegistry.UnitKey> siteReservations =
-        new ConcurrentHashMap<>();
+    private final Map<CivUnitRegistry.UnitKey, WorkerRuntime> workers = new ConcurrentHashMap<>();
+    private final Map<UUID, CivUnitRegistry.UnitKey> siteReservations = new ConcurrentHashMap<>();
 
     public ConstructionWorkSystem(
         CivUnitRegistry unitRegistry,
@@ -68,8 +62,11 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         FarmFieldRegistry fieldRegistry,
         BuildingPlacementRegistry buildingRegistry,
         PrefabPlacementService placementService,
-        CivBuildingPersistenceService buildingPersistence
+        CivBuildingPersistenceService buildingPersistence,
+        ConstructionSiteRegistry constructionRegistry,
+        CivConstructionPersistenceService constructionPersistence
     ) {
+        super(TICK_INTERVAL_SECONDS);
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
         this.farmRegistry = farmRegistry;
@@ -77,6 +74,8 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         this.buildingRegistry = buildingRegistry;
         this.placementService = placementService;
         this.buildingPersistence = buildingPersistence;
+        this.constructionRegistry = constructionRegistry;
+        this.constructionPersistence = constructionPersistence;
     }
 
     @Override
@@ -99,14 +98,12 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
     ) {
         Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
         CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
-
         if (!ref.isValid()) {
             releaseWorker(key);
             activityRegistry.forget(ref);
             unitRegistry.forget(ref);
             return;
         }
-
         if (unitRegistry.getProfession(ref) != Profession.CONSTRUCTION_WORKER) {
             WorkerRuntime previous = workers.get(key);
             stopBuildAnimation(ref, store, previous);
@@ -114,8 +111,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
             return;
         }
 
-        TransformComponent transform =
-            commandBuffer.getComponent(ref, TransformComponent.getComponentType());
+        TransformComponent transform = commandBuffer.getComponent(ref, TransformComponent.getComponentType());
         if (transform == null || !activityRegistry.autonomousWorkAllowed(ref)) {
             stopBuildAnimation(ref, store, workers.get(key));
             return;
@@ -125,9 +121,8 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         Vector3d position = transform.getPosition();
         WorkerRuntime runtime = workers.computeIfAbsent(key, ignored -> new WorkerRuntime());
 
-        if (!runtime.finalizing
-            && runtime.site != null
-            && !placementService.constructionSites().contains(runtime.site)) {
+        if (!runtime.finalizing && runtime.site != null
+            && constructionRegistry.get(runtime.site.id()) == null) {
             stopBuildAnimation(ref, store, runtime);
             releaseReservation(key, runtime);
             runtime.job.abandonTarget();
@@ -141,7 +136,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         } else if (intent instanceof ConstructionJob.MoveToConstructionSiteIntent moveIntent) {
             moveToSite(ref, position, runtime, moveIntent.movement());
         } else if (intent instanceof ConstructionJob.BuildIntent) {
-            build(ref, world, store, commandBuffer, runtime, dt);
+            build(ref, key, world, store, commandBuffer, runtime, dt);
         } else if (intent instanceof ConstructionJob.CompleteConstructionIntent) {
             complete(ref, key, world, store, runtime);
         }
@@ -156,52 +151,47 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         float dt
     ) {
         WorkDecisionSchedule.DecisionKind decision = runtime.decisions.advance(dt);
-        if (decision == WorkDecisionSchedule.DecisionKind.NONE) {
-            return;
-        }
+        if (decision == WorkDecisionSchedule.DecisionKind.NONE) return;
 
-        PrefabPlacementService.ConstructionSite best = null;
+        ConstructionSiteRegistry.SiteState bestState = null;
         Vector3d bestWorkPoint = null;
         double bestDistance = Double.POSITIVE_INFINITY;
-
-        for (PrefabPlacementService.ConstructionSite site : placementService.constructionSites()) {
-            if (Universe.get().getWorld(site.worldId()) != world) {
-                continue;
-            }
+        UUID worldId = world.getWorldConfig().getUuid();
+        for (ConstructionSiteRegistry.SiteState state : constructionRegistry.states()) {
+            PrefabPlacementService.ConstructionSite site = state.site();
+            if (!worldId.equals(site.worldId())) continue;
             CivUnitRegistry.UnitKey reservedBy = siteReservations.get(site.id());
-            if (reservedBy != null && !reservedBy.equals(key)) {
-                continue;
-            }
-
+            if (reservedBy != null && !reservedBy.equals(key)) continue;
             Vector3d workPoint = findWorkPoint(world, position, site.candidate().footprint());
             double distance = position.distanceSquared(workPoint);
             if (distance < bestDistance) {
                 bestDistance = distance;
-                best = site;
+                bestState = state;
                 bestWorkPoint = workPoint;
             }
         }
 
-        if (best == null) {
+        if (bestState == null) {
             unitRegistry.clearMoveTarget(ref);
             runtime.decisions.scheduleRetry(RETRY_SECONDS);
             return;
         }
 
+        PrefabPlacementService.ConstructionSite best = bestState.site();
         siteReservations.put(best.id(), key);
         int layers = placementService.constructionLayerCount(best);
+        bestState.setCompletedLayers(bestState.completedLayers(), layers);
         ConstructionJob.WorkTarget target = new ConstructionJob.WorkTarget(
             best.id().toString(),
             new WorldPosition(bestWorkPoint.x, bestWorkPoint.y, bestWorkPoint.z),
             layers
         );
-        if (!runtime.job.assignTarget(target)) {
+        if (!runtime.job.assignTarget(target, bestState.completedLayers())) {
             siteReservations.remove(best.id(), key);
             return;
         }
-
         runtime.site = best;
-        unitRegistry.setMoveTarget(ref, bestWorkPoint);
+        if (bestState.completedLayers() < layers) unitRegistry.setMoveTarget(ref, bestWorkPoint);
     }
 
     private void moveToSite(
@@ -215,19 +205,16 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
             unitRegistry.setMoveTarget(ref, target);
             return;
         }
-
         unitRegistry.clearMoveTarget(ref);
         if (runtime.job.movementArrived()) {
             runtime.animationStarted = false;
-            System.out.println(
-                "[Civ Construction] Worker arrived at site " + runtime.site.id()
-                    + " distance=" + Math.sqrt(horizontalDistanceSquared(position, target))
-            );
+            System.out.println("[Civ Construction] Worker arrived at site " + runtime.site.id());
         }
     }
 
     private void build(
         Ref<EntityStore> ref,
+        CivUnitRegistry.UnitKey key,
         World world,
         Store<EntityStore> store,
         CommandBuffer<EntityStore> commandBuffer,
@@ -237,18 +224,9 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         unitRegistry.clearMoveTarget(ref);
         if (!runtime.animationStarted) {
             AnimationUtils.playAnimation(
-                ref,
-                AnimationSlot.Action,
-                BUILD_ITEM_ANIMATIONS,
-                BUILD_ANIMATION,
-                store
+                ref, AnimationSlot.Action, BUILD_ITEM_ANIMATIONS, BUILD_ANIMATION, store
             );
             runtime.animationStarted = true;
-            System.out.println(
-                "[Civ Construction] BUILDING started for site " + runtime.site.id()
-                    + " using animation set " + BUILD_ITEM_ANIMATIONS
-                    + " animation=" + BUILD_ANIMATION
-            );
         }
 
         int before = runtime.job.completedSteps();
@@ -256,15 +234,28 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         for (int offset = 0; offset < completed; offset++) {
             int layerIndex = before + offset;
             boolean placed = placementService.materializeConstructionLayer(
-                world,
-                runtime.site,
-                layerIndex,
-                commandBuffer
+                world, runtime.site, layerIndex, commandBuffer
             );
+            if (!placed) {
+                System.err.println(
+                    "[Civ Construction] Failed to materialize site=" + runtime.site.id()
+                        + " layer=" + layerIndex
+                );
+                stopBuildAnimation(ref, store, runtime);
+                releaseReservation(key, runtime);
+                runtime.job.abandonTarget();
+                runtime.site = null;
+                runtime.decisions.scheduleRetry(RETRY_SECONDS);
+                return;
+            }
+            ConstructionSiteRegistry.SiteState state = constructionRegistry.get(runtime.site.id());
+            if (state != null) {
+                int now = state.advanceCompletedLayers(1, runtime.job.target().totalSteps());
+                constructionPersistence.stageProgress(world, runtime.site.id(), now);
+            }
             System.out.println(
                 "[Civ Construction] Site " + runtime.site.id()
                     + " materialized layer " + layerIndex
-                    + " success=" + placed
             );
         }
     }
@@ -276,13 +267,9 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         Store<EntityStore> store,
         WorkerRuntime runtime
     ) {
-        if (runtime.finalizing) {
-            return;
-        }
-
+        if (runtime.finalizing) return;
         PrefabPlacementService.ConstructionSite site = runtime.site;
-        PlayerRef owner = site == null ? null : Universe.get().getPlayer(site.ownerId());
-        if (site == null || owner == null) {
+        if (site == null || constructionRegistry.get(site.id()) == null) {
             stopBuildAnimation(ref, store, runtime);
             releaseReservation(key, runtime);
             runtime.job.abandonTarget();
@@ -294,24 +281,14 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         BuildingPlacementRegistry.BuildingInstance previousPhase = site.isUpgrade()
             ? buildingRegistry.findIncludingUpgrading(site.worldId(), site.upgradeBuildingId())
             : null;
-
         runtime.finalizing = true;
         stopBuildAnimation(ref, store, runtime);
-
         NativePrefabPlacementFinalizer.placeAsync(
             placementService,
-            owner,
             world,
             site,
             placed -> finishNativePlacement(
-                ref,
-                key,
-                world,
-                store,
-                runtime,
-                site,
-                previousPhase,
-                placed
+                ref, key, world, store, runtime, site, previousPhase, placed
             )
         );
     }
@@ -328,30 +305,25 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
     ) {
         PrefabPlacementService.PlacedMarker boundsMarker = placed.markers().stream()
             .filter(marker -> marker.hasTag(TYPE_TAG, BUILDING_BOUNDS))
-            .findFirst()
-            .orElse(null);
-        // The wheat-field prefab intentionally has one authored trigger volume. Its field
-        // marker doubles as the lifecycle/protection bounds instead of injecting a second
-        // Civ-only trigger into the prefab.
+            .findFirst().orElse(null);
         if (boundsMarker == null
             && PrefabPlacementService.WHEAT_FIELD.id().equals(site.definition().id())) {
             boundsMarker = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, FIELD))
                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
-                .findFirst()
-                .orElse(null);
+                .findFirst().orElse(null);
         }
 
         if (boundsMarker == null) {
             System.err.println(
                 "[Civ Buildings] Native prefab finalization produced no authored bounds for site "
-                    + site.id() + "; keeping previous upgrade phase registered."
+                    + site.id()
             );
             cleanupFailedPlacement(world, placed);
-            if (site.isUpgrade()) {
-                buildingRegistry.cancelUpgrade(site.worldId(), site.upgradeBuildingId());
-            }
+            if (site.isUpgrade()) buildingRegistry.cancelUpgrade(site.worldId(), site.upgradeBuildingId());
             buildingRegistry.release(site.worldId(), site.id());
+            constructionRegistry.remove(site.id());
+            constructionPersistence.saveSites(world, constructionRegistry.states());
             releaseReservation(key, runtime);
             runtime.finalizing = false;
             runtime.site = null;
@@ -366,28 +338,38 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                 || buildingType.equals(marker.tags().get(BUILDING_TAG)))
             .toList();
 
-        BuildingPlacementRegistry.BuildingInstance buildingInstance = buildingRegistry.completeBuilding(
-            site.worldId(),
-            site.id(),
-            buildingType,
-            boundsMarker,
-            semanticVolumes,
-            site.candidate(),
-            site.candidate().orientation(),
-            placed.prefabEntityIds()
-        );
+        BuildingPlacementRegistry.BuildingInstance buildingInstance;
+        if (site.isUpgrade()) {
+            buildingInstance = buildingRegistry.completeUpgrade(
+                site.worldId(),
+                site.upgradeBuildingId(),
+                site.targetPhase(),
+                boundsMarker,
+                semanticVolumes,
+                site.candidate(),
+                placed.prefabEntityIds()
+            );
+        } else {
+            buildingInstance = buildingRegistry.completeBuilding(
+                site.worldId(),
+                site.id(),
+                buildingType,
+                boundsMarker,
+                semanticVolumes,
+                site.candidate(),
+                site.candidate().orientation(),
+                placed.prefabEntityIds()
+            );
+        }
 
-        // Only after the new phase has been successfully registered do we remove the old
-        // prefab-owned semantics/entities. The Building ID remains stable across this replacement.
         if (previousPhase != null) {
             placementService.removeSemanticVolumes(world, previousPhase);
             placementService.removePrefabEntities(world, previousPhase);
         }
 
-        buildingPersistence.save(
-            world,
-            buildingRegistry.buildings(site.worldId())
-        );
+        constructionRegistry.remove(site.id());
+        constructionPersistence.saveSites(world, constructionRegistry.states());
+        buildingPersistence.save(world, buildingRegistry.buildings(site.worldId()));
 
         if (PrefabPlacementService.WHEAT_FIELD.id().equals(site.definition().id())) {
             var fieldMarkers = placed.markers().stream()
@@ -396,31 +378,23 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                 .toList();
             if (!fieldMarkers.isEmpty()) {
                 fieldRegistry.registerField(
-                    buildingInstance.id(),
-                    site.worldId(),
-                    fieldMarkers.getFirst().id(),
-                    fieldMarkers.getFirst().position(),
-                    fieldMarkers.getFirst().bounds()
+                    buildingInstance.id(), site.worldId(), fieldMarkers.getFirst().id(),
+                    fieldMarkers.getFirst().position(), fieldMarkers.getFirst().bounds()
                 );
             }
         } else if (PrefabPlacementService.FARM.id().equals(site.definition().id())) {
             var outputStorage = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, "output_storage"))
                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
-                .findFirst()
-                .orElse(null);
+                .findFirst().orElse(null);
             var entrances = placed.markers().stream()
                 .filter(marker -> marker.hasTag(TYPE_TAG, WORKPLACE_ACCESS))
                 .filter(marker -> marker.hasTag(BUILDING_TAG, FARM))
                 .toList();
             if (!entrances.isEmpty()) {
                 farmRegistry.registerFarm(
-                    site.worldId(),
-                    buildingInstance.id(),
-                    entrances,
-                    outputStorage,
-                    site.candidate().footprint(),
-                    site.candidate().replacedFloorBlocks()
+                    site.worldId(), buildingInstance.id(), entrances, outputStorage,
+                    site.candidate().footprint(), site.candidate().replacedFloorBlocks()
                 );
             }
         }
@@ -430,18 +404,14 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
                 + " prefabEntities=" + buildingInstance.prefabEntityIds().size()
                 + " semanticVolumes=" + buildingInstance.semanticVolumes().size()
         );
-
         releaseReservation(key, runtime);
         runtime.finalizing = false;
         runtime.site = null;
         runtime.job.constructionCompleted();
-        runtime.decisions.scheduleRetry(0.25);
+        runtime.decisions.scheduleRetry(0.75);
     }
 
-    private void cleanupFailedPlacement(
-        World world,
-        PrefabPlacementService.PlacedPrefab placed
-    ) {
+    private void cleanupFailedPlacement(World world, PrefabPlacementService.PlacedPrefab placed) {
         var volumeManager = world.getEntityStore().getStore().getResource(
             com.hypixel.hytale.builtin.triggervolumes.TriggerVolumesPlugin.get()
                 .getManagerResourceType()
@@ -450,7 +420,6 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
             .map(PrefabPlacementService.PlacedMarker::id)
             .filter(volumeManager::hasVolume)
             .forEach(volumeManager::unregister);
-
         Store<EntityStore> entityStore = world.getEntityStore().getStore();
         for (UUID entityId : placed.prefabEntityIds()) {
             Ref<EntityStore> entityRef = world.getEntityStore().getRefFromUUID(entityId);
@@ -461,25 +430,16 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
     }
 
     public void forgetRuntime(Ref<EntityStore> ref) {
-        if (ref != null) {
-            releaseWorker(unitRegistry.keyOf(ref));
-        }
+        if (ref != null) releaseWorker(unitRegistry.keyOf(ref));
     }
 
     private void releaseWorker(CivUnitRegistry.UnitKey key) {
         WorkerRuntime runtime = workers.remove(key);
-        if (runtime != null) {
-            releaseReservation(key, runtime);
-        }
+        if (runtime != null) releaseReservation(key, runtime);
     }
 
-    private void releaseReservation(
-        CivUnitRegistry.UnitKey key,
-        WorkerRuntime runtime
-    ) {
-        if (runtime.site != null) {
-            siteReservations.remove(runtime.site.id(), key);
-        }
+    private void releaseReservation(CivUnitRegistry.UnitKey key, WorkerRuntime runtime) {
+        if (runtime.site != null) siteReservations.remove(runtime.site.id(), key);
     }
 
     private static Vector3d findWorkPoint(
@@ -490,32 +450,19 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         Vector3d best = null;
         double bestDistance = Double.POSITIVE_INFINITY;
         int y = footprint.floorY() + 1;
-
         for (int x = footprint.minX() - 1; x <= footprint.maxX() + 1; x++) {
             best = nearerFree(world, worker, best, bestDistance, x, y, footprint.minZ() - 1);
-            if (best != null) {
-                bestDistance = worker.distanceSquared(best);
-            }
+            if (best != null) bestDistance = worker.distanceSquared(best);
             best = nearerFree(world, worker, best, bestDistance, x, y, footprint.maxZ() + 1);
-            if (best != null) {
-                bestDistance = worker.distanceSquared(best);
-            }
+            if (best != null) bestDistance = worker.distanceSquared(best);
         }
         for (int z = footprint.minZ(); z <= footprint.maxZ(); z++) {
             best = nearerFree(world, worker, best, bestDistance, footprint.minX() - 1, y, z);
-            if (best != null) {
-                bestDistance = worker.distanceSquared(best);
-            }
+            if (best != null) bestDistance = worker.distanceSquared(best);
             best = nearerFree(world, worker, best, bestDistance, footprint.maxX() + 1, y, z);
-            if (best != null) {
-                bestDistance = worker.distanceSquared(best);
-            }
+            if (best != null) bestDistance = worker.distanceSquared(best);
         }
-
-        if (best != null) {
-            return best;
-        }
-
+        if (best != null) return best;
         return new Vector3d(
             (footprint.minX() + footprint.maxX() + 1) / 2.0,
             y,
@@ -532,8 +479,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         int y,
         int z
     ) {
-        if (!isEmpty(world.getBlockType(x, y, z))
-            || !isEmpty(world.getBlockType(x, y + 1, z))) {
+        if (!isEmpty(world.getBlockType(x, y, z)) || !isEmpty(world.getBlockType(x, y + 1, z))) {
             return current;
         }
         Vector3d candidate = new Vector3d(x + 0.5, y, z + 0.5);
@@ -541,8 +487,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
     }
 
     private static boolean isEmpty(BlockType blockType) {
-        return blockType == null
-            || blockType == BlockType.EMPTY
+        return blockType == null || blockType == BlockType.EMPTY
             || blockType.getMaterial() == BlockMaterial.Empty;
     }
 
@@ -552,9 +497,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
         WorkerRuntime runtime
     ) {
         if (runtime == null || !runtime.animationStarted) return;
-        if (ref != null && ref.isValid()) {
-            AnimationUtils.stopAnimation(ref, AnimationSlot.Action, store);
-        }
+        if (ref != null && ref.isValid()) AnimationUtils.stopAnimation(ref, AnimationSlot.Action, store);
         runtime.animationStarted = false;
     }
 
@@ -563,8 +506,7 @@ public final class ConstructionWorkSystem extends EntityTickingSystem<EntityStor
     }
 
     private static boolean hasArrived(Vector3d position, Vector3d target) {
-        return horizontalDistanceSquared(position, target)
-            <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
+        return horizontalDistanceSquared(position, target) <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
     }
 
     private static double horizontalDistanceSquared(Vector3d position, Vector3d target) {

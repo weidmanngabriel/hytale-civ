@@ -1,0 +1,46 @@
+Group {
+  Group #BuildingCompactPanel {
+    Anchor: (Left: 24, Bottom: 118, Width: 340, Height: 184);
+    LayoutMode: Top;
+    Padding: (Left: 14, Right: 14, Top: 12, Bottom: 12);
+    Background: #131D30(0.90);
+
+    Label #BuildingName {
+      Text: "Gebäude";
+      Anchor: (Height: 24);
+      Style: (FontSize: 20, TextColor: #ffffff, RenderBold: true);
+    }
+
+    Label #Phase {
+      Text: "Phase 1";
+      Anchor: (Height: 20, Top: 2);
+      Style: (FontSize: 15, TextColor: #c9d4e8);
+    }
+
+    Group {
+      Anchor: (Height: 1, Top: 8, Bottom: 8);
+      Background: #60708a(0.55);
+    }
+
+    Group {
+      LayoutMode: Left;
+      Anchor: (Height: 22);
+      Label { Text: "Status"; Anchor: (Width: 92); Style: (FontSize: 14, TextColor: #93a2b8); }
+      Label #Status { Text: "Fertig"; FlexWeight: 1; Style: (FontSize: 14, TextColor: #ffffff); }
+    }
+
+    Group {
+      LayoutMode: Left;
+      Anchor: (Height: 22, Top: 3);
+      Label { Text: "Fortschritt"; Anchor: (Width: 92); Style: (FontSize: 14, TextColor: #93a2b8); }
+      Label #Progress { Text: "—"; FlexWeight: 1; Style: (FontSize: 14, TextColor: #ffffff); }
+    }
+
+    Group {
+      LayoutMode: Left;
+      Anchor: (Height: 22, Top: 3);
+      Label { Text: "Arbeiter"; Anchor: (Width: 92); Style: (FontSize: 14, TextColor: #93a2b8); }
+      Label #Workers { Text: "0/0"; FlexWeight: 1; Style: (FontSize: 14, TextColor: #ffffff); }
+    }
+  }
+}
