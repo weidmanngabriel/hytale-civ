@@ -318,3 +318,15 @@ jobs:
           if ($exitCode -ne 0) {
             throw "Hytale runtime scenarios exited with code $exitCode."
           }
+
+      - name: Upload Hytale runtime logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hytale-runtime-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/hytale-runtime-${{ github.run_id }}-${{ github.run_attempt }}.stdout.log
+            ${{ runner.temp }}/hytale-runtime-${{ github.run_id }}-${{ github.run_attempt }}.stderr.log
+            ${{ runner.temp }}/hytale-runtime-${{ github.run_id }}-${{ github.run_attempt }}.status
+          if-no-files-found: warn
+          retention-days: 14
