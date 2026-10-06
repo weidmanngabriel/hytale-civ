@@ -79,33 +79,18 @@ public final class MineInfrastructurePlanner {
         UUID tunnelId,
         MineTunnelGeometry geometry
     ) {
-        List<MineTunnelGeometry.StepTransition> transitions = geometry.stepTransitions();
-        if (transitions.isEmpty()) return List.of();
-
         List<MineInfrastructureTask> result = new ArrayList<>();
-        int cursor = 0;
-        while (cursor < transitions.size()) {
-            MineTunnelGeometry.StepTransition first = transitions.get(cursor);
-            MineTunnelGeometry.StepTransition last = first;
-            int next = cursor + 1;
-            while (next < transitions.size()) {
-                MineTunnelGeometry.StepTransition candidate = transitions.get(next);
-                if (candidate.fromSliceIndex() != last.toSliceIndex()) break;
-                last = candidate;
-                next++;
-            }
-
+        for (MineTunnelGeometry.StepTransition transition : geometry.stepTransitions()) {
             result.add(new MineInfrastructureTask(
                 taskId(tunnelId, MineInfrastructureTask.Type.BUILD_STEP,
-                    first.fromSliceIndex(), last.toSliceIndex()),
+                    transition.fromSliceIndex(), transition.toSliceIndex()),
                 tunnelId,
                 MineInfrastructureTask.Type.BUILD_STEP,
                 PASSABILITY_PRIORITY,
-                first.fromSliceIndex(),
-                last.toSliceIndex(),
-                first.fromFloorCenter()
+                transition.fromSliceIndex(),
+                transition.toSliceIndex(),
+                transition.fromFloorCenter()
             ));
-            cursor = next;
         }
         return result;
     }
