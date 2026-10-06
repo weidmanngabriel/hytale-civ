@@ -23,19 +23,18 @@ import dev.civilizations.core.BuildingBounds;
 import dev.civilizations.core.MineNavigationAnchor;
 import dev.civilizations.core.MineNavigationPolicy;
 import dev.civilizations.core.MineNetwork;
-import dev.civilizations.core.MineSegment;
 import dev.civilizations.core.MineTunnel;
-import dev.civilizations.core.MineTuning;
+import dev.civilizations.core.MineTunnelGeometry;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.WorldPosition;
 import org.joml.Vector3d;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.Map;
 
 /**
  * Observes native miner movement and maintains Civ's sparse, known-safe navigation-anchor graph.
@@ -155,8 +154,6 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
             runtime.beginNavigationAttempt(moveTarget);
         }
 
-        // Never disappear while walking above ground toward the mine. The long-distance policy only
-        // starts after the connector has been reached and while the miner is underground/at it.
         if (!runtime.reachedConnector || !undergroundOrConnector) {
             observeNativeNavigation(ref, npc, world, network, currentTunnelId, moveTarget, transform, runtime,
                 commandBuffer);
@@ -184,11 +181,7 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
         if (!MineNavigationPolicy.canCreateRegularAnchor(feet, network.navigationAnchors())) return network;
 
         MineNavigationAnchor previous = anchorById(network.navigationAnchors(), runtime.lastAnchorId);
-        if (previous == null && !network.navigationAnchors().isEmpty()) {
-            // After a restart we wait until the miner physically passes a known anchor again instead
-            // of guessing a graph edge across geometry that Civ did not observe being traversed.
-            return network;
-        }
+        if (previous == null && !network.navigationAnchors().isEmpty()) return network;
 
         UUID newId = UUID.randomUUID();
         MineNavigationAnchor created = new MineNavigationAnchor(
@@ -312,9 +305,8 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
             }
         }
 
-        // Side-tunnel/room/bridge task release belongs to the multi-task miner scheduler. The
-        // current legacy MinerWorkSystem only owns one excavation segment and has no safe task-
-        // release contract yet, so this adapter deliberately does not invent one here.
+        // Non-main task release is owned by MinerWorkSystem's front scheduler. This navigation
+        // adapter only reports/recovers native movement and never invents a competing task state.
         runtime.repathRequested = false;
     }
 
@@ -328,10 +320,8 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
             return network.mainTunnelId();
         }
         for (MineTunnel tunnel : network.tunnels()) {
-            for (UUID segmentId : tunnel.segmentIds()) {
-                MineSegment segment = tunnelRegistry.get(worldId, segmentId);
-                if (segment != null && insideSegment(segment, position)) return tunnel.id();
-            }
+            MineTunnelGeometry geometry = tunnelRegistry.geometryForTunnel(worldId, network.mineId(), tunnel.id());
+            if (geometry != null && geometry.excavationBlocks().contains(position)) return tunnel.id();
         }
         return null;
     }
@@ -349,52 +339,30 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
         UUID closestTunnel = null;
         double closestDistance = Double.POSITIVE_INFINITY;
         for (MineTunnel tunnel : network.tunnels()) {
-            for (UUID segmentId : tunnel.segmentIds()) {
-                MineSegment segment = tunnelRegistry.get(worldId, segmentId);
-                if (segment == null) continue;
-                double distance = distanceSquaredToSegment(segment, target);
-                if (distance < closestDistance) {
-                    closestDistance = distance;
-                    closestTunnel = tunnel.id();
-                }
+            MineTunnelGeometry geometry = tunnelRegistry.geometryForTunnel(worldId, network.mineId(), tunnel.id());
+            if (geometry == null) continue;
+            double distance = distanceSquaredToGeometry(geometry, target);
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closestTunnel = tunnel.id();
             }
         }
         return closestTunnel;
     }
 
-    private static boolean insideSegment(MineSegment segment, BlockPosition feet) {
-        if (feet.y() < segment.start().y()
-            || feet.y() >= segment.start().y() + MineTuning.TUNNEL_HEIGHT_BLOCKS) {
-            return false;
+    private static double distanceSquaredToGeometry(MineTunnelGeometry geometry, Vector3d target) {
+        double closest = Double.POSITIVE_INFINITY;
+        for (MineTunnelGeometry.Slice slice : geometry.slices()) {
+            BlockPosition center = slice.floorCenter();
+            double dx = target.x - (center.x() + 0.5);
+            double dy = target.y - center.y();
+            double dz = target.z - (center.z() + 0.5);
+            closest = Math.min(closest, dx * dx + dy * dy + dz * dz);
         }
-        MineSegment.HorizontalBounds bounds = segment.horizontalBounds();
-        return feet.x() >= bounds.minX() && feet.x() <= bounds.maxX()
-            && feet.z() >= bounds.minZ() && feet.z() <= bounds.maxZ();
+        return closest;
     }
 
-    private static double distanceSquaredToSegment(MineSegment segment, Vector3d target) {
-        MineSegment.HorizontalBounds bounds = segment.horizontalBounds();
-        double x = clamp(target.x, bounds.minX(), bounds.maxX());
-        double y = clamp(
-            target.y,
-            segment.start().y(),
-            segment.start().y() + MineTuning.TUNNEL_HEIGHT_BLOCKS - 1
-        );
-        double z = clamp(target.z, bounds.minZ(), bounds.maxZ());
-        double dx = target.x - x;
-        double dy = target.y - y;
-        double dz = target.z - z;
-        return dx * dx + dy * dy + dz * dz;
-    }
-
-    private static double clamp(double value, double min, double max) {
-        return Math.max(min, Math.min(max, value));
-    }
-
-    private static MineNavigationAnchor passedAnchor(
-        List<MineNavigationAnchor> anchors,
-        Vector3d position
-    ) {
+    private static MineNavigationAnchor passedAnchor(List<MineNavigationAnchor> anchors, Vector3d position) {
         MineNavigationAnchor closest = MineNavigationPolicy.closestAnchor(
             anchors, null, worldPosition(position)
         );

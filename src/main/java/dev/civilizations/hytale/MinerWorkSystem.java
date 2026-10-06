@@ -27,10 +27,12 @@ import dev.civilizations.core.BuildingBounds;
 import dev.civilizations.core.MineDecisionCategory;
 import dev.civilizations.core.MineDecisionSink;
 import dev.civilizations.core.MineFrontCoordinator;
+import dev.civilizations.core.MineFrontTaskScheduler;
 import dev.civilizations.core.MineHeading;
 import dev.civilizations.core.MineNetwork;
 import dev.civilizations.core.MineNetworkGrowthPlanner;
 import dev.civilizations.core.MinePathPlanner;
+import dev.civilizations.core.MineTunnel;
 import dev.civilizations.core.MineTunnelGeometry;
 import dev.civilizations.core.MineTuning;
 import dev.civilizations.core.MineWorkFront;
@@ -40,15 +42,19 @@ import org.joml.Vector3i;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Executes the current planned mine work front with Hytale-native movement, animation and block
- * breaking. The mine planner owns the slice geometry; this adapter only executes the selected
- * front and coordinates short-lived block claims between at most two miners.
+ * Executes planned mine work fronts with Hytale-native movement, animation and block breaking.
+ * The Core scheduler chooses among executable main/branch fronts; this adapter owns world checks and
+ * coordinates short-lived block claims between at most two miners per tunnel front.
  */
 public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
@@ -62,17 +68,16 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private static final String MINING_ANIMATION = "SwingDown";
     private static final double ARRIVAL_DISTANCE = 1.1;
     private static final int MAIN_PLAN_LENGTH_BLOCKS = MinePathPlanner.FOOTPRINT_SIZE_BLOCKS;
-    private static final int V1_PLANNING_TUNNEL_BUDGET = 1;
+    private static final int RUNTIME_PLANNING_TUNNEL_BUDGET = 64;
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
     private final BuildingPlacementRegistry buildingRegistry;
     private final MineTunnelRegistry tunnelRegistry;
     private final MineDecisionSink decisionSink;
-    private final MineFrontCoordinator<CivUnitRegistry.UnitKey> frontCoordinator =
-        new MineFrontCoordinator<>();
+    private final MineFrontCoordinator<CivUnitRegistry.UnitKey> frontCoordinator = new MineFrontCoordinator<>();
     private final Map<CivUnitRegistry.UnitKey, WorkerRuntime> workers = new ConcurrentHashMap<>();
-    private final Map<WorldMineKey, RuntimePlan> runtimePlans = new ConcurrentHashMap<>();
+    private final Map<WorldMineKey, RuntimeMinePlan> runtimePlans = new ConcurrentHashMap<>();
 
     public MinerWorkSystem(
         CivUnitRegistry unitRegistry,
@@ -181,40 +186,35 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             runtime.navigationArrived();
         }
 
-        RuntimePlan plan = ensureRuntimePlan(world, mine, connector);
-        if (plan == null || plan.complete) {
-            unitRegistry.clearMoveTarget(ref);
-            stopMiningAnimation(ref, store, runtime);
-            frontCoordinator.releaseWorker(workerKey);
-            return;
+        RuntimeMinePlan minePlan = ensureRuntimePlan(world, mine, connector);
+        if (minePlan == null) return;
+        advanceAlreadyExcavatedSlices(world, mine, minePlan);
+
+        if (runtime.frontId != null && frontCoordinator.workerCount(runtime.frontId) == 0) {
+            runtime.clearWorkAssignment();
         }
 
-        advanceAlreadyExcavatedSlices(world, plan);
-        if (plan.complete) {
-            unitRegistry.clearMoveTarget(ref);
-            stopMiningAnimation(ref, store, runtime);
-            frontCoordinator.releaseWorker(workerKey);
-            return;
+        RuntimeFrontPlan plan = runtime.frontId == null ? null : minePlan.fronts.get(runtime.frontId);
+        MineWorkFront front = plan == null ? null : currentFront(worldId, mine.id(), plan.frontId);
+        if (plan == null || plan.complete || !available(front)) {
+            if (runtime.frontId != null) frontCoordinator.releaseWorker(workerKey);
+            runtime.clearWorkAssignment();
+            plan = selectFront(world, mine, minePlan, position, workerKey, runtime);
+            front = plan == null ? null : currentFront(worldId, mine.id(), plan.frontId);
         }
 
-        MineWorkFront front = currentFront(worldId, mine.id(), plan.frontId);
-        if (front == null || front.state() == MineWorkFront.State.BLOCKED
-            || front.state() == MineWorkFront.State.ABANDONED
-            || front.state() == MineWorkFront.State.COMPLETE) {
+        if (plan == null || front == null) {
             unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
-            frontCoordinator.releaseWorker(workerKey);
             return;
         }
 
         if (!frontCoordinator.tryJoin(plan.frontId, workerKey)) {
+            runtime.clearWorkAssignment();
             unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
-            runtime.frontId = null;
-            runtime.sliceIndex = -1;
             return;
         }
-        runtime.frontId = plan.frontId;
 
         if (runtime.sliceIndex != plan.sliceIndex) {
             stopMiningAnimation(ref, store, runtime);
@@ -230,10 +230,11 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
             frontCoordinator.releaseWorker(workerKey);
+            runtime.clearWorkAssignment();
             return;
         }
 
-        Vector3d workTarget = workTarget(plan, connector);
+        Vector3d workTarget = workTarget(plan, minePlan.mainTunnelId, connector);
         if (!arrived(position, workTarget)) {
             navigateTo(ref, workTarget, runtime);
             stopMiningAnimation(ref, store, runtime);
@@ -256,8 +257,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             if (sliceComplete(world, slice)) {
                 completeCurrentSlice(world, mine, plan);
                 stopMiningAnimation(ref, store, runtime);
-                runtime.workElapsed = 0.0;
-                runtime.claimedBlock = null;
+                runtime.clearWorkAssignment();
                 return;
             }
         }
@@ -270,12 +270,58 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         workers.remove(key);
     }
 
+    private RuntimeFrontPlan selectFront(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan minePlan,
+        Vector3d position,
+        CivUnitRegistry.UnitKey workerKey,
+        WorkerRuntime runtime
+    ) {
+        MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
+        if (network == null) return null;
+
+        List<MineWorkFront> executable = new ArrayList<>();
+        Map<UUID, Integer> workerCounts = new HashMap<>();
+        for (RuntimeFrontPlan candidate : minePlan.fronts.values()) {
+            if (candidate.complete) continue;
+            MineWorkFront front = workFrontById(network, candidate.frontId);
+            if (!available(front) || !frontExecutable(world, minePlan, candidate)) continue;
+            executable.add(front);
+            workerCounts.put(front.id(), frontCoordinator.workerCount(front.id()));
+        }
+
+        MineWorkFront selected = MineFrontTaskScheduler.select(
+            network,
+            executable,
+            workerCounts,
+            blockPosition(position)
+        );
+        if (selected == null || !frontCoordinator.tryJoin(selected.id(), workerKey)) return null;
+
+        RuntimeFrontPlan selectedPlan = minePlan.fronts.get(selected.id());
+        if (selectedPlan == null) {
+            frontCoordinator.releaseWorker(workerKey);
+            return null;
+        }
+        runtime.frontId = selected.id();
+        runtime.sliceIndex = selectedPlan.sliceIndex;
+        runtime.navigationArrived();
+        decisionSink.record(
+            mine.id(), selected.id(), MineDecisionCategory.PLANNING, "TASK_SELECTED",
+            "tunnel", selected.tunnelId(),
+            "kind", selected.tunnelId().equals(minePlan.mainTunnelId) ? "MAIN" : "BRANCH",
+            "slice", selectedPlan.sliceIndex
+        );
+        return selectedPlan;
+    }
+
     private boolean workOneBlock(
         World world,
         Ref<EntityStore> worker,
         Store<EntityStore> entityStore,
         BuildingPlacementRegistry.BuildingInstance mine,
-        RuntimePlan plan,
+        RuntimeFrontPlan plan,
         CivUnitRegistry.UnitKey workerKey,
         WorkerRuntime runtime
     ) {
@@ -313,13 +359,13 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         return true;
     }
 
-    private RuntimePlan ensureRuntimePlan(
+    private RuntimeMinePlan ensureRuntimePlan(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
         PrefabPlacementService.PlacedMarker connector
     ) {
         WorldMineKey key = new WorldMineKey(world.getWorldConfig().getUuid(), mine.id());
-        RuntimePlan existingRuntime = runtimePlans.get(key);
+        RuntimeMinePlan existingRuntime = runtimePlans.get(key);
         if (existingRuntime != null) return existingRuntime;
 
         MineHeading heading = outwardHeading(mine.bounds(), connector.bounds());
@@ -330,76 +376,108 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             origin,
             heading,
             MAIN_PLAN_LENGTH_BLOCKS,
-            V1_PLANNING_TUNNEL_BUDGET,
+            RUNTIME_PLANNING_TUNNEL_BUDGET,
             seed
         );
-        MineTunnelGeometry geometry = planned.mainTunnel().geometry();
-        UUID frontId = UUID.nameUUIDFromBytes(
-            ("civ-mine-work-front:" + mine.id() + ":" + planned.network().mainTunnelId())
-                .getBytes(StandardCharsets.UTF_8)
-        );
+
+        Map<UUID, UUID> frontIds = new LinkedHashMap<>();
+        Map<UUID, MineTunnelGeometry> geometries = new LinkedHashMap<>();
+        for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : planned.tunnels()) {
+            frontIds.put(tunnel.tunnel().id(), frontId(mine.id(), tunnel.tunnel().id()));
+            geometries.put(tunnel.tunnel().id(), tunnel.geometry());
+        }
 
         MineNetwork persisted = tunnelRegistry.networkForMine(key.worldId, mine.id());
-        MineWorkFront persistedFront = persisted == null ? null : workFrontById(persisted, frontId);
-        if (persisted == null || !persisted.mainTunnelId().equals(planned.network().mainTunnelId())
-            || persistedFront == null) {
+        if (!matchesPlan(persisted, planned.network(), frontIds)) {
             if (persisted != null || !tunnelRegistry.segmentsForMine(key.worldId, mine.id()).isEmpty()) {
                 tunnelRegistry.removeMine(world, mine.id());
             }
-            MineWorkFront initialFront = new MineWorkFront(
-                frontId,
-                planned.network().mainTunnelId(),
-                geometry.slices().getFirst().floorCenter(),
-                MineWorkFront.State.ACTIVE
-            );
-            persisted = planned.network().withWorkFront(initialFront);
+            persisted = planned.network();
+            for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : planned.tunnels()) {
+                UUID id = frontIds.get(tunnel.tunnel().id());
+                MineTunnelGeometry.Slice firstSlice = tunnel.geometry().slices().getFirst();
+                MineWorkFront initialFront = new MineWorkFront(
+                    id,
+                    tunnel.tunnel().id(),
+                    firstSlice.floorCenter(),
+                    MineWorkFront.State.OPEN
+                );
+                persisted = persisted.withWorkFront(initialFront);
+                decisionSink.record(
+                    mine.id(), id, MineDecisionCategory.PLANNING, "FRONT_CREATED",
+                    "tunnel", tunnel.tunnel().id(),
+                    "kind", tunnel.tunnel().kind(),
+                    "slice", 0,
+                    "width", firstSlice.widthBlocks(),
+                    "height", firstSlice.heightBlocks()
+                );
+            }
             tunnelRegistry.putNetwork(world, persisted);
-            persistedFront = initialFront;
-            decisionSink.record(
-                mine.id(), frontId, MineDecisionCategory.PLANNING, "FRONT_CREATED",
-                "reason", "LAYER3_MAIN_TUNNEL_SLICE",
-                "slice", 0,
-                "width", geometry.slices().getFirst().widthBlocks(),
-                "height", geometry.slices().getFirst().heightBlocks()
-            );
         }
 
-        int sliceIndex = sliceIndexForPosition(geometry.slices(), persistedFront.position());
-        if (sliceIndex < 0) sliceIndex = 0;
-        RuntimePlan runtime = new RuntimePlan(
-            frontId,
-            planned.network().mainTunnelId(),
-            geometry.slices(),
-            orderedBlocks(geometry.slices()),
-            sliceIndex,
-            persistedFront.state() == MineWorkFront.State.COMPLETE
-        );
+        tunnelRegistry.putRuntimeGeometries(key.worldId, mine.id(), geometries);
+
+        Map<UUID, RuntimeFrontPlan> fronts = new LinkedHashMap<>();
+        for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : planned.tunnels()) {
+            UUID id = frontIds.get(tunnel.tunnel().id());
+            MineWorkFront persistedFront = workFrontById(persisted, id);
+            int sliceIndex = sliceIndexForPosition(tunnel.geometry().slices(), persistedFront.position());
+            if (sliceIndex < 0) sliceIndex = 0;
+            fronts.put(id, new RuntimeFrontPlan(
+                id,
+                tunnel.tunnel().id(),
+                tunnel.tunnel().kind(),
+                tunnel.geometry().slices(),
+                orderedBlocks(tunnel.geometry().slices()),
+                sliceIndex,
+                persistedFront.state() == MineWorkFront.State.COMPLETE
+            ));
+        }
+
+        RuntimeMinePlan runtime = new RuntimeMinePlan(planned.network().mainTunnelId(), fronts);
         runtimePlans.put(key, runtime);
         return runtime;
     }
 
-    private void advanceAlreadyExcavatedSlices(World world, RuntimePlan plan) {
-        while (!plan.complete && sliceComplete(world, plan.slices.get(plan.sliceIndex))) {
-            BuildingPlacementRegistry.BuildingInstance mine = buildingRegistry.find(
-                world.getWorldConfig().getUuid(), currentMineId(world, plan)
-            );
-            if (mine == null) return;
-            completeCurrentSlice(world, mine, plan);
+    private static boolean matchesPlan(
+        MineNetwork persisted,
+        MineNetwork planned,
+        Map<UUID, UUID> frontIds
+    ) {
+        if (persisted == null || !persisted.mainTunnelId().equals(planned.mainTunnelId())) return false;
+        Set<UUID> persistedTunnels = new HashSet<>();
+        for (MineTunnel tunnel : persisted.tunnels()) persistedTunnels.add(tunnel.id());
+        Set<UUID> plannedTunnels = new HashSet<>();
+        for (MineTunnel tunnel : planned.tunnels()) plannedTunnels.add(tunnel.id());
+        if (!persistedTunnels.equals(plannedTunnels)) return false;
+        for (UUID frontId : frontIds.values()) {
+            if (workFrontById(persisted, frontId) == null) return false;
         }
+        return true;
     }
 
-    private UUID currentMineId(World world, RuntimePlan plan) {
-        UUID worldId = world.getWorldConfig().getUuid();
-        for (Map.Entry<WorldMineKey, RuntimePlan> entry : runtimePlans.entrySet()) {
-            if (entry.getKey().worldId.equals(worldId) && entry.getValue() == plan) return entry.getKey().mineId;
+    private static UUID frontId(UUID mineId, UUID tunnelId) {
+        return UUID.nameUUIDFromBytes(
+            ("civ-mine-work-front:" + mineId + ":" + tunnelId).getBytes(StandardCharsets.UTF_8)
+        );
+    }
+
+    private void advanceAlreadyExcavatedSlices(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan minePlan
+    ) {
+        for (RuntimeFrontPlan plan : minePlan.fronts.values()) {
+            while (!plan.complete && sliceComplete(world, plan.slices.get(plan.sliceIndex))) {
+                completeCurrentSlice(world, mine, plan);
+            }
         }
-        return null;
     }
 
     private void completeCurrentSlice(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
-        RuntimePlan plan
+        RuntimeFrontPlan plan
     ) {
         MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
         if (network == null) return;
@@ -420,7 +498,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 current.id(),
                 current.tunnelId(),
                 plan.slices.get(nextIndex).floorCenter(),
-                MineWorkFront.State.ACTIVE
+                MineWorkFront.State.OPEN
             );
         }
         frontCoordinator.releaseFront(plan.frontId);
@@ -435,7 +513,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private void blockFront(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
-        RuntimePlan plan,
+        RuntimeFrontPlan plan,
         MineWorkFront front
     ) {
         MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
@@ -452,9 +530,21 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         );
     }
 
+    private boolean frontExecutable(World world, RuntimeMinePlan minePlan, RuntimeFrontPlan plan) {
+        if (plan.complete) return false;
+        if (plan.tunnelKind == MineTunnel.Kind.MAIN || plan.sliceIndex > 0) return true;
+        BlockType start = loadedBlockType(world, plan.slices.getFirst().floorCenter());
+        return start != null && isEmpty(start);
+    }
+
     private MineWorkFront currentFront(UUID worldId, UUID mineId, UUID frontId) {
         MineNetwork network = tunnelRegistry.networkForMine(worldId, mineId);
         return network == null ? null : workFrontById(network, frontId);
+    }
+
+    private static boolean available(MineWorkFront front) {
+        return front != null
+            && (front.state() == MineWorkFront.State.OPEN || front.state() == MineWorkFront.State.ACTIVE);
     }
 
     private static MineWorkFront workFrontById(MineNetwork network, UUID frontId) {
@@ -464,10 +554,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             .orElse(null);
     }
 
-    private static int sliceIndexForPosition(
-        List<MineTunnelGeometry.Slice> slices,
-        BlockPosition position
-    ) {
+    private static int sliceIndexForPosition(List<MineTunnelGeometry.Slice> slices, BlockPosition position) {
         for (int i = 0; i < slices.size(); i++) {
             if (slices.get(i).floorCenter().equals(position)) return i;
         }
@@ -476,9 +563,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
     private static List<List<BlockPosition>> orderedBlocks(List<MineTunnelGeometry.Slice> slices) {
         List<List<BlockPosition>> result = new ArrayList<>(slices.size());
-        for (MineTunnelGeometry.Slice slice : slices) {
-            result.add(List.copyOf(slice.excavationBlocks()));
-        }
+        for (MineTunnelGeometry.Slice slice : slices) result.add(List.copyOf(slice.excavationBlocks()));
         return List.copyOf(result);
     }
 
@@ -539,12 +624,17 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     }
 
     private static Vector3d workTarget(
-        RuntimePlan plan,
+        RuntimeFrontPlan plan,
+        UUID mainTunnelId,
         PrefabPlacementService.PlacedMarker connector
     ) {
-        if (plan.sliceIndex == 0) return center(connector.bounds(), connector.bounds().minY());
-        BlockPosition previous = plan.slices.get(plan.sliceIndex - 1).floorCenter();
-        return new Vector3d(previous.x() + 0.5, previous.y(), previous.z() + 0.5);
+        if (plan.sliceIndex == 0 && plan.tunnelId.equals(mainTunnelId)) {
+            return center(connector.bounds(), connector.bounds().minY());
+        }
+        BlockPosition target = plan.sliceIndex == 0
+            ? plan.slices.getFirst().floorCenter()
+            : plan.slices.get(plan.sliceIndex - 1).floorCenter();
+        return new Vector3d(target.x() + 0.5, target.y(), target.z() + 0.5);
     }
 
     private BuildingPlacementRegistry.BuildingInstance assignedMine(Ref<EntityStore> ref, UUID worldId) {
@@ -560,8 +650,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     }
 
     private void navigateTo(Ref<EntityStore> ref, Vector3d target, WorkerRuntime runtime) {
-        if (runtime.navigationTarget == null
-            || runtime.navigationTarget.distanceSquared(target) > 0.0001) {
+        if (runtime.navigationTarget == null || runtime.navigationTarget.distanceSquared(target) > 0.0001) {
             runtime.navigationTarget = new Vector3d(target);
             unitRegistry.setMoveTarget(ref, target);
         }
@@ -620,6 +709,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         return mineId.getMostSignificantBits() ^ Long.rotateLeft(mineId.getLeastSignificantBits(), 23);
     }
 
+    private static BlockPosition blockPosition(Vector3d position) {
+        return new BlockPosition(
+            (int) Math.floor(position.x),
+            (int) Math.floor(position.y),
+            (int) Math.floor(position.z)
+        );
+    }
+
     private static Vector3d center(BuildingBounds bounds, double y) {
         return new Vector3d(
             (bounds.minX() + bounds.maxX()) * 0.5,
@@ -655,17 +752,29 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private record WorldMineKey(UUID worldId, UUID mineId) {
     }
 
-    private static final class RuntimePlan {
+    private static final class RuntimeMinePlan {
+        private final UUID mainTunnelId;
+        private final Map<UUID, RuntimeFrontPlan> fronts;
+
+        private RuntimeMinePlan(UUID mainTunnelId, Map<UUID, RuntimeFrontPlan> fronts) {
+            this.mainTunnelId = mainTunnelId;
+            this.fronts = Map.copyOf(fronts);
+        }
+    }
+
+    private static final class RuntimeFrontPlan {
         private final UUID frontId;
         private final UUID tunnelId;
+        private final MineTunnel.Kind tunnelKind;
         private final List<MineTunnelGeometry.Slice> slices;
         private final List<List<BlockPosition>> orderedBlocks;
         private int sliceIndex;
         private boolean complete;
 
-        private RuntimePlan(
+        private RuntimeFrontPlan(
             UUID frontId,
             UUID tunnelId,
+            MineTunnel.Kind tunnelKind,
             List<MineTunnelGeometry.Slice> slices,
             List<List<BlockPosition>> orderedBlocks,
             int sliceIndex,
@@ -673,6 +782,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         ) {
             this.frontId = frontId;
             this.tunnelId = tunnelId;
+            this.tunnelKind = tunnelKind;
             this.slices = List.copyOf(slices);
             this.orderedBlocks = List.copyOf(orderedBlocks);
             this.sliceIndex = sliceIndex;
@@ -695,19 +805,20 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private void interruptForManualMove() {
             enteredMine = false;
             reachedConnector = false;
-            frontId = null;
-            sliceIndex = -1;
-            claimedBlock = null;
-            workElapsed = 0.0;
+            clearWorkAssignment();
             navigationArrived();
         }
 
         private void clearAssignment() {
+            clearWorkAssignment();
+            navigationArrived();
+        }
+
+        private void clearWorkAssignment() {
             frontId = null;
             sliceIndex = -1;
             claimedBlock = null;
             workElapsed = 0.0;
-            navigationArrived();
         }
 
         private void navigationArrived() {

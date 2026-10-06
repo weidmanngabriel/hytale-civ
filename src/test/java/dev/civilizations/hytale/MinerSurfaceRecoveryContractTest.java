@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class MinerSurfaceRecoveryContractTest {
@@ -27,5 +28,17 @@ final class MinerSurfaceRecoveryContractTest {
             "recovery must use Hytale's native Teleport ECS component");
         assertTrue(source.contains("TUNNEL_CONNECTOR"),
             "recovery target must be the mine tunnel connector");
+    }
+
+    @Test
+    void knownTunnelDetectionUsesLayerThreeGeometryInsteadOfLegacySegments() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerSurfaceRecoverySystem.java")
+        );
+
+        assertTrue(source.contains("geometriesForMine"));
+        assertTrue(source.contains("MineTunnelGeometry"));
+        assertFalse(source.contains("MineSegment"));
+        assertFalse(source.contains("segmentsForMine"));
     }
 }

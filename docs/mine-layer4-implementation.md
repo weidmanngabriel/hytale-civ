@@ -1,6 +1,6 @@
 # Mine Layer 4 - Network Growth
 
-Status: implemented Core planning foundation; NPC layer 4 now executes the current main-tunnel Layer-3 slice through a persistent `MineWorkFront`. Multi-front task scheduling remains deferred.
+Status: Core planning and the current tunnel-excavation runtime are implemented for main and branch fronts. The full room/infrastructure task system remains deferred.
 
 This document records the concrete implementation state of Layer 4 from `docs/mine-design.md`. The canonical product decisions remain in `docs/mine-design.md`; miner task semantics remain in `docs/miner-npc-design.md`.
 
@@ -8,7 +8,7 @@ This document records the concrete implementation state of Layer 4 from `docs/mi
 
 `MineNetworkGrowthPlanner` composes the existing Layer-2 `MinePathPlanner` and Layer-3 `MineTunnelVoxelizer` into a deterministic logical network plan.
 
-The planner now supports:
+The planner supports:
 
 - one persistent logical main tunnel;
 - side tunnels from the main tunnel;
@@ -22,6 +22,30 @@ The planner now supports:
 - deterministic output for a fixed seed.
 
 Layer 4 does not duplicate tunnel-shape generation: every accepted logical tunnel still receives its path from Layer 2 and its voxel geometry from Layer 3.
+
+## Live tunnel-front runtime
+
+`MinerWorkSystem` now regenerates the deterministic Layer-4 plan for the assigned mine and creates one persistent `MineWorkFront` per planned main/branch tunnel. The Hytale world remains authoritative for blocks already removed; the work-front position persists the current slice of each tunnel.
+
+The Layer-3 geometry itself is regenerated deterministically at runtime and cached by `MineTunnelRegistry` for the current world/mine. Navigation and surface recovery use that geometry instead of the legacy `MineSegment` bounds. This runtime geometry is intentionally not a second persisted copy of excavation state.
+
+A branch is not executable merely because it exists in the plan. Its first front becomes eligible after the connection point has physically opened in the world. Once excavation on a tunnel has started, later slices continue from the persisted work-front position.
+
+After every completed slice the transient worker/block claims for that front are released and miners run task selection again. This implements the canonical small-work-unit rhythm without forcing one miner to finish an entire planned tunnel.
+
+## Current miner front scheduling
+
+`MineFrontTaskScheduler` is the current narrow Core scheduler for `EXCAVATE_FRONT` work only. It intentionally does not pre-build the full room/infrastructure scheduler before those task types exist.
+
+For currently executable tunnel fronts:
+
+- an already active normal front with free capacity is filled before opening a different normal front;
+- a normal tunnel front has capacity `2` through `MineFrontCoordinator`;
+- when no active front has capacity, a branch front uses base priority `6` and a main-tunnel front base priority `4`;
+- equal choices use worker distance and then a stable id tie-break;
+- after a slice completes, workers select again.
+
+This is miner task scheduling. It is separate from `MineWorkFrontGrowthSelector`, which remains the mine-generation fairness rule that prevents the logical main tunnel from being starved by branch growth.
 
 ## Initial tuning values
 
@@ -46,7 +70,7 @@ A branch attaches through an exempt connection throat before ordinary collision 
 
 `MineWorkFrontGrowthSelector` is a mine-generation selector, not the miner task scheduler from `docs/miner-npc-design.md`.
 
-When both main and branch fronts are open:
+When both main and branch growth fronts are open:
 
 - the main front receives an initial `40%` share of ordinary growth selections;
 - after three consecutive branch selections, an available main front is forced once;
@@ -54,15 +78,19 @@ When both main and branch fronts are open:
 
 This prevents a large number of side fronts from starving the mine backbone indefinitely while still allowing branches to dominate many local growth decisions.
 
-Miner task priority, aging, reservation capacity and worker assignment remain owned by the miner scheduler and are not reimplemented here.
-
 ## Collision and crossing scope
 
 Layer 4 only decides whether planned tunnel geometry is accepted as separate rock-separated geometry or as a rare intentional connection.
 
 It does not create a special crossing room, support structure, lighting treatment or rail junction. Those belong to later layers.
 
-The current crossing marker is semantic metadata on the planned tunnel. Later runtime integration must translate accepted connections into the concrete excavation/work-front sequence without maintaining a second competing topology model.
+The current crossing marker is semantic metadata on the planned tunnel. Later room/infrastructure integration must translate accepted connections into concrete tasks without maintaining a second competing topology model.
+
+## Persistence and restart
+
+The persisted `MineNetwork` remains the semantic restart state for topology, work-front positions/states and navigation anchors. The deterministic mine seed is derived from the stable mine Building-ID, so the same Layer-2/3/4 path and geometry can be regenerated after restart.
+
+Current development saves whose persisted tunnel/front set does not match the regenerated Layer-4 plan are reinitialized as new mine runtime state. Backward compatibility for those development-only formats is deliberately not added before the separate legacy cut.
 
 ## Tests
 
@@ -76,19 +104,22 @@ The current crossing marker is semantic metadata on the planned tunnel. Later ru
 - configured branch-start spacing;
 - bounded planning runs.
 
-`MineWorkFrontGrowthSelectorTest` covers the main-tunnel starvation safeguard and empty-front behaviour.
+`MineWorkFrontGrowthSelectorTest` covers the mine-generation main-tunnel starvation safeguard.
+
+`MineFrontTaskSchedulerTest` covers active-front fill, branch-vs-main priority, capacity spillover and unavailable fronts.
+
+Hytale contract tests verify that the current work adapter wires multiple planned fronts through the Core scheduler and that navigation/surface recovery no longer depend on `MineSegment`.
 
 ## Explicitly deferred
 
-This layer does not add:
+This layer still does not add:
 
-- multi-front miner task creation and selection for branch, room and infrastructure work;
-- persistence wiring for the Layer-4 planning seed/state;
-- rooms;
-- caves, fluids or bridges;
-- supports, lighting or decoration changes;
-- rails;
+- room excavation/construction task execution;
+- supports, lighting, steps, bridges or decoration tasks;
+- priority `10`, aging and the remaining general task categories from `docs/miner-npc-design.md`;
 - special visual geometry for intentional crossings;
-- final balance tuning.
+- rails;
+- final balance tuning;
+- a terrain-aware replacement for the temporary surface-recovery Y heuristic.
 
-The live `MinerWorkSystem` now consumes the Layer-3 geometry for the current main-tunnel work front. It persists the semantic front position/state in `MineNetwork`, uses the Hytale world as truth for already removed blocks, and advances one complete slice at a time. The old `MineSegment` excavation path is no longer the live miner runtime truth. Branch-front scheduling and the general task-priority system remain later integration work.
+The legacy `MineSegment` model, segment persistence and compatibility code still exist elsewhere in the repository for the transition. They are no longer needed by the live planned tunnel excavation, navigation or surface-recovery path and are intended to be removed in the follow-up legacy-cut PR.

@@ -45,4 +45,16 @@ final class MinerAnchorNavigationContractTest {
         assertTrue(source.contains("new Teleport("),
             "long-distance anchor travel must use Hytale's native Teleport component");
     }
+
+    @Test
+    void tunnelMembershipUsesLayerThreeGeometryInsteadOfLegacySegments() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerNavigationSystem.java")
+        );
+
+        assertTrue(source.contains("geometryForTunnel"));
+        assertTrue(source.contains("MineTunnelGeometry"));
+        assertFalse(source.contains("MineSegment"));
+        assertFalse(source.contains("segmentIds()"));
+    }
 }
