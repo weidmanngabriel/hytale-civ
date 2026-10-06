@@ -15,5 +15,9 @@ HytaleServer.jar
 HytaleServer.aot
 Assets.zip
 mods/
+
+web-viewer/node_modules/
+web-viewer/dist/
+web-viewer/public/data/
 .hytale-dev/
 .hytale-dev.json

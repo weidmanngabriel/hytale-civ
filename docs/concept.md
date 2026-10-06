@@ -202,3 +202,9 @@ Aging schützt wartende normale Arbeit vor dauerhaftem Verhungern, maximal bis P
 Unfertige Arbeitszustände, Fortschritt und Prioritäten gehören zur Mine beziehungsweise zum Task und sollen einen Server-Neustart überleben. Temporäre Miner-Zuordnungen, Arbeitsgruppen und Block-Claims werden nicht persistiert. Nach einem Restart wählen die Miner aus den wiederhergestellten offenen Arbeiten neu. Fertige Tasks werden aus dem aktiven/persistierten Task-System entfernt, sobald ihr dauerhaftes Ergebnis im MineNetwork und/oder in der Hytale-Welt repräsentiert ist.
 
 Für einen Miner, der zuvor an die Oberfläche gerufen wurde, ist die geplante autonome Rückkehr gestaffelt: `workplace_access -> mine_tunnel_connector -> Arbeitsposition`. Liegt die gewählte Arbeitsposition mehr als 20 Blöcke vom Connector entfernt, teleportiert der Connector den Miner stattdessen zum passenden bereits vorhandenen Navigation Anchor des Zielzweigs; von dort übernimmt wieder Hytales native Navigation. Anchors existieren im Zielmodell ungefähr alle 10 Blöcke und zusätzlich an wichtigen Topologiepunkten. Ein geeigneter Anchor soll möglichst höchstens 20 Blöcke von der Arbeitsposition entfernt sein; fehlt ein solcher, wird der beste gültige Anchor des Zielzweigs verwendet.
+
+## Entwicklungswerkzeug: Browser-Simulation-Lab
+
+Das öffentliche Browser-Lab dient der Prüfung aufgezeichneter Core-Szenarien. Ein Branch-/Lauf-/Szenario-Katalog öffnet einen konkreten Quellcode-Stand; freie Kamera und Spectator-Sicht machen Minenhohlräume untersuchbar. Start/Pause, Einzelschritt, Zeitleiste und Inspector zeigen aufgezeichnete Blockänderungen und Arbeiterzustände. Touch-Steuerung ermöglicht dieselbe Beobachtung auf Mobilgeräten.
+
+Das Lab verändert kein Gameplay und führt keine neuen Befehle während eines Replays aus. Seine vereinfachte Grafik und Fake-Bewegung sind Entwicklungshilfen; Hytales Navigation, Grafik und Physik bleiben Engine-Verträge.

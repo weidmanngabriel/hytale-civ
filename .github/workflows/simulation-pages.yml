@@ -1,0 +1,64 @@
+name: Simulation Pages
+
+on:
+  workflow_run:
+    workflows: ['Simulation Recordings']
+    types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - 'web-viewer/**'
+      - 'scripts/collect-simulation-recordings.mjs'
+      - '.github/workflows/simulation-pages.yml'
+  workflow_dispatch:
+
+# Serialize complete-site rebuilds; never let one branch overwrite another branch's catalog.
+concurrency:
+  group: simulation-pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      # The publisher only runs trusted main code. Branch artifacts are validated JSON data.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web-viewer/package-lock.json
+      - run: npm ci --prefix web-viewer
+      - run: npm test --prefix web-viewer
+      - name: Gather retained recordings
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/collect-simulation-recordings.mjs web-viewer/public/data
+      - run: npm run build --prefix web-viewer
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web-viewer/dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish viewer and recordings
+        id: deployment
+        uses: actions/deploy-pages@v4
