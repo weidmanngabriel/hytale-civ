@@ -38,7 +38,7 @@ public record MineNetwork(
         return new MineNetwork(
             mineId,
             mainTunnelId,
-            List.of(new MineTunnel(mainTunnelId, MineTunnel.Kind.MAIN, null, 0, origin, List.of())),
+            List.of(new MineTunnel(mainTunnelId, MineTunnel.Kind.MAIN, null, 0, origin)),
             List.of(),
             List.of(),
             List.of()
@@ -108,7 +108,6 @@ public record MineNetwork(
         long mainCount = tunnels.stream().filter(t -> t.kind() == MineTunnel.Kind.MAIN).count();
         if (mainCount != 1) throw new IllegalArgumentException("Mine network requires exactly one main tunnel.");
 
-        Set<UUID> allSegmentIds = new HashSet<>();
         for (MineTunnel tunnel : tunnels) {
             if (tunnel.kind() == MineTunnel.Kind.BRANCH) {
                 MineTunnel parent = byId.get(tunnel.parentTunnelId());
@@ -117,11 +116,6 @@ public record MineNetwork(
                     throw new IllegalArgumentException("Branch depth must follow its parent.");
                 }
                 ensureAcyclic(tunnel, byId);
-            }
-            for (UUID segmentId : tunnel.segmentIds()) {
-                if (!allSegmentIds.add(segmentId)) {
-                    throw new IllegalArgumentException("Mine segment cannot belong to multiple tunnels.");
-                }
             }
         }
 
