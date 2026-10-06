@@ -556,3 +556,9 @@ The following are deliberately not fully decided yet:
 - exact runtime capability of Hytale prefab molding/scanners for dynamically generated mine spaces.
 
 These should be decided only when their implementation layer needs them.
+
+## Current implementation checkpoint - NPC layer 4 work fronts
+
+Live miner excavation is now connected to the new tunnel geometry for the current main-tunnel front. The active work unit is one `MineTunnelGeometry.Slice`; its variable width/height and voxel set come from Layers 2/3 rather than the old fixed 4x4 `MineSegment` runtime geometry. A persistent `MineWorkFront` tracks the current semantic front, while already excavated blocks remain world truth.
+
+Up to two miners may share that normal tunnel front. Their per-block claims are transient execution coordination and are not stored as permanent worker slots. This layer does not yet activate the complete Layer-4 branch network as miner tasks: multi-front selection, branch task availability, rooms, supports, steps, bridges, lighting, decoration and rails remain separate later integrations. In particular, supports are no longer placed automatically by the excavation loop; they remain dedicated mine work according to `docs/miner-npc-design.md`.

@@ -10,17 +10,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class MinerNavigationStagingContractTest {
 
     @Test
-    void connectorGateComesBeforeSegmentResolutionAndResetsAfterManualMove() throws Exception {
+    void connectorGateComesBeforeWorkFrontResolutionAndResetsAfterManualMove() throws Exception {
         String source = Files.readString(
             Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
         );
 
         int connectorGate = source.indexOf("if (!runtime.reachedConnector)");
-        int segmentResolution = source.indexOf("MineSegment segment = resolveSegment");
+        int frontResolution = source.indexOf("RuntimePlan plan = ensureRuntimePlan");
 
         assertTrue(connectorGate >= 0, "miner must gate autonomous work on the tunnel connector");
-        assertTrue(segmentResolution > connectorGate,
-            "segment selection must happen only after the connector gate");
+        assertTrue(frontResolution > connectorGate,
+            "work-front execution must start only after the connector gate");
         assertTrue(source.contains("reachedConnector = false;"),
             "manual interruption/reset must require the connector again");
     }

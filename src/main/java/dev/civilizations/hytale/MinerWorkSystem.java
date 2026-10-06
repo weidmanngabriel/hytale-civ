@@ -8,7 +8,6 @@ import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.tick.DelayedEntitySystem;
-import com.hypixel.hytale.math.Axis;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.protocol.AnimationSlot;
 import com.hypixel.hytale.protocol.BlockMaterial;
@@ -18,8 +17,6 @@ import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.entity.AnimationUtils;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
 import com.hypixel.hytale.server.core.modules.interaction.BlockHarvestUtils;
-import com.hypixel.hytale.server.core.prefab.PrefabStore;
-import com.hypixel.hytale.server.core.prefab.selection.standard.BlockSelection;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
@@ -29,27 +26,29 @@ import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
 import dev.civilizations.core.MineDecisionCategory;
 import dev.civilizations.core.MineDecisionSink;
-import dev.civilizations.core.MineDirection;
-import dev.civilizations.core.MineSegment;
+import dev.civilizations.core.MineFrontCoordinator;
+import dev.civilizations.core.MineHeading;
+import dev.civilizations.core.MineNetwork;
+import dev.civilizations.core.MineNetworkGrowthPlanner;
+import dev.civilizations.core.MinePathPlanner;
+import dev.civilizations.core.MineTunnelGeometry;
 import dev.civilizations.core.MineTuning;
+import dev.civilizations.core.MineWorkFront;
 import dev.civilizations.core.Profession;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Executes Civ mine work using native Hytale navigation, harvesting and prefab placement.
- * Hytale navigation continues between delayed Civ sessions so segment reconciliation and marker
- * resolution are not repeated for every miner on every engine tick.
+ * Executes the current planned mine work front with Hytale-native movement, animation and block
+ * breaking. The mine planner owns the slice geometry; this adapter only executes the selected
+ * front and coordinates short-lived block claims between at most two miners.
  */
 public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
@@ -61,18 +60,19 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private static final String MINE_BUILDING = "mine";
     private static final String MINING_ITEM_ANIMATIONS = "Civ_Miner_Pickaxe";
     private static final String MINING_ANIMATION = "SwingDown";
-    private static final String SUPPORT_PREFAB_KEY = "Civilizations/Mine/Mine_Support_01.prefab.json";
-    private static final String SUPPORT_POST_BLOCK = "Wood_Fir_Branch_Long";
-    private static final String SUPPORT_BEAM_BLOCK = "Wood_Fir_Trunk";
     private static final double ARRIVAL_DISTANCE = 1.1;
-    private static final double RETRY_SECONDS = 1.0;
+    private static final int MAIN_PLAN_LENGTH_BLOCKS = MinePathPlanner.FOOTPRINT_SIZE_BLOCKS;
+    private static final int V1_PLANNING_TUNNEL_BUDGET = 1;
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
     private final BuildingPlacementRegistry buildingRegistry;
     private final MineTunnelRegistry tunnelRegistry;
     private final MineDecisionSink decisionSink;
+    private final MineFrontCoordinator<CivUnitRegistry.UnitKey> frontCoordinator =
+        new MineFrontCoordinator<>();
     private final Map<CivUnitRegistry.UnitKey, WorkerRuntime> workers = new ConcurrentHashMap<>();
+    private final Map<WorldMineKey, RuntimePlan> runtimePlans = new ConcurrentHashMap<>();
 
     public MinerWorkSystem(
         CivUnitRegistry unitRegistry,
@@ -117,19 +117,16 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         CommandBuffer<EntityStore> commandBuffer
     ) {
         Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
-        CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
-        if (!ref.isValid()) {
-            workers.remove(key);
-            return;
-        }
-        if (unitRegistry.getProfession(ref) != Profession.MINER) {
-            workers.remove(key);
+        CivUnitRegistry.UnitKey workerKey = unitRegistry.keyOf(ref);
+        if (!ref.isValid() || unitRegistry.getProfession(ref) != Profession.MINER) {
+            releaseWorker(workerKey, ref, store);
             return;
         }
 
-        WorkerRuntime runtime = workers.computeIfAbsent(key, ignored -> new WorkerRuntime());
+        WorkerRuntime runtime = workers.computeIfAbsent(workerKey, ignored -> new WorkerRuntime());
         if (!activityRegistry.autonomousWorkAllowed(ref)) {
             stopMiningAnimation(ref, store, runtime);
+            frontCoordinator.releaseWorker(workerKey);
             runtime.interruptForManualMove();
             return;
         }
@@ -142,10 +139,13 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (mine == null) {
             unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
+            frontCoordinator.releaseWorker(workerKey);
+            runtime.clearAssignment();
             return;
         }
         if (!mine.id().equals(runtime.mineId) || mine.phase() != runtime.minePhase) {
             stopMiningAnimation(ref, store, runtime);
+            frontCoordinator.releaseWorker(workerKey);
             runtime.reset(mine.id(), mine.phase());
         }
 
@@ -154,6 +154,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (connector == null || connector.bounds() == null) {
             unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
+            frontCoordinator.releaseWorker(workerKey);
             return;
         }
 
@@ -161,7 +162,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (!runtime.enteredMine && entrance != null && entrance.bounds() != null) {
             Vector3d target = center(entrance.bounds(), entrance.bounds().minY());
             if (!arrived(position, target)) {
-                navigateTo(ref, position, target, runtime);
+                navigateTo(ref, target, runtime);
                 stopMiningAnimation(ref, store, runtime);
                 return;
             }
@@ -172,7 +173,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (!runtime.reachedConnector) {
             Vector3d target = center(connector.bounds(), connector.bounds().minY());
             if (!arrived(position, target)) {
-                navigateTo(ref, position, target, runtime);
+                navigateTo(ref, target, runtime);
                 stopMiningAnimation(ref, store, runtime);
                 return;
             }
@@ -180,43 +181,61 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             runtime.navigationArrived();
         }
 
-        MineSegment segment = resolveSegment(world, mine, connector, runtime);
-        if (segment == null) {
+        RuntimePlan plan = ensureRuntimePlan(world, mine, connector);
+        if (plan == null || plan.complete) {
             unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
-            runtime.retryElapsed += dt;
-            if (runtime.retryElapsed >= RETRY_SECONDS) {
-                runtime.retryElapsed = 0.0;
-                runtime.segmentId = null;
-            }
+            frontCoordinator.releaseWorker(workerKey);
             return;
         }
-        runtime.retryElapsed = 0.0;
 
-        segment = reconcileSegmentWithWorld(world, segment);
-        if (segment == null) {
+        advanceAlreadyExcavatedSlices(world, plan);
+        if (plan.complete) {
             unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
+            frontCoordinator.releaseWorker(workerKey);
             return;
         }
-        segment = placeDueSupports(world, segment);
-        tunnelRegistry.put(world, segment);
-        runtime.segmentId = segment.id();
 
-        if (segment.status() == MineSegment.Status.COMPLETE) {
-            continueAfterCompletedSegment(world, mine, position, runtime, segment);
+        MineWorkFront front = currentFront(worldId, mine.id(), plan.frontId);
+        if (front == null || front.state() == MineWorkFront.State.BLOCKED
+            || front.state() == MineWorkFront.State.ABANDONED
+            || front.state() == MineWorkFront.State.COMPLETE) {
+            unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
+            frontCoordinator.releaseWorker(workerKey);
             return;
         }
 
-        if (segment.status() == MineSegment.Status.RESERVED) {
-            segment = segment.withStatus(MineSegment.Status.MINING);
-            tunnelRegistry.put(world, segment);
+        if (!frontCoordinator.tryJoin(plan.frontId, workerKey)) {
+            unitRegistry.clearMoveTarget(ref);
+            stopMiningAnimation(ref, store, runtime);
+            runtime.frontId = null;
+            runtime.sliceIndex = -1;
+            return;
+        }
+        runtime.frontId = plan.frontId;
+
+        if (runtime.sliceIndex != plan.sliceIndex) {
+            stopMiningAnimation(ref, store, runtime);
+            runtime.sliceIndex = plan.sliceIndex;
+            runtime.workElapsed = 0.0;
+            runtime.claimedBlock = null;
+            runtime.navigationArrived();
         }
 
-        Vector3d workTarget = workTarget(segment);
+        MineTunnelGeometry.Slice slice = plan.slices.get(plan.sliceIndex);
+        if (containsBlockedSolid(world, mine, slice)) {
+            blockFront(world, mine, plan, front);
+            unitRegistry.clearMoveTarget(ref);
+            stopMiningAnimation(ref, store, runtime);
+            frontCoordinator.releaseWorker(workerKey);
+            return;
+        }
+
+        Vector3d workTarget = workTarget(plan, connector);
         if (!arrived(position, workTarget)) {
-            navigateTo(ref, position, workTarget, runtime);
+            navigateTo(ref, workTarget, runtime);
             stopMiningAnimation(ref, store, runtime);
             return;
         }
@@ -233,56 +252,299 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         runtime.workElapsed += dt;
         while (runtime.workElapsed >= MineTuning.secondsPerBlock()) {
             runtime.workElapsed -= MineTuning.secondsPerBlock();
-            segment = advanceOneBlock(world, ref, store, mine, segment);
-            if (segment == null) {
+            if (!workOneBlock(world, ref, store, mine, plan, workerKey, runtime)) break;
+            if (sliceComplete(world, slice)) {
+                completeCurrentSlice(world, mine, plan);
                 stopMiningAnimation(ref, store, runtime);
-                runtime.segmentId = null;
-                return;
-            }
-            runtime.segmentId = segment.id();
-            if (segment.status() == MineSegment.Status.COMPLETE) {
-                continueAfterCompletedSegment(world, mine, position, runtime, segment);
-                stopMiningAnimation(ref, store, runtime);
+                runtime.workElapsed = 0.0;
+                runtime.claimedBlock = null;
                 return;
             }
         }
     }
 
     public void forgetRuntime(Ref<EntityStore> ref) {
-        if (ref != null) workers.remove(unitRegistry.keyOf(ref));
+        if (ref == null) return;
+        CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
+        frontCoordinator.releaseWorker(key);
+        workers.remove(key);
     }
 
-    private void continueAfterCompletedSegment(
+    private boolean workOneBlock(
+        World world,
+        Ref<EntityStore> worker,
+        Store<EntityStore> entityStore,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimePlan plan,
+        CivUnitRegistry.UnitKey workerKey,
+        WorkerRuntime runtime
+    ) {
+        BlockPosition target = frontCoordinator.claimNext(
+            plan.frontId,
+            workerKey,
+            plan.orderedBlocks.get(plan.sliceIndex),
+            block -> isAvailableWorkBlock(world, mine, block)
+        );
+        runtime.claimedBlock = target;
+        if (target == null) return false;
+
+        BlockType type = loadedBlockType(world, target);
+        if (type == null) return false;
+        if (isEmpty(type)) {
+            frontCoordinator.completeClaim(plan.frontId, workerKey, target);
+            runtime.claimedBlock = null;
+            return true;
+        }
+        if (!safeBlock(world, mine, target)) return false;
+
+        Store<ChunkStore> chunkStore = world.getChunkStore().getStore();
+        BlockHarvestUtils.performBlockBreak(
+            worker,
+            null,
+            List.of(new Vector3i(target.x(), target.y(), target.z())),
+            0,
+            entityStore,
+            chunkStore
+        );
+        if (!isEmpty(loadedBlockType(world, target))) return false;
+
+        frontCoordinator.completeClaim(plan.frontId, workerKey, target);
+        runtime.claimedBlock = null;
+        return true;
+    }
+
+    private RuntimePlan ensureRuntimePlan(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
-        Vector3d workerPosition,
-        WorkerRuntime runtime,
-        MineSegment completed
+        PrefabPlacementService.PlacedMarker connector
     ) {
-        runtime.workElapsed = 0.0;
-        MineSegment next = existingChild(world.getWorldConfig().getUuid(), completed.id());
-        if (next != null) {
-            decisionSink.record(
-                mine.id(), next.id(), MineDecisionCategory.PLANNING, "FRONT_SELECTED",
-                "reason", "EXISTING_CHILD",
-                "parent", completed.id(),
-                "direction", next.direction(),
-                "length", next.lengthBlocks()
+        WorldMineKey key = new WorldMineKey(world.getWorldConfig().getUuid(), mine.id());
+        RuntimePlan existingRuntime = runtimePlans.get(key);
+        if (existingRuntime != null) return existingRuntime;
+
+        MineHeading heading = outwardHeading(mine.bounds(), connector.bounds());
+        BlockPosition origin = initialCenterlineOrigin(connector.bounds(), heading);
+        long seed = planningSeed(mine.id());
+        MineNetworkGrowthPlanner.Plan planned = MineNetworkGrowthPlanner.plan(
+            mine.id(),
+            origin,
+            heading,
+            MAIN_PLAN_LENGTH_BLOCKS,
+            V1_PLANNING_TUNNEL_BUDGET,
+            seed
+        );
+        MineTunnelGeometry geometry = planned.mainTunnel().geometry();
+        UUID frontId = UUID.nameUUIDFromBytes(
+            ("civ-mine-work-front:" + mine.id() + ":" + planned.network().mainTunnelId())
+                .getBytes(StandardCharsets.UTF_8)
+        );
+
+        MineNetwork persisted = tunnelRegistry.networkForMine(key.worldId, mine.id());
+        MineWorkFront persistedFront = persisted == null ? null : workFrontById(persisted, frontId);
+        if (persisted == null || !persisted.mainTunnelId().equals(planned.network().mainTunnelId())
+            || persistedFront == null) {
+            if (persisted != null || !tunnelRegistry.segmentsForMine(key.worldId, mine.id()).isEmpty()) {
+                tunnelRegistry.removeMine(world, mine.id());
+            }
+            MineWorkFront initialFront = new MineWorkFront(
+                frontId,
+                planned.network().mainTunnelId(),
+                geometry.slices().getFirst().floorCenter(),
+                MineWorkFront.State.ACTIVE
             );
+            persisted = planned.network().withWorkFront(initialFront);
+            tunnelRegistry.putNetwork(world, persisted);
+            persistedFront = initialFront;
+            decisionSink.record(
+                mine.id(), frontId, MineDecisionCategory.PLANNING, "FRONT_CREATED",
+                "reason", "LAYER3_MAIN_TUNNEL_SLICE",
+                "slice", 0,
+                "width", geometry.slices().getFirst().widthBlocks(),
+                "height", geometry.slices().getFirst().heightBlocks()
+            );
+        }
+
+        int sliceIndex = sliceIndexForPosition(geometry.slices(), persistedFront.position());
+        if (sliceIndex < 0) sliceIndex = 0;
+        RuntimePlan runtime = new RuntimePlan(
+            frontId,
+            planned.network().mainTunnelId(),
+            geometry.slices(),
+            orderedBlocks(geometry.slices()),
+            sliceIndex,
+            persistedFront.state() == MineWorkFront.State.COMPLETE
+        );
+        runtimePlans.put(key, runtime);
+        return runtime;
+    }
+
+    private void advanceAlreadyExcavatedSlices(World world, RuntimePlan plan) {
+        while (!plan.complete && sliceComplete(world, plan.slices.get(plan.sliceIndex))) {
+            BuildingPlacementRegistry.BuildingInstance mine = buildingRegistry.find(
+                world.getWorldConfig().getUuid(), currentMineId(world, plan)
+            );
+            if (mine == null) return;
+            completeCurrentSlice(world, mine, plan);
+        }
+    }
+
+    private UUID currentMineId(World world, RuntimePlan plan) {
+        UUID worldId = world.getWorldConfig().getUuid();
+        for (Map.Entry<WorldMineKey, RuntimePlan> entry : runtimePlans.entrySet()) {
+            if (entry.getKey().worldId.equals(worldId) && entry.getValue() == plan) return entry.getKey().mineId;
+        }
+        return null;
+    }
+
+    private void completeCurrentSlice(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimePlan plan
+    ) {
+        MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
+        if (network == null) return;
+        MineWorkFront current = workFrontById(network, plan.frontId);
+        if (current == null) return;
+
+        int completedIndex = plan.sliceIndex;
+        int nextIndex = completedIndex + 1;
+        MineWorkFront updated;
+        if (nextIndex >= plan.slices.size()) {
+            updated = new MineWorkFront(
+                current.id(), current.tunnelId(), current.position(), MineWorkFront.State.COMPLETE
+            );
+            plan.complete = true;
         } else {
-            next = chooseNext(world, mine, completed);
-        }
-        logSegmentTransition(mine.id(), workerPosition, completed, next);
-        if (next == null) {
-            decisionSink.record(
-                mine.id(), completed.id(), MineDecisionCategory.PLANNING, "BRANCH_ENDED",
-                "reason", "NO_VALID_CONTINUATION",
-                "direction", completed.direction(),
-                "length", completed.lengthBlocks()
+            plan.sliceIndex = nextIndex;
+            updated = new MineWorkFront(
+                current.id(),
+                current.tunnelId(),
+                plan.slices.get(nextIndex).floorCenter(),
+                MineWorkFront.State.ACTIVE
             );
         }
-        runtime.segmentId = next == null ? null : next.id();
-        runtime.navigationArrived();
+        frontCoordinator.releaseFront(plan.frontId);
+        tunnelRegistry.putNetwork(world, network.withWorkFront(updated));
+        decisionSink.record(
+            mine.id(), plan.frontId, MineDecisionCategory.PLANNING, "WORK_UNIT_COMPLETED",
+            "slice", completedIndex,
+            "nextSlice", plan.complete ? "COMPLETE" : plan.sliceIndex
+        );
+    }
+
+    private void blockFront(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimePlan plan,
+        MineWorkFront front
+    ) {
+        MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
+        if (network == null) return;
+        MineWorkFront blocked = new MineWorkFront(
+            front.id(), front.tunnelId(), front.position(), MineWorkFront.State.BLOCKED
+        );
+        tunnelRegistry.putNetwork(world, network.withWorkFront(blocked));
+        frontCoordinator.releaseFront(plan.frontId);
+        decisionSink.record(
+            mine.id(), front.id(), MineDecisionCategory.PLANNING, "FRONT_ABANDONED",
+            "reason", "UNSAFE_OR_UNBREAKABLE_SLICE",
+            "slice", plan.sliceIndex
+        );
+    }
+
+    private MineWorkFront currentFront(UUID worldId, UUID mineId, UUID frontId) {
+        MineNetwork network = tunnelRegistry.networkForMine(worldId, mineId);
+        return network == null ? null : workFrontById(network, frontId);
+    }
+
+    private static MineWorkFront workFrontById(MineNetwork network, UUID frontId) {
+        return network.workFronts().stream()
+            .filter(front -> front.id().equals(frontId))
+            .findFirst()
+            .orElse(null);
+    }
+
+    private static int sliceIndexForPosition(
+        List<MineTunnelGeometry.Slice> slices,
+        BlockPosition position
+    ) {
+        for (int i = 0; i < slices.size(); i++) {
+            if (slices.get(i).floorCenter().equals(position)) return i;
+        }
+        return -1;
+    }
+
+    private static List<List<BlockPosition>> orderedBlocks(List<MineTunnelGeometry.Slice> slices) {
+        List<List<BlockPosition>> result = new ArrayList<>(slices.size());
+        for (MineTunnelGeometry.Slice slice : slices) {
+            result.add(List.copyOf(slice.excavationBlocks()));
+        }
+        return List.copyOf(result);
+    }
+
+    private boolean containsBlockedSolid(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        MineTunnelGeometry.Slice slice
+    ) {
+        for (BlockPosition block : slice.excavationBlocks()) {
+            BlockType type = loadedBlockType(world, block);
+            if (type == null || isEmpty(type)) continue;
+            if (!safeBlock(world, mine, block)) return true;
+        }
+        return false;
+    }
+
+    private boolean isAvailableWorkBlock(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        BlockPosition block
+    ) {
+        BlockType type = loadedBlockType(world, block);
+        return type != null && !isEmpty(type) && safeBlock(world, mine, block);
+    }
+
+    private boolean safeBlock(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        BlockPosition block
+    ) {
+        for (BuildingPlacementRegistry.BuildingInstance building :
+            buildingRegistry.buildings(world.getWorldConfig().getUuid())) {
+            if (building.bounds().containsBlock(block)) return false;
+        }
+        BlockType type = loadedBlockType(world, block);
+        if (type == null || isEmpty(type)) return type != null;
+        BlockGathering gathering = type.getGathering();
+        BlockBreakingDropType breaking = gathering == null ? null : gathering.getBreaking();
+        return breaking != null;
+    }
+
+    private static boolean sliceComplete(World world, MineTunnelGeometry.Slice slice) {
+        for (BlockPosition block : slice.excavationBlocks()) {
+            BlockType type = loadedBlockType(world, block);
+            if (type == null || !isEmpty(type)) return false;
+        }
+        return true;
+    }
+
+    private static BlockType loadedBlockType(World world, BlockPosition block) {
+        WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(block.x(), block.z()));
+        return chunk == null ? null : chunk.getBlockType(block.x(), block.y(), block.z());
+    }
+
+    private static boolean isEmpty(BlockType blockType) {
+        return blockType == BlockType.EMPTY
+            || (blockType != null && blockType.getMaterial() == BlockMaterial.Empty);
+    }
+
+    private static Vector3d workTarget(
+        RuntimePlan plan,
+        PrefabPlacementService.PlacedMarker connector
+    ) {
+        if (plan.sliceIndex == 0) return center(connector.bounds(), connector.bounds().minY());
+        BlockPosition previous = plan.slices.get(plan.sliceIndex - 1).floorCenter();
+        return new Vector3d(previous.x() + 0.5, previous.y(), previous.z() + 0.5);
     }
 
     private BuildingPlacementRegistry.BuildingInstance assignedMine(Ref<EntityStore> ref, UUID worldId) {
@@ -297,533 +559,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
     }
 
-    private MineSegment resolveSegment(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        PrefabPlacementService.PlacedMarker connector,
-        WorkerRuntime runtime
-    ) {
-        UUID worldId = world.getWorldConfig().getUuid();
-
-        if (runtime.resumeAfterManual) {
-            MineSegment resumed = chooseResumeSegment(world, mine, runtime);
-            if (resumed != null) {
-                runtime.resumeAfterManual = false;
-                runtime.interruptedSegmentId = null;
-                runtime.segmentId = resumed.id();
-                return resumed;
-            }
-        }
-
-        MineSegment reopened = earliestReopenedCompletedSegment(world, mine.id());
-        if (reopened != null) {
-            decisionSink.record(
-                mine.id(), reopened.id(), MineDecisionCategory.PLANNING, "FRONT_SELECTED",
-                "reason", "REOPENED_WORLD_STATE",
-                "direction", reopened.direction(),
-                "progress", reopened.nextBlockIndex()
-            );
-            runtime.segmentId = reopened.id();
-            return reopened;
-        }
-        if (runtime.segmentId != null) {
-            MineSegment existing = tunnelRegistry.get(worldId, runtime.segmentId);
-            if (existing != null && existing.status() != MineSegment.Status.BLOCKED) return existing;
-        }
-        MineSegment unfinished = tunnelRegistry.unfinishedForMine(worldId, mine.id());
-        if (unfinished != null) {
-            decisionSink.record(
-                mine.id(), unfinished.id(), MineDecisionCategory.PLANNING, "FRONT_SELECTED",
-                "reason", "UNFINISHED_EXISTING",
-                "status", unfinished.status(),
-                "direction", unfinished.direction()
-            );
-            runtime.segmentId = unfinished.id();
-            return unfinished;
-        }
-        if (!tunnelRegistry.segmentsForMine(worldId, mine.id()).isEmpty()) return null;
-
-        MineDirection direction = outwardDirection(mine.bounds(), connector.bounds());
-        decisionSink.record(
-            mine.id(), null, MineDecisionCategory.PLANNING, "INITIAL_DIRECTION_SELECTED",
-            "direction", direction,
-            "reason", "MINE_CONNECTOR_OUTWARD"
-        );
-        MineSegment initial = fittingCandidate(
-            world, mine, null, initialStart(connector.bounds(), direction), direction, true
-        );
-        if (initial == null) {
-            decisionSink.record(
-                mine.id(), null, MineDecisionCategory.PLANNING, "FRONT_ABANDONED",
-                "reason", "NO_VALID_INITIAL_SEGMENT",
-                "direction", direction
-            );
-            return null;
-        }
-        tunnelRegistry.put(world, initial);
-        decisionSink.record(
-            mine.id(), initial.id(), MineDecisionCategory.PLANNING, "FRONT_CREATED",
-            "reason", "INITIAL_SEGMENT",
-            "direction", initial.direction(),
-            "length", initial.lengthBlocks()
-        );
-        runtime.segmentId = initial.id();
-        return initial;
-    }
-
-    private MineSegment chooseResumeSegment(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        WorkerRuntime runtime
-    ) {
-        UUID worldId = world.getWorldConfig().getUuid();
-        List<MineSegment> alternatives = tunnelRegistry.segmentsForMine(worldId, mine.id()).stream()
-            .filter(candidate -> candidate.status() == MineSegment.Status.RESERVED
-                || candidate.status() == MineSegment.Status.MINING)
-            .filter(candidate -> runtime.interruptedSegmentId == null
-                || !candidate.id().equals(runtime.interruptedSegmentId))
-            .toList();
-        if (!alternatives.isEmpty()) {
-            int roll = ThreadLocalRandom.current().nextInt(alternatives.size());
-            MineSegment selected = alternatives.get(roll);
-            decisionSink.record(
-                mine.id(), selected.id(), MineDecisionCategory.PLANNING, "FRONT_SELECTED",
-                "reason", "RESUME_ALTERNATIVE",
-                "candidateCount", alternatives.size(),
-                "rollIndex", roll,
-                "direction", selected.direction()
-            );
-            return selected;
-        }
-
-        MineSegment fresh = chooseFreshBranch(world, mine);
-        if (fresh != null) {
-            tunnelRegistry.put(world, fresh);
-            return fresh;
-        }
-
-        if (runtime.interruptedSegmentId != null) {
-            MineSegment interrupted = tunnelRegistry.get(worldId, runtime.interruptedSegmentId);
-            if (interrupted != null && interrupted.status() != MineSegment.Status.BLOCKED) {
-                decisionSink.record(
-                    mine.id(), interrupted.id(), MineDecisionCategory.PLANNING, "FRONT_SELECTED",
-                    "reason", "RESUME_INTERRUPTED_FALLBACK",
-                    "direction", interrupted.direction()
-                );
-                return interrupted;
-            }
-        }
-        MineSegment fallback = tunnelRegistry.unfinishedForMine(worldId, mine.id());
-        if (fallback != null) {
-            decisionSink.record(
-                mine.id(), fallback.id(), MineDecisionCategory.PLANNING, "FRONT_SELECTED",
-                "reason", "RESUME_UNFINISHED_FALLBACK",
-                "direction", fallback.direction()
-            );
-        }
-        return fallback;
-    }
-
-    private MineSegment chooseFreshBranch(World world, BuildingPlacementRegistry.BuildingInstance mine) {
-        List<WeightedCandidate> valid = new ArrayList<>();
-        for (MineSegment parent : tunnelRegistry.segmentsForMine(world.getWorldConfig().getUuid(), mine.id())) {
-            if (parent.status() != MineSegment.Status.COMPLETE) continue;
-            addIfValid(world, mine, parent, parent.direction(), MineTuning.STRAIGHT_WEIGHT, valid);
-            addIfValid(world, mine, parent, parent.direction().left(), MineTuning.LEFT_WEIGHT, valid);
-            addIfValid(world, mine, parent, parent.direction().right(), MineTuning.RIGHT_WEIGHT, valid);
-        }
-        return selectWeighted(mine.id(), null, "FRESH_BRANCH", valid);
-    }
-
-    private MineSegment earliestReopenedCompletedSegment(World world, UUID mineId) {
-        UUID worldId = world.getWorldConfig().getUuid();
-        List<MineSegment> segments = tunnelRegistry.segmentsForMine(worldId, mineId);
-        if (segments.isEmpty()) return null;
-        Map<UUID, MineSegment> byId = new HashMap<>();
-        for (MineSegment segment : segments) byId.put(segment.id(), segment);
-        return segments.stream()
-            .filter(segment -> segment.status() == MineSegment.Status.COMPLETE)
-            .sorted(Comparator.comparingInt(segment -> ancestryDepth(segment, byId)))
-            .map(segment -> reconcileSegmentWithWorld(world, segment))
-            .filter(segment -> segment != null && segment.status() != MineSegment.Status.COMPLETE)
-            .findFirst()
-            .orElse(null);
-    }
-
-    private static int ancestryDepth(MineSegment segment, Map<UUID, MineSegment> byId) {
-        int depth = 0;
-        UUID parentId = segment.parentId();
-        while (parentId != null && depth < byId.size()) {
-            MineSegment parent = byId.get(parentId);
-            if (parent == null) break;
-            depth++;
-            parentId = parent.parentId();
-        }
-        return depth;
-    }
-
-    private MineSegment reconcileSegmentWithWorld(World world, MineSegment segment) {
-        int firstSolid = firstExcavationIndex(world, segment);
-        if (firstSolid < 0) return null;
-        MineSegment reconciled = segment.withProgress(firstSolid);
-        if (firstSolid >= segment.blockCount()) return reconciled.withStatus(MineSegment.Status.COMPLETE);
-        return reconciled.withStatus(MineSegment.Status.MINING);
-    }
-
-    private int firstExcavationIndex(World world, MineSegment segment) {
-        for (int index = 0; index < segment.blockCount(); index++) {
-            BlockType type = loadedBlockType(world, segment.blockAtIndex(index));
-            if (type == null) return -1;
-            if (isEmpty(type) || isExpectedSupportBlock(segment, index, type)) continue;
-            return index;
-        }
-        return segment.blockCount();
-    }
-
-    private MineSegment advanceOneBlock(
-        World world,
-        Ref<EntityStore> worker,
-        Store<EntityStore> entityStore,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        MineSegment segment
-    ) {
-        int index = segment.nextBlockIndex();
-        if (index >= segment.blockCount()) return finishSegment(segment);
-        BlockPosition target = segment.blockAtIndex(index);
-        if (!safeBlock(world, mine, target)) {
-            MineSegment blocked = segment.withStatus(MineSegment.Status.BLOCKED);
-            tunnelRegistry.put(world, blocked);
-            decisionSink.record(
-                mine.id(), segment.id(), MineDecisionCategory.PLANNING, "FRONT_ABANDONED",
-                "reason", "UNSAFE_BLOCK",
-                "block", target,
-                "blockIndex", index
-            );
-            return null;
-        }
-
-        BlockType type = loadedBlockType(world, target);
-        if (!isEmpty(type)) {
-            Store<ChunkStore> chunkStore = world.getChunkStore().getStore();
-            BlockHarvestUtils.performBlockBreak(
-                worker, null, List.of(new Vector3i(target.x(), target.y(), target.z())),
-                0, entityStore, chunkStore
-            );
-            if (!isEmpty(loadedBlockType(world, target))) return segment;
-        }
-
-        MineSegment updated = segment.withProgress(index + 1);
-        updated = placeDueSupports(world, updated);
-        if (updated.complete()) updated = finishSegment(updated);
-        tunnelRegistry.put(world, updated);
-        return updated;
-    }
-
-    private MineSegment placeDueSupports(World world, MineSegment segment) {
-        int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
-        int completedDepth = segment.nextBlockIndex() / faceSize;
-        int due = completedDepth / MineTuning.SUPPORT_SPACING_BLOCKS;
-        int maxSupports = MineTuning.supportFramesForLength(segment.lengthBlocks());
-        int highestKnown = segment.supportsPlaced();
-        for (int number = 1; number <= due && number <= maxSupports; number++) {
-            int depth = number * MineTuning.SUPPORT_SPACING_BLOCKS;
-            if (supportPresent(world, segment, depth)) {
-                if (number > highestKnown && !MineSupportPhysics.markBeamAsDeco(world, segment, depth)) continue;
-                highestKnown = Math.max(highestKnown, number);
-            } else if (number > highestKnown && placeSupport(world, segment, depth)) {
-                highestKnown = number;
-            }
-        }
-        return segment.withSupportsPlaced(highestKnown);
-    }
-
-    private boolean supportPresent(World world, MineSegment segment, int depth) {
-        int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
-        int faceStart = (depth - 1) * faceSize;
-        for (int y = 0; y < MineTuning.TUNNEL_HEIGHT_BLOCKS; y++) {
-            for (int width = 0; width < MineTuning.TUNNEL_WIDTH_BLOCKS; width++) {
-                boolean top = y == MineTuning.TUNNEL_HEIGHT_BLOCKS - 1;
-                boolean post = y < MineTuning.TUNNEL_HEIGHT_BLOCKS - 1
-                    && (width == 0 || width == MineTuning.TUNNEL_WIDTH_BLOCKS - 1);
-                if (!top && !post) continue;
-                BlockType type = loadedBlockType(world, segment.blockAtIndex(
-                    faceStart + y * MineTuning.TUNNEL_WIDTH_BLOCKS + width
-                ));
-                if (type == null || type.getId() == null) return false;
-                if (!supportBlockIdMatches(top ? SUPPORT_BEAM_BLOCK : SUPPORT_POST_BLOCK, type.getId())) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    private boolean placeSupport(World world, MineSegment segment, int depth) {
-        BlockSelection raw = PrefabStore.get().getAssetPrefabFromAnyPack(SUPPORT_PREFAB_KEY);
-        if (raw == null) {
-            decisionSink.record(
-                segment.mineId(), segment.id(), MineDecisionCategory.ADAPTER, "PREFAB_PLACEMENT_FAILED",
-                "prefab", SUPPORT_PREFAB_KEY,
-                "reason", "ASSET_NOT_FOUND",
-                "depth", depth
-            );
-            return false;
-        }
-        BlockSelection selection = new BlockSelection(raw);
-        int rotation = supportRotationDegrees(segment.direction());
-        if (rotation != 0) selection = selection.rotate(Axis.Y, rotation);
-        com.hypixel.hytale.builtin.blockphysics.BlockSelectionSupportUtil.applySupportValues(selection);
-        BlockPosition support = segment.supportOrigin(depth);
-        selection.placeNoReturn(
-            world,
-            new Vector3i(support.x(), support.y(), support.z()),
-            world.getEntityStore().getStore()
-        );
-        boolean marked = MineSupportPhysics.markBeamAsDeco(world, segment, depth);
-        if (!marked) {
-            decisionSink.record(
-                segment.mineId(), segment.id(), MineDecisionCategory.ADAPTER, "PREFAB_PLACEMENT_FAILED",
-                "prefab", SUPPORT_PREFAB_KEY,
-                "reason", "SUPPORT_BEAM_NOT_CONFIRMED",
-                "depth", depth
-            );
-        }
-        return marked;
-    }
-
-    private static boolean isExpectedSupportBlock(MineSegment segment, int index, BlockType type) {
-        return type != null && isExpectedSupportCell(segment, index, type.getId());
-    }
-
-    static boolean isExpectedSupportCell(MineSegment segment, int index, String blockId) {
-        if (blockId == null) return false;
-        int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
-        int depth = index / faceSize;
-        int oneBasedDepth = depth + 1;
-        if (oneBasedDepth > segment.lengthBlocks()) return false;
-        if (oneBasedDepth % MineTuning.SUPPORT_SPACING_BLOCKS != 0) return false;
-        int supportNumber = oneBasedDepth / MineTuning.SUPPORT_SPACING_BLOCKS;
-        int completedDepth = segment.nextBlockIndex() / faceSize;
-        int knownSupports = Math.max(
-            segment.supportsPlaced(), completedDepth / MineTuning.SUPPORT_SPACING_BLOCKS
-        );
-        if (supportNumber > knownSupports) return false;
-        int inFace = index % faceSize;
-        int y = inFace / MineTuning.TUNNEL_WIDTH_BLOCKS;
-        int width = inFace % MineTuning.TUNNEL_WIDTH_BLOCKS;
-        if (y == MineTuning.TUNNEL_HEIGHT_BLOCKS - 1) {
-            return supportBlockIdMatches(SUPPORT_BEAM_BLOCK, blockId);
-        }
-        return (width == 0 || width == MineTuning.TUNNEL_WIDTH_BLOCKS - 1)
-            && supportBlockIdMatches(SUPPORT_POST_BLOCK, blockId);
-    }
-
-    static boolean supportBlockIdMatches(String expected, String actual) {
-        return expected != null && actual != null && expected.equalsIgnoreCase(actual);
-    }
-
-    private static MineSegment finishSegment(MineSegment segment) {
-        return segment.withStatus(MineSegment.Status.COMPLETE).withProgress(segment.blockCount());
-    }
-
-    private MineSegment existingChild(UUID worldId, UUID parentId) {
-        return tunnelRegistry.segments(worldId).stream()
-            .filter(segment -> parentId.equals(segment.parentId()))
-            .findFirst()
-            .orElse(null);
-    }
-
-    private MineSegment chooseNext(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        MineSegment parent
-    ) {
-        List<WeightedCandidate> valid = new ArrayList<>();
-        addIfValid(world, mine, parent, parent.direction(), MineTuning.STRAIGHT_WEIGHT, valid);
-        addIfValid(world, mine, parent, parent.direction().left(), MineTuning.LEFT_WEIGHT, valid);
-        addIfValid(world, mine, parent, parent.direction().right(), MineTuning.RIGHT_WEIGHT, valid);
-        MineSegment next = selectWeighted(mine.id(), parent.id(), "CONTINUATION", valid);
-        if (next != null) tunnelRegistry.put(world, next);
-        return next;
-    }
-
-    private void addIfValid(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        MineSegment parent,
-        MineDirection direction,
-        int weight,
-        List<WeightedCandidate> result
-    ) {
-        MineSegment candidate = fittingCandidate(
-            world, mine, parent, parent.nextStart(direction), direction, false
-        );
-        if (candidate != null) result.add(new WeightedCandidate(candidate, weight));
-    }
-
-    private MineSegment fittingCandidate(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        MineSegment parent,
-        BlockPosition start,
-        MineDirection direction,
-        boolean allowOwnMine
-    ) {
-        int minimum = MineTuning.MIN_SEGMENT_LENGTH_BLOCKS;
-        int desired = Math.max(minimum, randomSegmentLength());
-        for (int length = desired; length >= minimum; length--) {
-            MineSegment candidate = MineSegment.reserved(
-                UUID.randomUUID(), mine.id(), parent == null ? null : parent.id(),
-                start, direction, length
-            );
-            CandidateValidation validation = validateCandidate(world, mine, candidate, allowOwnMine);
-            if (validation.valid()) return candidate;
-            decisionSink.record(
-                mine.id(), candidate.id(), MineDecisionCategory.GEOMETRY, "CANDIDATE_REJECTED",
-                "parent", parent == null ? "null" : parent.id(),
-                "direction", direction,
-                "length", length,
-                "reason", validation.reason(),
-                "block", validation.block() == null ? "-" : validation.block()
-            );
-        }
-        return null;
-    }
-
-    private static int randomSegmentLength() {
-        return ThreadLocalRandom.current().nextInt(
-            MineTuning.MIN_SEGMENT_LENGTH_BLOCKS,
-            MineTuning.MAX_SEGMENT_LENGTH_BLOCKS + 1
-        );
-    }
-
-    private MineSegment selectWeighted(
-        UUID mineId,
-        UUID frontId,
-        String decision,
-        List<WeightedCandidate> valid
-    ) {
-        if (valid.isEmpty()) return null;
-        int total = valid.stream().mapToInt(WeightedCandidate::weight).sum();
-        int roll = ThreadLocalRandom.current().nextInt(total);
-        int remaining = roll;
-        MineSegment selected = valid.getLast().segment();
-        int selectedWeight = valid.getLast().weight();
-        for (WeightedCandidate option : valid) {
-            if (remaining < option.weight()) {
-                selected = option.segment();
-                selectedWeight = option.weight();
-                break;
-            }
-            remaining -= option.weight();
-        }
-        decisionSink.record(
-            mineId, selected.id(), MineDecisionCategory.PLANNING, "DIRECTION_SELECTED",
-            "decision", decision,
-            "parent", selected.parentId() == null ? "null" : selected.parentId(),
-            "direction", selected.direction(),
-            "length", selected.lengthBlocks(),
-            "candidateCount", valid.size(),
-            "weight", selectedWeight,
-            "totalWeight", total,
-            "probability", String.format(Locale.ROOT, "%.3f", selectedWeight / (double) total),
-            "roll", roll
-        );
-        return selected;
-    }
-
-    private CandidateValidation validateCandidate(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        MineSegment segment,
-        boolean allowOwnMine
-    ) {
-        if (tunnelRegistry.conflicts(world.getWorldConfig().getUuid(), segment)) {
-            return CandidateValidation.rejected("TUNNEL_COLLISION", null);
-        }
-        for (BlockPosition block : segment.blocks()) {
-            if (!safeBlock(world, mine, block, allowOwnMine)) {
-                return CandidateValidation.rejected("UNSAFE_WORLD_GEOMETRY", block);
-            }
-        }
-        return CandidateValidation.VALID;
-    }
-
-    private boolean safeBlock(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        BlockPosition block
-    ) {
-        return safeBlock(world, mine, block, false);
-    }
-
-    private boolean safeBlock(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        BlockPosition block,
-        boolean allowOwnMine
-    ) {
-        for (BuildingPlacementRegistry.BuildingInstance building :
-            buildingRegistry.buildings(world.getWorldConfig().getUuid())) {
-            if ((!allowOwnMine || !building.id().equals(mine.id()))
-                && building.bounds().containsBlock(block)) return false;
-        }
-        BlockType type = loadedBlockType(world, block);
-        if (type == null) return false;
-        if (isEmpty(type)) return true;
-        BlockGathering gathering = type.getGathering();
-        BlockBreakingDropType breaking = gathering == null ? null : gathering.getBreaking();
-        return breaking != null;
-    }
-
-    private static BlockType loadedBlockType(World world, BlockPosition block) {
-        WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(block.x(), block.z()));
-        return chunk == null ? null : chunk.getBlockType(block.x(), block.y(), block.z());
-    }
-
-    private static boolean isEmpty(BlockType blockType) {
-        return blockType == BlockType.EMPTY
-            || (blockType != null && blockType.getMaterial() == BlockMaterial.Empty);
-    }
-
-    static int supportRotationDegrees(MineDirection direction) {
-        return switch (direction) {
-            case EAST -> 0;
-            case NORTH -> 90;
-            case WEST -> 180;
-            case SOUTH -> 270;
-        };
-    }
-
-    private static Vector3d workTarget(MineSegment segment) {
-        int faceSize = MineTuning.TUNNEL_WIDTH_BLOCKS * MineTuning.TUNNEL_HEIGHT_BLOCKS;
-        int depth = Math.min(segment.totalDepthBlocks() - 1, segment.nextBlockIndex() / faceSize);
-        int first = depth * faceSize;
-        double x = 0.0;
-        double z = 0.0;
-        for (int width = 0; width < MineTuning.TUNNEL_WIDTH_BLOCKS; width++) {
-            BlockPosition block = segment.blockAtIndex(first + width);
-            x += block.x() + 0.5;
-            z += block.z() + 0.5;
-        }
-        x /= MineTuning.TUNNEL_WIDTH_BLOCKS;
-        z /= MineTuning.TUNNEL_WIDTH_BLOCKS;
-        return new Vector3d(
-            x - segment.direction().dx() * 1.35,
-            segment.start().y(),
-            z - segment.direction().dz() * 1.35
-        );
-    }
-
-    private void navigateTo(
-        Ref<EntityStore> ref,
-        Vector3d position,
-        Vector3d target,
-        WorkerRuntime runtime
-    ) {
+    private void navigateTo(Ref<EntityStore> ref, Vector3d target, WorkerRuntime runtime) {
         if (runtime.navigationTarget == null
             || runtime.navigationTarget.distanceSquared(target) > 0.0001) {
-            runtime.beginNavigation(position, target);
+            runtime.navigationTarget = new Vector3d(target);
             unitRegistry.setMoveTarget(ref, target);
         }
     }
@@ -853,33 +592,32 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         );
     }
 
-    private static MineDirection outwardDirection(BuildingBounds building, BuildingBounds connector) {
+    private static MineHeading outwardHeading(BuildingBounds building, BuildingBounds connector) {
         double bx = (building.minX() + building.maxX()) * 0.5;
         double bz = (building.minZ() + building.maxZ()) * 0.5;
         double cx = (connector.minX() + connector.maxX()) * 0.5;
         double cz = (connector.minZ() + connector.maxZ()) * 0.5;
         double dx = cx - bx;
         double dz = cz - bz;
-        if (Math.abs(dx) > Math.abs(dz)) return dx >= 0 ? MineDirection.EAST : MineDirection.WEST;
-        return dz >= 0 ? MineDirection.SOUTH : MineDirection.NORTH;
+        if (Math.abs(dx) > Math.abs(dz)) return dx >= 0 ? MineHeading.EAST : MineHeading.WEST;
+        return dz >= 0 ? MineHeading.SOUTH : MineHeading.NORTH;
     }
 
-    private static BlockPosition initialStart(BuildingBounds connector, MineDirection direction) {
+    static BlockPosition initialCenterlineOrigin(BuildingBounds connector, MineHeading heading) {
+        int centerX = (int) Math.floor((connector.minX() + connector.maxX()) * 0.5);
+        int centerZ = (int) Math.floor((connector.minZ() + connector.maxZ()) * 0.5);
         int y = (int) Math.floor(connector.minY());
-        return switch (direction) {
-            case NORTH -> new BlockPosition(
-                (int) Math.floor(connector.minX()), y, (int) Math.floor(connector.minZ()) - 1
-            );
-            case SOUTH -> new BlockPosition(
-                (int) Math.ceil(connector.maxX()) - 1, y, (int) Math.ceil(connector.maxZ())
-            );
-            case EAST -> new BlockPosition(
-                (int) Math.ceil(connector.maxX()), y, (int) Math.floor(connector.minZ())
-            );
-            case WEST -> new BlockPosition(
-                (int) Math.floor(connector.minX()) - 1, y, (int) Math.ceil(connector.maxZ()) - 1
-            );
-        };
+        int x = heading.unitX() > 0.01
+            ? (int) Math.ceil(connector.maxX())
+            : heading.unitX() < -0.01 ? (int) Math.floor(connector.minX()) - 1 : centerX;
+        int z = heading.unitZ() > 0.01
+            ? (int) Math.ceil(connector.maxZ())
+            : heading.unitZ() < -0.01 ? (int) Math.floor(connector.minZ()) - 1 : centerZ;
+        return new BlockPosition(x, y, z);
+    }
+
+    private static long planningSeed(UUID mineId) {
+        return mineId.getMostSignificantBits() ^ Long.rotateLeft(mineId.getLeastSignificantBits(), 23);
     }
 
     private static Vector3d center(BuildingBounds bounds, double y) {
@@ -894,21 +632,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         return position.distanceSquared(target) <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
     }
 
-    private void logSegmentTransition(
-        UUID mineId,
-        Vector3d position,
-        MineSegment completed,
-        MineSegment next
+    private void releaseWorker(
+        CivUnitRegistry.UnitKey key,
+        Ref<EntityStore> ref,
+        Store<EntityStore> store
     ) {
-        decisionSink.record(
-            mineId, completed.id(), MineDecisionCategory.PLANNING, "SEGMENT_COMPLETED",
-            "direction", completed.direction(),
-            "length", completed.lengthBlocks(),
-            "next", next == null ? "null" : next.id(),
-            "nextDirection", next == null ? "null" : next.direction(),
-            "nextLength", next == null ? "null" : next.lengthBlocks(),
-            "workerPos", position
-        );
+        WorkerRuntime runtime = workers.remove(key);
+        if (runtime != null) stopMiningAnimation(ref, store, runtime);
+        frontCoordinator.releaseWorker(key);
     }
 
     private static void stopMiningAnimation(
@@ -921,42 +652,62 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         runtime.animationStarted = false;
     }
 
-    private record WeightedCandidate(MineSegment segment, int weight) {
+    private record WorldMineKey(UUID worldId, UUID mineId) {
     }
 
-    private record CandidateValidation(boolean valid, String reason, BlockPosition block) {
-        private static final CandidateValidation VALID = new CandidateValidation(true, "OK", null);
+    private static final class RuntimePlan {
+        private final UUID frontId;
+        private final UUID tunnelId;
+        private final List<MineTunnelGeometry.Slice> slices;
+        private final List<List<BlockPosition>> orderedBlocks;
+        private int sliceIndex;
+        private boolean complete;
 
-        private static CandidateValidation rejected(String reason, BlockPosition block) {
-            return new CandidateValidation(false, reason, block);
+        private RuntimePlan(
+            UUID frontId,
+            UUID tunnelId,
+            List<MineTunnelGeometry.Slice> slices,
+            List<List<BlockPosition>> orderedBlocks,
+            int sliceIndex,
+            boolean complete
+        ) {
+            this.frontId = frontId;
+            this.tunnelId = tunnelId;
+            this.slices = List.copyOf(slices);
+            this.orderedBlocks = List.copyOf(orderedBlocks);
+            this.sliceIndex = sliceIndex;
+            this.complete = complete;
         }
     }
 
     private static final class WorkerRuntime {
         private UUID mineId;
         private int minePhase;
-        private UUID segmentId;
+        private UUID frontId;
+        private int sliceIndex = -1;
+        private BlockPosition claimedBlock;
         private boolean enteredMine;
         private boolean reachedConnector;
         private boolean animationStarted;
         private double workElapsed;
-        private double retryElapsed;
         private Vector3d navigationTarget;
-        private boolean resumeAfterManual;
-        private UUID interruptedSegmentId;
 
         private void interruptForManualMove() {
-            if (!resumeAfterManual) interruptedSegmentId = segmentId;
-            resumeAfterManual = true;
-            segmentId = null;
             enteredMine = false;
             reachedConnector = false;
+            frontId = null;
+            sliceIndex = -1;
+            claimedBlock = null;
             workElapsed = 0.0;
             navigationArrived();
         }
 
-        private void beginNavigation(Vector3d position, Vector3d target) {
-            navigationTarget = new Vector3d(target);
+        private void clearAssignment() {
+            frontId = null;
+            sliceIndex = -1;
+            claimedBlock = null;
+            workElapsed = 0.0;
+            navigationArrived();
         }
 
         private void navigationArrived() {
@@ -966,15 +717,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private void reset(UUID nextMineId, int nextMinePhase) {
             mineId = nextMineId;
             minePhase = nextMinePhase;
-            segmentId = null;
             enteredMine = false;
             reachedConnector = false;
             animationStarted = false;
-            workElapsed = 0.0;
-            retryElapsed = 0.0;
-            resumeAfterManual = false;
-            interruptedSegmentId = null;
-            navigationArrived();
+            clearAssignment();
         }
     }
 }

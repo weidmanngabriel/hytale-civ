@@ -1,6 +1,6 @@
 # Mine Layer 4 - Network Growth
 
-Status: implemented Core planning foundation; live Hytale miner execution still uses the pre-overhaul `MineSegment` runtime path.
+Status: implemented Core planning foundation; NPC layer 4 now executes the current main-tunnel Layer-3 slice through a persistent `MineWorkFront`. Multi-front task scheduling remains deferred.
 
 This document records the concrete implementation state of Layer 4 from `docs/mine-design.md`. The canonical product decisions remain in `docs/mine-design.md`; miner task semantics remain in `docs/miner-npc-design.md`.
 
@@ -82,8 +82,7 @@ The current crossing marker is semantic metadata on the planned tunnel. Later ru
 
 This layer does not add:
 
-- Hytale world excavation for the new geometry;
-- live miner task creation from the new planned network;
+- multi-front miner task creation and selection for branch, room and infrastructure work;
 - persistence wiring for the Layer-4 planning seed/state;
 - rooms;
 - caves, fluids or bridges;
@@ -92,4 +91,4 @@ This layer does not add:
 - special visual geometry for intentional crossings;
 - final balance tuning.
 
-The existing live `MinerWorkSystem` therefore remains on the old 4x4 `MineSegment` execution path until a later integration step explicitly replaces that runtime truth with the Layer-2/3/4 model.
+The live `MinerWorkSystem` now consumes the Layer-3 geometry for the current main-tunnel work front. It persists the semantic front position/state in `MineNetwork`, uses the Hytale world as truth for already removed blocks, and advances one complete slice at a time. The old `MineSegment` excavation path is no longer the live miner runtime truth. Branch-front scheduling and the general task-priority system remain later integration work.
