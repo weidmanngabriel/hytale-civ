@@ -36,7 +36,7 @@ Während der RTS-Modus aktiv ist:
 - Ein Rechtsklick auf den aktuell ausgewählten Civ-Bewohner öffnet dessen Aktionsmenü.
 - Die erste verfügbare Aktion weist den Beruf Holzfäller zu.
 - Ein Rechtsklick auf einen Bodenblock gibt dem ausgewählten Bewohner ein direktes Bewegungsziel. Dieser manuelle Befehl pausiert seine automatische Berufsarbeit. Sobald der Bewohner das Ziel erreicht hat, endet der manuelle Auftrag; nach einer gemeinsamen Wiederanlaufpause von zwei Sekunden darf der bereits zugewiesene Beruf automatisch mit seinem unveränderten Zustand weiterarbeiten. Der Beruf muss nicht erneut zugewiesen werden.
-- Für Minenabbauer ist die automatische Wiederaufnahme bewusst gestaffelt: Nach einer manuellen Ausfahrt läuft der Bewohner zuerst zum Minenzugang und zum `mine_tunnel_connector`. Jeder geplante Hauptgang ist 4×4 Blöcke groß, 4–12 Blöcke lang und reserviert anschließend immer eine zusätzliche stützenfreie 4×4×4-Junction. Erst wenn Hauptgang und Junction vollständig ausgehoben sind, wird geradeaus/links/rechts als nächste Richtung gewählt.
+- Der aktuell implementierte Minenabbauer-Vertical-Slice verwendet beim Wiedereintritt `workplace_access` und danach `mine_tunnel_connector`. Seine konkrete Abbaugeometrie besteht weiterhin aus 4×4-Hauptgängen mit 4–12 Blöcken Länge und einer zusätzlichen stützenfreien 4×4×4-Junction. Diese Geometrie ist der heutige Engine-/Gameplay-Slice und nicht die Zielgeometrie des geplanten Mine-Overhauls.
 - Während autonomer Minenarbeit überwacht Civ vorläufig, ob ein Miner außerhalb der Mine und der bekannten Tunnelräume auf oder über das aktuelle Gebäudereferenzniveau gelangt. Bleibt dieser Zustand ungefähr 1,5 Sekunden bestehen, wird er über Hytales native Teleport-Komponente zum `mine_tunnel_connector` zurückgesetzt und kann von dort weiterarbeiten. Manuelle Spielerbefehle unterdrücken diese Recovery vollständig. Diese Y-basierte Oberflächenheuristik ist ausdrücklich temporär und muss bei terrainabhängiger Weltgeneration, Bergen und späteren Tunnelebenen durch eine terrainbewusste Erkennung ersetzt werden.
 - Ein Rechtsklick auf ein fertig gebautes Civ-Gebäude öffnet dessen Gebäude-Interface, sofern nicht der bestehende Farm-Zuweisungsmodus eines ausgewählten Bauern greift.
 - Das Gebäude-Interface zeigt Gebäudename, Phase sowie die aktuelle Arbeiterbelegung als `X/Y`. Zugeordnete Bewohner erscheinen als auswählbare Einträge; nicht belegte Kapazität erscheint als freier Arbeitsplatz.
@@ -168,8 +168,45 @@ Das Weizenfeld besitzt einen eigenen `wheat_field`-Gebäudebereich für Auswahl,
 
 Im Personenaktionsmenü eines beanspruchten Civ-Bewohners gibt es **Inventar ansehen**. Die Ansicht zeigt das tatsächliche Hytale-Inventar des Bewohners inklusive der von Hytale zusammengefassten relevanten Inventarbereiche. Sie ist zunächst schreibgeschützt: Der Spieler kann kontrollieren, welche Gegenstände der Bewohner trägt, aber über diese Ansicht keine Items hineinlegen, herausnehmen oder verschieben.
 
-## Flexible Minenstollen
+## Aktueller Minenabbauer-Vertical-Slice
 
-Minenabbauer graben 4x4-Stollen in variablen Abschnitten von 4 bis 12 Blöcken. Passt die zunächst gewählte Länge wegen eines Gebäudes oder vorhandenen Stollens nicht, wird derselbe Verlauf zunächst kürzer geplant, bevor eine andere Richtung gewählt wird. Kurven benötigen wegen ihres gemeinsamen 4x4x4-Übergangs mindestens 5 Blöcke.
+Der derzeit spielbare Minenabbauer gräbt weiterhin 4x4-Stollen in variablen Abschnitten von 4 bis 12 Blöcken. Passt die zunächst gewählte Länge wegen eines Gebäudes oder vorhandenen Stollens nicht, wird derselbe Verlauf zunächst kürzer geplant, bevor eine andere Richtung gewählt wird. Kurven benötigen wegen ihres gemeinsamen 4x4x4-Übergangs mindestens 5 Blöcke.
 
 Ein Spieler kann einen unterirdischen Minenabbauer jederzeit manuell herausrufen: Ein normaler Bewegungsbefehl setzt ihn am `workplace_access` seiner Mine ab, danach läuft er zum angeklickten Ziel. Nimmt er später die Arbeit wieder auf, darf er sich eine andere offene Arbeitsfront oder einen neuen gültigen Tunnelast suchen und muss nicht exakt zum unterbrochenen Block zurückkehren.
+
+Dieser Slice dient als heutige Implementierung und Engine-Validierung. Die geplante Mine verwendet dagegen die variable Tunnelgeometrie, das MineNetwork und die Miner-Aufgabenlogik aus `docs/mine-design.md` und `docs/miner-npc-design.md`.
+
+## Geplante Mine- und Mehrminer-Zielmechanik
+
+> **Status:** beschlossenes Zielverhalten, noch nicht vollständig implementiert. Die kanonischen Details stehen in `docs/mine-design.md` und `docs/miner-npc-design.md`.
+
+Die neue Mine soll nicht aus dauerhaft festen 4x4-Stollen bestehen. Der Haupttunnel liegt grob im Bereich 6–8 Blöcke Breite/Höhe, Seitentunnel grob bei 3–5 Blöcken. Formphasen verändern Querschnitt, Drift und Höhe schrittweise, sodass Arbeitsfronten immer die tatsächlich geplante Tunnelgeometrie verwenden.
+
+Miner werden nicht global und nicht in persistenten Teams koordiniert. Die **zugewiesene Mine ist die Koordinationsgrenze**: Nur Miner derselben Mine konkurrieren oder kooperieren um deren Aufgaben. Andere Minen und andere Fraktionen besitzen ihre eigene unabhängige Arbeitsauswahl.
+
+Eine Mine besitzt mehrere mögliche Aufgaben und offene Arbeitsfronten. Für V1 gilt als Auswahlprinzip:
+
+1. **Priorität 10** ist akut und hat immer Vorrang. Sie ist ausschließlich für verpflichtende Sicherheits-/Passierbarkeitsarbeit reserviert; normale Aufgaben können höchstens Priorität 9 erreichen.
+2. Gibt es keinen 10er-Job, werden zuerst **bereits aktive Aufgaben mit freier Kapazität** aufgefüllt. Das gilt bewusst auch dann, wenn eine noch nicht begonnene normale Aufgabe eine höhere Priorität zwischen 1 und 9 besitzt.
+3. Unter mehreren aktiven Aufgaben mit freier Kapazität gewinnt die höhere Priorität, danach die nähere Aufgabe und schließlich ein Tie-Breaker.
+4. Erst wenn keine aktive normale Aufgabe mehr freie Kapazität besitzt, wird die höchste wartende normale Aufgabe begonnen.
+
+Dadurch entstehen Arbeitsgruppen automatisch statt durch feste Teamformationen. Eine normale Tunnel-Arbeitsfront hat zunächst Kapazität 2, Raumaushub bis 3, Raumbau meist 2 und einzelne Infrastruktur-/Dekorationsjobs normalerweise 1. Die Mine selbst bleibt zusätzlich durch ihre Gebäudephase begrenzt: Phase 1 = 1, Phase 2 = 2, Phase 3 = 3 Abbauer.
+
+Mehrere Miner an derselben Arbeitsfront leisten echte parallele Arbeit an unterschiedlichen noch offenen Teilen derselben Excavation Slice. Sie dürfen nicht denselben Block gleichzeitig beanspruchen. Solche Block-Claims sind kurzfristige Koordination und keine festen linken/rechten Arbeitsplätze. Wenn ein Miner die Front verlässt, arbeitet der andere normal weiter und der freigewordene Kapazitätsplatz kann später neu besetzt werden.
+
+Normale Arbeit wird bis zum Ende der aktuellen Work Unit weitergeführt. Priorität 10 darf dagegen sofort unterbrechen. Es werden nur so viele Miner abgezogen, wie der akute Job tatsächlich benötigt; freie Miner werden zuerst verwendet, danach möglichst Miner aus niedriger priorisierter normaler Arbeit. Nach dem Akutjob wird nichts zwangsweise wieder aufgenommen: Der Miner entscheidet erneut nach den normalen Regeln.
+
+Aging schützt wartende normale Arbeit vor dauerhaftem Verhungern, maximal bis Priorität 9. Eine Aufgabe altert nicht weiter, solange bereits mindestens ein Miner aktiv daran arbeitet.
+
+Unfertige Arbeitszustände, Fortschritt und Prioritäten gehören zur Mine beziehungsweise zum Task und sollen einen Server-Neustart überleben. Temporäre Miner-Zuordnungen, Arbeitsgruppen und Block-Claims werden nicht persistiert. Nach einem Restart wählen die Miner aus den wiederhergestellten offenen Arbeiten neu. Fertige Tasks werden aus dem aktiven/persistierten Task-System entfernt, sobald ihr dauerhaftes Ergebnis im MineNetwork und/oder in der Hytale-Welt repräsentiert ist.
+
+Für einen Miner, der zuvor an die Oberfläche gerufen wurde, ist die geplante autonome Rückkehr gestaffelt: `workplace_access -> mine_tunnel_connector -> Arbeitsposition`. Liegt die gewählte Arbeitsposition mehr als 20 Blöcke vom Connector entfernt, teleportiert der Connector den Miner stattdessen zum passenden bereits vorhandenen Navigation Anchor des Zielzweigs; von dort übernimmt wieder Hytales native Navigation. Anchors existieren im Zielmodell ungefähr alle 10 Blöcke und zusätzlich an wichtigen Topologiepunkten. Ein geeigneter Anchor soll möglichst höchstens 20 Blöcke von der Arbeitsposition entfernt sein; fehlt ein solcher, wird der beste gültige Anchor des Zielzweigs verwendet.
+
+## Entwicklungswerkzeug: Browser-Simulation-Lab
+
+Das öffentliche Browser-Lab dient der Prüfung aufgezeichneter Core-Szenarien. Ein Branch-/Lauf-/Szenario-Katalog öffnet einen konkreten Quellcode-Stand; freie Kamera und Spectator-Sicht machen Minenhohlräume untersuchbar. Start/Pause, Einzelschritt, Zeitleiste und Inspector zeigen aufgezeichnete Blockänderungen und Arbeiterzustände. Touch-Steuerung ermöglicht dieselbe Beobachtung auf Mobilgeräten.
+
+Das Lab verändert kein Gameplay und führt keine neuen Befehle während eines Replays aus. Seine vereinfachte Grafik und Fake-Bewegung sind Entwicklungshilfen; Hytales Navigation, Grafik und Physik bleiben Engine-Verträge.
+
+Das Browser-Lab enthält zusätzlich `Mine · Kombinationen` in vier Ausrichtungen: ein Miner gräbt sieben verbundene Abschnitte unterschiedlicher Länge mit geraden Fortsetzungen und Links-/Rechtsästen. Während eines unfertigen Abschnitts läuft er zum Ausgang zurück, geht wieder hinein, bearbeitet andere Äste und setzt den gespeicherten Abbau fort. Abschließend kehrt er erneut zum Ausgang zurück. Dieser deterministische Testlauf zeigt den vorhandenen Core-Slice; er implementiert keine neue autonome Arbeitswahl oder die geplante Mehrminer-Mechanik.

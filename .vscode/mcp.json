@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "hytale-civ-local": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/tools/hytale-mcp/server.mjs"]
+    }
+  }
+}

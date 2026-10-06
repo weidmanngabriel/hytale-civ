@@ -105,6 +105,14 @@ tasks.register<JavaExec>("simulationViewer") {
     mainClass.set("dev.civilizations.simulation.viewer.SimulationViewerApp")
 }
 
+tasks.register<JavaExec>("exportSimulationRecordings") {
+    group = "development"
+    description = "Runs headless scenarios and exports versioned browser replay data."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("dev.civilizations.simulation.recording.SimulationRecordingExporter")
+    args(layout.buildDirectory.dir("simulation-recordings").get().asFile.absolutePath)
+}
+
 tasks.register<JavaExec>("prefabNavigationViewer") {
     group = "development"
     description = "Starts the prefab-derived geometric reachability lab."

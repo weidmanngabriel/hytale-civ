@@ -56,6 +56,8 @@ Der erste Cadence-Vertrag lautet: teure autonome Arbeitssuche erfolgt über <cod
 
 ## Hytale-Adapter-Tests
 
+Der lokale MCP-Zugriff wird zusätzlich ohne Gameplay-Engine geprüft: `node --test tools/hytale-mcp/test/*.test.mjs` sichert Lifecycle/stdio, Argumentgrenzen, Tool-Fehler, Log-Cursor und Runtime-Dateibesitz. `CivDevBridgeTest` prüft den tatsächlichen HTTP-Endpunkt auf Token-/Session-/Origin-Prüfung und Request-Größe. Der Build prüft die Bridge gegen die gepinnte API. Live-Startup/Shutdown, NPC-/Combat-Verhalten und Clientdarstellung dieses neuen direkten Ablaufs bleiben lokal zu verifizieren. Anleitung: [local-mcp.md](local-mcp.md).
+
 Tests für Übersetzung und Adapterverhalten, soweit dies ohne laufenden Server sinnvoll möglich ist.
 
 Der aktuelle RTS-Prototyp betrifft vor allem Kamera, Cursor-Zielerfassung, interaktive Custom Pages, Platzierungsvorschau, natives Baumfällen und Hytale-NPC-Bewegung. First-Person-Personenaktionen hängen zusätzlich vom Runtime-Dispatch von <code>UseEntityEvent.Pre</code> auf dem handelnden Spieler ab. Diese Engine-Verträge werden deshalb nicht künstlich durch gemockte Unit-Tests vorgetäuscht.
@@ -67,7 +69,7 @@ Es existieren zwei unterschiedliche Server-Proben:
 - Der normale GitHub-hosted Build startet die echte gepinnte Server-JAR als Bare-Probe. Weil Hytale 0.6.8 auch mit <code>--bare</code> das Asset-Modul lädt, endet dieser Test ohne lizenzierte <code>Assets.zip</code> erwartungsgemäß an der Missing-Assets-Grenze. Er beweist nur die frühe Server-/Plugin-Manager-Kompatibilität.
 - Echte Gameplay-Verträge können über <code>.github/workflows/hytale-local.yml</code> auf einem vertrauenswürdigen Windows-Self-Hosted-Runner mit lokaler Hytale-Installation und den lizenzierten Basisassets ausgeführt werden. Diese Läufe sind optional und primär für Entwicklung, Diagnose und gezielte Runtime-Verifikation gedacht.
 
-Ein Runtime-Lauf wird über einen Kommentar in der festen GitHub-Issue <code>#126 Hytale Runtime Test Requests</code> angefordert. Das Format lautet <code>/hytale-test &lt;szenarien&gt; &lt;commit-sha&gt;</code>. Der Commit darf jeder Commit des eigenen Repositories sein, also auch ein Spike ohne Pull Request. Mehrere Szenarien werden mit <code>-</code> getrennt; <code>all</code> steht allein und expandiert auf alle aktuell registrierten Runtime-Szenarien. Die Registry <code>scripts/hytale-runtime-scenarios.json</code> ist die gemeinsame Allowlist für Autorisierung und Harness. Aktuell sind <code>woodcutter</code> und <code>persistence</code> registriert.
+Ein Runtime-Lauf wird über einen Kommentar in der festen GitHub-Issue <code>#126 Hytale Runtime Test Requests</code> angefordert. Das Format lautet <code>/hytale-test &lt;szenarien&gt; &lt;commit-sha&gt;</code>. Der Commit darf jeder Commit des eigenen Repositories sein, also auch ein Spike ohne Pull Request. Mehrere Szenarien werden mit <code>-</code> getrennt; <code>all</code> steht allein und expandiert auf alle aktuell registrierten Runtime-Szenarien. Die Registry <code>scripts/hytale-runtime-scenarios.json</code> ist die gemeinsame Allowlist für Autorisierung und Harness. Aktuell sind <code>woodcutter</code>, <code>persistence</code>, <code>minesupport</code>, <code>warmruntime</code> und <code>soldier</code> registriert.
 
 Der <code>issue_comment</code>-Workflow liegt auf dem vertrauenswürdigen Default-Branch. Sein GitHub-hosted Autorisierungsjob prüft vor jeder lokalen Codeausführung, dass der Kommentar aus Issue <code>#126</code> stammt, Event-Aktor, Kommentarautor und Sender ausdrücklich erlaubt sind, die Befehlssyntax gültig ist, der angegebene 7- bis 40-stellige SHA auf einen passenden exakten Repository-Commit auflösbar ist und jedes angeforderte Szenario in der Registry genau dieses Commits steht. Unbekannte oder doppelte Szenarien sowie mehr als acht explizite Szenarien werden vor dem Self-Hosted-Runner abgelehnt. Aktuell ist <code>weidmanngabriel</code> der einzige erlaubte Anforderer.
 
@@ -192,3 +194,26 @@ Select **Farm** and verify that Hytale's native moving Paste ghost appears. It s
 ### Construction blueprint lifecycle regression
 
 After selecting a Farm through `/civbuild`, confirm it with left click. The stationary blueprint should align vertically with the correctly positioned moving native ghost. Run `/civbuildcancel`; the stationary blueprint must disappear immediately without rejoining the world. Also verify that disconnecting removes the player's runtime blueprint previews. Progressive NPC block replacement is not part of this regression yet because `PersistentPrefabPreview` cannot hide individual prefab blocks.
+
+## Browser-Replay-Vertrag
+
+`SimulationRecordingExporterTest` prüft alle vier Minenausrichtungen und sämtliche gemeinsamen Runtime-Szenarien: Die exportierten Deltas müssen den gleichen Endzustand und Arbeiterzustand wie eine direkte Java-Ausführung erzeugen. Fehler bei der Szenarioinitialisierung liefern einen lesbaren Fehler-Replay. Die normalen Java-Tests bleiben eigenständige Assertions; ein exportierter Lauf mit Status `completed` bedeutet allein, dass der aufgezeichnete Ablauf beendet wurde.
+
+`npm test --prefix web-viewer` prüft Vor-/Rückwärtssprünge, inkompatible Daten, gerichtete Grenzflächen, den Blick von außen/im Fels/im Tunnel, einen realen Three.js-Raycast sowie Publisher-Provenienz und Kataloggrenzen. Der Pages-Publisher führt diese Tests vor jeder Veröffentlichung aus.
+
+Manueller Viewer-Check:
+
+1. Site öffnen, Branch und Commit prüfen, ein `Mine`-Szenario wählen.
+2. `Start` drücken, dann pausieren. Einzelschritte und Zeitleiste müssen Arbeiter und Blockzustand ändern; Rückspringen muss entfernten Fels wiederherstellen.
+3. `Zum Arbeiter` drücken. Mit Rechtsziehen umsehen; WASD fliegt, Q/E ändert die Höhe, Shift beschleunigt. Im Fels müssen gegenüberliegende Tunnelwände sichtbar bleiben, im Tunnel die nahen Wände.
+4. Einen Arbeiter oder sichtbaren Block anklicken und Inspector prüfen. `Marker` zeigt die authored semantischen Zonen, ohne den Ablauf zu verändern.
+5. Auf einem Touch-Gerät links bewegen, rechts umsehen und Höhe mit ↑/↓ ändern. Hoch- und Querformat sowie Start/Pause/Zeitleiste prüfen.
+6. Ein anderes Szenario und danach einen anderen Lauf wählen. Zustand und Inspector müssen zum neuen Lauf gehören. Ein fehlgeschlagener Build darf keinen alten Replay als neuen Erfolg zeigen.
+
+Mobilgeräte-FPS und tatsächliche Hytale-Navigation sind durch die headless Checks nicht belegt.
+
+### Minen-Kombinationslauf mit Rückweg
+
+`MineBranchingScenarioTest` prüft sieben verbundene Abschnitte mit Längen 8/12/4/5/8/9/4 in allen vier Gebäudeausrichtungen. Gerade Fortsetzungen, Links-/Rechtsäste und Stützen werden gemeinsam in einer Voxelwelt ausgeführt. Der Miner unterbricht den 12er-Abschnitt nach 73 Blöcken, läuft zellenweise zum `workplace_access` zurück, geht über den Connector wieder hinein, bearbeitet zwei andere Äste und setzt denselben gespeicherten Abschnitt fort. Nach allen Arbeiten läuft er erneut zum Ausgang. Tests prüfen offene Rückwege ohne Teleport-Sprünge, unveränderte Voxels während der Rückkehr, erhaltenen Fortschritt/Stützen, keine Segment-/Prefab-Überschneidungen, stützenfreie Junctions sowie den vollständigen erwarteten Weltzustand (1248 Abbaublöcke, 12 Stützen).
+
+Der Browser bietet `Mine · Kombinationen · NORTH/EAST/SOUTH/WEST`. Der Inspector zeigt aktuelle Phase, Abschnitt, Länge und gespeicherten Fortschritt. `SimulationRecordingExporterTest` vergleicht diese Replays mit direkter Ausführung und prüft das 32-MB-Veröffentlichungsbudget. Arbeitswahl und Navigation sind geskriptete/geometrische Fixtures; echte NPC-Wegfindung, Player-Teleport-Verhalten und die geplante Mehrminer-Koordination sind damit nicht belegt.

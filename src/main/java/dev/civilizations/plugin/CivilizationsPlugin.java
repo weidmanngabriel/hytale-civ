@@ -27,6 +27,8 @@ import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivInhabitantUseSystem;
 import dev.civilizations.hytale.CivManualMovementSystem;
 import dev.civilizations.hytale.CivMineDataResource;
+import dev.civilizations.hytale.CivMineDebugService;
+import dev.civilizations.hytale.CivMineDecisionDiagnostics;
 import dev.civilizations.hytale.CivMinePersistenceService;
 import dev.civilizations.hytale.CivNameplateStatusSystem;
 import dev.civilizations.hytale.CivPathDebugService;
@@ -53,6 +55,8 @@ import dev.civilizations.hytale.WoodcutterScanDiagnostics;
 import dev.civilizations.hytale.WoodcutterWorkSystem;
 
 public final class CivilizationsPlugin extends JavaPlugin {
+
+    private CivDevBridge devBridge;
 
     private static final String CIV_INHABITANT_DATA_ID = "CivInhabitantData";
     private static final String CIV_BUILDING_DATA_ID = "CivBuildingData";
@@ -91,6 +95,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
             new CivConstructionPersistenceService(constructionDataType);
         CivMinePersistenceService minePersistence = new CivMinePersistenceService(mineDataType);
         MineTunnelRegistry mineTunnelRegistry = new MineTunnelRegistry(minePersistence);
+        CivMineDecisionDiagnostics mineDecisionDiagnostics = new CivMineDecisionDiagnostics(
+            getLogger(), Boolean.getBoolean("civilizations.mineDebug")
+        );
 
         CivInhabitantService inhabitantService = new CivInhabitantService(
             inhabitantDataType,
@@ -107,6 +114,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
         FarmBuildingRegistry farmRegistry = new FarmBuildingRegistry(unitRegistry);
         FarmFieldRegistry fieldRegistry = new FarmFieldRegistry();
         BuildingPlacementRegistry buildingRegistry = new BuildingPlacementRegistry();
+        CivMineDebugService mineDebugService =
+            new CivMineDebugService(buildingRegistry, mineTunnelRegistry);
         PrefabPlacementService prefabPlacementService = new PrefabPlacementService();
         ConstructionSiteRegistry constructionRegistry = new ConstructionSiteRegistry();
         CivSelectedBuildingHudController selectedBuildingHudController =
@@ -152,8 +161,13 @@ public final class CivilizationsPlugin extends JavaPlugin {
         WoodcutterWorkSystem woodcutterWorkSystem = new WoodcutterWorkSystem(
             unitRegistry, activityRegistry, woodcutterScanDiagnostics, buildingRegistry
         );
-        MinerWorkSystem minerWorkSystem =
-            new MinerWorkSystem(unitRegistry, activityRegistry, buildingRegistry, mineTunnelRegistry);
+        MinerWorkSystem minerWorkSystem = new MinerWorkSystem(
+            unitRegistry,
+            activityRegistry,
+            buildingRegistry,
+            mineTunnelRegistry,
+            mineDecisionDiagnostics
+        );
         ConstructionWorkSystem constructionWorkSystem = new ConstructionWorkSystem(
             unitRegistry,
             activityRegistry,
@@ -201,8 +215,13 @@ public final class CivilizationsPlugin extends JavaPlugin {
         );
 
         getCommandRegistry().registerCommand(new CivTestCommand());
-        if (Boolean.getBoolean("civilizations.runtimeProbe")) {
+        if (Boolean.getBoolean("civilizations.runtimeProbe") || Boolean.getBoolean("civilizations.devBridge")) {
             getEntityStoreRegistry().registerSystem(new CivRuntimeDamageTraceSystem());
+        }
+        if (Boolean.getBoolean("civilizations.devBridge")) {
+            devBridge = new CivDevBridge(unitRegistry, activityRegistry);
+        }
+        if (Boolean.getBoolean("civilizations.runtimeProbe")) {
             getCommandRegistry().registerCommand(
                 new CivRuntimeProbeCommand(unitRegistry, activityRegistry)
             );
@@ -231,7 +250,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 woodcutterScanDiagnostics,
                 activityRegistry,
                 nameplateStatusSystem,
-                playerRigDebugService
+                playerRigDebugService,
+                mineDebugService,
+                mineDecisionDiagnostics
             )
         );
 
@@ -255,5 +276,21 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getEventRegistry().register(PlayerDisconnectEvent.class, selectedNpcHudController::handleDisconnect);
         getEventRegistry().register(PlayerDisconnectEvent.class, selectedBuildingHudController::handleDisconnect);
         getEventRegistry().register(PlayerDisconnectEvent.class, rtsInteractionController::handleDisconnect);
+    }
+
+    @Override
+    public void start() {
+        if (devBridge != null) {
+            try { devBridge.start(); }
+            catch (java.io.IOException exception) {
+                devBridge.close();
+                throw new IllegalStateException("Could not start the local development bridge", exception);
+            }
+        }
+    }
+
+    @Override
+    public void shutdown() {
+        if (devBridge != null) devBridge.close();
     }
 }

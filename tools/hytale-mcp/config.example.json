@@ -1,0 +1,8 @@
+{
+  "serverJar": "C:/path/to/HytaleServer.jar",
+  "assetsPath": "C:/path/to/Assets.zip",
+  "javaExecutable": "C:/path/to/jdk-25/bin/java.exe",
+  "gamePort": 5521,
+  "bridgePort": 5522,
+  "maxHeapMb": 2048
+}

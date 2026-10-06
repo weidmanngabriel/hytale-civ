@@ -121,6 +121,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
         try {
             List<Ref<EntityStore>> soldiers = new ArrayList<>();
             List<Vector3d> soldierStartPositions = new ArrayList<>();
+            List<Float> soldierHealth = new ArrayList<>();
 
             for (int i = 0; i < SOLDIER_STARTS.size(); i++) {
                 Ref<EntityStore> soldier = spawn(world, CIV_ROLE, SOLDIER_STARTS.get(i));
@@ -168,6 +169,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
 
                 soldiers.add(soldier);
                 soldierStartPositions.add(new Vector3d(transform.getPosition()));
+                soldierHealth.add(health);
                 System.out.println(
                     "CIV_SOLDIER_MEMBER_READY ordinal=" + (i + 1)
                         + " entity=" + soldier.getIndex()
@@ -191,6 +193,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
 
             ProbeState state = new ProbeState(
                 soldierStartPositions,
+                soldierHealth,
                 hostileHealth,
                 System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(PROBE_TIMEOUT_MILLIS)
             );
@@ -285,6 +288,16 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
                             + " moved=" + String.format(Locale.ROOT, "%.2f", moved)
                     );
                 }
+                float currentHealth = health(soldier);
+                if (!state.soldierDamageObserved
+                    && Float.isFinite(currentHealth)
+                    && currentHealth < state.initialSoldierHealth.get(i)) {
+                    state.soldierDamageObserved = true;
+                    System.out.println(
+                        "CIV_SOLDIER_DAMAGE_OBSERVED ordinal=" + (i + 1)
+                            + " health=" + currentHealth
+                    );
+                }
             }
 
             Ref<EntityStore> primary = soldiers.get(0);
@@ -330,7 +343,8 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
             if (state.resumeObserved
                 && allTrue(state.targetAcquired)
                 && allTrue(state.chaseObserved)
-                && state.targetDamageObserved) {
+                && state.targetDamageObserved
+                && state.soldierDamageObserved) {
                 System.out.println(
                     "CIV_SOLDIER_RUNTIME_PASS soldiers=" + soldiers.size()
                         + " hostileRole=" + HOSTILE_FIXTURE_ROLE
@@ -342,6 +356,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
 
             if (!hostile.isValid()) {
                 if (state.targetDamageObserved
+                    && state.soldierDamageObserved
                     && state.resumeObserved
                     && allTrue(state.targetAcquired)
                     && allTrue(state.chaseObserved)) {
@@ -358,6 +373,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
                         + ", acquired=" + countTrue(state.targetAcquired) + "/" + soldiers.size()
                         + ", chase=" + countTrue(state.chaseObserved) + "/" + soldiers.size()
                         + ", targetDamage=" + state.targetDamageObserved
+                        + ", soldierDamage=" + state.soldierDamageObserved
                         + ", interrupted=" + state.interruptionObserved
                         + ", resumed=" + state.resumeObserved,
                     null
@@ -371,6 +387,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
                         + ", acquired=" + countTrue(state.targetAcquired) + "/" + soldiers.size()
                         + ", chase=" + countTrue(state.chaseObserved) + "/" + soldiers.size()
                         + ", targetDamage=" + state.targetDamageObserved
+                        + ", soldierDamage=" + state.soldierDamageObserved
                         + ", manualIssued=" + state.manualIssued
                         + ", interrupted=" + state.interruptionObserved
                         + ", resumed=" + state.resumeObserved,
@@ -447,21 +464,25 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
 
     private static final class ProbeState {
         private final List<Vector3d> startPositions;
+        private final List<Float> initialSoldierHealth;
         private final float initialHostileHealth;
         private final long deadlineNanos;
         private final boolean[] targetAcquired;
         private final boolean[] chaseObserved;
         private boolean targetDamageObserved;
+        private boolean soldierDamageObserved;
         private boolean manualIssued;
         private boolean interruptionObserved;
         private boolean resumeObserved;
 
         private ProbeState(
             List<Vector3d> startPositions,
+            List<Float> initialSoldierHealth,
             float initialHostileHealth,
             long deadlineNanos
         ) {
             this.startPositions = List.copyOf(startPositions);
+            this.initialSoldierHealth = List.copyOf(initialSoldierHealth);
             this.initialHostileHealth = initialHostileHealth;
             this.deadlineNanos = deadlineNanos;
             this.targetAcquired = new boolean[startPositions.size()];
