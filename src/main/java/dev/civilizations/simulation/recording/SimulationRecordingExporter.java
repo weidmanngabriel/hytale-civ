@@ -9,6 +9,7 @@ import dev.civilizations.simulation.SimulationRuntime;
 import dev.civilizations.simulation.SimulationScenario;
 import dev.civilizations.simulation.SimulationScenarios;
 import dev.civilizations.simulation.prefab.MinePrefabNavigationScenario;
+import dev.civilizations.simulation.prefab.MineBranchingScenario;
 import dev.civilizations.simulation.prefab.PrefabSimulationModel;
 
 import java.nio.file.Files;
@@ -36,6 +37,9 @@ public final class SimulationRecordingExporter {
             SimulationRecording recording = recordMine(orientation);
             write(output, recording, scenarios);
             failed |= recording.status().equals("failed");
+            SimulationRecording combined = recordBranchingMine(orientation);
+            write(output, combined, scenarios);
+            failed |= combined.status().equals("failed");
         }
         for (SimulationScenario scenario : SimulationScenarios.all()) {
             SimulationRecording recording = recordRuntime(scenario, RUNTIME_TICKS);
@@ -119,6 +123,77 @@ public final class SimulationRecordingExporter {
                 "supports", s.segment().supportsPlaced(), "direction", s.simulationDirection().name()));
         recorder.capture(step, mineWorld(s), List.of(resident), action,
             Map.of("excavatedBlocks", s.segment().nextBlockIndex(), "supports", s.segment().supportsPlaced()));
+    }
+
+
+    public static SimulationRecording recordBranchingMine(BuildingOrientation orientation) {
+        Recorder recorder = null;
+        List<Marker> markers = new ArrayList<>();
+        String error = null;
+        try {
+            MineBranchingScenario scenario = MineBranchingScenario.create(orientation);
+            var start = scenario.snapshot();
+            recorder = new Recorder(branchingMineWorld(start));
+            for (var m : start.model().markers()) markers.add(new Marker(m.name(), m.type(),
+                new double[]{m.bounds().minX(), m.bounds().minY(), m.bounds().minZ(),
+                    m.bounds().maxX(), m.bounds().maxY(), m.bounds().maxZ()}));
+            for (int i=0; i<start.segments().size(); i++) {
+                var segment = start.segments().get(i);
+                var b = segment.horizontalBounds();
+                markers.add(new Marker("segment-"+i, "planned_tunnel",
+                    new double[]{b.minX(),segment.start().y(),b.minZ(),
+                        b.maxX()+1,segment.start().y()+4,b.maxZ()+1}));
+            }
+            captureBranchingMine(recorder, start, 0);
+            int step = 0;
+            while (true) {
+                if (++step > 5_000) throw new IllegalStateException("Branching mine exceeded 5000 steps");
+                boolean advanced = scenario.step();
+                captureBranchingMine(recorder, scenario.snapshot(), step);
+                if (!advanced) break;
+            }
+        } catch (RuntimeException exception) {
+            error = exception.getClass().getSimpleName() + ": " + exception.getMessage();
+        }
+        if (recorder == null) recorder = emptyRecorder();
+        return recorder.finish("mine-combinations-"+orientation.name().toLowerCase(java.util.Locale.ROOT),
+            "Mine · Kombinationen · "+orientation.name(),
+            "Sieben verbundene Abschnitte (4/5/8/9/12 Blöcke), gerade/links/rechts, Stützen. "
+                + "Unterbrechung bei Block 73: Rückweg zum Ausgang, Wiedereintritt, andere Äste, "
+                + "gespeicherte Arbeit fortsetzen und abschließend nach draußen zurückkehren. "
+                + "Geometrische Testwege und geskriptete Arbeitswahl, keine Hytale-Navigation.",
+            "semantic-step", markers, error);
+    }
+
+    public static Map<BlockPosition, Integer> branchingMineWorld(MineBranchingScenario.Snapshot s) {
+        Map<BlockPosition, Integer> world = new LinkedHashMap<>();
+        s.tunnelWorld().cells().forEach((p,c)->{
+            if(c != MineSimulationWorld.Cell.AIR) world.put(p,
+                c == MineSimulationWorld.Cell.SOLID ? ROCK : SUPPORT);
+        });
+        s.model().cells().forEach((p,c)->world.put(p,
+            c == PrefabSimulationModel.Cell.DOOR ? DOOR : PREFAB));
+        return world;
+    }
+
+    private static void captureBranchingMine(Recorder recorder, MineBranchingScenario.Snapshot s, int step) {
+        var segment = s.segments().get(s.activeSegment());
+        int excavated = s.segments().stream().mapToInt(x->x.nextBlockIndex()).sum();
+        int supports = s.segments().stream().mapToInt(x->x.supportsPlaced()).sum();
+        long completed = s.segments().stream().filter(x->x.complete()).count();
+        var p = s.worker();
+        var t = s.target();
+        Resident resident = new Resident("miner-1","MINER",
+            new WorldPosition(p.x()+.5,p.y(),p.z()+.5),
+            t == null ? null : new WorldPosition(t.x()+.5,t.y(),t.z()+.5),
+            s.phase()+" / "+s.minerState(),
+            Map.of("segment",s.activeSegment(),"length",segment.lengthBlocks(),
+                "direction",segment.direction().name(),"progress",segment.nextBlockIndex(),
+                "totalBlocks",segment.blockCount(),"interrupted",s.interrupted(),
+                "savedProgress",s.segments().get(1).nextBlockIndex()));
+        recorder.capture(step, branchingMineWorld(s), List.of(resident), s.lastAction(),
+            Map.of("excavatedBlocks",excavated,"supports",supports,"completedSegments",completed,
+                "totalSegments",s.segments().size(),"phase",s.phase()));
     }
 
     public static SimulationRecording recordRuntime(SimulationScenario scenario, int ticks) {
