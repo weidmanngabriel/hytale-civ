@@ -7,7 +7,7 @@ import dev.civilizations.hytale.CivUnitRegistry;
 
 import java.util.Set;
 
-/** Runtime-only benchmark that executes the real woodcutter and mine-support probes in one server. */
+/** Runtime-only benchmark that executes the available real worker probe in one server. */
 final class CivWarmRuntimeBenchmarkCommand extends CommandBase {
 
     private final CivUnitRegistry unitRegistry;
@@ -23,16 +23,15 @@ final class CivWarmRuntimeBenchmarkCommand extends CommandBase {
 
     @Override
     protected void executeSync(CommandContext context) {
-        if (!CivRuntimeProbeSuite.begin(Set.of("woodcutter", "minesupport"))) {
+        if (!CivRuntimeProbeSuite.begin(Set.of("woodcutter"))) {
             System.out.println("CIV_WARM_SUITE_FAIL scenario=suite reason=already-active");
             CivRuntimeProbeSuite.scenarioFailed("suite", "already-active");
             return;
         }
 
-        System.out.println("CIV_WARM_RUNTIME_BENCHMARK_STARTED realScenarios=woodcutter,minesupport warmProcess=true");
+        System.out.println("CIV_WARM_RUNTIME_BENCHMARK_STARTED realScenarios=woodcutter warmProcess=true");
         try {
             new CivWoodcutterFixtureProbeCommand(unitRegistry).start();
-            CivMineSupportRuntimeProbe.start();
         } catch (Throwable throwable) {
             System.out.println("CIV_WARM_RUNTIME_BENCHMARK_FAIL could not start real probes");
             throwable.printStackTrace(System.out);
