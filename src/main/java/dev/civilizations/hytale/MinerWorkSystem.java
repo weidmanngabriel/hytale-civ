@@ -375,6 +375,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         frontCoordinator.releaseWorker(key);
         WorkerRuntime runtime = workers.remove(key);
         if (runtime != null) releaseInfrastructureReservation(key, runtime);
+        navigationFailures.forget(key);
     }
 
     private void refreshBridgeTasks(
@@ -1132,14 +1133,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         WorkerRuntime runtime
     ) {
         RuntimeFrontPlan affected = null;
+        RuntimeInfrastructureTask infrastructure = runtime.infrastructureTaskId == null
+            ? null
+            : minePlan.infrastructureTasks.get(runtime.infrastructureTaskId);
+
         if (runtime.frontId != null) {
             affected = minePlan.fronts.get(runtime.frontId);
-        } else if (runtime.infrastructureTaskId != null) {
-            RuntimeInfrastructureTask infrastructure =
-                minePlan.infrastructureTasks.get(runtime.infrastructureTaskId);
-            if (infrastructure != null) {
-                affected = frontForTunnel(minePlan, infrastructure.task.tunnelId());
-            }
+        } else if (infrastructure != null && infrastructure.task.mandatory()) {
+            affected = frontForTunnel(minePlan, infrastructure.task.tunnelId());
         }
 
         if (affected != null) {
@@ -1153,6 +1154,17 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 front,
                 MineObstaclePolicy.FailureKind.NAVIGATION_UNREACHABLE,
                 "NATIVE_NAVIGATION_UNREACHABLE"
+            );
+        } else if (infrastructure != null) {
+            completeInfrastructureTask(
+                world,
+                mine,
+                infrastructure,
+                workerKey,
+                runtime,
+                ref,
+                store,
+                "SKIPPED_UNREACHABLE"
             );
         }
 
