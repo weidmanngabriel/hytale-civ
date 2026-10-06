@@ -23,7 +23,7 @@ public final class MineNetworkGrowthPlanner {
     public static final int MIN_ROCK_GAP_BLOCKS = 5;
     public static final double INTENTIONAL_CROSSING_CHANCE = 0.05;
     public static final double INITIAL_CONTINUATION_CHANCE = 0.95;
-    public static final double CONTINUATION_CHANCE_DROP = 0.08;
+    public static final double CONTINUATION_CHANCE_DROP = 0.04;
     public static final double MIN_CONTINUATION_CHANCE = 0.20;
 
     private static final int BRANCH_OPPORTUNITY_SPACING = 8;
@@ -188,28 +188,19 @@ public final class MineNetworkGrowthPlanner {
     }
 
     private static MineHeading nearestHeading(double angleDegrees) {
+        double normalized = ((angleDegrees % 360.0) + 360.0) % 360.0;
         MineHeading best = MineHeading.EAST;
         double bestDelta = Double.MAX_VALUE;
         for (MineHeading heading : MineHeading.values()) {
-            double delta = Math.abs(MineHeading.shortestSignedAngleDegrees(
-                heading,
-                angleHeading(angleDegrees)
-            ));
+            double headingAngle = ((heading.angleDegrees() % 360.0) + 360.0) % 360.0;
+            double delta = Math.abs(normalized - headingAngle);
+            delta = Math.min(delta, 360.0 - delta);
             if (delta < bestDelta) {
                 best = heading;
                 bestDelta = delta;
             }
         }
         return best;
-    }
-
-    private static MineHeading angleHeading(double angleDegrees) {
-        double normalized = ((angleDegrees % 360.0) + 360.0) % 360.0;
-        int octant = (int) Math.round(normalized / 45.0) & 7;
-        for (MineHeading heading : MineHeading.values()) {
-            if (((int) Math.round(heading.angleDegrees() / 45.0) & 7) == octant) return heading;
-        }
-        return MineHeading.EAST;
     }
 
     private static double pointDistanceSquared(MinePathPoint a, MinePathPoint b) {
