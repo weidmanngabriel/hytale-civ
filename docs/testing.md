@@ -192,3 +192,20 @@ Select **Farm** and verify that Hytale's native moving Paste ghost appears. It s
 ### Construction blueprint lifecycle regression
 
 After selecting a Farm through `/civbuild`, confirm it with left click. The stationary blueprint should align vertically with the correctly positioned moving native ghost. Run `/civbuildcancel`; the stationary blueprint must disappear immediately without rejoining the world. Also verify that disconnecting removes the player's runtime blueprint previews. Progressive NPC block replacement is not part of this regression yet because `PersistentPrefabPreview` cannot hide individual prefab blocks.
+
+## Browser-Replay-Vertrag
+
+`SimulationRecordingExporterTest` prüft alle vier Minenausrichtungen und sämtliche gemeinsamen Runtime-Szenarien: Die exportierten Deltas müssen den gleichen Endzustand und Arbeiterzustand wie eine direkte Java-Ausführung erzeugen. Fehler bei der Szenarioinitialisierung liefern einen lesbaren Fehler-Replay. Die normalen Java-Tests bleiben eigenständige Assertions; ein exportierter Lauf mit Status `completed` bedeutet allein, dass der aufgezeichnete Ablauf beendet wurde.
+
+`npm test --prefix web-viewer` prüft Vor-/Rückwärtssprünge, inkompatible Daten, gerichtete Grenzflächen, den Blick von außen/im Fels/im Tunnel, einen realen Three.js-Raycast sowie Publisher-Provenienz und Kataloggrenzen. Der Pages-Publisher führt diese Tests vor jeder Veröffentlichung aus.
+
+Manueller Viewer-Check:
+
+1. Site öffnen, Branch und Commit prüfen, ein `Mine`-Szenario wählen.
+2. `Start` drücken, dann pausieren. Einzelschritte und Zeitleiste müssen Arbeiter und Blockzustand ändern; Rückspringen muss entfernten Fels wiederherstellen.
+3. `Zum Arbeiter` drücken. Mit Rechtsziehen umsehen; WASD fliegt, Q/E ändert die Höhe, Shift beschleunigt. Im Fels müssen gegenüberliegende Tunnelwände sichtbar bleiben, im Tunnel die nahen Wände.
+4. Einen Arbeiter oder sichtbaren Block anklicken und Inspector prüfen. `Marker` zeigt die authored semantischen Zonen, ohne den Ablauf zu verändern.
+5. Auf einem Touch-Gerät links bewegen, rechts umsehen und Höhe mit ↑/↓ ändern. Hoch- und Querformat sowie Start/Pause/Zeitleiste prüfen.
+6. Ein anderes Szenario und danach einen anderen Lauf wählen. Zustand und Inspector müssen zum neuen Lauf gehören. Ein fehlgeschlagener Build darf keinen alten Replay als neuen Erfolg zeigen.
+
+Mobilgeräte-FPS und tatsächliche Hytale-Navigation sind durch die headless Checks nicht belegt.

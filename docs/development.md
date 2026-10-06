@@ -233,3 +233,24 @@ git push origin v0.1.0
 Ein erfolgreicher Tag-Build erzeugt ein normales GitHub Release mit demselben ZIP-Bundle als Anhang. Tags mit Präfix <code>v</code> gelten als stabile Releases; normale Builds auf <code>main</code> bleiben Pre-Releases.
 
 Ein erneuter Lauf eines Release-Jobs ist idempotent: Existiert das Release bereits, aktualisiert der Workflow die kurze Release-Notiz und ersetzt das ZIP-Asset, statt ein Duplikat anzulegen.
+
+## Browser-Viewer und Branch-Aufzeichnungen
+
+Einmalig unter **Settings → Pages → Build and deployment → Source: GitHub Actions** wählen. Die Site liegt unter `https://weidmanngabriel.github.io/hytale-civ/`.
+
+Auf relevanten Branch-Pushes führt `.github/workflows/simulation-recordings.yml` Java-Tests und `exportSimulationRecordings` aus. Der Export wird auch bei fehlgeschlagenen Tests versucht; ein abgebrochenes Szenario liefert seinen bis dahin aufgezeichneten Zustand und den Fehler. Ein nicht kompilierbarer Stand hat keinen Replay. `Simulation Pages` veröffentlicht nach Abschluss einen vollständigen Katalog aus vorhandenen internen Artefakten. Es entstehen keine Ergebnis-Commits. Ein Actions-Lauf kann mehrere Minuten dauern; ein Quellcode-Push ist noch keine abgeschlossene Veröffentlichung.
+
+Im Viewer zuerst Branch, dann Lauf und Szenario wählen. Das Test-Badge bezeichnet die Java-Tests dieses Recording-Laufs, nicht sämtliche CI-/Runtime-Prüfungen. Commit-Link und Actions-Link machen den Stand überprüfbar. Für die erste Version werden höchstens drei Läufe pro Branch und insgesamt 40 Läufe innerhalb von 30 Tagen angeboten. Gelöschte/abgelaufene Artefakte sind nicht dauerhaft wiederherstellbar. Unter Actions kann `Simulation Recordings` auf einem Branch und `Simulation Pages` auf `main` manuell erneut gestartet werden.
+
+Lokal:
+
+```sh
+./gradlew exportSimulationRecordings
+npm ci --prefix web-viewer
+npm test --prefix web-viewer
+npm run dev --prefix web-viewer
+```
+
+Unter Windows lautet der erste Befehl `gradlew.bat exportSimulationRecordings`. Im lokalen Viewer kann eine einzelne Datei aus `build/simulation-recordings/*.json` geöffnet werden. Lokale Dateien haben keinen bestätigten Commit-/CI-Status. Für eine statische Auslieferung dient `npm run build --prefix web-viewer`; die Site liegt dann in `web-viewer/dist/`.
+
+Vieweränderungen werden lokal geprüft und erst nach Integration in `main` auf der gemeinsamen Site veröffentlicht. Entwicklungsbranches liefern Daten für den stabilen Viewer. Lizenzierte Hytale-Basisassets werden nicht veröffentlicht. Der Hytale-Local-Runner wird für diesen Workflow nicht verwendet.

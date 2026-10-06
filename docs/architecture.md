@@ -288,3 +288,11 @@ The farmer keeps the Civ-level work cycle, field selection and inventory policy,
 Manual movement remains a Core `MovementIntent`. When the assigned miner is below its mine access, the Hytale adapter adds the native `Teleport` ECS component to move it to `workplace_access`, keeps the original manual intent active, and lets native `ReadPosition`/`Seek` handle the clicked destination from there. This is an Hytale boundary behavior, not custom pathfinding.
 
 Beim Start eines Minen-Upgrades verwendet derselbe verifizierte native `Teleport`-Pfad einen sicheren Punkt außerhalb des Gebäudes. Danach bleibt die persistente Arbeitsplatz-ID bestehen, aber das Registry liefert die upgrading Building-ID bis zur Fertigstellung nicht an normale Gameplay-Lookups aus. Damit erzeugt der Minenadapter während der Baustelle keine autonomen Re-Entry-Ziele. Eine allgemeine physische Player-/Entity-Barriere wird mangels verifizierter nativer API derzeit nicht simuliert.
+
+## Browser-Simulation-Viewer
+
+`simulation.recording.SimulationRecordingExporter` führt die bestehenden Core-Fixtures headless aus. Der versionierte `SimulationRecording`-Vertrag enthält Startvoxels, geordnete Weltänderungen, semantische Marker, Arbeiterzustände und Metrics. Er enthält keine Hytale-Objekte. Die Mine wird in vier Ausrichtungen bis zum Abschluss aufgezeichnet; die allgemeinen Szenarien verwenden jeweils 600 feste 50-ms-Ticks. Eine Mine-Framezeit bezeichnet semantische Schritte, keine Hytale-Laufzeit.
+
+`web-viewer/` ist eine eigenständige Vite-/Three.js-Präsentation außerhalb des Plugin-Classpaths. `Replay` rekonstruiert ausschließlich die aufgezeichneten Änderungen. Der Renderer verwendet gerichtete solid/air-Grenzflächen für die freie Spectator-Kamera. Kamera und Playback besitzen keine Gameplay-Regeln. Die Swing-Viewer bleiben als lokale Entwicklungshilfen verfügbar.
+
+Die Actions-/Pages-Grenze und die begrenzte Aufbewahrung sind in [ADR 0009](decisions/0009-browser-simulation-recordings.md) beschrieben. Der veröffentlichte Viewer stammt aus `main`; Branch-Aufzeichnungen identifizieren ihren exakten Quellcode-Commit und Run-Attempt. Der Browser benötigt keine GitHub-Zugangsdaten.
