@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { Replay, key, surfaceFaces, visibleVoxel } from '../src/replay.js';
 import { selectRuns, validateBundle } from '../../scripts/collect-simulation-recordings.mjs';
 
-const sample = () => ({schemaVersion:1,id:'mine-north',title:'Mine',status:'completed',initialVoxels:[[0,0,0,1],[1,0,0,1]],markers:[],frames:[
+const sample = () => ({schemaVersion:1,id:'mine-north',title:'Mine',description:'Fixture',timeUnit:'semantic-step',status:'completed',initialVoxels:[[0,0,0,1],[1,0,0,1]],markers:[],frames:[
   {step:0,time:0,changes:[],residents:[]},
   {step:1,time:1,changes:[[0,0,0,0]],residents:[]},
   {step:2,time:2,changes:[[0,0,0,3]],residents:[]}

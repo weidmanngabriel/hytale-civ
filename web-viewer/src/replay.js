@@ -4,6 +4,13 @@ export const MATERIALS = ['Luft', 'Fels', 'Prefab', 'Stütze', 'Holz', 'Feld', '
 
 export function validateRecording(data) {
   if (data?.schemaVersion !== SCHEMA_VERSION) throw new Error('Unbekannte Aufzeichnungsversion.');
+  if (typeof data.id !== 'string' || typeof data.title !== 'string' || typeof data.description !== 'string'
+    || !['completed','failed'].includes(data.status) || !['seconds','semantic-step'].includes(data.timeUnit))
+    throw new Error('Ungültige Szenario-Metadaten.');
+  if (!Array.isArray(data.markers) || !data.markers.every(m => typeof m.type === 'string'
+    && Array.isArray(m.bounds) && m.bounds.length === 6 && m.bounds.every(Number.isFinite)
+    && m.bounds.slice(0,3).every((v,i) => v <= m.bounds[i+3])))
+    throw new Error('Ungültige Marker.');
   if (!Array.isArray(data.initialVoxels) || !Array.isArray(data.frames) || !data.frames.length)
     throw new Error('Aufzeichnung hat keinen Startzustand.');
   const voxel = c => Array.isArray(c) && c.length === 4 && c.every(Number.isInteger)
@@ -12,6 +19,7 @@ export function validateRecording(data) {
   for (const [i, f] of data.frames.entries()) {
     if (f.step !== i || !Number.isFinite(f.time) || !Array.isArray(f.changes)
       || !f.changes.every(voxel) || !Array.isArray(f.residents)) throw new Error('Ungültiger Schritt.');
+    if (i && f.time < data.frames[i-1].time) throw new Error('Zeit läuft rückwärts.');
     if (i === 0 && f.changes.length) throw new Error('Startschritt darf keine Änderungen enthalten.');
     for (const r of f.residents) {
       if (typeof r.id !== 'string' || ![r.position?.x, r.position?.y, r.position?.z].every(Number.isFinite))

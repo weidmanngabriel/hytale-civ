@@ -31,7 +31,7 @@ actionBox.visible = false; scene.add(actionBox);
 const targetLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color:0x70bfff}));
 scene.add(targetLine);
 let replay, catalog, activeRun, residentId, playing = false, budget = 0, loadNumber = 0;
-let yaw = 0, pitch = 0, moveSpeed = 10;
+let yaw = 0, pitch = 0, moveSpeed = 10, selectedBlock;
 const keys = new Set(), touchMove = {x:0,y:0}, touchLook = {x:0,y:0};
 let touchHeight = 0;
 const workers = new Map();
@@ -120,7 +120,11 @@ function seek(index) {
   replay.seek(index);
   // Rebuild only when geometry changed, or when moving backwards through prior deltas.
   if (replay.index<previous || replay.data.frames.slice(previous+1,replay.index+1).some(f=>f.changes.length)) rebuildWorld();
-  selection.visible=false;
+  if (selectedBlock) {
+    const [x,y,z]=selectedBlock;const material=replay.world.get(selectedBlock.join(',')) || 0;
+    selection.visible=!!material;if(material)boxAt(selection,{x,y,z});
+    $('block-info').textContent=`${x} / ${y} / ${z}\n${MATERIALS[material]}`;
+  } else selection.visible=false;
   updateResidents(); renderDetails();
   $('timeline').value=replay.index;
   const clock=replay.data.timeUnit==='seconds'?`${replay.frame.time.toFixed(2)} s`:'Aktion';
@@ -176,7 +180,7 @@ async function loadScenario() {
   } catch(error) {if(request===loadNumber)message(error.message,true);}
 }
 function openRecording(data) {
-  replay=new Replay(data);
+  replay=new Replay(data);selectedBlock=undefined;$('block-info').textContent='Klicke eine sichtbare Wand an.';
   $('title').textContent=data.title;
   $('description').textContent=data.description;
   $('scene-label').textContent=data.status==='failed'?'SZENARIO FEHLGESCHLAGEN':'SIMULATION · REPLAY';
@@ -242,7 +246,7 @@ $('file').onchange=async event=>{
 function validateLocal(data) {new Replay(data);return data;}
 
 window.addEventListener('keydown',event=>{
-  if(['INPUT','SELECT','TEXTAREA','BUTTON'].includes(document.activeElement.tagName))return;
+  if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName))return;
   if(['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE','ShiftLeft','ShiftRight'].includes(event.code)){keys.add(event.code);event.preventDefault();}
 });
 window.addEventListener('keyup',event=>keys.delete(event.code));
@@ -250,6 +254,7 @@ window.addEventListener('blur',()=>{keys.clear();touchMove.x=touchMove.y=touchLo
 let drag;
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 canvas.addEventListener('pointerdown',event=>{
+  canvas.focus({preventScroll:true});
   if(event.pointerType==='touch'||event.button===2){drag={id:event.pointerId,x:event.clientX,y:event.clientY};canvas.setPointerCapture(event.pointerId);}
 });
 canvas.addEventListener('pointermove',event=>{
@@ -268,8 +273,8 @@ canvas.addEventListener('click',event=>{
   if(worker&&(!wall||worker.distance<wall.distance)){
     residentId=worker.object.userData.id;$('resident').value=residentId;updateResidents();renderDetails();return;
   }
-  if(wall){const [x,y,z]=wall.position;boxAt(selection,{x,y,z});$('block-info').textContent=`${x} / ${y} / ${z}\n${MATERIALS[wall.material]}`;}
-  else {selection.visible=false;$('block-info').textContent='Keine sichtbare Wand getroffen.';}
+  if(wall){selectedBlock=wall.position;const [x,y,z]=wall.position;boxAt(selection,{x,y,z});$('block-info').textContent=`${x} / ${y} / ${z}\n${MATERIALS[wall.material]}`;}
+  else {selectedBlock=undefined;selection.visible=false;$('block-info').textContent='Keine sichtbare Wand getroffen.';}
 });
 function pad(id,state) {
   const el=$(id);let pointer;
