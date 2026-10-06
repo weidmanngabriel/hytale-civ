@@ -21,9 +21,9 @@ class MineNetworkTest {
 
         MineNetwork network = MineNetwork.create(mineId, mainId, origin)
             .withTunnel(new MineTunnel(branchId, MineTunnel.Kind.BRANCH, mainId, 1,
-                new BlockPosition(20, 20, 30), List.of()))
+                new BlockPosition(20, 20, 30)))
             .withTunnel(new MineTunnel(nestedId, MineTunnel.Kind.BRANCH, branchId, 2,
-                new BlockPosition(20, 20, 40), List.of()));
+                new BlockPosition(20, 20, 40)));
 
         MineRoom room = new MineRoom(UUID.randomUUID(), branchId, MineRoom.Type.ORE_COLLECTION,
             new BlockPosition(22, 20, 34));
@@ -53,7 +53,7 @@ class MineNetworkTest {
         MineNetwork network = MineNetwork.create(mineId, mainId, new BlockPosition(0, 0, 0));
 
         MineTunnel invalid = new MineTunnel(UUID.randomUUID(), MineTunnel.Kind.BRANCH, mainId, 2,
-            new BlockPosition(1, 0, 0), List.of());
+            new BlockPosition(1, 0, 0));
 
         assertThrows(IllegalArgumentException.class, () -> network.withTunnel(invalid));
     }
@@ -67,20 +67,5 @@ class MineNetworkTest {
             new BlockPosition(4, 0, 0), MineWorkFront.State.OPEN);
 
         assertThrows(IllegalArgumentException.class, () -> network.withWorkFront(invalid));
-    }
-
-    @Test
-    void segmentCanBelongToOnlyOneLogicalTunnel() {
-        UUID mineId = UUID.randomUUID();
-        UUID mainId = UUID.randomUUID();
-        UUID segmentId = UUID.randomUUID();
-        MineTunnel main = new MineTunnel(mainId, MineTunnel.Kind.MAIN, null, 0,
-            new BlockPosition(0, 0, 0), List.of(segmentId));
-        MineTunnel branch = new MineTunnel(UUID.randomUUID(), MineTunnel.Kind.BRANCH, mainId, 1,
-            new BlockPosition(5, 0, 0), List.of(segmentId));
-
-        assertThrows(IllegalArgumentException.class, () -> new MineNetwork(
-            mineId, mainId, List.of(main, branch), List.of(), List.of(), List.of()
-        ));
     }
 }
