@@ -57,19 +57,22 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
     private final CivActivityRegistry activityRegistry;
     private final BuildingPlacementRegistry buildingRegistry;
     private final MineTunnelRegistry tunnelRegistry;
+    private final MinerNavigationFailureRegistry navigationFailures;
     private final Map<CivUnitRegistry.UnitKey, NavigationRuntime> runtimes = new ConcurrentHashMap<>();
 
     public MinerNavigationSystem(
         CivUnitRegistry unitRegistry,
         CivActivityRegistry activityRegistry,
         BuildingPlacementRegistry buildingRegistry,
-        MineTunnelRegistry tunnelRegistry
+        MineTunnelRegistry tunnelRegistry,
+        MinerNavigationFailureRegistry navigationFailures
     ) {
         super(TICK_INTERVAL_SECONDS);
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
         this.buildingRegistry = buildingRegistry;
         this.tunnelRegistry = tunnelRegistry;
+        this.navigationFailures = navigationFailures;
     }
 
     @Override
@@ -94,10 +97,12 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
         CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
         if (!ref.isValid() || unitRegistry.getProfession(ref) != Profession.MINER) {
             runtimes.remove(key);
+            navigationFailures.forget(key);
             return;
         }
         if (!activityRegistry.autonomousWorkAllowed(ref)) {
             runtimes.remove(key);
+            navigationFailures.forget(key);
             return;
         }
 
@@ -110,6 +115,7 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
         BuildingPlacementRegistry.BuildingInstance mine = assignedMine(ref, worldId);
         if (mine == null) {
             runtimes.remove(key);
+            navigationFailures.forget(key);
             return;
         }
 
@@ -155,7 +161,7 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
         }
 
         if (!runtime.reachedConnector || !undergroundOrConnector) {
-            observeNativeNavigation(ref, npc, world, network, currentTunnelId, moveTarget, transform, runtime,
+            observeNativeNavigation(ref, key, npc, world, network, currentTunnelId, moveTarget, transform, runtime,
                 commandBuffer);
             return;
         }
@@ -165,7 +171,7 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
             commandBuffer
         );
         observeNativeNavigation(
-            ref, npc, world, network, currentTunnelId, moveTarget, transform, runtime, commandBuffer
+            ref, key, npc, world, network, currentTunnelId, moveTarget, transform, runtime, commandBuffer
         );
     }
 
@@ -261,6 +267,7 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
 
     private void observeNativeNavigation(
         Ref<EntityStore> ref,
+        CivUnitRegistry.UnitKey workerKey,
         NPCEntity npc,
         World world,
         MineNetwork network,
@@ -278,6 +285,7 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
         if (state == null || state == NavState.DEFER || state == NavState.INIT) return;
         if (state == NavState.PROGRESSING || state == NavState.AT_GOAL) {
             runtime.repathRequested = false;
+            runtime.terminalFailureReported = false;
             return;
         }
         if (state != NavState.BLOCKED && state != NavState.ABORTED) return;
@@ -286,6 +294,11 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
             controller.setForceRecomputePath(true);
             runtime.repathRequested = true;
             return;
+        }
+
+        if (!runtime.terminalFailureReported) {
+            navigationFailures.report(workerKey, moveTarget);
+            runtime.terminalFailureReported = true;
         }
 
         UUID targetTunnelId = tunnelIdForTarget(
@@ -459,6 +472,7 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
         private BlockPosition previousBlock;
         private Vector3d navigationTarget;
         private boolean repathRequested;
+        private boolean terminalFailureReported;
 
         private void reset(UUID nextMineId) {
             mineId = nextMineId;
@@ -472,11 +486,13 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
         private void beginNavigationAttempt(Vector3d target) {
             navigationTarget = new Vector3d(target);
             repathRequested = false;
+            terminalFailureReported = false;
         }
 
         private void clearNavigationAttempt() {
             navigationTarget = null;
             repathRequested = false;
+            terminalFailureReported = false;
         }
     }
 }
