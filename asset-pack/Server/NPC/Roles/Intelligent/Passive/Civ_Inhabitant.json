@@ -32,6 +32,18 @@
       },
       "Instructions": [
         {
+          "$Comment": "A Civ-selected target is mirrored into native TargetMemory before entering the native Combat state.",
+          "Sensor": {
+            "Type": "HasHostileTargetMemory"
+          },
+          "Actions": [
+            {
+              "Type": "State",
+              "State": "Combat"
+            }
+          ]
+        },
+        {
           "$Comment": "Civ movement target: position slot 0 is the Java/Role contract for ordinary inhabitant movement commands. Explicit player movement stays above autonomous combat.",
           "Sensor": {
             "Type": "ReadPosition",
