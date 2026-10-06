@@ -67,6 +67,7 @@ jobs:
           name: simulation-recordings
           path: build/simulation-recordings/*.json
           retention-days: 30
+          overwrite: true
           if-no-files-found: error
       - name: Keep failures visible in Actions
         if: steps.tests.outcome != 'success' || steps.export.outcome != 'success'

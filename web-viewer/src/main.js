@@ -225,6 +225,7 @@ $('step').onclick=()=>{setPlaying(false);seek(replay.index+1);};
 $('step-back').onclick=()=>{setPlaying(false);seek(replay.index-1);};
 $('reset').onclick=()=>{setPlaying(false);seek(0);};
 $('timeline').oninput=()=>{setPlaying(false);seek(Number($('timeline').value));};
+$('inspect-toggle').onclick=()=>document.body.classList.toggle('inspector-open');
 $('overview').onclick=overview;$('follow').onclick=toWorker;
 $('markers').onchange=()=>markerGroup.visible=$('markers').checked;
 $('help-toggle').onclick=()=>$('help').hidden=!$('help').hidden;
