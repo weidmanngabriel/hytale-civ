@@ -6,6 +6,7 @@ import dev.civilizations.core.BuildingOrientation;
 import dev.civilizations.simulation.SimulationScenario;
 import dev.civilizations.simulation.SimulationScenarios;
 import dev.civilizations.simulation.prefab.MinePrefabNavigationScenario;
+import dev.civilizations.simulation.prefab.MineBranchingScenario;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
@@ -35,6 +36,25 @@ final class SimulationRecordingExporterTest {
             assertTrue(json.path("frames").get(0).path("residents").get(0).path("position").has("x"));
             assertTrue(recording.frames().stream().mapToInt(f -> f.changes().size()).sum()
                 < recording.initialVoxels().size(), "Record deltas rather than repeating the mountain");
+        }
+    }
+
+    @Test
+    void combinationReplayIncludesTheReturnJourneyAndMatchesDirectExecution() throws Exception {
+        for (BuildingOrientation orientation : BuildingOrientation.values()) {
+            var recording=SimulationRecordingExporter.recordBranchingMine(orientation);
+            assertEquals("completed",recording.status(),recording.error());
+            var direct=MineBranchingScenario.create(orientation);direct.runToCompletion();
+            assertEquals(SimulationRecordingExporter.branchingMineWorld(direct.snapshot()),replay(recording));
+            assertTrue(recording.frames().stream().anyMatch(f->f.metrics().get("phase").equals("OUTSIDE")));
+            assertTrue(recording.frames().stream().anyMatch(f->f.metrics().get("phase").equals("RESUMING_SAVED_WORK")));
+            var last=recording.frames().getLast();
+            assertEquals(1248,last.metrics().get("excavatedBlocks"));
+            assertEquals(12,last.metrics().get("supports"));
+            assertEquals(7L,last.metrics().get("completedSegments"));
+            assertEquals("COMPLETE",last.metrics().get("phase"));
+            var bytes=new ObjectMapper().writeValueAsBytes(recording);
+            assertTrue(bytes.length<32*1024*1024,"Fits the publisher's recording size budget");
         }
     }
 

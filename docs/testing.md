@@ -211,3 +211,9 @@ Manueller Viewer-Check:
 6. Ein anderes Szenario und danach einen anderen Lauf wählen. Zustand und Inspector müssen zum neuen Lauf gehören. Ein fehlgeschlagener Build darf keinen alten Replay als neuen Erfolg zeigen.
 
 Mobilgeräte-FPS und tatsächliche Hytale-Navigation sind durch die headless Checks nicht belegt.
+
+### Minen-Kombinationslauf mit Rückweg
+
+`MineBranchingScenarioTest` prüft sieben verbundene Abschnitte mit Längen 8/12/4/5/8/9/4 in allen vier Gebäudeausrichtungen. Gerade Fortsetzungen, Links-/Rechtsäste und Stützen werden gemeinsam in einer Voxelwelt ausgeführt. Der Miner unterbricht den 12er-Abschnitt nach 73 Blöcken, läuft zellenweise zum `workplace_access` zurück, geht über den Connector wieder hinein, bearbeitet zwei andere Äste und setzt denselben gespeicherten Abschnitt fort. Nach allen Arbeiten läuft er erneut zum Ausgang. Tests prüfen offene Rückwege ohne Teleport-Sprünge, unveränderte Voxels während der Rückkehr, erhaltenen Fortschritt/Stützen, keine Segment-/Prefab-Überschneidungen, stützenfreie Junctions sowie den vollständigen erwarteten Weltzustand (1248 Abbaublöcke, 12 Stützen).
+
+Der Browser bietet `Mine · Kombinationen · NORTH/EAST/SOUTH/WEST`. Der Inspector zeigt aktuelle Phase, Abschnitt, Länge und gespeicherten Fortschritt. `SimulationRecordingExporterTest` vergleicht diese Replays mit direkter Ausführung und prüft das 32-MB-Veröffentlichungsbudget. Arbeitswahl und Navigation sind geskriptete/geometrische Fixtures; echte NPC-Wegfindung, Player-Teleport-Verhalten und die geplante Mehrminer-Koordination sind damit nicht belegt.
