@@ -1,50 +1,39 @@
 package dev.civilizations.hytale;
 
 import dev.civilizations.core.BlockPosition;
-import dev.civilizations.core.MineDirection;
-import dev.civilizations.core.MineSegment;
+import dev.civilizations.core.MineTunnel;
+import dev.civilizations.core.MineWorkFront;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CivMineDebugServiceTest {
 
     @Test
-    void branchLevelFollowsPersistedParentChain() {
-        UUID mineId = UUID.randomUUID();
-        MineSegment root = segment(mineId, null, 0);
-        MineSegment child = segment(mineId, root.id(), 10);
-        MineSegment grandchild = segment(mineId, child.id(), 20);
-        Map<UUID, MineSegment> byId = Map.of(
-            root.id(), root,
-            child.id(), child,
-            grandchild.id(), grandchild
+    void tunnelDebugStateComesFromSemanticWorkFront() {
+        UUID tunnelId = UUID.randomUUID();
+        MineTunnel tunnel = new MineTunnel(tunnelId, MineTunnel.Kind.MAIN, null, 0,
+            new BlockPosition(0, 20, 0));
+
+        CivMineDebugService.TunnelDebugSnapshot active = new CivMineDebugService.TunnelDebugSnapshot(
+            tunnel,
+            new MineWorkFront(UUID.randomUUID(), tunnelId, new BlockPosition(10, 20, 0),
+                MineWorkFront.State.ACTIVE),
+            null
+        );
+        CivMineDebugService.TunnelDebugSnapshot open = new CivMineDebugService.TunnelDebugSnapshot(
+            tunnel,
+            new MineWorkFront(UUID.randomUUID(), tunnelId, new BlockPosition(10, 20, 0),
+                MineWorkFront.State.OPEN),
+            null
         );
 
-        assertEquals(0, CivMineDebugService.branchLevel(root, byId));
-        assertEquals(1, CivMineDebugService.branchLevel(child, byId));
-        assertEquals(2, CivMineDebugService.branchLevel(grandchild, byId));
-    }
-
-    @Test
-    void branchLevelStopsAtMissingParentInsteadOfInventingTopology() {
-        UUID mineId = UUID.randomUUID();
-        MineSegment orphan = segment(mineId, UUID.randomUUID(), 0);
-
-        assertEquals(0, CivMineDebugService.branchLevel(orphan, Map.of(orphan.id(), orphan)));
-    }
-
-    private static MineSegment segment(UUID mineId, UUID parentId, int x) {
-        return MineSegment.reserved(
-            UUID.randomUUID(),
-            mineId,
-            parentId,
-            new BlockPosition(x, 20, 0),
-            MineDirection.EAST,
-            8
-        );
+        assertTrue(active.active());
+        assertFalse(active.open());
+        assertFalse(open.active());
+        assertTrue(open.open());
     }
 }

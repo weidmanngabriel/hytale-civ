@@ -79,8 +79,7 @@ final class MineWorkFrontGrowthSelectorTest {
                 MineTunnel.Kind.BRANCH,
                 mainId,
                 1,
-                new BlockPosition(20, 78, 0),
-                List.of()
+                new BlockPosition(20, 78, 0)
             ));
         MineWorkFront main = new MineWorkFront(
             new UUID(4, 4), mainId, new BlockPosition(50, 70, 0), MineWorkFront.State.OPEN

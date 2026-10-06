@@ -1,6 +1,6 @@
 # Mine Layer 3 - Excavation Geometry
 
-Status: implemented Core geometry foundation; Hytale runtime excavation integration remains open.
+Status: implemented and integrated into the live Hytale miner runtime.
 
 This document records the concrete implementation state of Layer 3 from `docs/mine-design.md`. The canonical product decisions remain in `docs/mine-design.md` and the miner task semantics remain in `docs/miner-npc-design.md`.
 
@@ -67,20 +67,13 @@ Layer 2 changes elevation gradually by at most one block per form phase. Layer 3
 
 The first CI version of the Layer-3 implementation exposed a diagonal-only navigation-core connection. The implementation was corrected rather than weakening the test; the resulting CI build is green.
 
-## Current limitation / next integration boundary
+## Runtime integration
 
-The current in-game `MinerWorkSystem` still excavates the pre-overhaul `MineSegment` representation with its fixed 4x4 horizontal geometry and fixed 4x4x4 junction. Layer 3 does **not** yet make that old runtime path consume `MineTunnelGeometry`.
+The live `MinerWorkSystem` consumes `MineTunnelGeometry.Slice` directly as the concrete `EXCAVATE_FRONT` work unit. Main and branch tunnels therefore use the variable Layer-3 cross-sections in actual Hytale block excavation.
 
-That distinction is intentional and must not be lost in later chats. Replacing the runtime path safely also affects continuation, old segment/junction assumptions, support placement, persistence/progress and work-front execution. Doing that as an isolated local patch inside `MinerWorkSystem` would create two competing topology/geometry models and would cross into later mine integration responsibilities.
+The concrete geometry is regenerated deterministically from the stable mine identity after restart. `MineWorkFront` persists semantic progress, while the Hytale world remains authoritative for blocks already excavated. Navigation and surface recovery use the same regenerated tunnel geometry for semantic tunnel membership.
 
-The next integration work must therefore use `MineTunnelGeometry.Slice` as the concrete shape behind an `EXCAVATE_FRONT` work unit and retire the old fixed-4x4 geometry as the runtime excavation truth rather than maintaining both indefinitely.
-
-Until that migration is complete:
-
-- Layer 2 and Layer 3 are deterministic Core planning/geometry foundations;
-- the live miner continues to show the old 4x4 tunnel slice described in `docs/concept.md`;
-- no new Hytale API is required or assumed by Layer 3;
-- Hytale remains responsible for actual block interaction and physical NPC navigation once the Core slices are wired into execution.
+Layer 3 still does not place infrastructure such as supports, lights or stairs automatically; those remain separate mine tasks.
 
 ## Explicitly deferred from Layer 3
 

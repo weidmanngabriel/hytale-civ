@@ -78,10 +78,10 @@ final class MineFrontTaskSchedulerTest {
         UUID mainId = UUID.randomUUID();
         UUID branchId = UUID.randomUUID();
         MineTunnel main = new MineTunnel(
-            mainId, MineTunnel.Kind.MAIN, null, 0, new BlockPosition(0, 10, 0), List.of()
+            mainId, MineTunnel.Kind.MAIN, null, 0, new BlockPosition(0, 10, 0)
         );
         MineTunnel branch = new MineTunnel(
-            branchId, MineTunnel.Kind.BRANCH, mainId, 1, new BlockPosition(20, 10, 0), List.of()
+            branchId, MineTunnel.Kind.BRANCH, mainId, 1, new BlockPosition(20, 10, 0)
         );
         MineWorkFront mainFront = new MineWorkFront(
             UUID.randomUUID(), mainId, new BlockPosition(10, 10, 0), MineWorkFront.State.OPEN

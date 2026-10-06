@@ -117,8 +117,7 @@ public final class MineNetworkGrowthPlanner {
                     MineTunnel.Kind.BRANCH,
                     parentId,
                     parent.tunnel().branchDepth() + 1,
-                    start,
-                    List.of()
+                    start
                 );
                 network = network.withTunnel(child);
                 planned.put(childId, new PlannedTunnel(child, candidatePath, candidateGeometry, intentionalCrossing));

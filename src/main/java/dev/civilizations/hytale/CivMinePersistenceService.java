@@ -5,13 +5,10 @@ import com.hypixel.hytale.component.Store;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.BlockPosition;
-import dev.civilizations.core.MineDirection;
 import dev.civilizations.core.MineNavigationAnchor;
 import dev.civilizations.core.MineNetwork;
 import dev.civilizations.core.MineRoom;
-import dev.civilizations.core.MineSegment;
 import dev.civilizations.core.MineTunnel;
-import dev.civilizations.core.MineTuning;
 import dev.civilizations.core.MineWorkFront;
 
 import java.util.ArrayList;
@@ -20,25 +17,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-/** Persists Civ-owned mine topology and current excavation progress in the world entity store. */
+/** Persists Civ-owned semantic mine-network state in the world entity store. */
 public final class CivMinePersistenceService {
+
+    private static final String FORMAT_HEADER = "N2";
 
     private final ResourceType<EntityStore, CivMineDataResource> resourceType;
 
     public CivMinePersistenceService(ResourceType<EntityStore, CivMineDataResource> resourceType) {
         this.resourceType = resourceType;
-    }
-
-    public List<MineSegment> load(World world) {
-        List<MineSegment> result = new ArrayList<>();
-        for (String encoded : resource(world).segments()) {
-            try {
-                result.add(decode(encoded));
-            } catch (RuntimeException exception) {
-                System.err.println("[Civ Mine] Ignoring invalid persisted segment: " + exception.getMessage());
-            }
-        }
-        return List.copyOf(result);
     }
 
     public List<MineNetwork> loadNetworks(World world) {
@@ -47,29 +34,18 @@ public final class CivMinePersistenceService {
             try {
                 result.add(decodeNetwork(encoded));
             } catch (RuntimeException exception) {
-                System.err.println("[Civ Mine] Ignoring invalid persisted network: " + exception.getMessage());
+                System.err.println("[Civ Mine] Ignoring incompatible persisted mine network: " + exception.getMessage());
             }
         }
         return List.copyOf(result);
     }
 
     /**
-     * Stages the latest mine topology/progress in the native world resource.
-     *
-     * <p>Mine progress changes frequently while workers excavate. Calling Store.saveAllResources()
-     * here would start an asynchronous save for every world resource on every segment update. Those
-     * global saves can overlap and race on Hytale's shared *.tmp resource files. The normal Hytale
-     * autosave and store shutdown lifecycle persist this staged resource instead.</p>
+     * Stages current semantic mine state in the native world resource without forcing a global
+     * resource flush. Hytale autosave and store shutdown remain responsible for durable writes.
      */
-    public void save(World world, List<MineSegment> segments) {
-        resource(world).setSegments(segments.stream().map(this::encode).toArray(String[]::new));
-    }
-
-    /** Stages segments and semantic mine-network metadata without forcing a global resource flush. */
-    public void save(World world, List<MineSegment> segments, List<MineNetwork> networks) {
-        CivMineDataResource resource = resource(world);
-        resource.setSegments(segments.stream().map(this::encode).toArray(String[]::new));
-        resource.setNetworks(networks.stream().map(this::encodeNetwork).toArray(String[]::new));
+    public void save(World world, List<MineNetwork> networks) {
+        resource(world).setNetworks(networks.stream().map(this::encodeNetwork).toArray(String[]::new));
     }
 
     private CivMineDataResource resource(World world) {
@@ -77,46 +53,9 @@ public final class CivMinePersistenceService {
         return store.getResource(resourceType);
     }
 
-    String encode(MineSegment segment) {
-        BlockPosition start = segment.start();
-        return String.join("|",
-            segment.id().toString(),
-            segment.mineId().toString(),
-            segment.parentId() == null ? "" : segment.parentId().toString(),
-            start.x() + "," + start.y() + "," + start.z(),
-            segment.direction().name(),
-            segment.status().name(),
-            Integer.toString(segment.nextBlockIndex()),
-            Integer.toString(segment.supportsPlaced()),
-            Integer.toString(segment.lengthBlocks())
-        );
-    }
-
-    MineSegment decode(String encoded) {
-        String[] parts = encoded.split("\\|", -1);
-        if (parts.length != 8 && parts.length != 9) {
-            throw new IllegalArgumentException("unexpected field count");
-        }
-        BlockPosition start = decodePosition(parts[3]);
-        int lengthBlocks = parts.length == 9
-            ? Integer.parseInt(parts[8])
-            : MineTuning.REFERENCE_SEGMENT_LENGTH_BLOCKS;
-        return new MineSegment(
-            UUID.fromString(parts[0]),
-            UUID.fromString(parts[1]),
-            parts[2].isBlank() ? null : UUID.fromString(parts[2]),
-            start,
-            MineDirection.valueOf(parts[4]),
-            lengthBlocks,
-            MineSegment.Status.valueOf(parts[5]),
-            Integer.parseInt(parts[6]),
-            Integer.parseInt(parts[7])
-        );
-    }
-
     String encodeNetwork(MineNetwork network) {
         List<String> lines = new ArrayList<>();
-        lines.add("N|" + network.mineId() + "|" + network.mainTunnelId());
+        lines.add(FORMAT_HEADER + "|" + network.mineId() + "|" + network.mainTunnelId());
         for (MineTunnel tunnel : network.tunnels()) {
             lines.add(String.join("|",
                 "T",
@@ -124,8 +63,7 @@ public final class CivMinePersistenceService {
                 tunnel.kind().name(),
                 tunnel.parentTunnelId() == null ? "" : tunnel.parentTunnelId().toString(),
                 Integer.toString(tunnel.branchDepth()),
-                encodePosition(tunnel.origin()),
-                encodeIds(tunnel.segmentIds())
+                encodePosition(tunnel.origin())
             ));
         }
         for (MineRoom room : network.rooms()) {
@@ -147,7 +85,9 @@ public final class CivMinePersistenceService {
         String[] lines = encoded.split("\\n");
         if (lines.length == 0) throw new IllegalArgumentException("empty network");
         String[] header = lines[0].split("\\|", -1);
-        if (header.length != 3 || !"N".equals(header[0])) throw new IllegalArgumentException("invalid network header");
+        if (header.length != 3 || !FORMAT_HEADER.equals(header[0])) {
+            throw new IllegalArgumentException("unsupported mine persistence format");
+        }
 
         UUID mineId = UUID.fromString(header[1]);
         UUID mainTunnelId = UUID.fromString(header[2]);
@@ -160,14 +100,13 @@ public final class CivMinePersistenceService {
             String[] parts = lines[i].split("\\|", -1);
             switch (parts[0]) {
                 case "T" -> {
-                    requireFieldCount(parts, 7);
+                    requireFieldCount(parts, 6);
                     tunnels.add(new MineTunnel(
                         UUID.fromString(parts[1]),
                         MineTunnel.Kind.valueOf(parts[2]),
                         parts[3].isBlank() ? null : UUID.fromString(parts[3]),
                         Integer.parseInt(parts[4]),
-                        decodePosition(parts[5]),
-                        List.copyOf(decodeIds(parts[6]))
+                        decodePosition(parts[5])
                     ));
                 }
                 case "R" -> {

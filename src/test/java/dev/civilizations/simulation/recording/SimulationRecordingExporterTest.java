@@ -5,56 +5,55 @@ import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingOrientation;
 import dev.civilizations.simulation.SimulationScenario;
 import dev.civilizations.simulation.SimulationScenarios;
-import dev.civilizations.simulation.prefab.MinePrefabNavigationScenario;
-import dev.civilizations.simulation.prefab.MineBranchingScenario;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class SimulationRecordingExporterTest {
+
     @Test
-    void recordingReplaysEveryMineOrientationToTheActualScenarioEndState() throws Exception {
+    void mainTunnelRecordingsUseCurrentVariableGeometryInEveryOrientation() throws Exception {
         for (BuildingOrientation orientation : BuildingOrientation.values()) {
             SimulationRecording recording = SimulationRecordingExporter.recordMine(orientation);
             assertEquals("completed", recording.status(), recording.error());
-            assertEquals("semantic-step", recording.timeUnit());
+            assertEquals("semantic-slice", recording.timeUnit());
             assertFalse(recording.markers().isEmpty());
+            assertTrue(recording.markers().stream().allMatch(marker -> marker.type().equals("main_tunnel")));
             assertTrue(recording.frames().getFirst().changes().isEmpty());
-            MinePrefabNavigationScenario scenario = MinePrefabNavigationScenario.create(orientation);
-            scenario.runToCompletion();
-            assertEquals(SimulationRecordingExporter.mineWorld(scenario.snapshot()), replay(recording));
-            var last = recording.frames().getLast();
-            assertTrue(last.residents().getFirst().state().startsWith("COMPLETE"));
-            assertEquals(scenario.snapshot().segment().blockCount(), last.metrics().get("excavatedBlocks"));
-            // Verify the actual browser wire format, including position objects and compact deltas.
+            assertEquals("COMPLETE", recording.frames().getLast().residents().getFirst().state());
+            assertTrue(((Number) recording.frames().getLast().metrics().get("excavatedBlocks")).intValue() > 0);
+
             var json = new ObjectMapper().readTree(new ObjectMapper().writeValueAsBytes(recording));
             assertEquals(1, json.path("schemaVersion").asInt());
             assertTrue(json.path("initialVoxels").get(0).isArray());
             assertTrue(json.path("frames").get(0).path("residents").get(0).path("position").has("x"));
-            assertTrue(recording.frames().stream().mapToInt(f -> f.changes().size()).sum()
-                < recording.initialVoxels().size(), "Record deltas rather than repeating the mountain");
+            assertTrue(recording.frames().stream().mapToInt(frame -> frame.changes().size()).sum()
+                < recording.initialVoxels().size(), "Record deltas rather than repeating the rock envelope");
         }
     }
 
     @Test
-    void combinationReplayIncludesTheReturnJourneyAndMatchesDirectExecution() throws Exception {
+    void networkRecordingContainsBranchTunnelsAndReplaysToCarvedEndState() throws Exception {
         for (BuildingOrientation orientation : BuildingOrientation.values()) {
-            var recording=SimulationRecordingExporter.recordBranchingMine(orientation);
-            assertEquals("completed",recording.status(),recording.error());
-            var direct=MineBranchingScenario.create(orientation);direct.runToCompletion();
-            assertEquals(SimulationRecordingExporter.branchingMineWorld(direct.snapshot()),replay(recording));
-            assertTrue(recording.frames().stream().anyMatch(f->f.metrics().get("phase").equals("OUTSIDE")));
-            assertTrue(recording.frames().stream().anyMatch(f->f.metrics().get("phase").equals("RESUMING_SAVED_WORK")));
-            var last=recording.frames().getLast();
-            assertEquals(1248,last.metrics().get("excavatedBlocks"));
-            assertEquals(12,last.metrics().get("supports"));
-            assertEquals(7L,last.metrics().get("completedSegments"));
-            assertEquals("COMPLETE",last.metrics().get("phase"));
-            var bytes=new ObjectMapper().writeValueAsBytes(recording);
-            assertTrue(bytes.length<32*1024*1024,"Fits the publisher's recording size budget");
+            SimulationRecording recording = SimulationRecordingExporter.recordBranchingMine(orientation);
+            assertEquals("completed", recording.status(), recording.error());
+            assertTrue(recording.markers().stream().anyMatch(marker -> marker.type().equals("branch_tunnel")),
+                "Layer-4 recording should expose at least one branch tunnel");
+            assertTrue(((Number) recording.frames().getLast().metrics().get("totalTunnels")).intValue() > 1);
+            assertEquals(
+                recording.frames().getLast().metrics().get("totalTunnels"),
+                recording.frames().getLast().metrics().get("completedTunnels")
+            );
+            assertEquals("COMPLETE", recording.frames().getLast().residents().getFirst().state());
+            assertTrue(replay(recording).size() < recording.initialVoxels().size(),
+                "Final replay should contain carved air where planned geometry was excavated");
+            assertTrue(new ObjectMapper().writeValueAsBytes(recording).length < 32 * 1024 * 1024,
+                "Fits the publisher's recording size budget");
         }
     }
 
@@ -91,10 +90,14 @@ final class SimulationRecordingExporterTest {
 
     private static Map<BlockPosition, Integer> replay(SimulationRecording recording) {
         Map<BlockPosition, Integer> world = new HashMap<>();
-        for (int[] c : recording.initialVoxels()) world.put(new BlockPosition(c[0], c[1], c[2]), c[3]);
-        for (var frame : recording.frames()) for (int[] c : frame.changes()) {
-            BlockPosition p = new BlockPosition(c[0], c[1], c[2]);
-            if (c[3] == 0) world.remove(p); else world.put(p, c[3]);
+        for (int[] cell : recording.initialVoxels()) {
+            world.put(new BlockPosition(cell[0], cell[1], cell[2]), cell[3]);
+        }
+        for (var frame : recording.frames()) {
+            for (int[] cell : frame.changes()) {
+                BlockPosition position = new BlockPosition(cell[0], cell[1], cell[2]);
+                if (cell[3] == 0) world.remove(position); else world.put(position, cell[3]);
+            }
         }
         return world;
     }

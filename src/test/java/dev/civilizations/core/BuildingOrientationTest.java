@@ -23,10 +23,11 @@ final class BuildingOrientationTest {
     }
 
     @Test
-    void rotatesCardinalDirectionsWithSameConvention() {
-        assertEquals(MineDirection.NORTH, BuildingOrientation.NORTH.rotate(MineDirection.NORTH));
-        assertEquals(MineDirection.EAST, BuildingOrientation.EAST.rotate(MineDirection.NORTH));
-        assertEquals(MineDirection.SOUTH, BuildingOrientation.SOUTH.rotate(MineDirection.NORTH));
-        assertEquals(MineDirection.WEST, BuildingOrientation.WEST.rotate(MineDirection.NORTH));
+    void rotatesMineHeadingsWithSameConvention() {
+        assertEquals(MineHeading.NORTH, BuildingOrientation.NORTH.rotate(MineHeading.NORTH));
+        assertEquals(MineHeading.EAST, BuildingOrientation.EAST.rotate(MineHeading.NORTH));
+        assertEquals(MineHeading.SOUTH, BuildingOrientation.SOUTH.rotate(MineHeading.NORTH));
+        assertEquals(MineHeading.WEST, BuildingOrientation.WEST.rotate(MineHeading.NORTH));
+        assertEquals(MineHeading.SOUTH_EAST, BuildingOrientation.EAST.rotate(MineHeading.NORTH_EAST));
     }
 }

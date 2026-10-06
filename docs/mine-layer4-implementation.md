@@ -21,13 +21,13 @@ The planner supports:
 - a technical caller-supplied tunnel planning budget so tests/tools can bound one planning run without creating a gameplay branch-depth rule;
 - deterministic output for a fixed seed.
 
-Layer 4 does not duplicate tunnel-shape generation: every accepted logical tunnel still receives its path from Layer 2 and its voxel geometry from Layer 3.
+Layer 4 does not duplicate tunnel-shape generation: every accepted logical tunnel receives its path from Layer 2 and its voxel geometry from Layer 3.
 
 ## Live tunnel-front runtime
 
-`MinerWorkSystem` now regenerates the deterministic Layer-4 plan for the assigned mine and creates one persistent `MineWorkFront` per planned main/branch tunnel. The Hytale world remains authoritative for blocks already removed; the work-front position persists the current slice of each tunnel.
+`MinerWorkSystem` regenerates the deterministic Layer-4 plan for the assigned mine and creates or resumes one persistent `MineWorkFront` per planned main/branch tunnel. The Hytale world remains authoritative for blocks already removed; the work-front position persists the current slice of each tunnel.
 
-The Layer-3 geometry itself is regenerated deterministically at runtime and cached by `MineTunnelRegistry` for the current world/mine. Navigation and surface recovery use that geometry instead of the legacy `MineSegment` bounds. This runtime geometry is intentionally not a second persisted copy of excavation state.
+The Layer-3 geometry itself is regenerated deterministically at runtime and cached by `MineTunnelRegistry` for the current world/mine. Navigation and surface recovery use this geometry for semantic tunnel membership. Runtime geometry is intentionally not a second persisted copy of excavation state.
 
 A branch is not executable merely because it exists in the plan. Its first front becomes eligible after the connection point has physically opened in the world. Once excavation on a tunnel has started, later slices continue from the persisted work-front position.
 
@@ -62,8 +62,6 @@ The first implementation intentionally treats these as balance values rather tha
 - continuation probability has a `20%` floor;
 - branch length starts at `16` blocks and grows in 8-block units.
 
-The initial `8`-percentage-point continuation drop proved too aggressive in deterministic long-run tests: 100+ block branches became effectively exceptional rather than occasional. The value was therefore reduced to `4` percentage points so the implementation matches the canonical requirement for a visible long tail of branch lengths.
-
 A branch attaches through an exempt connection throat before ordinary collision spacing applies to its parent tunnel. This exemption exists only so the child can physically leave the parent passage; later geometry is again subject to normal spacing checks.
 
 ## Main-tunnel fairness
@@ -88,27 +86,19 @@ The current crossing marker is semantic metadata on the planned tunnel. Later ro
 
 ## Persistence and restart
 
-The persisted `MineNetwork` remains the semantic restart state for topology, work-front positions/states and navigation anchors. The deterministic mine seed is derived from the stable mine Building-ID, so the same Layer-2/3/4 path and geometry can be regenerated after restart.
+The persisted `MineNetwork` is the semantic restart state for topology, work-front positions/states and navigation anchors. Tunnel voxel geometry is regenerated from the stable mine Building-ID, while actual excavated blocks remain Hytale-world state.
 
-Current development saves whose persisted tunnel/front set does not match the regenerated Layer-4 plan are reinitialized as new mine runtime state. Backward compatibility for those development-only formats is deliberately not added before the separate legacy cut.
+Mine persistence now uses the network-only `N2` format. Development worlds containing earlier mine data are intentionally not migrated. Unsupported records are ignored and the assigned mine initializes fresh runtime network state on next use. This is the project-wide pre-V1 compatibility policy: there is one current mine model and no parallel compatibility path.
 
 ## Tests
 
-`MineNetworkGrowthPlannerTest` covers:
-
-- deterministic plans for equal seeds;
-- exactly one main tunnel;
-- nested side branches over deterministic long-run seed sets;
-- varied branch lengths including occasional 100+ block branches;
-- decreasing branch probability with depth;
-- configured branch-start spacing;
-- bounded planning runs.
+`MineNetworkGrowthPlannerTest` covers deterministic plans, exactly one main tunnel, nested side branches, varied branch lengths, decreasing branch probability, branch-start spacing and bounded planning runs.
 
 `MineWorkFrontGrowthSelectorTest` covers the mine-generation main-tunnel starvation safeguard.
 
 `MineFrontTaskSchedulerTest` covers active-front fill, branch-vs-main priority, capacity spillover and unavailable fronts.
 
-Hytale contract tests verify that the current work adapter wires multiple planned fronts through the Core scheduler and that navigation/surface recovery no longer depend on `MineSegment`.
+Hytale contract tests cover multi-front runtime wiring, restart progress and geometry-based navigation/surface recovery. Browser simulation recordings also derive mine geometry from the current Layer-4 planner rather than from a separate excavation model.
 
 ## Explicitly deferred
 
@@ -121,5 +111,3 @@ This layer still does not add:
 - rails;
 - final balance tuning;
 - a terrain-aware replacement for the temporary surface-recovery Y heuristic.
-
-The legacy `MineSegment` model, segment persistence and compatibility code still exist elsewhere in the repository for the transition. They are no longer needed by the live planned tunnel excavation, navigation or surface-recovery path and are intended to be removed in the follow-up legacy-cut PR.
