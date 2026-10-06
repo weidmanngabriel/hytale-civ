@@ -44,7 +44,7 @@ class MineInfrastructurePlannerTest {
     }
 
     @Test
-    void groupsConsecutiveHeightChangesIntoOneMandatoryStairTask() {
+    void plansEachHeightTransitionAsMandatoryStepWorkSoAFullStaircaseCanGrowSafely() {
         List<MineTunnelGeometry.Slice> slices = new ArrayList<>();
         Set<BlockPosition> all = new LinkedHashSet<>();
         Set<BlockPosition> nav = new LinkedHashSet<>();
@@ -70,10 +70,14 @@ class MineInfrastructurePlannerTest {
             .filter(task -> task.type() == MineInfrastructureTask.Type.BUILD_STEP)
             .toList();
 
-        assertEquals(1, stairs.size());
-        assertEquals(1, stairs.getFirst().startSliceIndex());
-        assertEquals(4, stairs.getFirst().endSliceIndex());
-        assertEquals(10, stairs.getFirst().priority());
+        assertEquals(3, stairs.size());
+        assertEquals(1, stairs.get(0).startSliceIndex());
+        assertEquals(2, stairs.get(0).endSliceIndex());
+        assertEquals(2, stairs.get(1).startSliceIndex());
+        assertEquals(3, stairs.get(1).endSliceIndex());
+        assertEquals(3, stairs.get(2).startSliceIndex());
+        assertEquals(4, stairs.get(2).endSliceIndex());
+        assertTrue(stairs.stream().allMatch(MineInfrastructureTask::mandatory));
     }
 
     @Test
