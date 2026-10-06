@@ -30,27 +30,21 @@ import java.util.concurrent.ConcurrentHashMap;
  * Selects native Hytale combat targets for Civ soldiers.
  *
  * <p>Civ owns the profession, target-selection cadence and manual-order priority. Hytale owns
- * pathfinding, attack interactions, damage, HP and death. A native NPC counts as a hostile monster
- * when its role is hostile to players. That matches the player's notion of a dangerous monster
- * without requiring the role to be globally hostile to every NPC.</p>
+ * pathfinding, attack interactions, damage, HP and death. In this first slice, a native NPC counts
+ * as a hostile monster when its role is hostile to players. That matches the player's notion of a
+ * dangerous monster without requiring the role to be globally hostile to every NPC.</p>
  *
- * <p>The Civ soldier role uses Hytale's Combat Action Evaluator (CAE). Civ mirrors its selected
- * target into the native {@code LockedTarget} slot and {@link TargetMemory}, then enters the native
- * {@code Combat} state. The role/CAE owns pursuit and weapon interactions from that point. When Civ
- * combat is interrupted or no valid target remains, the native target state is cleared and the
- * inhabitant returns to {@code Idle} so manual movement and other profession behavior can resume.</p>
- *
- * <p>Hostile vanilla NPCs do not all use the same combat target mechanism. Civ therefore continues
- * to bridge retaliation into both the native {@code LockedTarget}/{@code Combat} path and an
- * existing {@link TargetMemory} when available. It does not implement movement, attacks, damage or
- * death itself.</p>
+ * <p>Vanilla NPC combat uses more than one native targeting path. Lightweight role templates such
+ * as predators commonly fight a marked {@code LockedTarget} inside their {@code Combat} state,
+ * while Combat Action Evaluator roles maintain {@link TargetMemory}. Civ bridges a Soldier
+ * engagement into both native mechanisms when they are available; it does not implement movement,
+ * attacks, damage or death itself.</p>
  */
 public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
 
     public static final String COMBAT_TARGET_SLOT = "CivCombatTarget";
     private static final String NATIVE_LOCKED_TARGET_SLOT = "LockedTarget";
     private static final String NATIVE_COMBAT_STATE = "Combat";
-    private static final String NATIVE_IDLE_STATE = "Idle";
     static final double SEARCH_RADIUS = 16.0;
     private static final double RETRY_SECONDS = 0.5;
 
@@ -105,15 +99,13 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
 
         Ref<EntityStore> currentTarget = readTarget(ref, store);
         if (isUsableTarget(ref, currentTarget, store)) {
-            maintainNativeSoldierCombat(ref, currentTarget, store);
             maintainNativeRetaliation(currentTarget, ref, store);
             runtime.target = currentTarget;
             return;
         }
 
-        clearNativeSoldierCombat(ref, store);
         if (currentTarget != null) {
-            setCivTarget(ref, null, store);
+            clearTarget(ref, store);
         }
         runtime.target = null;
 
@@ -128,8 +120,7 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
             return;
         }
 
-        setCivTarget(ref, target, store);
-        engageNativeSoldierCombat(ref, target, store);
+        setTarget(ref, target, store);
         engageNativeRetaliation(target, ref, store);
         runtime.target = target;
         runtime.schedule.scheduleRetry(RETRY_SECONDS);
@@ -223,48 +214,21 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
             && targetWorldSupport.getDefaultPlayerAttitude() == Attitude.HOSTILE;
     }
 
-    private static void engageNativeSoldierCombat(
-        Ref<EntityStore> soldier,
-        Ref<EntityStore> hostile,
-        Store<EntityStore> store
-    ) {
-        maintainNativeSoldierCombat(soldier, hostile, store);
-        setNativeState(soldier, NATIVE_COMBAT_STATE, store);
-    }
-
-    private static void maintainNativeSoldierCombat(
-        Ref<EntityStore> soldier,
-        Ref<EntityStore> hostile,
-        Store<EntityStore> store
-    ) {
-        setNativeMarkedTarget(soldier, NATIVE_LOCKED_TARGET_SLOT, hostile, store);
-        rememberHostile(soldier, hostile, store);
-        setNativeState(soldier, NATIVE_COMBAT_STATE, store);
-    }
-
-    private static void clearNativeSoldierCombat(
-        Ref<EntityStore> soldier,
-        Store<EntityStore> store
-    ) {
-        setNativeMarkedTarget(soldier, NATIVE_LOCKED_TARGET_SLOT, null, store);
-
-        TargetMemory memory = store.getComponent(soldier, TargetMemory.getComponentType());
-        if (memory != null) {
-            memory.getKnownHostiles().clear();
-            memory.getKnownHostilesList().clear();
-            memory.setClosestHostile(null);
-        }
-
-        setNativeState(soldier, NATIVE_IDLE_STATE, store);
-    }
-
     private static void engageNativeRetaliation(
         Ref<EntityStore> hostile,
         Ref<EntityStore> soldier,
         Store<EntityStore> store
     ) {
         maintainNativeRetaliation(hostile, soldier, store);
-        setNativeState(hostile, NATIVE_COMBAT_STATE, store);
+
+        StateSupport stateSupport = store.getComponent(hostile, StateSupport.getComponentType());
+        if (stateSupport == null) {
+            return;
+        }
+        int combatState = stateSupport.getStateHelper().getStateIndex(NATIVE_COMBAT_STATE);
+        if (combatState >= 0 && stateSupport.getStateIndex() != combatState) {
+            stateSupport.setState(hostile, NATIVE_COMBAT_STATE, null, store);
+        }
     }
 
     private static void maintainNativeRetaliation(
@@ -272,53 +236,26 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
         Ref<EntityStore> soldier,
         Store<EntityStore> store
     ) {
-        setNativeMarkedTarget(hostile, NATIVE_LOCKED_TARGET_SLOT, soldier, store);
-        rememberHostile(hostile, soldier, store);
-    }
+        NPCEntity hostileNpc = store.getComponent(hostile, NPCEntity.getComponentType());
+        if (hostileNpc != null && hostileNpc.getRole() != null) {
+            hostileNpc.getRole().setMarkedTarget(
+                hostile,
+                store,
+                NATIVE_LOCKED_TARGET_SLOT,
+                soldier
+            );
+        }
 
-    private static void rememberHostile(
-        Ref<EntityStore> owner,
-        Ref<EntityStore> hostile,
-        Store<EntityStore> store
-    ) {
-        TargetMemory memory = store.getComponent(owner, TargetMemory.getComponentType());
+        TargetMemory memory = store.getComponent(hostile, TargetMemory.getComponentType());
         if (memory == null) {
             return;
         }
 
-        float previous = memory.getKnownHostiles().put(hostile.getIndex(), memory.getRememberFor());
+        float previous = memory.getKnownHostiles().put(soldier.getIndex(), memory.getRememberFor());
         if (previous <= 0.0f) {
-            memory.getKnownHostilesList().add(hostile);
+            memory.getKnownHostilesList().add(soldier);
         }
-        memory.setClosestHostile(hostile);
-    }
-
-    private static void setNativeMarkedTarget(
-        Ref<EntityStore> owner,
-        String slot,
-        Ref<EntityStore> target,
-        Store<EntityStore> store
-    ) {
-        NPCEntity npc = store.getComponent(owner, NPCEntity.getComponentType());
-        if (npc == null || npc.getRole() == null) {
-            return;
-        }
-        npc.getRole().setMarkedTarget(owner, store, slot, target);
-    }
-
-    private static void setNativeState(
-        Ref<EntityStore> ref,
-        String state,
-        Store<EntityStore> store
-    ) {
-        StateSupport stateSupport = store.getComponent(ref, StateSupport.getComponentType());
-        if (stateSupport == null) {
-            return;
-        }
-        int stateIndex = stateSupport.getStateHelper().getStateIndex(state);
-        if (stateIndex >= 0 && stateSupport.getStateIndex() != stateIndex) {
-            stateSupport.setState(ref, state, null, store);
-        }
+        memory.setClosestHostile(soldier);
     }
 
     private static Ref<EntityStore> readTarget(
@@ -329,17 +266,20 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
         return marked == null ? null : marked.getMarkedEntityRef(COMBAT_TARGET_SLOT);
     }
 
-    private static void setCivTarget(
+    private static void setTarget(
         Ref<EntityStore> soldier,
         Ref<EntityStore> target,
         Store<EntityStore> store
     ) {
-        setNativeMarkedTarget(soldier, COMBAT_TARGET_SLOT, target, store);
+        NPCEntity npc = store.getComponent(soldier, NPCEntity.getComponentType());
+        if (npc == null || npc.getRole() == null) {
+            return;
+        }
+        npc.getRole().setMarkedTarget(soldier, store, COMBAT_TARGET_SLOT, target);
     }
 
     private static void clearTarget(Ref<EntityStore> soldier, Store<EntityStore> store) {
-        setCivTarget(soldier, null, store);
-        clearNativeSoldierCombat(soldier, store);
+        setTarget(soldier, null, store);
     }
 
     private static final class WorkerRuntime {

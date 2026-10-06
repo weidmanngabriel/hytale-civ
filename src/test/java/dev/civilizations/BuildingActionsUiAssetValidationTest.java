@@ -18,7 +18,7 @@ class BuildingActionsUiAssetValidationTest {
 
     @Test
     void upgradeButtonDeclaresTemplateArgumentsBeforeRegularProperties() throws Exception {
-        String ui = Files.readString(ACTIONS_UI_PATH);
+        String ui = Files.readString(ACTIONS_UI_PATH).replace("\r\n", "\n");
         int buttonStart = ui.indexOf("$C.@TextButton #UpgradeButton {");
         int buttonEnd = ui.indexOf("}\n", buttonStart);
 
