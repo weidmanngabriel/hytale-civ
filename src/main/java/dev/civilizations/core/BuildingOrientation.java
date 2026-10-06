@@ -41,11 +41,11 @@ public enum BuildingOrientation {
         return new BlockPosition(anchorX + rotatedX, position.y(), anchorZ + rotatedZ);
     }
 
-    /** Rotates a horizontal Civ direction by the same authored-to-world transform. */
-    public MineDirection rotate(MineDirection direction) {
-        MineDirection result = direction;
+    /** Rotates an eight-way mine heading by the same authored-to-world transform. */
+    public MineHeading rotate(MineHeading heading) {
+        MineHeading result = heading;
         for (int i = 0; i < clockwiseQuarterTurns(); i++) {
-            result = result.right();
+            result = result.right45().right45();
         }
         return result;
     }
