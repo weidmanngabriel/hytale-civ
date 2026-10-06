@@ -246,9 +246,9 @@ Before creating a bridge, verify:
 - the resulting route is navigable;
 - fluids do not make the route unsafe.
 
-Initial bridge span target: roughly 12-16 blocks maximum. Be more conservative over lava.
+Initial bridge span target is roughly 12-16 blocks maximum. Layer-5 V1 uses at most 16 planned floor slices and reduces that to 10 when fluid is detected below the gap. This is deliberately conservative and is not yet a complete cave/lava classifier.
 
-Use bridge prefab variants where practical.
+A Layer-5 bridge is real miner work (`BUILD_BRIDGE`, priority 10), not an instant prefab. The V1 structure has a three-block-wide deck, Fir longitudinal side beams and periodic cross-girders below the deck. It does not require supports all the way to a deep cave floor, and railings remain optional/deferred where they could complicate NPC navigation. The route beyond an unfinished required bridge is not executable.
 
 Water is less severe than lava. Lava should be treated as a dangerous obstacle; miners should not blindly tunnel or navigate into it.
 
@@ -295,38 +295,54 @@ This is intentionally simple for V1. Persistence may later be optimized if stori
 
 ## 15. Floor steps
 
-When a usable tunnel floor rises or falls by one block, place stairs across the usable width so NPCs do not face raw one-block ledges.
+When the planned usable floor changes elevation, miners build a connected stone staircase rather than leaving raw one-block ledges. Layer 3 exposes one-block `StepTransition`s; Layer 5 turns each due transition into priority-10 `BUILD_STEP` work so several consecutive transitions visually form one continuous staircase.
 
-Stair placement should adapt to the actual navigable width and irregular tunnel geometry rather than assuming a perfect rectangular tunnel.
+Use native stone stair/step blocks, correctly rotated toward the rise direction. The initial implementation covers the three-block guaranteed corridor where world geometry allows it. Every placed stair block takes 0.5 seconds of miner build time.
+
+Exact native stair asset selection and real NPC traversal remain an integration contract to verify in Hytale runtime; Civ must not replace native navigation with its own stair pathfinder.
 
 ## 16. Supports
 
-Place mine supports every few blocks with non-fixed spacing so the pattern does not look perfectly mechanical.
+Layer-5 supports are dynamically built block-by-block and do not use the old fixed 4x4 `Mine_Support_01` prefab.
 
-Supports must adapt to the actual tunnel/cave geometry, especially variable ceiling height and natural chambers. They must never block the guaranteed navigation corridor.
+Initial support rules:
 
-Use native block/prefab capabilities where suitable.
+- target spacing is 6-10 blocks/slices along a tunnel;
+- the selected frame may move up to roughly 3 blocks before or after that target to find a cleaner local cross-section, especially around curves;
+- the opening inside the frame must remain at least 4 blocks wide and 3 blocks high;
+- otherwise the support is shifted or skipped rather than narrowing the guaranteed corridor;
+- the frame should be as high and wide as the actual open tunnel reasonably permits;
+- `Wood_Fir_Branch_Long` forms the two upright side posts;
+- `Wood_Fir_Trunk` forms the top crossbeam and is rotated along the local cross-axis;
+- left and right posts independently extend down to one block above the first solid floor/stone beneath that side, so uneven ground may produce asymmetric post lengths;
+- the solid floor block itself is never replaced.
+
+The miner builds the left post bottom-to-top, then the right post bottom-to-top, then the top beam from its outside ends toward the centre. Every block takes 0.5 seconds.
+
+Built Fir support wood is placed with Hytale's player-like block-operation/Deco metadata so it does not inherit natural-tree cascade physics. The Civ woodcutter independently excludes Deco wood from natural-tree discovery.
+
+Recurring visual supports use ordinary infrastructure priority in the current V1. A support that is explicitly required for safety/passability belongs to priority 10 under the general miner rules.
 
 ## 17. Lighting
 
-Lighting differs by tunnel type.
+Lighting differs by tunnel type and is normal priority-5 infrastructure. V1 uses spacing plus valid geometry rather than measuring actual ambient light. Every placed light-construction block takes 0.5 seconds.
 
 ### Main tunnel
 
 Primary recurring light source:
 
-- an upright stone pillar;
-- a lantern placed on top.
+- an upright `Stone Brick Pillar - Base`, tip pointing upward;
+- one lantern placed on top.
 
-Use slightly variable spacing.
+Target spacing is roughly 8-14 tunnel blocks/slices. The pillar should preferably sit about one block inward from the wall rather than directly touching it, but never at the cost of the guaranteed navigation corridor or the central lane reserved for later main-tunnel infrastructure such as rails.
 
-Additional occasional decoration may include hanging chains and hanging lanterns.
+Additional occasional decoration may later include hanging chains and hanging lanterns.
 
 ### Side tunnels
 
-Side tunnels and nested side branches use torches only as their light source.
+Side tunnels and nested side branches use wall torches only.
 
-Place torches at slightly variable intervals, preferably along walls and outside the guaranteed navigation corridor.
+Target spacing is roughly 7-12 tunnel blocks/slices. The torch requires a solid wall mounting surface and must remain outside the guaranteed navigation corridor.
 
 This visual distinction is intentional: the main tunnel should look developed and infrastructural, while side tunnels look simpler and rougher.
 
@@ -407,7 +423,7 @@ Persist only the state required to continue Civ's mine behaviour, for example:
 
 Open work state, task priority and unfinished work progress belong to the mine/task state rather than to a particular miner. Temporary miner-to-task assignments and capacity reservations do not need to survive a server restart: after load, miners assigned to the mine select again from the persisted open work. Completed tasks are removed from the task system once their durable result is represented by the mine metadata and/or Hytale world state, so finished work cannot be selected again merely because historical task records remain.
 
-`MineNetwork` is the semantic persistent mine state. It stores logical tunnels, their parent hierarchy, rooms, work fronts and navigation anchors. It does not persist excavated blocks, pathfinding routes, decoration, supports or other world geometry already represented by Hytale.
+`MineNetwork` is the semantic persistent mine state. It stores logical tunnels, their parent hierarchy, rooms, work fronts, navigation anchors and the IDs of completed deterministic infrastructure tasks. It does not persist excavated blocks, pathfinding routes or a second copy of placed infrastructure geometry already represented by Hytale. Completion IDs exist only so already-finished deterministic work is not scheduled again after restart; if a player later removes finished infrastructure, Civ does not automatically rebuild it.
 
 Layer 4 supplies deterministic Core planning for a nested logical tunnel network, including branch probability, branch continuation, spacing/collision checks and growth-front fairness. The live miner consumes this Layer-2/3/4 plan directly through persistent work fronts. Concrete tunnel geometry is regenerated deterministically from the stable mine identity after restart, while Hytale world blocks remain authoritative for excavation progress.
 
