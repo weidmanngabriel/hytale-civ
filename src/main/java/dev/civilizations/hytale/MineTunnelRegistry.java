@@ -5,6 +5,7 @@ import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.MineNetwork;
 import dev.civilizations.core.MineSegment;
 import dev.civilizations.core.MineTunnel;
+import dev.civilizations.core.MineTunnelGeometry;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -21,6 +22,8 @@ public final class MineTunnelRegistry {
     private final CivMinePersistenceService persistence;
     private final Map<UUID, Map<UUID, MineSegment>> worlds = new ConcurrentHashMap<>();
     private final Map<UUID, Map<UUID, MineNetwork>> networks = new ConcurrentHashMap<>();
+    private final Map<UUID, Map<UUID, Map<UUID, MineTunnelGeometry>>> runtimeGeometries =
+        new ConcurrentHashMap<>();
 
     public MineTunnelRegistry(CivMinePersistenceService persistence) {
         this.persistence = persistence;
@@ -35,6 +38,7 @@ public final class MineTunnelRegistry {
         Map<UUID, MineNetwork> loadedNetworks = new ConcurrentHashMap<>();
         for (MineNetwork network : persistence.loadNetworks(world)) loadedNetworks.put(network.mineId(), network);
         networks.put(worldId, loadedNetworks);
+        runtimeGeometries.put(worldId, new ConcurrentHashMap<>());
 
         // Existing development worlds may contain the pre-network segment format. Convert that
         // one current shape into a main-tunnel network instead of keeping a second runtime truth.
@@ -76,6 +80,35 @@ public final class MineTunnelRegistry {
     }
 
     /**
+     * Stores the deterministic Layer-3 geometry regenerated for the current runtime.
+     *
+     * <p>The world stays authoritative for blocks actually excavated. Geometry is intentionally not
+     * persisted here; it is deterministically rebuilt from the mine plan after restart.</p>
+     */
+    public synchronized void putRuntimeGeometries(
+        UUID worldId,
+        UUID mineId,
+        Map<UUID, MineTunnelGeometry> geometries
+    ) {
+        runtimeGeometries
+            .computeIfAbsent(worldId, ignored -> new ConcurrentHashMap<>())
+            .put(mineId, Map.copyOf(geometries));
+    }
+
+    public MineTunnelGeometry geometryForTunnel(UUID worldId, UUID mineId, UUID tunnelId) {
+        return runtimeGeometries
+            .getOrDefault(worldId, Map.of())
+            .getOrDefault(mineId, Map.of())
+            .get(tunnelId);
+    }
+
+    public Map<UUID, MineTunnelGeometry> geometriesForMine(UUID worldId, UUID mineId) {
+        return runtimeGeometries
+            .getOrDefault(worldId, Map.of())
+            .getOrDefault(mineId, Map.of());
+    }
+
+    /**
      * Transitional Layer-1 entry point: newly created existing-miner segments default to the main
      * tunnel. Updates to an already assigned segment preserve its logical tunnel membership.
      */
@@ -109,6 +142,8 @@ public final class MineTunnelRegistry {
         if (segments != null) segments.values().removeIf(segment -> segment.mineId().equals(mineId));
         Map<UUID, MineNetwork> worldNetworks = networks.get(worldId);
         if (worldNetworks != null) worldNetworks.remove(mineId);
+        Map<UUID, Map<UUID, MineTunnelGeometry>> worldGeometries = runtimeGeometries.get(worldId);
+        if (worldGeometries != null) worldGeometries.remove(mineId);
         save(world);
     }
 
