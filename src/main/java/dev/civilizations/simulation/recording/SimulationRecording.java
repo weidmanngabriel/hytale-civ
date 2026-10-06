@@ -44,10 +44,10 @@ public record SimulationRecording(
             .thenComparingInt(BlockPosition::y).thenComparingInt(BlockPosition::z);
         private final List<int[]> initial;
         private final List<Frame> frames = new ArrayList<>();
-        private Map<BlockPosition, Integer> previous;
+        private final Map<BlockPosition, Integer> previous;
 
         public Recorder(Map<BlockPosition, Integer> world) {
-            previous = Map.copyOf(world);
+            previous = new LinkedHashMap<>(world);
             initial = cells(world);
         }
 
@@ -60,13 +60,30 @@ public record SimulationRecording(
                 world.forEach((p, material) -> {
                     if (!material.equals(previous.get(p))) delta.put(p, material);
                 });
-                previous.keySet().forEach(p -> {
-                    if (!world.containsKey(p)) delta.put(p, AIR);
-                });
+                previous.keySet().stream()
+                    .filter(p -> !world.containsKey(p))
+                    .toList()
+                    .forEach(p -> delta.put(p, AIR));
             }
-            frames.add(new Frame(frames.size(), time, cells(delta), List.copyOf(residents),
-                action, Map.copyOf(metrics)));
-            previous = Map.copyOf(world);
+            addFrame(time, delta, residents, action, metrics);
+            previous.clear();
+            previous.putAll(world);
+        }
+
+        /**
+         * Captures an already-known world delta without rescanning the complete voxel world.
+         * AIR removes an existing rendered cell; every other value replaces/adds that cell.
+         */
+        public void captureDelta(
+            double time, Map<BlockPosition, Integer> delta, List<Resident> residents,
+            BlockPosition action, Map<String, Object> metrics
+        ) {
+            Map<BlockPosition, Integer> effective = frames.isEmpty() ? Map.of() : delta;
+            addFrame(time, effective, residents, action, metrics);
+            effective.forEach((position, material) -> {
+                if (material == AIR) previous.remove(position);
+                else previous.put(position, material);
+            });
         }
 
         public SimulationRecording finish(
@@ -76,6 +93,14 @@ public record SimulationRecording(
             return new SimulationRecording(SCHEMA_VERSION, id, title, description, timeUnit,
                 error == null ? "completed" : "failed", error, initial, List.copyOf(markers),
                 List.copyOf(frames));
+        }
+
+        private void addFrame(
+            double time, Map<BlockPosition, Integer> delta, List<Resident> residents,
+            BlockPosition action, Map<String, Object> metrics
+        ) {
+            frames.add(new Frame(frames.size(), time, cells(delta), List.copyOf(residents),
+                action, Map.copyOf(metrics)));
         }
 
         private static List<int[]> cells(Map<BlockPosition, Integer> world) {
