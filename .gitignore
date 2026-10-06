@@ -15,3 +15,5 @@ HytaleServer.jar
 HytaleServer.aot
 Assets.zip
 mods/
+.hytale-dev/
+.hytale-dev.json

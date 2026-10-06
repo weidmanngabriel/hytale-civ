@@ -56,6 +56,8 @@ import dev.civilizations.hytale.WoodcutterWorkSystem;
 
 public final class CivilizationsPlugin extends JavaPlugin {
 
+    private CivDevBridge devBridge;
+
     private static final String CIV_INHABITANT_DATA_ID = "CivInhabitantData";
     private static final String CIV_BUILDING_DATA_ID = "CivBuildingData";
     private static final String CIV_CONSTRUCTION_DATA_ID = "CivConstructionData";
@@ -213,8 +215,13 @@ public final class CivilizationsPlugin extends JavaPlugin {
         );
 
         getCommandRegistry().registerCommand(new CivTestCommand());
-        if (Boolean.getBoolean("civilizations.runtimeProbe")) {
+        if (Boolean.getBoolean("civilizations.runtimeProbe") || Boolean.getBoolean("civilizations.devBridge")) {
             getEntityStoreRegistry().registerSystem(new CivRuntimeDamageTraceSystem());
+        }
+        if (Boolean.getBoolean("civilizations.devBridge")) {
+            devBridge = new CivDevBridge(unitRegistry, activityRegistry);
+        }
+        if (Boolean.getBoolean("civilizations.runtimeProbe")) {
             getCommandRegistry().registerCommand(
                 new CivRuntimeProbeCommand(unitRegistry, activityRegistry)
             );
@@ -269,5 +276,21 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getEventRegistry().register(PlayerDisconnectEvent.class, selectedNpcHudController::handleDisconnect);
         getEventRegistry().register(PlayerDisconnectEvent.class, selectedBuildingHudController::handleDisconnect);
         getEventRegistry().register(PlayerDisconnectEvent.class, rtsInteractionController::handleDisconnect);
+    }
+
+    @Override
+    public void start() {
+        if (devBridge != null) {
+            try { devBridge.start(); }
+            catch (java.io.IOException exception) {
+                devBridge.close();
+                throw new IllegalStateException("Could not start the local development bridge", exception);
+            }
+        }
+    }
+
+    @Override
+    public void shutdown() {
+        if (devBridge != null) devBridge.close();
     }
 }

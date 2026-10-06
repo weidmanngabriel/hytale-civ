@@ -2,6 +2,8 @@
 
 ## Ziel
 
+Optionaler Entwicklungszugriff: `tools/hytale-mcp` besitzt stdio-MCP, Build/Deployment und den lokalen Serverprozess; `CivDevBridge` an der Plugin-Grenze bietet private Loopback-HTTP-Aktionen. Sie verwendet `CivUnitRegistry`, `CivActivityRegistry`, `NpcInfoProvider` und native Aufrufe auf dem World Thread. Der Core enthält keine MCP-/HTTP-Abhängigkeit. Details: [local-mcp.md](local-mcp.md), Begründung: [ADR 0009](decisions/0009-local-development-mcp.md).
+
 Die Simulation soll testbar bleiben, ohne Hytale starten zu müssen. Hytale ist eine Integrationsgrenze und nicht das Domänenmodell.
 
 Vor Version 1 ist Rückwärtskompatibilität kein Ziel, wenn dafür Migrationen, parallele Altpfade, Kompatibilitäts-Defaults oder featurespezifische Ausnahmen nötig wären. Die aktuell dokumentierte Architektur und das Datenmodell sind maßgeblich. Diese Regel muss neu bewertet werden, bevor persistente Spielerwelten oder öffentliche stabile Releases Kompatibilität zu einer Produktanforderung machen.
