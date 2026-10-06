@@ -43,8 +43,26 @@ class CivMinePersistenceServiceTest {
             new MineNavigationAnchor(anchorBId, branchId,
                 new BlockPosition(10, 2, 3), MineNavigationAnchor.Type.REGULAR, Set.of(anchorAId))
         ));
+        UUID completedInfrastructure = UUID.randomUUID();
+        network = network.withInfrastructureTaskCompleted(completedInfrastructure);
 
-        assertEquals(network, service.decodeNetwork(service.encodeNetwork(network)));
+        MineNetwork decoded = service.decodeNetwork(service.encodeNetwork(network));
+        assertEquals(network, decoded);
+        assertEquals(Set.of(completedInfrastructure), decoded.completedInfrastructureTaskIds());
+    }
+
+    @Test
+    void readsPreviousN2NetworkFormatWithNoCompletedInfrastructure() {
+        UUID mineId = UUID.randomUUID();
+        UUID mainId = UUID.randomUUID();
+        String previous = "N2|" + mineId + "|" + mainId + "\n"
+            + "T|" + mainId + "|MAIN||0|1,2,3";
+
+        MineNetwork decoded = service.decodeNetwork(previous);
+
+        assertEquals(mineId, decoded.mineId());
+        assertEquals(mainId, decoded.mainTunnelId());
+        assertEquals(Set.of(), decoded.completedInfrastructureTaskIds());
     }
 
     @Test

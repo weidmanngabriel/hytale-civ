@@ -1,6 +1,6 @@
 # Mine Layer 4 - Network Growth
 
-Status: Core planning and the current tunnel-excavation runtime are implemented for main and branch fronts. The full room/infrastructure task system remains deferred.
+Status: Core planning and the tunnel-excavation runtime are implemented for main and branch fronts. Layer-5 supports/lights/steps/bridges are now implemented separately; rooms, decoration and the full general task scheduler remain deferred.
 
 This document records the concrete implementation state of Layer 4 from `docs/mine-design.md`. The canonical product decisions remain in `docs/mine-design.md`; miner task semantics remain in `docs/miner-npc-design.md`.
 
@@ -35,7 +35,7 @@ After every completed slice the transient worker/block claims for that front are
 
 ## Current miner front scheduling
 
-`MineFrontTaskScheduler` is the current narrow Core scheduler for `EXCAVATE_FRONT` work only. It intentionally does not pre-build the full room/infrastructure scheduler before those task types exist.
+`MineFrontTaskScheduler` remains the narrow Core scheduler for `EXCAVATE_FRONT` work only. Layer-5 infrastructure exists alongside it through `MineInfrastructurePlanner` and `MinerWorkSystem`; the front scheduler is not widened into a mixed world-aware scheduler.
 
 For currently executable tunnel fronts:
 
@@ -88,7 +88,7 @@ The current crossing marker is semantic metadata on the planned tunnel. Later ro
 
 The persisted `MineNetwork` is the semantic restart state for topology, work-front positions/states and navigation anchors. Tunnel voxel geometry is regenerated from the stable mine Building-ID, while actual excavated blocks remain Hytale-world state.
 
-Mine persistence now uses the network-only `N2` format. Development worlds containing earlier mine data are intentionally not migrated. Unsupported records are ignored and the assigned mine initializes fresh runtime network state on next use. This is the project-wide pre-V1 compatibility policy: there is one current mine model and no parallel compatibility path.
+Mine persistence now uses `N3`: the Layer-4 network state plus completed deterministic Layer-5 infrastructure task IDs. The immediately previous `N2` network format is read with an empty infrastructure-completion set; older incompatible pre-network records remain unsupported.
 
 ## Tests
 
@@ -100,13 +100,15 @@ Mine persistence now uses the network-only `N2` format. Development worlds conta
 
 Hytale contract tests cover multi-front runtime wiring, restart progress and geometry-based navigation/surface recovery. Browser simulation recordings also derive mine geometry from the current Layer-4 planner rather than from a separate excavation model.
 
-## Explicitly deferred
+## Later layers / still deferred
 
-This layer still does not add:
+Layer 5 now supplies supports, lighting, steps and bridges, including priority-10 passability handling. See `docs/mine-layer5-implementation.md`.
+
+Still deferred:
 
 - room excavation/construction task execution;
-- supports, lighting, steps, bridges or decoration tasks;
-- priority `10`, aging and the remaining general task categories from `docs/miner-npc-design.md`;
+- optional decoration tasks;
+- full normal-task aging and one unified general task scheduler;
 - special visual geometry for intentional crossings;
 - rails;
 - final balance tuning;

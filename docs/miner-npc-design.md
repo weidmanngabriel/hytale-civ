@@ -231,6 +231,10 @@ After each completed build section, the miners assigned to it select again.
 
 A support, light, step or bridge task completes when its defined infrastructure work unit is successfully constructed and reported back to the mine system.
 
+Layer-5 V1 implements these four task types in live miner work. A single infrastructure task has capacity one. The miner navigates to its work area and places the resolved structure block-by-block at 0.5 seconds per block. Completion is persisted at mine level; temporary worker reservations are not.
+
+The current implementation integrates infrastructure around the existing narrow excavation-front scheduler rather than pretending that the full general task scheduler already exists. Priority-10 steps/bridges can block and interrupt normal excavation on their tunnel. Normal support/light work is selected at normal task-selection boundaries. Full cross-category aging and room/decor scheduling remain future work.
+
 ## 7. Task priority
 
 Plan Phase 1 uses a simple 10-point base-priority system.
@@ -245,6 +249,8 @@ Plan Phase 1 uses a simple 10-point base-priority system.
 | `2` | optional decoration |
 
 Required supports, bridges or steps that are necessary for safe continuation belong to priority `10`.
+
+Recurring supports that are not required for immediate passability are ordinary infrastructure in Layer-5 V1; lights remain priority `5`. A later safety analysis may promote a specific support instance to priority `10` without changing the `BUILD_SUPPORT` task type.
 
 Priority `10` is the only acute priority class in V1. Normal jobs can never age to `10`.
 

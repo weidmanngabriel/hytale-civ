@@ -71,6 +71,8 @@ Ein manueller Bewegungsauftrag oder die gemeinsame Wiederanlaufpause deaktiviert
 
 Die Y-Klassifikation ist ausdrücklich eine temporäre Prototyp-Heuristik für den aktuellen flachen Minen-Slice. Sie ist **keine** verifizierte allgemeine Definition von „oberirdisch“. Sobald Weltgeneration, Berge oder vertikal driftende Tunnel relevant werden, muss diese Klassifikation terrainbewusst ersetzt werden, während die native Teleport-Grenze unverändert bleiben kann.
 
-### Offene Integration mit der neuen Work-Front-Geometrie
+### Aktueller Layer-4/5-Stand
 
-Der bestehende Anchor-/Long-Distance-Recovery-Adapter bestimmt die aktuelle Tunnelzugehörigkeit derzeit noch über persistierte `MineSegment.segmentIds()`. NPC layer 4 hat den Live-Abbau bereits auf Layer-3-Slices umgestellt und erzeugt dafür keine neuen Legacy-Segmente. Deshalb bleiben `ReadPosition`/`Seek`, Connector-Staging und native `NavState`-Beobachtung nutzbar, aber Anchor-Erzeugung, Tunnelzuordnung für Long-Distance-Teleports und segmentbasierte Recovery entlang neu ausgehobener Slice-Korridore sind noch nicht vollständig an die neue Geometrie angebunden. Diese Lücke darf nicht durch einen eigenen Pathfinder geschlossen werden; die Tunnelzuordnung muss in einer späteren Integration aus dem neuen Minennetz/der geplanten Geometrie kommen.
+Die semantische Tunnelzugehörigkeit für Miner ist inzwischen an das persistente `MineNetwork` und die deterministisch regenerierte `MineTunnelGeometry` angebunden. `MinerNavigationSystem` prüft Tunnelmitgliedschaft gegen die Layer-3-Geometrie; Anchor-Erzeugung, Long-Distance-Auswahl und native `NavState`-Recovery benötigen keine Legacy-`MineSegment`-Geometrie mehr.
+
+Infrastruktur aus Layer 5 verändert diesen Vertrag nicht. Supports, Licht, Treppen und Brücken liefern lediglich neue Arbeitsziele; die physische Bewegung zwischen diesen Zielen bleibt bei Hytales `ReadPosition`/`Seek`. Eine unfertige verpflichtende Brücke oder Treppe sperrt den semantischen Weiterbau, statt einen Civ-eigenen Pathfinder einzuführen.

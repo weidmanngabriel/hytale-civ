@@ -20,18 +20,31 @@ public record MineNetwork(
     List<MineTunnel> tunnels,
     List<MineRoom> rooms,
     List<MineWorkFront> workFronts,
-    List<MineNavigationAnchor> navigationAnchors
+    List<MineNavigationAnchor> navigationAnchors,
+    Set<UUID> completedInfrastructureTaskIds
 ) {
     public MineNetwork {
         if (mineId == null || mainTunnelId == null || tunnels == null || rooms == null
-            || workFronts == null || navigationAnchors == null) {
+            || workFronts == null || navigationAnchors == null || completedInfrastructureTaskIds == null) {
             throw new IllegalArgumentException("Mine network fields must not be null.");
         }
         tunnels = List.copyOf(tunnels);
         rooms = List.copyOf(rooms);
         workFronts = List.copyOf(workFronts);
         navigationAnchors = List.copyOf(navigationAnchors);
+        completedInfrastructureTaskIds = Set.copyOf(completedInfrastructureTaskIds);
         validate(mainTunnelId, tunnels, rooms, workFronts, navigationAnchors);
+    }
+
+    public MineNetwork(
+        UUID mineId,
+        UUID mainTunnelId,
+        List<MineTunnel> tunnels,
+        List<MineRoom> rooms,
+        List<MineWorkFront> workFronts,
+        List<MineNavigationAnchor> navigationAnchors
+    ) {
+        this(mineId, mainTunnelId, tunnels, rooms, workFronts, navigationAnchors, Set.of());
     }
 
     public static MineNetwork create(UUID mineId, UUID mainTunnelId, BlockPosition origin) {
@@ -41,7 +54,8 @@ public record MineNetwork(
             List.of(new MineTunnel(mainTunnelId, MineTunnel.Kind.MAIN, null, 0, origin)),
             List.of(),
             List.of(),
-            List.of()
+            List.of(),
+            Set.of()
         );
     }
 
@@ -57,15 +71,19 @@ public record MineNetwork(
         ArrayList<MineTunnel> next = new ArrayList<>(tunnels);
         int index = indexOfTunnel(tunnel.id());
         if (index >= 0) next.set(index, tunnel); else next.add(tunnel);
-        return new MineNetwork(mineId, mainTunnelId, next, rooms, workFronts, navigationAnchors);
+        return new MineNetwork(mineId, mainTunnelId, next, rooms, workFronts, navigationAnchors,
+            completedInfrastructureTaskIds);
     }
 
     public MineNetwork withRoom(MineRoom room) {
-        return new MineNetwork(mineId, mainTunnelId, tunnels, replaceById(rooms, room, MineRoom::id), workFronts, navigationAnchors);
+        return new MineNetwork(mineId, mainTunnelId, tunnels, replaceById(rooms, room, MineRoom::id),
+            workFronts, navigationAnchors, completedInfrastructureTaskIds);
     }
 
     public MineNetwork withWorkFront(MineWorkFront workFront) {
-        return new MineNetwork(mineId, mainTunnelId, tunnels, rooms, replaceById(workFronts, workFront, MineWorkFront::id), navigationAnchors);
+        return new MineNetwork(mineId, mainTunnelId, tunnels, rooms,
+            replaceById(workFronts, workFront, MineWorkFront::id), navigationAnchors,
+            completedInfrastructureTaskIds);
     }
 
     public MineNetwork withNavigationAnchor(MineNavigationAnchor anchor) {
@@ -85,7 +103,20 @@ public record MineNetwork(
             }
             if (!replaced) next.add(anchor);
         }
-        return new MineNetwork(mineId, mainTunnelId, tunnels, rooms, workFronts, next);
+        return new MineNetwork(mineId, mainTunnelId, tunnels, rooms, workFronts, next,
+            completedInfrastructureTaskIds);
+    }
+
+    public MineNetwork withInfrastructureTaskCompleted(UUID taskId) {
+        if (taskId == null || completedInfrastructureTaskIds.contains(taskId)) return this;
+        Set<UUID> completed = new HashSet<>(completedInfrastructureTaskIds);
+        completed.add(taskId);
+        return new MineNetwork(mineId, mainTunnelId, tunnels, rooms, workFronts, navigationAnchors,
+            completed);
+    }
+
+    public boolean infrastructureTaskCompleted(UUID taskId) {
+        return taskId != null && completedInfrastructureTaskIds.contains(taskId);
     }
 
     private int indexOfTunnel(UUID tunnelId) {

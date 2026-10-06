@@ -424,12 +424,11 @@ public final class WoodcutterWorkSystem extends DelayedEntitySystem<EntityStore>
     }
 
     private static boolean isTreeBase(World world, int x, int y, int z) {
-        BlockType current = getLoadedBlockType(world, x, y, z);
-        if (!isTreeTrunk(current)) {
+        if (!isNaturalTreeTrunk(world, x, y, z)) {
             return false;
         }
 
-        return !isTreeTrunk(getLoadedBlockType(world, x, y - 1, z));
+        return !isNaturalTreeTrunk(world, x, y - 1, z);
     }
 
     private static TreeStructure collectTree(
@@ -448,12 +447,7 @@ public final class WoodcutterWorkSystem extends DelayedEntitySystem<EntityStore>
             if (!visited.add(current) || !withinTreeBounds(base, current)) {
                 continue;
             }
-            if (!isWoodStructureBlock(getLoadedBlockType(
-                world,
-                current.x(),
-                current.y(),
-                current.z()
-            ))) {
+            if (!isNaturalWoodStructureBlock(world, current)) {
                 continue;
             }
 
@@ -509,6 +503,22 @@ public final class WoodcutterWorkSystem extends DelayedEntitySystem<EntityStore>
             return null;
         }
         return chunk.getBlock(x, y, z);
+    }
+
+    private static boolean isNaturalTreeTrunk(World world, int x, int y, int z) {
+        BlockPosition position = new BlockPosition(x, y, z);
+        return !MineBlockPlacement.isDeco(world, position)
+            && isTreeTrunk(getLoadedBlockType(world, x, y, z));
+    }
+
+    private static boolean isNaturalWoodStructureBlock(World world, BlockPosition position) {
+        return !MineBlockPlacement.isDeco(world, position)
+            && isWoodStructureBlock(getLoadedBlockType(
+                world,
+                position.x(),
+                position.y(),
+                position.z()
+            ));
     }
 
     private static boolean isTreeTrunk(BlockType blockType) {

@@ -48,13 +48,13 @@ Die Detailregeln dieser Bereiche werden nicht vorab festgelegt, bevor das zugeh�
 - Jede Civ-Mine besitzt genau ein logisches Minennetz. Die stabile Civ-Gebäude-ID der Mine ist zugleich die fachliche `mineId` dieses Netzes.
 - Ein Minennetz besitzt genau einen `MAIN`-Tunnel. Weitere Tunnel sind `BRANCH`-Tunnel und referenzieren genau einen Parent-Tunnel. Verschachtelte Branches sind ausdrücklich erlaubt.
 - `branchDepth` ist aus der Parent-Beziehung ableitbar und muss beim direkten Parent immer genau um eins steigen. Zirkuläre Tunnelhierarchien sind ungültig.
-- Ein logischer Tunnel und ein konkreter Abbauabschnitt sind unterschiedliche Begriffe. Ein Tunnel kann aus mehreren `MineSegment`-Abschnitten bestehen; ein neues Segment bedeutet nicht automatisch einen neuen Seitenstollen.
-- Ein konkretes `MineSegment` darf innerhalb eines Minennetzes höchstens einem logischen Tunnel zugeordnet sein.
+- Ein logischer Tunnel und seine konkrete Layer-3-Voxelgeometrie sind unterschiedliche Begriffe. Die Geometrie wird deterministisch regeneriert und nicht als zweite vollständige Weltkopie persistiert.
 - Räume, Work Fronts und Navigationsanker gehören jeweils zu einem existierenden logischen Tunnel.
-- Work Fronts sind persistente semantische Fortsetzungspunkte. Mehrere offene Work Fronts pro Mine sind zulässig, auch wenn die aktuelle Abbauer-Implementierung sie noch nicht zur Arbeitsauswahl nutzt.
+- Work Fronts sind persistente semantische Fortsetzungspunkte. Mehrere offene Work Fronts pro Mine sind zulässig und werden von der aktuellen Miner-Arbeitsauswahl genutzt.
 - Navigationsanker sind bekannte sichere semantische Punkte und dürfen explizite Nachbarschaftsbeziehungen zu anderen Ankern speichern. Diese Verbindungen sind keine eigene Wegfindung; Hytales Navigation bleibt für den realen Weg zwischen Zielen zuständig.
-- Die Hytale-Welt ist die Wahrheit über tatsächlich ausgehobene Blöcke. Das Minennetz speichert keine zweite vollständige Kopie der Weltgeometrie.
-- Formphasen, Breiten-/Höhenverläufe, Drift, Höhlenklassifikation, Brücken, Beleuchtung, Dekoration und Schienen sind nicht Teil dieses Layer-1-Datenmodells und werden erst in ihren jeweiligen späteren Ebenen konkretisiert.
+- Die Hytale-Welt ist die Wahrheit über tatsächlich ausgehobene und gebaute Blöcke. Das Minennetz speichert keine zweite vollständige Kopie der Weltgeometrie.
+- Deterministisch wiederkehrende Infrastrukturarbeit darf ihre abgeschlossenen Task-IDs im Minennetz speichern, damit sie nach einem Restart nicht erneut angeboten wird. Das ist kein Reparatursystem: Entfernt ein Spieler später fertige Infrastruktur, wird sie nicht allein wegen des fehlenden Weltblocks neu gebaut.
+- Aktuelle Infrastrukturtypen sind `BUILD_SUPPORT`, `BUILD_STEP`, `BUILD_BRIDGE` und `PLACE_LIGHT`. Verpflichtende Passierbarkeitsarbeit kann Priorität 10 besitzen und normalen Weiterbau sperren.
 
 ## Holzfäller
 

@@ -43,6 +43,21 @@ final class MinerWorkFrontExecutionTest {
     }
 
     @Test
+    void passabilityPlanningRunsBeforeAlreadyEmptyCaveSlicesAdvance() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
+        );
+
+        int bridgeRefresh = source.indexOf("refreshBridgeTasks(world, mine, minePlan);");
+        int autoAdvance = source.indexOf("advanceAlreadyExcavatedSlices(world, mine, minePlan);");
+
+        assertTrue(bridgeRefresh >= 0);
+        assertTrue(autoAdvance > bridgeRefresh,
+            "bridge detection must happen before naturally empty slices can auto-advance");
+        assertTrue(source.contains("!hasPendingMandatoryInfrastructure(minePlan, plan)"));
+    }
+
+    @Test
     void completedSliceReopensFrontForFreshTaskSelection() throws Exception {
         String source = Files.readString(
             Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")

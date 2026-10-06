@@ -54,6 +54,7 @@ Vor neuer Hytale-spezifischer Arbeit zuerst diese Übersicht und die relevante T
 - [Worker-Item-Animationen](worker-item-animations.md)
 - [ECS und Persistenz](ecs-persistence.md)
 - [Prefabs und Bauen](prefabs-building.md)
+- [Minen-Infrastruktur und Blockplatzierung](mine-infrastructure-building.md)
 - [Farming und Inventar](farming-inventory.md)
 
 ## Bekannte offene Bereiche
