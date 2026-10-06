@@ -72,4 +72,21 @@ final class MineFrontCoordinatorTest {
         assertEquals(second, coordinator.claimNext(front, "a", blocks, block -> !block.equals(first)));
         assertEquals(1, coordinator.workerCount(front));
     }
+
+    @Test
+    void completedWorkUnitReleasesFrontCapacityAndClaims() {
+        MineFrontCoordinator<String> coordinator = new MineFrontCoordinator<>();
+        UUID front = UUID.randomUUID();
+        BlockPosition block = new BlockPosition(2, 3, 4);
+
+        coordinator.tryJoin(front, "a");
+        coordinator.tryJoin(front, "b");
+        coordinator.claimNext(front, "a", List.of(block), ignored -> true);
+
+        coordinator.releaseFront(front);
+
+        assertEquals(0, coordinator.workerCount(front));
+        assertNull(coordinator.claimOf(front, "a"));
+        assertTrue(coordinator.tryJoin(front, "c"));
+    }
 }
