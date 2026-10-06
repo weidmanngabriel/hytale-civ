@@ -64,7 +64,7 @@ jobs:
         uses: gradle/actions/wrapper-validation@v4
 
       - name: Run tests
-        run: ./gradlew test --stacktrace -PprojectVersion=${{ steps.version.outputs.project_version }}
+        run: ./gradlew test --info --stacktrace -PprojectVersion=${{ steps.version.outputs.project_version }}
 
       - name: Build plugin and release bundle
         run: ./gradlew build --stacktrace -PprojectVersion=${{ steps.version.outputs.project_version }}
