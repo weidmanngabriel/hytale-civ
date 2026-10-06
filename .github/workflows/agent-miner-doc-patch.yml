@@ -1,0 +1,123 @@
+name: Temporary Miner Layer 4 Docs Patch
+
+on:
+  push:
+    branches:
+      - agent/miner-work-front-v1
+
+permissions:
+  contents: write
+
+jobs:
+  patch-docs:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/miner-work-front-v1
+          fetch-depth: 0
+      - name: Patch maintained docs
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if old not in text:
+                  raise SystemExit(f'missing expected text in {path}: {old[:80]!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          def append_once(path, marker, block):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if marker not in text:
+                  p.write_text(text.rstrip() + '\n\n' + block.strip() + '\n', encoding='utf-8')
+
+          replace(
+              'docs/concept.md',
+              '- Der aktuell implementierte Minenabbauer-Vertical-Slice verwendet beim Wiedereintritt `workplace_access` und danach `mine_tunnel_connector`. Seine konkrete Abbaugeometrie besteht weiterhin aus 4×4-Hauptgängen mit 4–12 Blöcken Länge und einer zusätzlichen stützenfreien 4×4×4-Junction. Diese Geometrie ist der heutige Engine-/Gameplay-Slice und nicht die Zielgeometrie des geplanten Mine-Overhauls.',
+              '- Der aktuell implementierte Minenabbauer-Vertical-Slice verwendet beim Wiedereintritt weiterhin `workplace_access` und danach `mine_tunnel_connector`. Die eigentliche Arbeit läuft jetzt jedoch auf einer persistenten `MineWorkFront` des neuen Minensystems: Die Front verwendet direkt die variable Layer-3-Tunnel-Slice statt der alten festen 4×4-`MineSegment`-Geometrie. Eine normale Tunnel-Front nimmt in V1 maximal zwei Miner auf. Beide arbeiten real parallel an unterschiedlichen kurzzeitig beanspruchten Blöcken derselben Slice; feste linke/rechte Stehplätze gibt es nicht. Hytale übernimmt weiterhin die physische Bewegung und den echten Blockabbau, während Civ Frontzustand, Kapazität und Block-Claims koordiniert. Der aktuelle Slice aktiviert nur die Main-Tunnel-Fortsetzung; die Auswahl zwischen mehreren Main-/Branch-/Raum-/Infrastrukturaufgaben bleibt dem späteren Multi-Task-Scheduler vorbehalten.'
+          )
+          replace(
+              'docs/concept.md',
+              '- Die Minennavigation zeichnet inzwischen tatsächlich durchlaufene, exakt leere (`BlockType.EMPTY`) Untertagepositionen in ungefähr 10 Blöcken Abstand als persistente sichere Navigation Anchors auf. Lange Untertagewege werden ab mehr als 50 Blöcken Luftlinie über einen bereits bekannten erreichbaren Anchor in Zielnähe abgekürzt; bei einer Rückkehr von über Tage darf dieser Teleport erst nach dem normalen Lauf über `workplace_access` bis zum `mine_tunnel_connector` stattfinden. Native Hytale-`NavState`-Fehler lösen zunächst eine native Pfadneuberechnung aus; auf dem Hauptgang kann danach der letzte sichere Anchor als Recovery dienen.',
+              '- Die physische Minennavigation bleibt Hytales native `ReadPosition`/`Seek`-Navigation; der Wiedereintritt wird weiterhin über `workplace_access` und `mine_tunnel_connector` gestaffelt. Der bereits vorhandene Anchor-/Long-Distance-Recovery-Adapter erkennt Tunnelzugehörigkeit derzeit noch über die alte `MineSegment`-Zuordnung. Für die neue Slice-basierte Arbeitsfront ist diese Tunnelzuordnung noch nicht vollständig migriert; native Bewegung zur Front funktioniert, aber neue Anchor-Erzeugung und Anchor-Recovery entlang des neuen Korridors sind in diesem Slice noch nicht als zuverlässig abgeschlossen anzusehen.'
+          )
+
+          replace(
+              'docs/mine-layer4-implementation.md',
+              'Status: implemented Core planning foundation; live Hytale miner execution still uses the pre-overhaul `MineSegment` runtime path.',
+              'Status: implemented Core planning foundation; NPC layer 4 now executes the current main-tunnel Layer-3 slice through a persistent `MineWorkFront`. Multi-front task scheduling remains deferred.'
+          )
+          replace(
+              'docs/mine-layer4-implementation.md',
+              '- Hytale world excavation for the new geometry;\n- live miner task creation from the new planned network;',
+              '- multi-front miner task creation and selection for branch, room and infrastructure work;'
+          )
+          replace(
+              'docs/mine-layer4-implementation.md',
+              'The existing live `MinerWorkSystem` therefore remains on the old 4x4 `MineSegment` execution path until a later integration step explicitly replaces that runtime truth with the Layer-2/3/4 model.',
+              'The live `MinerWorkSystem` now consumes the Layer-3 geometry for the current main-tunnel work front. It persists the semantic front position/state in `MineNetwork`, uses the Hytale world as truth for already removed blocks, and advances one complete slice at a time. The old `MineSegment` excavation path is no longer the live miner runtime truth. Branch-front scheduling and the general task-priority system remain later integration work.'
+          )
+
+          replace(
+              'docs/architecture.md',
+              '## Variable mine segments and manual exit\n\n`MineSegment` owns its persisted `lengthBlocks`; production segments use a 4x4 cross-section and 4-12 blocks of length. Geometry, progress, collision checks, work fronts and support cadence derive from the segment itself rather than a global length. Legacy persisted segments without the field decode as the former 8-block reference length.\n\n`MinerWorkSystem` chooses a desired length and shortens the candidate before rejecting a direction when building or tunnel bounds block it. After a player interrupts a miner, Civ may resume another unfinished front or create a fresh valid branch; the exact interrupted front is only the fallback when no alternative exists.',
+              '## Mine work fronts and manual exit\n\n`MinerWorkSystem` no longer uses the legacy 4x4 `MineSegment` chain as its live excavation truth. For NPC layer 4 it derives the current main-tunnel execution plan from `MineNetworkGrowthPlanner`/`MineTunnelGeometry`, persists a semantic `MineWorkFront` in the mine network and executes one Layer-3 slice as the current work unit. The Hytale world remains authoritative for which planned blocks are already empty.\n\n`MineFrontCoordinator` is Hytale-independent Core coordination for one shared front. A normal tunnel front has V1 capacity two; each worker receives only a short-lived claim on one still-open block, so two miners can make real parallel progress without permanent left/right worker slots. Front membership and block claims are runtime coordination rather than persisted team composition. The current integration exposes only the continuing main-tunnel front; general priority, aging and selection between branch/room/infrastructure tasks remain outside this slice.'
+          )
+
+          replace(
+              'docs/hytale/npc-navigation.md',
+              '- Ein Minensegment gräbt nach seinem 4–12 Blöcke langen Hauptgang immer noch eine eigene 4×4×4-Junction in derselben Richtung vollständig aus. Erst danach erzeugt Civ das nächste Segment geradeaus, links oder rechts außerhalb dieser Junction. Parent und Kind überlappen nicht; dadurch braucht die Navigation keinen künstlichen Kurven-Zwischenpunkt mehr. Die eigentliche Wegfindung zwischen Arbeitsfronten bleibt vollständig bei Hytales `Seek`.',
+              '- Die aktuelle Live-Arbeitsfront verwendet direkt eine `MineTunnelGeometry.Slice` aus der neuen Mine-Geometrie. Nach vollständigem Abbau einer Slice wird die semantische `MineWorkFront` auf die nächste Main-Tunnel-Slice verschoben. Der Miner navigiert auf die bereits freigelegte Seite der Front; Hytales `Seek` bleibt für den physischen Weg verantwortlich und Civ berechnet keinen parallelen Pathfinder.'
+          )
+          append_once(
+              'docs/hytale/npc-navigation.md',
+              '### Offene Integration mit der neuen Work-Front-Geometrie',
+              '''### Offene Integration mit der neuen Work-Front-Geometrie
+
+Der bestehende Anchor-/Long-Distance-Recovery-Adapter bestimmt die aktuelle Tunnelzugehörigkeit derzeit noch über persistierte `MineSegment.segmentIds()`. NPC layer 4 hat den Live-Abbau bereits auf Layer-3-Slices umgestellt und erzeugt dafür keine neuen Legacy-Segmente. Deshalb bleiben `ReadPosition`/`Seek`, Connector-Staging und native `NavState`-Beobachtung nutzbar, aber Anchor-Erzeugung, Tunnelzuordnung für Long-Distance-Teleports und segmentbasierte Recovery entlang neu ausgehobener Slice-Korridore sind noch nicht vollständig an die neue Geometrie angebunden. Diese Lücke darf nicht durch einen eigenen Pathfinder geschlossen werden; die Tunnelzuordnung muss in einer späteren Integration aus dem neuen Minennetz/der geplanten Geometrie kommen.'''
+          )
+
+          append_once(
+              'docs/miner-npc-design.md',
+              '## Current implementation checkpoint - NPC layer 4',
+              '''## Current implementation checkpoint - NPC layer 4
+
+The current live miner implementation now covers the execution half of `EXCAVATE_FRONT` for the continuing main tunnel:
+
+- one persistent semantic `MineWorkFront` points at the current Layer-3 excavation slice;
+- the slice uses the actual planned variable tunnel cross-section rather than a fixed 4x4 face;
+- a normal tunnel front accepts at most two miners;
+- miners share the front through short-lived block claims, so they cannot work the same block concurrently and no permanent left/right standing slots are introduced;
+- the Hytale world is reconciled as the truth for blocks already excavated, while the front position/state is persisted in `MineNetwork`;
+- Hytale-native movement, the existing looping pickaxe animation and `BlockHarvestUtils.performBlockBreak` execute the physical work;
+- manual interruption, profession changes and disappearing workers release runtime front/claim ownership;
+- support placement is no longer an automatic side effect of excavation. `BUILD_SUPPORT` remains a separate infrastructure task as specified above.
+
+This checkpoint intentionally does **not** implement the general multi-task scheduler. Only the current main-tunnel continuation is exposed to live workers, so branch-front selection, priority/aging, room work, infrastructure task selection and distribution of a third miner to another task remain later NPC layers. After one main-tunnel slice completes, the current one-task integration deterministically exposes the next main slice; this is the temporary single-available-task form of the later selection step, not a new priority rule.'''
+          )
+
+          append_once(
+              'docs/mine-design.md',
+              '## Current implementation checkpoint - NPC layer 4 work fronts',
+              '''## Current implementation checkpoint - NPC layer 4 work fronts
+
+Live miner excavation is now connected to the new tunnel geometry for the current main-tunnel front. The active work unit is one `MineTunnelGeometry.Slice`; its variable width/height and voxel set come from Layers 2/3 rather than the old fixed 4x4 `MineSegment` runtime geometry. A persistent `MineWorkFront` tracks the current semantic front, while already excavated blocks remain world truth.
+
+Up to two miners may share that normal tunnel front. Their per-block claims are transient execution coordination and are not stored as permanent worker slots. This layer does not yet activate the complete Layer-4 branch network as miner tasks: multi-front selection, branch task availability, rooms, supports, steps, bridges, lighting, decoration and rails remain separate later integrations. In particular, supports are no longer placed automatically by the excavation loop; they remain dedicated mine work according to `docs/miner-npc-design.md`.'''
+          )
+      - name: Commit patched docs
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs
+          if git diff --cached --quiet; then
+            echo "No documentation changes needed"
+            exit 0
+          fi
+          git commit -m "Document miner work-front execution"
+          git push origin HEAD:agent/miner-work-front-v1
