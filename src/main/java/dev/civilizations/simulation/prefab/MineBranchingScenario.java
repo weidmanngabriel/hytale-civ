@@ -104,7 +104,7 @@ public final class MineBranchingScenario {
             boolean advanced = entrance.step();
             var s = entrance.snapshot();
             worker = s.probe(); action = s.lastAction(); segments.set(0, s.segment());
-            s.tunnelWorld().cells().forEach((p, cell) -> {
+            s.tunnelWorld().overrides().forEach((p, cell) -> {
                 if (cell == MineSimulationWorld.Cell.AIR) world.breakBlock(p);
             });
             // Supports are copied using the real semantic support contract.

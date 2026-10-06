@@ -87,17 +87,16 @@ public final class MineSimulationWorld {
         return bounds;
     }
 
+    /**
+     * Snapshots only cells that differ from the implicit solid-rock default.
+     *
+     * <p>The complete bounded cell map remains available through {@link Snapshot#cells()} for
+     * rendering and full-world assertions, but is materialized only when a caller actually asks
+     * for it. Frequent semantic snapshots therefore stay proportional to excavated/support cells
+     * instead of the entire mountain volume.</p>
+     */
     public Snapshot snapshot() {
-        Map<BlockPosition, Cell> cells = new LinkedHashMap<>();
-        for (int y = bounds.minY(); y <= bounds.maxY(); y++) {
-            for (int z = bounds.minZ(); z <= bounds.maxZ(); z++) {
-                for (int x = bounds.minX(); x <= bounds.maxX(); x++) {
-                    BlockPosition position = new BlockPosition(x, y, z);
-                    cells.put(position, get(position));
-                }
-            }
-        }
-        return new Snapshot(bounds, Map.copyOf(cells));
+        return new Snapshot(bounds, overrides);
     }
 
     private static Bounds boundsFor(MineSegment segment) {
@@ -110,10 +109,26 @@ public final class MineSimulationWorld {
         return new Bounds(minX, maxX, minY, maxY, minZ, maxZ);
     }
 
-    public record Snapshot(Bounds bounds, Map<BlockPosition, Cell> cells) {
+    public record Snapshot(Bounds bounds, Map<BlockPosition, Cell> overrides) {
         public Snapshot {
             Objects.requireNonNull(bounds, "bounds");
-            cells = Map.copyOf(cells);
+            overrides = Map.copyOf(overrides);
+        }
+
+        /**
+         * Materializes the complete bounded voxel map on demand. Untouched cells are SOLID.
+         */
+        public Map<BlockPosition, Cell> cells() {
+            Map<BlockPosition, Cell> cells = new LinkedHashMap<>();
+            for (int y = bounds.minY(); y <= bounds.maxY(); y++) {
+                for (int z = bounds.minZ(); z <= bounds.maxZ(); z++) {
+                    for (int x = bounds.minX(); x <= bounds.maxX(); x++) {
+                        BlockPosition position = new BlockPosition(x, y, z);
+                        cells.put(position, overrides.getOrDefault(position, Cell.SOLID));
+                    }
+                }
+            }
+            return Map.copyOf(cells);
         }
 
         /** Returns null outside the rendered/snapshotted rock volume. */
@@ -121,7 +136,7 @@ public final class MineSimulationWorld {
             if (!bounds.contains(position)) {
                 return null;
             }
-            return cells.getOrDefault(position, Cell.SOLID);
+            return overrides.getOrDefault(position, Cell.SOLID);
         }
     }
 

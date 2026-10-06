@@ -125,7 +125,6 @@ public final class SimulationRecordingExporter {
             Map.of("excavatedBlocks", s.segment().nextBlockIndex(), "supports", s.segment().supportsPlaced()));
     }
 
-
     public static SimulationRecording recordBranchingMine(BuildingOrientation orientation) {
         Recorder recorder = null;
         List<Marker> markers = new ArrayList<>();
@@ -144,12 +143,17 @@ public final class SimulationRecordingExporter {
                     new double[]{b.minX(),segment.start().y(),b.minZ(),
                         b.maxX()+1,segment.start().y()+4,b.maxZ()+1}));
             }
-            captureBranchingMine(recorder, start, 0);
+            Map<BlockPosition, Integer> previousOverrides = renderedOverrides(start.tunnelWorld());
+            captureBranchingMine(recorder, start, 0, Map.of());
             int step = 0;
             while (true) {
                 if (++step > 5_000) throw new IllegalStateException("Branching mine exceeded 5000 steps");
                 boolean advanced = scenario.step();
-                captureBranchingMine(recorder, scenario.snapshot(), step);
+                var snapshot = scenario.snapshot();
+                Map<BlockPosition, Integer> currentOverrides = renderedOverrides(snapshot.tunnelWorld());
+                captureBranchingMine(recorder, snapshot, step,
+                    overrideDelta(previousOverrides, currentOverrides));
+                previousOverrides = currentOverrides;
                 if (!advanced) break;
             }
         } catch (RuntimeException exception) {
@@ -176,7 +180,33 @@ public final class SimulationRecordingExporter {
         return world;
     }
 
-    private static void captureBranchingMine(Recorder recorder, MineBranchingScenario.Snapshot s, int step) {
+    private static Map<BlockPosition, Integer> renderedOverrides(MineSimulationWorld.Snapshot snapshot) {
+        Map<BlockPosition, Integer> rendered = new LinkedHashMap<>();
+        snapshot.overrides().forEach((position, cell) -> rendered.put(position,
+            cell == MineSimulationWorld.Cell.AIR ? AIR : SUPPORT));
+        return Map.copyOf(rendered);
+    }
+
+    private static Map<BlockPosition, Integer> overrideDelta(
+        Map<BlockPosition, Integer> previous,
+        Map<BlockPosition, Integer> current
+    ) {
+        Map<BlockPosition, Integer> delta = new LinkedHashMap<>();
+        current.forEach((position, material) -> {
+            if (!material.equals(previous.get(position))) delta.put(position, material);
+        });
+        previous.keySet().forEach(position -> {
+            if (!current.containsKey(position)) delta.put(position, ROCK);
+        });
+        return delta;
+    }
+
+    private static void captureBranchingMine(
+        Recorder recorder,
+        MineBranchingScenario.Snapshot s,
+        int step,
+        Map<BlockPosition, Integer> worldDelta
+    ) {
         var segment = s.segments().get(s.activeSegment());
         int excavated = s.segments().stream().mapToInt(x->x.nextBlockIndex()).sum();
         int supports = s.segments().stream().mapToInt(x->x.supportsPlaced()).sum();
@@ -191,7 +221,7 @@ public final class SimulationRecordingExporter {
                 "direction",segment.direction().name(),"progress",segment.nextBlockIndex(),
                 "totalBlocks",segment.blockCount(),"interrupted",s.interrupted(),
                 "savedProgress",s.segments().get(1).nextBlockIndex()));
-        recorder.capture(step, branchingMineWorld(s), List.of(resident), s.lastAction(),
+        recorder.captureDelta(step, worldDelta, List.of(resident), s.lastAction(),
             Map.of("excavatedBlocks",excavated,"supports",supports,"completedSegments",completed,
                 "totalSegments",s.segments().size(),"phase",s.phase()));
     }
