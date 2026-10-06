@@ -10,10 +10,12 @@ import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.tick.DelayedEntitySystem;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.protocol.AnimationSlot;
+import com.hypixel.hytale.protocol.ShaderType;
 import com.hypixel.hytale.protocol.BlockMaterial;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockBreakingDropType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockGathering;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
 import com.hypixel.hytale.server.core.entity.AnimationUtils;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
 import com.hypixel.hytale.server.core.modules.interaction.BlockHarvestUtils;
@@ -33,6 +35,7 @@ import dev.civilizations.core.MineInfrastructurePlanner;
 import dev.civilizations.core.MineInfrastructureTask;
 import dev.civilizations.core.MineNetwork;
 import dev.civilizations.core.MineNetworkGrowthPlanner;
+import dev.civilizations.core.MineObstaclePolicy;
 import dev.civilizations.core.MinePathPlanner;
 import dev.civilizations.core.MineTunnel;
 import dev.civilizations.core.MineTunnelGeometry;
@@ -82,6 +85,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private final BuildingPlacementRegistry buildingRegistry;
     private final MineTunnelRegistry tunnelRegistry;
     private final MineDecisionSink decisionSink;
+    private final MinerNavigationFailureRegistry navigationFailures;
     private final MineFrontCoordinator<CivUnitRegistry.UnitKey> frontCoordinator = new MineFrontCoordinator<>();
     private final Map<CivUnitRegistry.UnitKey, WorkerRuntime> workers = new ConcurrentHashMap<>();
     private final Map<UUID, CivUnitRegistry.UnitKey> infrastructureReservations =
@@ -94,7 +98,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         BuildingPlacementRegistry buildingRegistry,
         MineTunnelRegistry tunnelRegistry
     ) {
-        this(unitRegistry, activityRegistry, buildingRegistry, tunnelRegistry, MineDecisionSink.NONE);
+        this(
+            unitRegistry,
+            activityRegistry,
+            buildingRegistry,
+            tunnelRegistry,
+            MineDecisionSink.NONE,
+            new MinerNavigationFailureRegistry()
+        );
     }
 
     public MinerWorkSystem(
@@ -104,12 +115,33 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         MineTunnelRegistry tunnelRegistry,
         MineDecisionSink decisionSink
     ) {
+        this(
+            unitRegistry,
+            activityRegistry,
+            buildingRegistry,
+            tunnelRegistry,
+            decisionSink,
+            new MinerNavigationFailureRegistry()
+        );
+    }
+
+    public MinerWorkSystem(
+        CivUnitRegistry unitRegistry,
+        CivActivityRegistry activityRegistry,
+        BuildingPlacementRegistry buildingRegistry,
+        MineTunnelRegistry tunnelRegistry,
+        MineDecisionSink decisionSink,
+        MinerNavigationFailureRegistry navigationFailures
+    ) {
         super(TICK_INTERVAL_SECONDS);
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
         this.buildingRegistry = buildingRegistry;
         this.tunnelRegistry = tunnelRegistry;
         this.decisionSink = decisionSink == null ? MineDecisionSink.NONE : decisionSink;
+        this.navigationFailures = navigationFailures == null
+            ? new MinerNavigationFailureRegistry()
+            : navigationFailures;
     }
 
     @Override
@@ -139,6 +171,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         WorkerRuntime runtime = workers.computeIfAbsent(workerKey, ignored -> new WorkerRuntime());
         if (!activityRegistry.autonomousWorkAllowed(ref)) {
+            navigationFailures.forget(workerKey);
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
             frontCoordinator.releaseWorker(workerKey);
@@ -153,6 +186,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         UUID worldId = world.getWorldConfig().getUuid();
         BuildingPlacementRegistry.BuildingInstance mine = assignedMine(ref, worldId);
         if (mine == null) {
+            navigationFailures.forget(workerKey);
             unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
@@ -162,6 +196,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             return;
         }
         if (!mine.id().equals(runtime.mineId) || mine.phase() != runtime.minePhase) {
+            navigationFailures.forget(workerKey);
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
             frontCoordinator.releaseWorker(workerKey);
@@ -205,6 +240,13 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         RuntimeMinePlan minePlan = ensureRuntimePlan(world, mine, connector);
         if (minePlan == null) return;
+
+        if (navigationFailures.consumeIfMatches(workerKey, runtime.navigationTarget)) {
+            handleTerminalNavigationFailure(
+                world, mine, minePlan, ref, store, workerKey, runtime
+            );
+            return;
+        }
         // Detect passability work before treating already-empty cave slices as completed
         // excavation. Otherwise a naturally open gap could be skipped before BUILD_BRIDGE exists.
         refreshBridgeTasks(world, mine, minePlan);
@@ -282,7 +324,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         MineTunnelGeometry.Slice slice = plan.slices.get(plan.sliceIndex);
         if (containsBlockedSolid(world, mine, slice)) {
-            blockFront(world, mine, plan, front);
+            failFront(
+                world,
+                mine,
+                plan,
+                front,
+                MineObstaclePolicy.FailureKind.UNSAFE_GEOMETRY,
+                "UNSAFE_OR_UNBREAKABLE_SLICE"
+            );
             unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
             frontCoordinator.releaseWorker(workerKey);
@@ -894,6 +943,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     ) {
         for (RuntimeFrontPlan plan : minePlan.fronts.values()) {
             while (!plan.complete
+                && !plan.unavailable
                 && !hasPendingMandatoryInfrastructure(minePlan, plan)
                 && sliceComplete(world, plan.slices.get(plan.sliceIndex))) {
                 completeCurrentSlice(world, mine, plan);
@@ -940,28 +990,79 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         );
     }
 
-    private void blockFront(
+    private void failFront(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
         RuntimeFrontPlan plan,
-        MineWorkFront front
+        MineWorkFront front,
+        MineObstaclePolicy.FailureKind failure,
+        String reason
     ) {
         MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
-        if (network == null) return;
-        MineWorkFront blocked = new MineWorkFront(
-            front.id(), front.tunnelId(), front.position(), MineWorkFront.State.BLOCKED
+        if (network == null || front == null) return;
+
+        MineWorkFront.State state = MineObstaclePolicy.frontStateFor(failure);
+        MineWorkFront failed = new MineWorkFront(
+            front.id(), front.tunnelId(), front.position(), state
         );
-        tunnelRegistry.putNetwork(world, network.withWorkFront(blocked));
+        tunnelRegistry.putNetwork(world, network.withWorkFront(failed));
         frontCoordinator.releaseFront(plan.frontId);
+        plan.unavailable = true;
         decisionSink.record(
-            mine.id(), front.id(), MineDecisionCategory.PLANNING, "FRONT_ABANDONED",
-            "reason", "UNSAFE_OR_UNBREAKABLE_SLICE",
+            mine.id(),
+            front.id(),
+            MineDecisionCategory.PLANNING,
+            state == MineWorkFront.State.BLOCKED ? "FRONT_BLOCKED" : "FRONT_ABANDONED",
+            "reason", reason,
             "slice", plan.sliceIndex
         );
     }
 
+    private void handleTerminalNavigationFailure(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan minePlan,
+        Ref<EntityStore> ref,
+        Store<EntityStore> store,
+        CivUnitRegistry.UnitKey workerKey,
+        WorkerRuntime runtime
+    ) {
+        RuntimeFrontPlan affected = null;
+        if (runtime.frontId != null) {
+            affected = minePlan.fronts.get(runtime.frontId);
+        } else if (runtime.infrastructureTaskId != null) {
+            RuntimeInfrastructureTask infrastructure =
+                minePlan.infrastructureTasks.get(runtime.infrastructureTaskId);
+            if (infrastructure != null) {
+                affected = frontForTunnel(minePlan, infrastructure.task.tunnelId());
+            }
+        }
+
+        if (affected != null) {
+            MineWorkFront front = currentFront(
+                world.getWorldConfig().getUuid(), mine.id(), affected.frontId
+            );
+            failFront(
+                world,
+                mine,
+                affected,
+                front,
+                MineObstaclePolicy.FailureKind.NAVIGATION_UNREACHABLE,
+                "NATIVE_NAVIGATION_UNREACHABLE"
+            );
+        }
+
+        frontCoordinator.releaseWorker(workerKey);
+        releaseInfrastructureReservation(workerKey, runtime);
+        unitRegistry.clearMoveTarget(ref);
+        stopMiningAnimation(ref, store, runtime);
+        stopBuildingAnimation(ref, store, runtime);
+        runtime.clearWorkAssignment();
+        runtime.navigationArrived();
+    }
+
     private boolean frontExecutable(World world, RuntimeMinePlan minePlan, RuntimeFrontPlan plan) {
-        if (plan.complete || hasPendingMandatoryInfrastructure(minePlan, plan)) return false;
+        if (plan.complete || plan.unavailable || hasPendingMandatoryInfrastructure(minePlan, plan)) return false;
         if (plan.tunnelKind == MineTunnel.Kind.MAIN || plan.sliceIndex > 0) return true;
         BlockType start = loadedBlockType(world, plan.slices.getFirst().floorCenter());
         return start != null && isEmpty(start);
@@ -1171,6 +1272,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             releaseInfrastructureReservation(key, runtime);
         }
         frontCoordinator.releaseWorker(key);
+        navigationFailures.forget(key);
     }
 
     private static void stopMiningAnimation(
@@ -1220,6 +1322,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private final List<List<BlockPosition>> orderedBlocks;
         private int sliceIndex;
         private boolean complete;
+        private boolean unavailable;
 
         private RuntimeFrontPlan(
             UUID frontId,
