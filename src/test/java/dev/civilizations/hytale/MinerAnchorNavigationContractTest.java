@@ -16,8 +16,8 @@ final class MinerAnchorNavigationContractTest {
             Path.of("src/main/java/dev/civilizations/hytale/MinerNavigationSystem.java")
         );
 
-        assertTrue(source.contains("blockType == BlockType.EMPTY"),
-            "anchors must require exact BlockType.EMPTY, not merely an empty-looking material");
+        assertTrue(source.contains("blockType != BlockType.EMPTY"),
+            "anchors must reject every candidate whose block type is not exactly BlockType.EMPTY");
         assertTrue(source.contains("getActiveMotionController()"),
             "navigation recovery must inspect Hytale's active native motion controller");
         assertTrue(source.contains("getNavState()"),
