@@ -15,8 +15,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
-import dev.civilizations.core.MineSegment;
-import dev.civilizations.core.MineTuning;
+import dev.civilizations.core.MineTunnelGeometry;
 import dev.civilizations.core.Profession;
 import org.joml.Vector3d;
 
@@ -24,13 +23,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Temporary safety net for native miner navigation escaping to the surface.
- *
- * <p>This deliberately uses the placed mine's Y level as a surface heuristic. Once terrain-aware
- * world generation matters (for example mines inside mountains), replace that heuristic with a
- * terrain-aware classification instead of teaching the mining algorithm about surface shapes.</p>
- */
+/** Temporary safety net for native miner navigation escaping to the surface. */
 public final class MinerSurfaceRecoverySystem extends EntityTickingSystem<EntityStore> {
 
     static final double RECOVERY_DELAY_SECONDS = 1.5;
@@ -82,9 +75,6 @@ public final class MinerSurfaceRecoverySystem extends EntityTickingSystem<Entity
             runtimes.remove(key);
             return;
         }
-
-        // Manual commands and their resume delay always win. They also disarm recovery so a miner
-        // may walk back to the mine normally before the watchdog becomes active again underground.
         if (!activityRegistry.autonomousWorkAllowed(ref)) {
             runtimes.remove(key);
             return;
@@ -107,19 +97,15 @@ public final class MinerSurfaceRecoverySystem extends EntityTickingSystem<Entity
         boolean inTunnel = insideKnownTunnel(worldId, mine.id(), feet);
         boolean belowReferenceLevel = position.y < mine.bounds().minY();
 
-        // Do not arm on the miner's initial commute from elsewhere in the settlement. Recovery only
-        // becomes meaningful after the NPC has actually reached the underground mining space.
         if (inTunnel || belowReferenceLevel) {
             runtime.armed = true;
             runtime.invalidSurfaceSeconds = 0.0;
             return;
         }
-
         if (mine.bounds().containsBlock(feet)) {
             runtime.invalidSurfaceSeconds = 0.0;
             return;
         }
-
         if (!runtime.armed) return;
 
         runtime.invalidSurfaceSeconds += dt;
@@ -154,18 +140,8 @@ public final class MinerSurfaceRecoverySystem extends EntityTickingSystem<Entity
     }
 
     private boolean insideKnownTunnel(UUID worldId, UUID mineId, BlockPosition feet) {
-        for (MineSegment segment : tunnelRegistry.segmentsForMine(worldId, mineId)) {
-            if (feet.y() < segment.start().y()
-                || feet.y() >= segment.start().y() + MineTuning.TUNNEL_HEIGHT_BLOCKS) {
-                continue;
-            }
-            MineSegment.HorizontalBounds horizontal = segment.horizontalBounds();
-            if (feet.x() >= horizontal.minX()
-                && feet.x() <= horizontal.maxX()
-                && feet.z() >= horizontal.minZ()
-                && feet.z() <= horizontal.maxZ()) {
-                return true;
-            }
+        for (MineTunnelGeometry geometry : tunnelRegistry.geometriesForMine(worldId, mineId).values()) {
+            if (geometry.excavationBlocks().contains(feet)) return true;
         }
         return false;
     }
