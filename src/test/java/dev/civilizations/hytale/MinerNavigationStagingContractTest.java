@@ -16,7 +16,7 @@ final class MinerNavigationStagingContractTest {
         );
 
         int connectorGate = source.indexOf("if (!runtime.reachedConnector)");
-        int frontResolution = source.indexOf("RuntimePlan plan = ensureRuntimePlan");
+        int frontResolution = source.indexOf("RuntimeMinePlan minePlan = ensureRuntimePlan");
 
         assertTrue(connectorGate >= 0, "miner must gate autonomous work on the tunnel connector");
         assertTrue(frontResolution > connectorGate,
