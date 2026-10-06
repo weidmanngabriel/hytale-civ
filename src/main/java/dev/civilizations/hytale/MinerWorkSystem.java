@@ -444,7 +444,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             front.id(), front.tunnelId(), front.position(), MineWorkFront.State.BLOCKED
         );
         tunnelRegistry.putNetwork(world, network.withWorkFront(blocked));
-        frontCoordinator.clearClaims(plan.frontId);
+        frontCoordinator.releaseFront(plan.frontId);
         decisionSink.record(
             mine.id(), front.id(), MineDecisionCategory.PLANNING, "FRONT_ABANDONED",
             "reason", "UNSAFE_OR_UNBREAKABLE_SLICE",
