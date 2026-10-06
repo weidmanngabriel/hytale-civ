@@ -174,7 +174,7 @@ Branching should be frequent, but the main tunnel must continue to grow over the
 
 Use weighted work-front selection rather than a fixed sequence. Side branches can have high probability, while the main tunnel periodically gains increased priority if it has not advanced for a while. Exact weights are tuning parameters and should be adjusted after long-run tests.
 
-The data model should support multiple open work fronts even if the first implementation still keeps miners together at one active work point.
+The data model must support multiple open work fronts. Miner coordination is local to one assigned mine: miners of other mines or factions do not participate in that mine's task selection. There are no persistent miner teams in V1. Multiple miners may temporarily cooperate on the same active task up to that task's capacity, and otherwise distribute themselves across the mine's other available work.
 
 ## 11. Spacing and tunnel collisions
 
@@ -251,6 +251,8 @@ Also create anchors at important topology points such as:
 - open work fronts.
 
 These anchors do not replace Hytale's native pathfinding. They provide known-safe intermediate targets. Civ chooses the next safe anchor; Hytale should determine the actual local route whenever native navigation supports it.
+
+For autonomous re-entry after a miner has been brought to the surface, the planned route is `workplace_access -> mine_tunnel_connector -> work position`. If the selected work position is more than 20 blocks from the connector, reaching the connector instead triggers a teleport to the suitable existing navigation anchor for that task, after which Hytale-native navigation handles the remaining local route. Prefer an anchor on the correct tunnel branch and, among suitable anchors, one within 20 blocks of the work position. If no such anchor exists, use the best valid anchor on the target branch rather than blocking work.
 
 This is intentionally simple for V1. Persistence may later be optimized if storing every regular anchor proves unnecessary.
 
@@ -366,6 +368,8 @@ Persist only the state required to continue Civ's mine behaviour, for example:
 - navigation anchors;
 - important room/infrastructure metadata.
 
+Open work state, task priority and unfinished work progress belong to the mine/task state rather than to a particular miner. Temporary miner-to-task assignments and capacity reservations do not need to survive a server restart: after load, miners assigned to the mine select again from the persisted open work. Completed tasks are removed from the task system once their durable result is represented by the mine metadata and/or Hytale world state, so finished work cannot be selected again merely because historical task records remain.
+
 Layer 1 persists the semantic `MineNetwork` separately from concrete `MineSegment` excavation progress. The network stores logical tunnels, their parent hierarchy, segment membership, rooms, work fronts and navigation anchors. It does not persist excavated blocks, pathfinding routes, decoration, supports or other world geometry already represented by Hytale.
 
 The current miner still creates concrete `MineSegment` objects. Until Layer 4 introduces real branch selection, newly created segments are assigned to the logical main tunnel by default. This is a transition of responsibility, not a final branching rule.
@@ -449,7 +453,7 @@ Implement nested branch creation, decreasing continuation probability, spacing/c
 
 ### Layer 5 - NPC navigation
 
-Implement approximately 10-block safe anchors and use Hytale-native pathfinding between appropriate intermediate targets. Handle work-front switching and safe return routes.
+Implement approximately 10-block safe anchors and use Hytale-native pathfinding between appropriate intermediate targets. Handle work-front switching, staged re-entry through `workplace_access` and `mine_tunnel_connector`, and the >20-block connector-to-anchor teleport rule for distant work.
 
 ### Layer 6 - rooms and prefabs
 
@@ -498,7 +502,6 @@ The following are deliberately not fully decided yet:
 - final room prefab dimensions and visual variants;
 - exact support spacing ranges;
 - whether material costs will become active gameplay;
-- how factions and multiplayer affect interactions between multiple mines;
 - whether ore encounters later influence specialised mining behaviour;
 - whether all regular navigation anchors remain persisted after later optimization;
 - exact runtime capability of Hytale prefab molding/scanners for dynamically generated mine spaces.
