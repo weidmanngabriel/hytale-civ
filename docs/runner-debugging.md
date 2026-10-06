@@ -34,6 +34,15 @@ Bei einem fehlgeschlagenen oder auffälligen Hytale-Local-Lauf gilt deshalb folg
 
 Das Artifact ist für Runtime-Prozessausgabe die bevorzugte Diagnosequelle, weil es die getrennten stdout-/stderr-Dateien des gestarteten Hytale-Prozesses erhält. Ein fehlender oder nicht lesbarer Artifact-Upload ist selbst ein Diagnosebefund und muss vor Änderungen am Gameplay-Code oder Harness berücksichtigt werden.
 
+## Hytale-Local: Zeitmessung
+
+Der Workflow schreibt für die beiden größten Blöcke explizite Timing-Marker in den Job-Log und in die GitHub-Step-Summary:
+
+- `HCIV_TIMING gradle_test_jar_seconds=<sekunden>` misst `gradlew.bat test jar --no-daemon`.
+- `HCIV_TIMING runtime_wrapper_seconds=<sekunden>` misst den vollständigen ausgewählten Hytale-Runtime-Block einschließlich Harness-Vorbereitung, Serverprozess und Cleanup.
+
+Diese Werte dienen zuerst zur groben Trennung von Build-/Testzeit und echter Runtime-Zeit. Wenn der Runtime-Block selbst auffällig lang ist, werden anschließend die Runtime-Logs und vorhandenen Hytale-Zeitstempel verwendet; zusätzliche feinere Instrumentierung soll erst ergänzt werden, wenn die grobe Messung sie tatsächlich rechtfertigt.
+
 ## Hytale-Local: harte Zeitbudgets
 
 Ein Runtime-Szenario darf nach Ablauf seines konfigurierten Zeitbudgets nicht unbegrenzt weiterlaufen. Der Workflow überwacht den gestarteten Runtime-Wrapper deshalb mit einem festen Szenario-Budget und beendet dessen Prozessbaum nach Ablauf des Budgets. Auch der Kill-Vorgang selbst ist zeitlich begrenzt; ein hängendes `taskkill` oder ein nicht beendeter Wrapper darf den Job nicht erneut minutenlang blockieren.
