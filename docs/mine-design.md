@@ -71,6 +71,15 @@ Initial vertical weighting:
 
 The exact weighting is tunable; 40/20/40 is also a plausible later variant if more vertical spread is desirable.
 
+Layer 4 currently uses the following initial branch-opportunity tuning. These values are balance parameters, not persistence contracts:
+
+- main-tunnel opportunity: 15%;
+- side-tunnel opportunity at branch depth 1: 30%;
+- for every additional branch depth, multiply that branch-opportunity chance by 0.65;
+- there is no hard maximum branch depth.
+
+This intentionally allows branches of branches while making very deep trees progressively rarer.
+
 ## 5. Form phases
 
 Tunnel geometry should not reroll width, height and offset independently for every block. Instead, tunnels use form phases that last for several blocks and transition gradually.
@@ -160,6 +169,8 @@ Do not use one fixed maximum branch length as the primary ending rule.
 
 Instead, continuation probability should gradually decrease as a branch becomes longer. This should allow a mixture of short branches, ordinary branches and occasional very long branches of 100+ blocks.
 
+Layer 4 currently starts a branch at 16 blocks. Further growth is sampled in 8-block units. Continuation starts at 95%, falls by 4 percentage points after every accepted 8-block continuation and never falls below 20%. The initial 8-percentage-point decrease was rejected by long-run tests because it made 100+ block branches too rare to match the intended visible long tail. These are tuning values and may be rebalanced later without changing the continuation model.
+
 A branch can also end because:
 
 - no valid next geometry can be generated after reasonable retries;
@@ -172,7 +183,9 @@ A branch can also end because:
 
 Branching should be frequent, but the main tunnel must continue to grow over the lifetime of the mine.
 
-Use weighted work-front selection rather than a fixed sequence. Side branches can have high probability, while the main tunnel periodically gains increased priority if it has not advanced for a while. Exact weights are tuning parameters and should be adjusted after long-run tests.
+Use weighted work-front selection rather than a fixed sequence. Side branches can have high probability, while the main tunnel periodically gains increased priority if it has not advanced for a while.
+
+Layer 4 currently gives the main growth front a 40% share when both main and branch growth fronts are available. Independently of the random roll, after three consecutive branch-growth selections an available main front is selected next. This is mine-generation fairness only; it does not replace or alter the miner task scheduler defined in `docs/miner-npc-design.md`.
 
 The data model must support multiple open work fronts. Miner coordination is local to one assigned mine: miners of other mines or factions do not participate in that mine's task selection. There are no persistent miner teams in V1. Multiple miners may temporarily cooperate on the same active task up to that task's capacity, and otherwise distribute themselves across the mine's other available work.
 
@@ -182,7 +195,9 @@ Keep several blocks of rock between unrelated tunnel sections and rooms. Larger 
 
 Random collisions should normally be avoided. However, when two existing passages approach in a geometrically sensible way, an intentional connection/crossing may occasionally be created. This allows the mine network to contain loops rather than being a strict tree.
 
-Exact minimum distances are tuning parameters and should be established in implementation tests.
+Layer 4 currently requires branch start points to be at least 18 blocks apart. For unrelated tunnel centerlines, collision checking reserves the two local tunnel half-widths plus 5 blocks of rock. The short connection throat where a child leaves its direct parent is exempt from that parent-spacing rule; otherwise a branch could not physically connect to its parent. When an unrelated collision remains, the first implementation accepts it as an intentional crossing with a 5% chance; special crossing-room geometry is deliberately deferred to later layers.
+
+These are initial safety/balance values and should still be tuned with larger generated networks.
 
 ## 12. Rooms
 
@@ -394,7 +409,7 @@ Open work state, task priority and unfinished work progress belong to the mine/t
 
 Layer 1 persists the semantic `MineNetwork` separately from concrete `MineSegment` excavation progress. The network stores logical tunnels, their parent hierarchy, segment membership, rooms, work fronts and navigation anchors. It does not persist excavated blocks, pathfinding routes, decoration, supports or other world geometry already represented by Hytale.
 
-The current miner still creates concrete `MineSegment` objects. Until Layer 4 introduces real branch selection, newly created segments are assigned to the logical main tunnel by default. This is a transition of responsibility, not a final branching rule.
+Layer 4 now supplies deterministic Core planning for a nested logical tunnel network, including branch probability, branch continuation, spacing/collision checks and growth-front fairness. Persistence wiring for Layer-4 generator state is deliberately still deferred. The current live miner continues to create and excavate the old concrete `MineSegment` representation and therefore still assigns those legacy runtime segments to the logical main tunnel until the later runtime integration replaces that execution path with the Layer-2/3/4 model. The planned network and the old 4x4 live excavation must not become two permanent competing runtime truths.
 
 Existing development saves that contain segments but no network are converted at world load into one main-tunnel network using a deterministic main-tunnel ID derived from the mine building ID. All existing segments of that mine are assigned to that main tunnel. No parallel legacy runtime model is retained after conversion.
 
@@ -471,7 +486,18 @@ Convert planned tunnel paths into safe tunnel volumes, add organic wall/ceiling 
 
 ### Layer 4 - branching and work-front selection
 
-Implement nested branch creation, decreasing continuation probability, spacing/collision behaviour and main-vs-branch work prioritization.
+Layer 4 is implemented as an Hytale-independent Core planning foundation:
+
+- `MineNetworkGrowthPlanner` composes Layer 2 and Layer 3 into one deterministic logical network plan rather than duplicating path or voxel generation.
+- The plan supports branches from the main tunnel and nested branches from branches, with no hard branch-depth cap.
+- Branch opportunity decreases with depth; branch total length uses a decreasing continuation roll instead of a fixed gameplay maximum.
+- Branch starts use an initial 18-block minimum spacing. Unrelated passages reserve their local half-widths plus 5 blocks of rock.
+- Random collisions are normally rejected; a small 5% intentional-crossing opportunity exists, while special crossing geometry remains deferred.
+- `MineWorkFrontGrowthSelector` gives branches ordinary priority while guaranteeing that an available main front is not starved beyond three consecutive branch selections.
+- These values are current tuning values, not persistence contracts; final balancing remains Layer 11 work.
+- The live Hytale miner is not yet wired to this planned network and still excavates the pre-overhaul 4x4 `MineSegment` runtime geometry. Layer 4 must therefore not be read as completion of the later runtime migration.
+
+See `docs/mine-layer4-implementation.md` for the implementation handoff and explicit limitations.
 
 ### Layer 5 - NPC navigation
 
@@ -521,8 +547,7 @@ A new mine-related implementation chat should:
 
 The following are deliberately not fully decided yet:
 
-- exact minimum spacing values between tunnels and rooms;
-- final work-front weighting numbers;
+- final balancing of tunnel spacing, branch probabilities and main-vs-branch growth weights after larger long-run tests;
 - final room prefab dimensions and visual variants;
 - exact support spacing ranges;
 - whether material costs will become active gameplay;
