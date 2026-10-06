@@ -221,9 +221,20 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $javaVersion = (& cmd.exe /d /c "java -version 2>&1" | Out-String).Trim()
           Write-Host $javaVersion
-          .\gradlew.bat test jar --no-daemon
-          if ($LASTEXITCODE -ne 0) {
-            throw 'Gradle tests or jar build failed.'
+
+          $gradleTimer = [System.Diagnostics.Stopwatch]::StartNew()
+          try {
+            .\gradlew.bat test jar --no-daemon
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Gradle tests or jar build failed.'
+            }
+          } finally {
+            $gradleTimer.Stop()
+            $seconds = [Math]::Round($gradleTimer.Elapsed.TotalSeconds, 2)
+            Write-Host "HCIV_TIMING gradle_test_jar_seconds=$seconds"
+            if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+              Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- Gradle test + jar: **$seconds s**"
+            }
           }
 
       - name: Run selected Hytale scenarios
@@ -233,100 +244,110 @@ jobs:
           REQUESTED_SCENARIOS: ${{ needs.authorize.outputs.scenarios }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $scenarios = $env:REQUESTED_SCENARIOS.Split(',', [System.StringSplitOptions]::RemoveEmptyEntries)
-          if ($scenarios.Count -eq 0) {
-            throw 'Authorized runtime scenario list is empty.'
-          }
-
-          $budgets = @{
-            woodcutter = 90
-            minesupport = 90
-            soldier = 60
-            persistence = 150
-            warmruntime = 150
-          }
-          $timeoutSeconds = 0
-          foreach ($scenario in $scenarios) {
-            if ($budgets.ContainsKey($scenario)) {
-              $timeoutSeconds += $budgets[$scenario]
-            } else {
-              $timeoutSeconds += 90
+          $runtimeTimer = [System.Diagnostics.Stopwatch]::StartNew()
+          try {
+            $scenarios = $env:REQUESTED_SCENARIOS.Split(',', [System.StringSplitOptions]::RemoveEmptyEntries)
+            if ($scenarios.Count -eq 0) {
+              throw 'Authorized runtime scenario list is empty.'
             }
-          }
-          $timeoutSeconds = [Math]::Max(60, [Math]::Min(360, $timeoutSeconds))
-          Write-Host "Runtime time budget: $timeoutSeconds seconds for $($scenarios -join ', ')"
 
-          $scenarioLiteral = ($scenarios | ForEach-Object { "'$_'" }) -join ', '
-          $stdoutLog = Join-Path $env:RUNNER_TEMP ("hytale-runtime-$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT).stdout.log")
-          $stderrLog = Join-Path $env:RUNNER_TEMP ("hytale-runtime-$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT).stderr.log")
-          $statusLog = Join-Path $env:RUNNER_TEMP ("hytale-runtime-$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT).status")
-          $env:HCIV_RUNTIME_STATUS_FILE = $statusLog
-          $childCommand = "try { & '.\scripts\hytale-runtime-tests.ps1' -Scenarios @($scenarioLiteral); Set-Content -LiteralPath `$env:HCIV_RUNTIME_STATUS_FILE -Value '0' -NoNewline; exit 0 } catch { Write-Error `$_; Set-Content -LiteralPath `$env:HCIV_RUNTIME_STATUS_FILE -Value '1' -NoNewline; exit 1 }"
-          $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($childCommand))
-          Remove-Item -LiteralPath $stdoutLog, $stderrLog, $statusLog -Force -ErrorAction SilentlyContinue
+            $budgets = @{
+              woodcutter = 90
+              minesupport = 90
+              soldier = 60
+              persistence = 150
+              warmruntime = 150
+            }
+            $timeoutSeconds = 0
+            foreach ($scenario in $scenarios) {
+              if ($budgets.ContainsKey($scenario)) {
+                $timeoutSeconds += $budgets[$scenario]
+              } else {
+                $timeoutSeconds += 90
+              }
+            }
+            $timeoutSeconds = [Math]::Max(60, [Math]::Min(360, $timeoutSeconds))
+            Write-Host "Runtime time budget: $timeoutSeconds seconds for $($scenarios -join ', ')"
 
-          $process = Start-Process -FilePath 'powershell.exe' `
-            -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $encodedCommand) `
-            -WorkingDirectory $PWD `
-            -RedirectStandardOutput $stdoutLog `
-            -RedirectStandardError $stderrLog `
-            -PassThru
+            $scenarioLiteral = ($scenarios | ForEach-Object { "'$_'" }) -join ', '
+            $stdoutLog = Join-Path $env:RUNNER_TEMP ("hytale-runtime-$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT).stdout.log")
+            $stderrLog = Join-Path $env:RUNNER_TEMP ("hytale-runtime-$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT).stderr.log")
+            $statusLog = Join-Path $env:RUNNER_TEMP ("hytale-runtime-$($env:GITHUB_RUN_ID)-$($env:GITHUB_RUN_ATTEMPT).status")
+            $env:HCIV_RUNTIME_STATUS_FILE = $statusLog
+            $childCommand = "try { & '.\scripts\hytale-runtime-tests.ps1' -Scenarios @($scenarioLiteral); Set-Content -LiteralPath `$env:HCIV_RUNTIME_STATUS_FILE -Value '0' -NoNewline; exit 0 } catch { Write-Error `$_; Set-Content -LiteralPath `$env:HCIV_RUNTIME_STATUS_FILE -Value '1' -NoNewline; exit 1 }"
+            $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($childCommand))
+            Remove-Item -LiteralPath $stdoutLog, $stderrLog, $statusLog -Force -ErrorAction SilentlyContinue
 
-          $exitCode = $null
-          $finished = $process.WaitForExit($timeoutSeconds * 1000)
-          if (-not $finished) {
-            Write-Warning "Hytale runtime exceeded its $timeoutSeconds second budget; terminating process tree."
-            $killer = Start-Process -FilePath 'taskkill.exe' `
-              -ArgumentList @('/PID', [string]$process.Id, '/T', '/F') `
-              -WindowStyle Hidden `
+            $process = Start-Process -FilePath 'powershell.exe' `
+              -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $encodedCommand) `
+              -WorkingDirectory $PWD `
+              -RedirectStandardOutput $stdoutLog `
+              -RedirectStandardError $stderrLog `
               -PassThru
-            if (-not $killer.WaitForExit(5000)) {
-              Stop-Process -Id $killer.Id -Force -ErrorAction SilentlyContinue
-              Write-Warning 'taskkill itself exceeded 5 seconds and was terminated.'
-            }
-            if (-not $process.WaitForExit(5000)) {
-              Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-              Write-Warning 'Runtime wrapper process still existed after taskkill and was force-stopped.'
-            }
-          } else {
-            $process.Refresh()
-            $exitCode = $process.ExitCode
-          }
 
-          $stdout = if (Test-Path -LiteralPath $stdoutLog) { Get-Content -LiteralPath $stdoutLog -Raw } else { '' }
-          $stderr = if (Test-Path -LiteralPath $stderrLog) { Get-Content -LiteralPath $stderrLog -Raw } else { '' }
-          Write-Host '----- Hytale runtime stdout -----'
-          Write-Host $stdout
-          Write-Host '----- Hytale runtime stderr -----'
-          Write-Host $stderr
-          Write-Host '----- end Hytale runtime output -----'
-
-          if (-not $finished) {
-            throw "Hytale runtime scenarios exceeded the $timeoutSeconds second time budget."
-          }
-
-          $statusCode = $null
-          if (Test-Path -LiteralPath $statusLog -PathType Leaf) {
-            $statusText = (Get-Content -LiteralPath $statusLog -Raw).Trim()
-            if ($statusText -match '^[01]$') {
-              $statusCode = [int]$statusText
+            $exitCode = $null
+            $finished = $process.WaitForExit($timeoutSeconds * 1000)
+            if (-not $finished) {
+              Write-Warning "Hytale runtime exceeded its $timeoutSeconds second budget; terminating process tree."
+              $killer = Start-Process -FilePath 'taskkill.exe' `
+                -ArgumentList @('/PID', [string]$process.Id, '/T', '/F') `
+                -WindowStyle Hidden `
+                -PassThru
+              if (-not $killer.WaitForExit(5000)) {
+                Stop-Process -Id $killer.Id -Force -ErrorAction SilentlyContinue
+                Write-Warning 'taskkill itself exceeded 5 seconds and was terminated.'
+              }
+              if (-not $process.WaitForExit(5000)) {
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+                Write-Warning 'Runtime wrapper process still existed after taskkill and was force-stopped.'
+              }
             } else {
-              throw "Hytale runtime status marker contained an unexpected value: '$statusText'."
+              $process.Refresh()
+              $exitCode = $process.ExitCode
             }
-          }
 
-          if ($null -eq $exitCode) {
-            if ($null -eq $statusCode) {
-              throw 'Hytale runtime scenarios completed but neither their process exit code nor child status marker was available.'
+            $stdout = if (Test-Path -LiteralPath $stdoutLog) { Get-Content -LiteralPath $stdoutLog -Raw } else { '' }
+            $stderr = if (Test-Path -LiteralPath $stderrLog) { Get-Content -LiteralPath $stderrLog -Raw } else { '' }
+            Write-Host '----- Hytale runtime stdout -----'
+            Write-Host $stdout
+            Write-Host '----- Hytale runtime stderr -----'
+            Write-Host $stderr
+            Write-Host '----- end Hytale runtime output -----'
+
+            if (-not $finished) {
+              throw "Hytale runtime scenarios exceeded the $timeoutSeconds second time budget."
             }
-            Write-Warning "Hytale runtime process exit code was unavailable; using child status marker $statusCode."
-            $exitCode = $statusCode
-          } elseif ($null -ne $statusCode -and $exitCode -ne $statusCode) {
-            throw "Hytale runtime process exit code $exitCode disagreed with child status marker $statusCode."
-          }
 
-          if ($exitCode -ne 0) {
-            throw "Hytale runtime scenarios exited with code $exitCode."
+            $statusCode = $null
+            if (Test-Path -LiteralPath $statusLog -PathType Leaf) {
+              $statusText = (Get-Content -LiteralPath $statusLog -Raw).Trim()
+              if ($statusText -match '^[01]$') {
+                $statusCode = [int]$statusText
+              } else {
+                throw "Hytale runtime status marker contained an unexpected value: '$statusText'."
+              }
+            }
+
+            if ($null -eq $exitCode) {
+              if ($null -eq $statusCode) {
+                throw 'Hytale runtime scenarios completed but neither their process exit code nor child status marker was available.'
+              }
+              Write-Warning "Hytale runtime process exit code was unavailable; using child status marker $statusCode."
+              $exitCode = $statusCode
+            } elseif ($null -ne $statusCode -and $exitCode -ne $statusCode) {
+              throw "Hytale runtime process exit code $exitCode disagreed with child status marker $statusCode."
+            }
+
+            if ($exitCode -ne 0) {
+              throw "Hytale runtime scenarios exited with code $exitCode."
+            }
+          } finally {
+            $runtimeTimer.Stop()
+            $seconds = [Math]::Round($runtimeTimer.Elapsed.TotalSeconds, 2)
+            Write-Host "HCIV_TIMING runtime_wrapper_seconds=$seconds"
+            if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+              Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- Hytale runtime wrapper: **$seconds s**"
+            }
           }
 
       - name: Upload Hytale runtime logs
