@@ -7,6 +7,7 @@
   "DefaultNPCAttitude": "Ignore",
   "DefaultPlayerAttitude": "Neutral",
   "Appearance": "Player",
+  "CombatConfig": "CAE_Civ_Soldier",
   "MaxHealth": 74,
   "DisableDamageGroups": [
     "Self"
@@ -23,29 +24,6 @@
       "Acceleration": 10
     }
   ],
-  "InteractionVars": {
-    "Melee_Start": {
-      "Interactions": [
-        {
-          "Parent": "NPC_Attack_Melee_Simple"
-        }
-      ]
-    },
-    "Melee_Selector": {
-      "Interactions": [
-        {
-          "Parent": "NPC_Attack_Selector_Left"
-        }
-      ]
-    },
-    "Melee_Damage": {
-      "Interactions": [
-        {
-          "Parent": "NPC_Attack_Melee_Damage"
-        }
-      ]
-    }
-  },
   "Instructions": [
     {
       "Sensor": {
@@ -53,6 +31,18 @@
         "State": "Idle"
       },
       "Instructions": [
+        {
+          "$Comment": "A Civ-selected target is mirrored into native TargetMemory before entering the native Combat state.",
+          "Sensor": {
+            "Type": "HasHostileTargetMemory"
+          },
+          "Actions": [
+            {
+              "Type": "State",
+              "State": "Combat"
+            }
+          ]
+        },
         {
           "$Comment": "Civ movement target: position slot 0 is the Java/Role contract for ordinary inhabitant movement commands. Explicit player movement stays above autonomous combat.",
           "Sensor": {
@@ -87,58 +77,85 @@
           }
         },
         {
-          "$Comment": "Soldier attack range: execute the native NPC melee root only after the selected combat target is actually in melee range. A failed short-range check must retain CivCombatTarget so the following chase branch can still seek it.",
-          "Sensor": {
-            "Type": "Target",
-            "TargetSlot": "CivCombatTarget",
-            "Range": 2.25,
-            "AutoUnlockTarget": false
-          },
-          "BodyMotion": {
-            "Type": "Nothing"
-          },
-          "HeadMotion": {
-            "Type": "Aim",
-            "Spread": 0,
-            "HitProbability": 1,
-            "Deflection": true
-          },
-          "Actions": [
-            {
-              "Type": "Attack",
-              "Attack": "Root_NPC_Attack_Melee",
-              "LineOfSight": true,
-              "AvoidFriendlyFire": true,
-              "AttackPauseRange": [
-                1,
-                1
-              ]
-            }
-          ]
-        },
-        {
-          "$Comment": "Soldier chase range: Java selects the hostile target; Hytale only seeks here. The attack itself is handled by the preceding short-range branch.",
-          "Sensor": {
-            "Type": "Target",
-            "TargetSlot": "CivCombatTarget",
-            "Range": 18,
-            "AutoUnlockTarget": true
-          },
-          "BodyMotion": {
-            "Type": "Seek",
-            "StopDistance": 1.6,
-            "SlowDownDistance": 3.0,
-            "RelativeSpeed": 1.0,
-            "UsePathfinder": true
-          }
-        },
-        {
           "Sensor": {
             "Type": "Any"
           },
           "BodyMotion": {
             "Type": "Nothing"
           }
+        }
+      ]
+    },
+    {
+      "$Comment": "Soldier combat: Civ selects the hostile target and feeds native TargetMemory; Hytale's Combat Action Evaluator owns pursuit range, sword interaction execution, hit detection, damage, knockback and timing.",
+      "Sensor": {
+        "Type": "State",
+        "State": "Combat"
+      },
+      "Instructions": [
+        {
+          "Sensor": {
+            "Type": "HasHostileTargetMemory"
+          },
+          "Instructions": [
+            {
+              "Sensor": {
+                "Type": "State",
+                "State": ".Default"
+              },
+              "Instructions": [
+                {
+                  "Sensor": {
+                    "Type": "CombatActionEvaluator",
+                    "TargetInRange": true
+                  },
+                  "HeadMotion": {
+                    "Type": "Aim",
+                    "RelativeTurnSpeed": 0.5
+                  },
+                  "BodyMotion": {
+                    "Type": "MaintainDistance",
+                    "DesiredDistanceRange": [
+                      1.5,
+                      2.2
+                    ],
+                    "MoveThreshold": 0.1,
+                    "RelativeForwardsSpeed": 0.65,
+                    "RelativeBackwardsSpeed": 0.45
+                  },
+                  "Actions": [
+                    {
+                      "Type": "CombatAbility"
+                    }
+                  ]
+                },
+                {
+                  "Sensor": {
+                    "Type": "CombatActionEvaluator",
+                    "TargetInRange": false
+                  },
+                  "BodyMotion": {
+                    "Type": "Seek",
+                    "StopDistance": 1.6,
+                    "SlowDownDistance": 3.0,
+                    "RelativeSpeed": 1.0,
+                    "UsePathfinder": true
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Sensor": {
+            "Type": "Any"
+          },
+          "Actions": [
+            {
+              "Type": "State",
+              "State": "Idle"
+            }
+          ]
         }
       ]
     }
