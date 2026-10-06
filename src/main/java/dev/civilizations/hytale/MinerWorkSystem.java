@@ -206,7 +206,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         RuntimeMinePlan minePlan = ensureRuntimePlan(world, mine, connector);
         if (minePlan == null) return;
         advanceAlreadyExcavatedSlices(world, mine, minePlan);
-        refreshBridgeTasks(world, minePlan);
+        refreshBridgeTasks(world, mine, minePlan);
 
         if (runtime.infrastructureTaskId != null) {
             RuntimeInfrastructureTask infrastructure =
@@ -321,7 +321,357 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (ref == null) return;
         CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
         frontCoordinator.releaseWorker(key);
-        workers.remove(key);
+        WorkerRuntime runtime = workers.remove(key);
+        if (runtime != null) releaseInfrastructureReservation(key, runtime);
+    }
+
+    private void refreshBridgeTasks(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan minePlan
+    ) {
+        MineNetwork network = tunnelRegistry.networkForMine(
+            world.getWorldConfig().getUuid(), mine.id()
+        );
+        if (network == null) return;
+
+        for (RuntimeFrontPlan front : minePlan.fronts.values()) {
+            if (front.complete) continue;
+            MineInfrastructureTask task = bridgeTaskIfNeeded(world, front);
+            if (task == null || minePlan.infrastructureTasks.containsKey(task.id())) continue;
+            minePlan.infrastructureTasks.put(
+                task.id(),
+                new RuntimeInfrastructureTask(
+                    task,
+                    front.tunnelKind,
+                    geometryFor(front),
+                    network.infrastructureTaskCompleted(task.id())
+                )
+            );
+            decisionSink.record(
+                mine.id(), task.id(), MineDecisionCategory.PLANNING, "INFRASTRUCTURE_CREATED",
+                "type", task.type(),
+                "tunnel", task.tunnelId(),
+                "startSlice", task.startSliceIndex(),
+                "endSlice", task.endSliceIndex()
+            );
+        }
+    }
+
+    private MineInfrastructureTask bridgeTaskIfNeeded(World world, RuntimeFrontPlan front) {
+        int start = front.sliceIndex;
+        if (start <= 0 || start >= front.slices.size() - 2) return null;
+        if (!floorMissing(world, front.slices.get(start))) return null;
+        if (floorMissing(world, front.slices.get(start - 1))) return null;
+
+        int end = start;
+        boolean fluid = hasFluidBelow(world, front.slices.get(start));
+        while (end + 1 < front.slices.size()
+            && floorMissing(world, front.slices.get(end + 1))) {
+            end++;
+            fluid |= hasFluidBelow(world, front.slices.get(end));
+            if (end - start + 1 > MAX_BRIDGE_SPAN) return null;
+        }
+
+        int span = end - start + 1;
+        int maxSpan = fluid ? MAX_FLUID_BRIDGE_SPAN : MAX_BRIDGE_SPAN;
+        if (span <= 0 || span > maxSpan) return null;
+
+        int landing = end + 1;
+        if (landing >= front.slices.size() || floorMissing(world, front.slices.get(landing))) {
+            return null;
+        }
+        // Keep at least one planned slice beyond the landing so the bridge does not terminate
+        // against a dead wall that the network cannot continue through.
+        if (landing + 1 >= front.slices.size()) return null;
+
+        return MineInfrastructurePlanner.bridgeTask(
+            front.tunnelId,
+            start,
+            end,
+            front.slices.get(start).floorCenter()
+        );
+    }
+
+    private static boolean floorMissing(World world, MineTunnelGeometry.Slice slice) {
+        BlockPosition center = slice.floorCenter();
+        BlockPosition floor = new BlockPosition(center.x(), center.y() - 1, center.z());
+        BlockType type = loadedBlockType(world, floor);
+        return type != null && isEmpty(type);
+    }
+
+    private static boolean hasFluidBelow(World world, MineTunnelGeometry.Slice slice) {
+        BlockPosition center = slice.floorCenter();
+        WorldChunk chunk = world.getChunkIfLoaded(
+            ChunkUtil.indexChunkFromBlock(center.x(), center.z())
+        );
+        if (chunk == null) return false;
+        for (int depth = 1; depth <= 4; depth++) {
+            if (chunk.getFluidId(center.x(), center.y() - depth, center.z()) != 0) return true;
+        }
+        return false;
+    }
+
+    private RuntimeInfrastructureTask selectInfrastructureTask(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan minePlan,
+        Vector3d workerPosition,
+        CivUnitRegistry.UnitKey workerKey,
+        WorkerRuntime runtime,
+        boolean mandatoryOnly
+    ) {
+        RuntimeInfrastructureTask best = null;
+        int bestPriority = Integer.MIN_VALUE;
+        double bestDistance = Double.POSITIVE_INFINITY;
+
+        for (RuntimeInfrastructureTask candidate : minePlan.infrastructureTasks.values()) {
+            if (candidate.completed) continue;
+            if (mandatoryOnly && !candidate.task.mandatory()) continue;
+            if (!mandatoryOnly && candidate.task.mandatory()) continue;
+
+            RuntimeFrontPlan front = frontForTunnel(minePlan, candidate.task.tunnelId());
+            if (front == null || !infrastructureAvailable(candidate.task, front)) continue;
+
+            CivUnitRegistry.UnitKey reserved = infrastructureReservations.get(candidate.task.id());
+            if (reserved != null && !reserved.equals(workerKey)) continue;
+
+            double distance = squaredDistance(workerPosition, candidate.task.anchor());
+            int priority = candidate.task.priority();
+            if (best == null
+                || priority > bestPriority
+                || (priority == bestPriority && distance < bestDistance)
+                || (priority == bestPriority && distance == bestDistance
+                    && candidate.task.id().compareTo(best.task.id()) < 0)) {
+                best = candidate;
+                bestPriority = priority;
+                bestDistance = distance;
+            }
+        }
+
+        if (best == null) return null;
+        CivUnitRegistry.UnitKey existing =
+            infrastructureReservations.putIfAbsent(best.task.id(), workerKey);
+        if (existing != null && !existing.equals(workerKey)) return null;
+
+        runtime.infrastructureTaskId = best.task.id();
+        runtime.resolvedInfrastructure = null;
+        runtime.infrastructurePlacementIndex = 0;
+        runtime.workElapsed = 0.0;
+        runtime.navigationArrived();
+        decisionSink.record(
+            mine.id(), best.task.id(), MineDecisionCategory.PLANNING, "TASK_SELECTED",
+            "type", best.task.type(),
+            "tunnel", best.task.tunnelId(),
+            "priority", best.task.priority()
+        );
+        return best;
+    }
+
+    private void executeInfrastructure(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan minePlan,
+        RuntimeInfrastructureTask infrastructure,
+        Ref<EntityStore> ref,
+        Store<EntityStore> store,
+        Vector3d workerPosition,
+        CivUnitRegistry.UnitKey workerKey,
+        WorkerRuntime runtime
+    ) {
+        stopMiningAnimation(ref, store, runtime);
+
+        if (runtime.resolvedInfrastructure == null) {
+            runtime.resolvedInfrastructure = MineInfrastructurePlacementResolver.resolve(
+                world,
+                infrastructure.task,
+                infrastructure.tunnelKind,
+                infrastructure.geometry
+            );
+            runtime.infrastructurePlacementIndex = 0;
+            runtime.workElapsed = 0.0;
+
+            if (runtime.resolvedInfrastructure == null) {
+                unitRegistry.clearMoveTarget(ref);
+                stopBuildingAnimation(ref, store, runtime);
+                if (!infrastructure.task.mandatory()) {
+                    completeInfrastructureTask(
+                        world, mine, infrastructure, workerKey, runtime, ref, store,
+                        "SKIPPED_UNRESOLVABLE"
+                    );
+                }
+                return;
+            }
+        }
+
+        Vector3d target = runtime.resolvedInfrastructure.workTarget();
+        if (!arrived(workerPosition, target)) {
+            navigateTo(ref, target, runtime);
+            stopBuildingAnimation(ref, store, runtime);
+            return;
+        }
+
+        runtime.navigationArrived();
+        unitRegistry.clearMoveTarget(ref);
+        if (!runtime.buildingAnimationStarted) {
+            AnimationUtils.playAnimation(
+                ref, AnimationSlot.Action, BUILDING_ITEM_ANIMATIONS, BUILDING_ANIMATION, store
+            );
+            runtime.buildingAnimationStarted = true;
+        }
+
+        runtime.workElapsed += TICK_INTERVAL_SECONDS;
+        while (runtime.workElapsed + 1.0e-9 >= INFRASTRUCTURE_SECONDS_PER_BLOCK) {
+            runtime.workElapsed -= INFRASTRUCTURE_SECONDS_PER_BLOCK;
+            if (runtime.infrastructurePlacementIndex
+                >= runtime.resolvedInfrastructure.placements().size()) {
+                completeInfrastructureTask(
+                    world, mine, infrastructure, workerKey, runtime, ref, store, "COMPLETED"
+                );
+                return;
+            }
+
+            MineInfrastructurePlacementResolver.PlacementStep placement =
+                runtime.resolvedInfrastructure.placements().get(
+                    runtime.infrastructurePlacementIndex
+                );
+            boolean placed = MineBlockPlacement.place(
+                world,
+                placement.position(),
+                placement.blockId(),
+                placement.rotation(),
+                placement.placedAgainst(),
+                placement.markDeco()
+            );
+            if (!placed) {
+                // The world may have changed since shape resolution. Preserve already placed
+                // blocks, re-resolve on the next work tick and confirm them idempotently.
+                runtime.resolvedInfrastructure = null;
+                runtime.infrastructurePlacementIndex = 0;
+                runtime.workElapsed = 0.0;
+                stopBuildingAnimation(ref, store, runtime);
+                return;
+            }
+            runtime.infrastructurePlacementIndex++;
+        }
+
+        if (runtime.infrastructurePlacementIndex
+            >= runtime.resolvedInfrastructure.placements().size()) {
+            completeInfrastructureTask(
+                world, mine, infrastructure, workerKey, runtime, ref, store, "COMPLETED"
+            );
+        }
+    }
+
+    private void completeInfrastructureTask(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeInfrastructureTask infrastructure,
+        CivUnitRegistry.UnitKey workerKey,
+        WorkerRuntime runtime,
+        Ref<EntityStore> ref,
+        Store<EntityStore> store,
+        String outcome
+    ) {
+        infrastructure.completed = true;
+        MineNetwork network = tunnelRegistry.networkForMine(
+            world.getWorldConfig().getUuid(), mine.id()
+        );
+        if (network != null && !network.infrastructureTaskCompleted(infrastructure.task.id())) {
+            tunnelRegistry.putNetwork(
+                world, network.withInfrastructureTaskCompleted(infrastructure.task.id())
+            );
+        }
+
+        infrastructureReservations.remove(infrastructure.task.id(), workerKey);
+        unitRegistry.clearMoveTarget(ref);
+        stopBuildingAnimation(ref, store, runtime);
+        runtime.clearInfrastructureAssignment();
+        decisionSink.record(
+            mine.id(), infrastructure.task.id(), MineDecisionCategory.PLANNING,
+            "WORK_UNIT_COMPLETED",
+            "type", infrastructure.task.type(),
+            "outcome", outcome
+        );
+    }
+
+    private boolean hasPendingMandatoryInfrastructure(
+        RuntimeMinePlan minePlan,
+        RuntimeFrontPlan front
+    ) {
+        for (RuntimeInfrastructureTask infrastructure : minePlan.infrastructureTasks.values()) {
+            if (infrastructure.completed
+                || !infrastructure.task.mandatory()
+                || !infrastructure.task.tunnelId().equals(front.tunnelId)) {
+                continue;
+            }
+            if (infrastructureAvailable(infrastructure.task, front)) return true;
+        }
+        return false;
+    }
+
+    private static boolean infrastructureAvailable(
+        MineInfrastructureTask task,
+        RuntimeFrontPlan front
+    ) {
+        if (task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE) {
+            return !front.complete && task.startSliceIndex() == front.sliceIndex;
+        }
+        return front.complete || task.startSliceIndex() < front.sliceIndex;
+    }
+
+    private static RuntimeFrontPlan frontForTunnel(
+        RuntimeMinePlan minePlan,
+        UUID tunnelId
+    ) {
+        for (RuntimeFrontPlan front : minePlan.fronts.values()) {
+            if (front.tunnelId.equals(tunnelId)) return front;
+        }
+        return null;
+    }
+
+    private static MineTunnelGeometry geometryFor(RuntimeFrontPlan front) {
+        List<MineTunnelGeometry.Slice> slices = front.slices;
+        Set<BlockPosition> excavation = new HashSet<>();
+        Set<BlockPosition> navigation = new HashSet<>();
+        for (MineTunnelGeometry.Slice slice : slices) {
+            excavation.addAll(slice.excavationBlocks());
+            navigation.addAll(slice.navigationCoreBlocks());
+        }
+        List<MineTunnelGeometry.StepTransition> steps = new ArrayList<>();
+        for (int index = 1; index < slices.size(); index++) {
+            BlockPosition previous = slices.get(index - 1).floorCenter();
+            BlockPosition current = slices.get(index).floorCenter();
+            if (Math.abs(current.y() - previous.y()) == 1) {
+                steps.add(new MineTunnelGeometry.StepTransition(
+                    index - 1, index, previous, current
+                ));
+            }
+        }
+        return new MineTunnelGeometry(
+            front.tunnelKind,
+            0L,
+            slices,
+            excavation,
+            navigation,
+            steps
+        );
+    }
+
+    private static double squaredDistance(Vector3d position, BlockPosition block) {
+        double dx = position.x - (block.x() + 0.5);
+        double dy = position.y - block.y();
+        double dz = position.z - (block.z() + 0.5);
+        return dx * dx + dy * dy + dz * dz;
+    }
+
+    private void releaseInfrastructureReservation(
+        CivUnitRegistry.UnitKey workerKey,
+        WorkerRuntime runtime
+    ) {
+        if (runtime == null || runtime.infrastructureTaskId == null) return;
+        infrastructureReservations.remove(runtime.infrastructureTaskId, workerKey);
+        runtime.clearInfrastructureAssignment();
     }
 
     private RuntimeFrontPlan selectFront(
