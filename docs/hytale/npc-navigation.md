@@ -31,7 +31,17 @@ Der Minenabbauer verwendet deshalb folgende Navigationsregeln:
 - Der Miner verwendet `UseBestPath: false`, damit ein unvollständiger Ersatzpfad nicht als akzeptable Annäherung an ein unterirdisches Arbeitsziel dient.
 - Erst bei tatsächlicher Ankunft, einem neuen Gameplay-Ziel oder einem expliziten Zustandswechsel darf der Adapter das Ziel ändern oder löschen.
 
-Damit besitzt Civ keinen eigenen Stillstands-Timer, keinen eigenen Repath-Versuch und keinen zeitbasierten Abbruch einer laufenden Hytale-Navigation. Falls ein natives Ziel trotz geometrisch offenem Weg nicht erreicht wird, muss die Hytale-Navigation beziehungsweise der Ziel-/Nav-Weltzustand diagnostiziert werden, statt die Route durch Civ regelmäßig zurückzusetzen.
+Die gepinnte Server-JAR stellt am aktiven `MotionController` `getNavState()` sowie `setForceRecomputePath(boolean)` bereit. `NavState` enthält unter anderem `PROGRESSING`, `BLOCKED`, `AT_GOAL`, `ABORTED` und `DEFER`. Für Miner ist dieser native Zustand jetzt das primäre Failure-Signal: Bei `BLOCKED` oder `ABORTED` fordert Civ einmal eine native Pfadneuberechnung an. Bleibt danach ein terminaler Fehler bestehen, darf die Civ-Recovery greifen. `DEFER` wird ohne Runtime-Beleg nicht als terminaler Fehler behandelt.
+
+Civ besitzt weiterhin keinen eigenen Voxel-Pathfinder und keinen allgemeinen Stillstands-Timer als primäres Failure-System. Ein eigener Watchdog wäre nur dann zulässig, wenn ein fokussierter Runtime-Test einen realen Hytale-Stuck-Fall nachweist, der keinen brauchbaren nativen `NavState` erreicht.
+
+## Sichere Minen-Anker
+
+Minen-Anker sind keine aus dem Planer abgeleiteten Wegpunkte. Ein regulärer Anchor wird nur aus tatsächlich beobachteter NPC-Bewegung erzeugt: Der Miner muss den Block durchlaufen haben, der Block muss exakt `BlockType.EMPTY` sein und der Kandidat muss ungefähr 10 Blöcke von umliegenden Anchors entfernt sein.
+
+Civ persistiert damit nur ein kleines semantisches Netz bereits bestätigter sicherer Punkte. Hytale bleibt zwischen den Zielen für den physischen Pfad verantwortlich. Junction-, Raum- und Brücken-Anker verwenden dieselbe physische Validierung und erhalten nur zusätzlich ihre semantische Bedeutung. Die aktuelle Arbeitsfront verwendet keinen mitwandernden `WORK_FRONT`-Anchor; der vorhandene dynamische Work-Target bleibt das lokale Endziel.
+
+Für lange Untertagewege gilt eine >50-Block-Schwelle als euklidische Luftlinie. Ein Miner, der von über Tage zurückkehrt, muss zuerst normal über `workplace_access` zum `mine_tunnel_connector` laufen; vorher darf kein Long-Distance-Teleport stattfinden. Danach beziehungsweise bei bereits unter Tage befindlichen Minern darf Civ einen bereits bekannten erreichbaren Anchor auf der gültigen Zielroute wählen, bevorzugt den Anchor mit der kleinsten Luftlinienentfernung zum Ziel. Direkt zum Arbeitsplatz wird nie teleportiert.
 
 ## Manuelle Befehle und Arbeit
 
@@ -43,7 +53,7 @@ Da `CivUnitRegistry` den aktuell aktiven Beruf auswertet, landet auch ein manuel
 
 Weltabfragen innerhalb laufender ECS-Systemverarbeitung dürfen keine Chunks synchron laden, wenn dadurch der ECS-Store verändert werden könnte. Der Holzfäller verwendet deshalb für die Baumsuche `World.getChunkIfLoaded` und arbeitet nur mit bereits geladenen Chunks.
 
-Auch der Minenabbauer prüft den tatsächlichen Tunnelzustand ausschließlich über bereits geladene Chunks. Der persistierte Tunnelplan darf durch nachträgliche Weltänderungen veraltet sein; deshalb wird die aktuelle Arbeitsfront aus den realen Blöcken neu abgeleitet, bevor der NPC weiterarbeitet.
+Auch der Minenabbauer prüft den tatsächlichen Tunnelzustand ausschließlich über bereits geladene Chunks. Der persistierte Tunnelplan darf durch nachträgliche Weltänderungen veraltet sein; deshalb wird die aktuelle Arbeitsfront aus den realen Blöcken neu abgeleitet, bevor der NPC weiterarbeitet. Dasselbe gilt für Anchor-Sicherheit: ein persistierter Anchor wird vor einem Teleport nur verwendet, wenn sein Zielblock weiterhin exakt `BlockType.EMPTY` ist.
 
 ## Projektgrenze
 
