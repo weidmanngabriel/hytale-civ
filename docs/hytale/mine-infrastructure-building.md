@@ -14,6 +14,8 @@ The pinned JAR exposes the reusable native APIs used by `MineBlockPlacement`:
 - `ConnectedBlocksUtil.setConnectedBlockAndNotifyNeighbors(...)`
 - `RotationTuple` / `Rotation`
 - `WorldChunk.getFluidId(...)`
+- `Fluid.getAssetMap().getAssetOrDefault(...)`
+- `Fluid.hasEffect(ShaderType.Lava)`
 
 The project had already runtime-verified the following order for V0 support beams:
 
@@ -60,6 +62,14 @@ This keeps the implementation tied to actual loaded native blocks instead of inv
 
 The bridge adapter uses loaded-world block state and native `WorldChunk.getFluidId(...)`. It never synchronously loads chunks during ECS work.
 
-Current bridge detection is intentionally conservative and only recognizes a missing planned floor-support run with a solid approach, a solid opposite landing and planned continuation. Fluid below the span lowers the maximum accepted V1 span.
+Current bridge detection is intentionally conservative and only recognizes a missing planned floor-support run with a solid approach, a solid opposite landing and planned continuation. Non-lava fluid below the span lowers the maximum accepted V1 span.
 
-This is not yet a general cave/liquid simulation and should not be documented as one.
+The pinned 0.6.8 JAR exposes the loaded fluid asset map and `Fluid.hasEffect(ShaderType)`; the protocol enum contains `ShaderType.Lava`. Layer 6 therefore classifies lava from the actual loaded Hytale fluid asset instead of hard-coding a numeric fluid ID. A lava crossing is rejected, as is fluid occupying the miner's navigation corridor.
+
+This is not a general cave/liquid simulation: V1 does not pump, fill, redirect or swim through liquids.
+
+## Nearby fallback for normal infrastructure
+
+Recurring supports and lighting are allowed to re-resolve against nearby tunnel slices when their preferred slice is unsuitable. The ordered fallback is preferred slice, then nearest slices before/after it up to ±3. Mandatory passability work does not use this fallback because its location is tied to the obstacle being solved.
+
+A failed block placement keeps already placed world blocks. The next work tick re-resolves from current loaded-world state. If normal infrastructure has no valid preferred or fallback placement it is skipped; if mandatory bridge/step work remains unresolvable, the associated front is abandoned.

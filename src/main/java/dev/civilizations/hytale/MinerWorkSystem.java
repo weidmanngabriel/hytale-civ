@@ -10,10 +10,12 @@ import com.hypixel.hytale.component.query.Query;
 import com.hypixel.hytale.component.system.tick.DelayedEntitySystem;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.protocol.AnimationSlot;
+import com.hypixel.hytale.protocol.ShaderType;
 import com.hypixel.hytale.protocol.BlockMaterial;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockBreakingDropType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockGathering;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
+import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
 import com.hypixel.hytale.server.core.entity.AnimationUtils;
 import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
 import com.hypixel.hytale.server.core.modules.interaction.BlockHarvestUtils;
@@ -33,6 +35,7 @@ import dev.civilizations.core.MineInfrastructurePlanner;
 import dev.civilizations.core.MineInfrastructureTask;
 import dev.civilizations.core.MineNetwork;
 import dev.civilizations.core.MineNetworkGrowthPlanner;
+import dev.civilizations.core.MineObstaclePolicy;
 import dev.civilizations.core.MinePathPlanner;
 import dev.civilizations.core.MineTunnel;
 import dev.civilizations.core.MineTunnelGeometry;
@@ -82,6 +85,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private final BuildingPlacementRegistry buildingRegistry;
     private final MineTunnelRegistry tunnelRegistry;
     private final MineDecisionSink decisionSink;
+    private final MinerNavigationFailureRegistry navigationFailures;
     private final MineFrontCoordinator<CivUnitRegistry.UnitKey> frontCoordinator = new MineFrontCoordinator<>();
     private final Map<CivUnitRegistry.UnitKey, WorkerRuntime> workers = new ConcurrentHashMap<>();
     private final Map<UUID, CivUnitRegistry.UnitKey> infrastructureReservations =
@@ -94,7 +98,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         BuildingPlacementRegistry buildingRegistry,
         MineTunnelRegistry tunnelRegistry
     ) {
-        this(unitRegistry, activityRegistry, buildingRegistry, tunnelRegistry, MineDecisionSink.NONE);
+        this(
+            unitRegistry,
+            activityRegistry,
+            buildingRegistry,
+            tunnelRegistry,
+            MineDecisionSink.NONE,
+            new MinerNavigationFailureRegistry()
+        );
     }
 
     public MinerWorkSystem(
@@ -104,12 +115,33 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         MineTunnelRegistry tunnelRegistry,
         MineDecisionSink decisionSink
     ) {
+        this(
+            unitRegistry,
+            activityRegistry,
+            buildingRegistry,
+            tunnelRegistry,
+            decisionSink,
+            new MinerNavigationFailureRegistry()
+        );
+    }
+
+    public MinerWorkSystem(
+        CivUnitRegistry unitRegistry,
+        CivActivityRegistry activityRegistry,
+        BuildingPlacementRegistry buildingRegistry,
+        MineTunnelRegistry tunnelRegistry,
+        MineDecisionSink decisionSink,
+        MinerNavigationFailureRegistry navigationFailures
+    ) {
         super(TICK_INTERVAL_SECONDS);
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
         this.buildingRegistry = buildingRegistry;
         this.tunnelRegistry = tunnelRegistry;
         this.decisionSink = decisionSink == null ? MineDecisionSink.NONE : decisionSink;
+        this.navigationFailures = navigationFailures == null
+            ? new MinerNavigationFailureRegistry()
+            : navigationFailures;
     }
 
     @Override
@@ -139,6 +171,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         WorkerRuntime runtime = workers.computeIfAbsent(workerKey, ignored -> new WorkerRuntime());
         if (!activityRegistry.autonomousWorkAllowed(ref)) {
+            navigationFailures.forget(workerKey);
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
             frontCoordinator.releaseWorker(workerKey);
@@ -153,6 +186,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         UUID worldId = world.getWorldConfig().getUuid();
         BuildingPlacementRegistry.BuildingInstance mine = assignedMine(ref, worldId);
         if (mine == null) {
+            navigationFailures.forget(workerKey);
             unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
@@ -162,6 +196,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             return;
         }
         if (!mine.id().equals(runtime.mineId) || mine.phase() != runtime.minePhase) {
+            navigationFailures.forget(workerKey);
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
             frontCoordinator.releaseWorker(workerKey);
@@ -205,6 +240,13 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         RuntimeMinePlan minePlan = ensureRuntimePlan(world, mine, connector);
         if (minePlan == null) return;
+
+        if (navigationFailures.consumeIfMatches(workerKey, runtime.navigationTarget)) {
+            handleTerminalNavigationFailure(
+                world, mine, minePlan, ref, store, workerKey, runtime
+            );
+            return;
+        }
         // Detect passability work before treating already-empty cave slices as completed
         // excavation. Otherwise a naturally open gap could be skipped before BUILD_BRIDGE exists.
         refreshBridgeTasks(world, mine, minePlan);
@@ -282,7 +324,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         MineTunnelGeometry.Slice slice = plan.slices.get(plan.sliceIndex);
         if (containsBlockedSolid(world, mine, slice)) {
-            blockFront(world, mine, plan, front);
+            failFront(
+                world,
+                mine,
+                plan,
+                front,
+                MineObstaclePolicy.FailureKind.UNSAFE_GEOMETRY,
+                "UNSAFE_OR_UNBREAKABLE_SLICE"
+            );
             unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
             frontCoordinator.releaseWorker(workerKey);
@@ -326,6 +375,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         frontCoordinator.releaseWorker(key);
         WorkerRuntime runtime = workers.remove(key);
         if (runtime != null) releaseInfrastructureReservation(key, runtime);
+        navigationFailures.forget(key);
     }
 
     private void refreshBridgeTasks(
@@ -339,8 +389,44 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (network == null) return;
 
         for (RuntimeFrontPlan front : minePlan.fronts.values()) {
-            if (front.complete) continue;
-            MineInfrastructureTask task = bridgeTaskIfNeeded(world, front);
+            if (front.complete || front.unavailable) continue;
+
+            MineWorkFront persistedFront = currentFront(
+                world.getWorldConfig().getUuid(), mine.id(), front.frontId
+            );
+            if (persistedFront == null || !available(persistedFront)) {
+                front.unavailable = true;
+                continue;
+            }
+
+            if (hasFluidInNavigationCorridor(world, front.slices.get(front.sliceIndex))) {
+                failFront(
+                    world,
+                    mine,
+                    front,
+                    persistedFront,
+                    MineObstaclePolicy.FailureKind.HAZARDOUS_FLUID,
+                    "FLUID_IN_NAVIGATION_CORRIDOR"
+                );
+                continue;
+            }
+
+            BridgeAssessment assessment = assessBridge(world, front);
+            if (assessment.abandonReason() != null) {
+                failFront(
+                    world,
+                    mine,
+                    front,
+                    persistedFront,
+                    assessment.hazardousFluid()
+                        ? MineObstaclePolicy.FailureKind.HAZARDOUS_FLUID
+                        : MineObstaclePolicy.FailureKind.UNSAFE_GEOMETRY,
+                    assessment.abandonReason()
+                );
+                continue;
+            }
+
+            MineInfrastructureTask task = assessment.task();
             if (task == null || minePlan.infrastructureTasks.containsKey(task.id())) continue;
             minePlan.infrastructureTasks.put(
                 task.id(),
@@ -361,39 +447,51 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
     }
 
-    private MineInfrastructureTask bridgeTaskIfNeeded(World world, RuntimeFrontPlan front) {
+    private BridgeAssessment assessBridge(World world, RuntimeFrontPlan front) {
         int start = front.sliceIndex;
-        if (start <= 0 || start >= front.slices.size() - 2) return null;
-        if (!floorMissing(world, front.slices.get(start))) return null;
-        if (floorMissing(world, front.slices.get(start - 1))) return null;
+        if (start <= 0 || start >= front.slices.size() - 2) {
+            return BridgeAssessment.none();
+        }
+        if (!floorMissing(world, front.slices.get(start))) return BridgeAssessment.none();
+        if (floorMissing(world, front.slices.get(start - 1))) {
+            return BridgeAssessment.abandon("UNSAFE_GAP_WITHOUT_APPROACH", false);
+        }
 
         int end = start;
         boolean fluid = hasFluidBelow(world, front.slices.get(start));
+        boolean lava = hasLavaBelow(world, front.slices.get(start));
         while (end + 1 < front.slices.size()
             && floorMissing(world, front.slices.get(end + 1))) {
             end++;
             fluid |= hasFluidBelow(world, front.slices.get(end));
-            if (end - start + 1 > MAX_BRIDGE_SPAN) return null;
+            lava |= hasLavaBelow(world, front.slices.get(end));
+            if (end - start + 1 > MAX_BRIDGE_SPAN) {
+                return BridgeAssessment.abandon("GAP_EXCEEDS_BRIDGE_RANGE", lava);
+            }
         }
+
+        if (lava) return BridgeAssessment.abandon("LAVA_GAP", true);
 
         int span = end - start + 1;
         int maxSpan = fluid ? MAX_FLUID_BRIDGE_SPAN : MAX_BRIDGE_SPAN;
-        if (span <= 0 || span > maxSpan) return null;
+        if (span <= 0 || span > maxSpan) {
+            return BridgeAssessment.abandon("GAP_EXCEEDS_SAFE_BRIDGE_RANGE", false);
+        }
 
         int landing = end + 1;
         if (landing >= front.slices.size() || floorMissing(world, front.slices.get(landing))) {
-            return null;
+            return BridgeAssessment.abandon("GAP_WITHOUT_SAFE_LANDING", false);
         }
-        // Keep at least one planned slice beyond the landing so the bridge does not terminate
-        // against a dead wall that the network cannot continue through.
-        if (landing + 1 >= front.slices.size()) return null;
+        if (landing + 1 >= front.slices.size()) {
+            return BridgeAssessment.abandon("GAP_WITHOUT_PLANNED_CONTINUATION", false);
+        }
 
-        return MineInfrastructurePlanner.bridgeTask(
+        return BridgeAssessment.bridge(MineInfrastructurePlanner.bridgeTask(
             front.tunnelId,
             start,
             end,
             front.slices.get(start).floorCenter()
-        );
+        ));
     }
 
     private static boolean floorMissing(World world, MineTunnelGeometry.Slice slice) {
@@ -410,9 +508,45 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         );
         if (chunk == null) return false;
         for (int depth = 1; depth <= 4; depth++) {
-            if (chunk.getFluidId(center.x(), center.y() - depth, center.z()) != 0) return true;
+            if (chunk.getFluidId(center.x(), center.y() - depth, center.z()) != Fluid.EMPTY_ID) {
+                return true;
+            }
         }
         return false;
+    }
+
+    private static boolean hasLavaBelow(World world, MineTunnelGeometry.Slice slice) {
+        BlockPosition center = slice.floorCenter();
+        WorldChunk chunk = world.getChunkIfLoaded(
+            ChunkUtil.indexChunkFromBlock(center.x(), center.z())
+        );
+        if (chunk == null) return false;
+        for (int depth = 1; depth <= 4; depth++) {
+            if (isLavaFluid(chunk.getFluidId(center.x(), center.y() - depth, center.z()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasFluidInNavigationCorridor(
+        World world,
+        MineTunnelGeometry.Slice slice
+    ) {
+        for (BlockPosition block : slice.navigationCoreBlocks()) {
+            WorldChunk chunk = world.getChunkIfLoaded(
+                ChunkUtil.indexChunkFromBlock(block.x(), block.z())
+            );
+            if (chunk == null) continue;
+            if (chunk.getFluidId(block.x(), block.y(), block.z()) != Fluid.EMPTY_ID) return true;
+        }
+        return false;
+    }
+
+    private static boolean isLavaFluid(int fluidId) {
+        if (fluidId == Fluid.EMPTY_ID) return false;
+        Fluid fluid = Fluid.getAssetMap().getAssetOrDefault(fluidId, Fluid.UNKNOWN);
+        return fluid != null && fluid.hasEffect(ShaderType.Lava);
     }
 
     private RuntimeInfrastructureTask selectInfrastructureTask(
@@ -434,7 +568,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             if (!mandatoryOnly && candidate.task.mandatory()) continue;
 
             RuntimeFrontPlan front = frontForTunnel(minePlan, candidate.task.tunnelId());
-            if (front == null || !infrastructureAvailable(candidate.task, front)) continue;
+            if (front == null || front.unavailable || !infrastructureAvailable(candidate.task, front)) continue;
 
             CivUnitRegistry.UnitKey reserved = infrastructureReservations.get(candidate.task.id());
             if (reserved != null && !reserved.equals(workerKey)) continue;
@@ -497,7 +631,25 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             if (runtime.resolvedInfrastructure == null) {
                 unitRegistry.clearMoveTarget(ref);
                 stopBuildingAnimation(ref, store, runtime);
-                if (!infrastructure.task.mandatory()) {
+                if (infrastructure.task.mandatory()) {
+                    RuntimeFrontPlan affected =
+                        frontForTunnel(minePlan, infrastructure.task.tunnelId());
+                    MineWorkFront front = affected == null ? null : currentFront(
+                        world.getWorldConfig().getUuid(), mine.id(), affected.frontId
+                    );
+                    if (affected != null && front != null) {
+                        failFront(
+                            world,
+                            mine,
+                            affected,
+                            front,
+                            MineObstaclePolicy.FailureKind.MANDATORY_INFRASTRUCTURE_UNRESOLVABLE,
+                            "MANDATORY_INFRASTRUCTURE_UNRESOLVABLE"
+                        );
+                    }
+                    infrastructureReservations.remove(infrastructure.task.id(), workerKey);
+                    runtime.clearInfrastructureAssignment();
+                } else {
                     completeInfrastructureTask(
                         world, mine, infrastructure, workerKey, runtime, ref, store,
                         "SKIPPED_UNRESOLVABLE"
@@ -837,7 +989,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 tunnel.geometry().slices(),
                 orderedBlocks(tunnel.geometry().slices()),
                 sliceIndex,
-                persistedFront.state() == MineWorkFront.State.COMPLETE
+                persistedFront.state() == MineWorkFront.State.COMPLETE,
+                persistedFront.state() == MineWorkFront.State.BLOCKED
+                    || persistedFront.state() == MineWorkFront.State.ABANDONED
             ));
         }
 
@@ -894,6 +1048,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     ) {
         for (RuntimeFrontPlan plan : minePlan.fronts.values()) {
             while (!plan.complete
+                && !plan.unavailable
                 && !hasPendingMandatoryInfrastructure(minePlan, plan)
                 && sliceComplete(world, plan.slices.get(plan.sliceIndex))) {
                 completeCurrentSlice(world, mine, plan);
@@ -940,28 +1095,90 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         );
     }
 
-    private void blockFront(
+    private void failFront(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
         RuntimeFrontPlan plan,
-        MineWorkFront front
+        MineWorkFront front,
+        MineObstaclePolicy.FailureKind failure,
+        String reason
     ) {
         MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
-        if (network == null) return;
-        MineWorkFront blocked = new MineWorkFront(
-            front.id(), front.tunnelId(), front.position(), MineWorkFront.State.BLOCKED
+        if (network == null || front == null) return;
+
+        MineWorkFront.State state = MineObstaclePolicy.frontStateFor(failure);
+        MineWorkFront failed = new MineWorkFront(
+            front.id(), front.tunnelId(), front.position(), state
         );
-        tunnelRegistry.putNetwork(world, network.withWorkFront(blocked));
+        tunnelRegistry.putNetwork(world, network.withWorkFront(failed));
         frontCoordinator.releaseFront(plan.frontId);
+        plan.unavailable = true;
         decisionSink.record(
-            mine.id(), front.id(), MineDecisionCategory.PLANNING, "FRONT_ABANDONED",
-            "reason", "UNSAFE_OR_UNBREAKABLE_SLICE",
+            mine.id(),
+            front.id(),
+            MineDecisionCategory.PLANNING,
+            state == MineWorkFront.State.BLOCKED ? "FRONT_BLOCKED" : "FRONT_ABANDONED",
+            "reason", reason,
             "slice", plan.sliceIndex
         );
     }
 
+    private void handleTerminalNavigationFailure(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan minePlan,
+        Ref<EntityStore> ref,
+        Store<EntityStore> store,
+        CivUnitRegistry.UnitKey workerKey,
+        WorkerRuntime runtime
+    ) {
+        RuntimeFrontPlan affected = null;
+        RuntimeInfrastructureTask infrastructure = runtime.infrastructureTaskId == null
+            ? null
+            : minePlan.infrastructureTasks.get(runtime.infrastructureTaskId);
+
+        if (runtime.frontId != null) {
+            affected = minePlan.fronts.get(runtime.frontId);
+        } else if (infrastructure != null && infrastructure.task.mandatory()) {
+            affected = frontForTunnel(minePlan, infrastructure.task.tunnelId());
+        }
+
+        if (affected != null) {
+            MineWorkFront front = currentFront(
+                world.getWorldConfig().getUuid(), mine.id(), affected.frontId
+            );
+            failFront(
+                world,
+                mine,
+                affected,
+                front,
+                MineObstaclePolicy.FailureKind.NAVIGATION_UNREACHABLE,
+                "NATIVE_NAVIGATION_UNREACHABLE"
+            );
+        } else if (infrastructure != null) {
+            completeInfrastructureTask(
+                world,
+                mine,
+                infrastructure,
+                workerKey,
+                runtime,
+                ref,
+                store,
+                "SKIPPED_UNREACHABLE"
+            );
+        }
+
+        frontCoordinator.releaseWorker(workerKey);
+        releaseInfrastructureReservation(workerKey, runtime);
+        unitRegistry.clearMoveTarget(ref);
+        stopMiningAnimation(ref, store, runtime);
+        stopBuildingAnimation(ref, store, runtime);
+        runtime.clearWorkAssignment();
+        runtime.navigationArrived();
+    }
+
     private boolean frontExecutable(World world, RuntimeMinePlan minePlan, RuntimeFrontPlan plan) {
-        if (plan.complete || hasPendingMandatoryInfrastructure(minePlan, plan)) return false;
+        if (plan.complete || plan.unavailable || hasPendingMandatoryInfrastructure(minePlan, plan)) return false;
         if (plan.tunnelKind == MineTunnel.Kind.MAIN || plan.sliceIndex > 0) return true;
         BlockType start = loadedBlockType(world, plan.slices.getFirst().floorCenter());
         return start != null && isEmpty(start);
@@ -1171,6 +1388,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             releaseInfrastructureReservation(key, runtime);
         }
         frontCoordinator.releaseWorker(key);
+        navigationFailures.forget(key);
     }
 
     private static void stopMiningAnimation(
@@ -1194,6 +1412,24 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     }
 
     private record WorldMineKey(UUID worldId, UUID mineId) {
+    }
+
+    private record BridgeAssessment(
+        MineInfrastructureTask task,
+        String abandonReason,
+        boolean hazardousFluid
+    ) {
+        private static BridgeAssessment none() {
+            return new BridgeAssessment(null, null, false);
+        }
+
+        private static BridgeAssessment bridge(MineInfrastructureTask task) {
+            return new BridgeAssessment(task, null, false);
+        }
+
+        private static BridgeAssessment abandon(String reason, boolean hazardousFluid) {
+            return new BridgeAssessment(null, reason, hazardousFluid);
+        }
     }
 
     private static final class RuntimeMinePlan {
@@ -1220,6 +1456,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private final List<List<BlockPosition>> orderedBlocks;
         private int sliceIndex;
         private boolean complete;
+        private boolean unavailable;
 
         private RuntimeFrontPlan(
             UUID frontId,
@@ -1228,7 +1465,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             List<MineTunnelGeometry.Slice> slices,
             List<List<BlockPosition>> orderedBlocks,
             int sliceIndex,
-            boolean complete
+            boolean complete,
+            boolean unavailable
         ) {
             this.frontId = frontId;
             this.tunnelId = tunnelId;
@@ -1237,6 +1475,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             this.orderedBlocks = List.copyOf(orderedBlocks);
             this.sliceIndex = sliceIndex;
             this.complete = complete;
+            this.unavailable = unavailable;
         }
     }
 

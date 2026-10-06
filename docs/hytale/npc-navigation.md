@@ -31,7 +31,7 @@ Der Minenabbauer verwendet deshalb folgende Navigationsregeln:
 - Der Miner verwendet `UseBestPath: false`, damit ein unvollständiger Ersatzpfad nicht als akzeptable Annäherung an ein unterirdisches Arbeitsziel dient.
 - Erst bei tatsächlicher Ankunft, einem neuen Gameplay-Ziel oder einem expliziten Zustandswechsel darf der Adapter das Ziel ändern oder löschen.
 
-Die gepinnte Server-JAR stellt am aktiven `MotionController` `getNavState()` sowie `setForceRecomputePath(boolean)` bereit. `NavState` enthält unter anderem `PROGRESSING`, `BLOCKED`, `AT_GOAL`, `ABORTED` und `DEFER`. Für Miner ist dieser native Zustand jetzt das primäre Failure-Signal: Bei `BLOCKED` oder `ABORTED` fordert Civ einmal eine native Pfadneuberechnung an. Bleibt danach ein terminaler Fehler bestehen, darf die Civ-Recovery greifen. `DEFER` wird ohne Runtime-Beleg nicht als terminaler Fehler behandelt.
+Die gepinnte Server-JAR stellt am aktiven `MotionController` `getNavState()` sowie `setForceRecomputePath(boolean)` bereit. `NavState` enthält unter anderem `PROGRESSING`, `BLOCKED`, `AT_GOAL`, `ABORTED` und `DEFER`. Für Miner ist dieser native Zustand das primäre Failure-Signal: Bei `BLOCKED` oder `ABORTED` fordert Civ genau einmal eine native Pfadneuberechnung an. Bleibt dasselbe Ziel danach terminal fehlgeschlagen, meldet `MinerNavigationSystem` den Fehler über den flüchtigen `MinerNavigationFailureRegistry` an `MinerWorkSystem`. Dort liegt die Gameplay-Reaktion: Arbeitsfront/Pflichtarbeit blockieren oder normale Infrastruktur überspringen. `DEFER` wird ohne Runtime-Beleg nicht als terminaler Fehler behandelt.
 
 Civ besitzt weiterhin keinen eigenen Voxel-Pathfinder und keinen allgemeinen Stillstands-Timer als primäres Failure-System. Ein eigener Watchdog wäre nur dann zulässig, wenn ein fokussierter Runtime-Test einen realen Hytale-Stuck-Fall nachweist, der keinen brauchbaren nativen `NavState` erreicht.
 
@@ -71,8 +71,10 @@ Ein manueller Bewegungsauftrag oder die gemeinsame Wiederanlaufpause deaktiviert
 
 Die Y-Klassifikation ist ausdrücklich eine temporäre Prototyp-Heuristik für den aktuellen flachen Minen-Slice. Sie ist **keine** verifizierte allgemeine Definition von „oberirdisch“. Sobald Weltgeneration, Berge oder vertikal driftende Tunnel relevant werden, muss diese Klassifikation terrainbewusst ersetzt werden, während die native Teleport-Grenze unverändert bleiben kann.
 
-### Aktueller Layer-4/5-Stand
+### Aktueller Layer-4/5/6-Stand
 
 Die semantische Tunnelzugehörigkeit für Miner ist inzwischen an das persistente `MineNetwork` und die deterministisch regenerierte `MineTunnelGeometry` angebunden. `MinerNavigationSystem` prüft Tunnelmitgliedschaft gegen die Layer-3-Geometrie; Anchor-Erzeugung, Long-Distance-Auswahl und native `NavState`-Recovery benötigen keine Legacy-`MineSegment`-Geometrie mehr.
 
 Infrastruktur aus Layer 5 verändert diesen Vertrag nicht. Supports, Licht, Treppen und Brücken liefern lediglich neue Arbeitsziele; die physische Bewegung zwischen diesen Zielen bleibt bei Hytales `ReadPosition`/`Seek`. Eine unfertige verpflichtende Brücke oder Treppe sperrt den semantischen Weiterbau, statt einen Civ-eigenen Pathfinder einzuführen.
+
+NPC-Ebene 6 ergänzt keine eigene Wegfindung. Nach dem einmaligen nativen Recompute wird ein terminaler Ziel-Fehler nur als Adapter-Ergebnis an den Work-Lifecycle übergeben. Ein optionaler Safe-Anchor-Teleport im Hauptkorridor bleibt Positions-Recovery; die fehlgeschlagene Arbeitsfront wird dadurch nicht automatisch erneut geöffnet.

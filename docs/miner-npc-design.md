@@ -388,16 +388,23 @@ The current work stops at the safe boundary and task selection can select the ma
 
 ### 12.2 Not safely solvable
 
-If no defined safe solution exists, the current task/front is reported as blocked.
+V1 distinguishes two persistent front outcomes:
 
-Examples may include:
+- `BLOCKED` means the front is currently unusable but may become usable again through an explicit future recovery/unblock mechanism. V1 does not periodically retry blocked fronts.
+- `ABANDONED` means the mine has concluded that this route has no safe V1 continuation. Autonomous miners no longer select it.
 
-- a dangerous or unsuitable cave;
+A terminal native navigation failure after the single Hytale recompute attempt produces `BLOCKED`, because the world may later be changed by the player or another system.
+
+A known unsafe/unusable geometry result produces `ABANDONED`, including:
+
 - a non-bridgeable gap;
-- unsafe water/lava without an implemented solution;
-- an invalid or unreachable work area.
+- a gap without a safe opposite landing or planned continuation;
+- lava on the required route or below a required crossing;
+- water/fluid occupying the walkable corridor where V1 would require swimming;
+- mandatory bridge/step work that cannot be resolved safely;
+- another explicitly classified unsafe geometry result.
 
-The mine system then decides whether the front remains blocked, is redirected or is abandoned.
+Natural open cave space with safe floor is not an error: already-empty tunnel slices may be crossed and excavation continues at the next solid face. Large-cave integration as a dedicated room/node is deferred.
 
 The miner releases the task and selects again rather than waiting indefinitely.
 
@@ -449,6 +456,14 @@ Optional decoration begins at base priority `2` but also participates in aging w
 
 Decoration may therefore eventually overtake ordinary excavation, but it can never age to mandatory safety priority `10`.
 
+### 14.6 Placement failure and nearby fallback
+
+Normal infrastructure such as recurring supports and lighting first attempts its planned slice. If that exact location cannot be resolved safely, V1 checks nearby slices in nearest-first order up to three slices before/after the planned point. Navigation clearance and existing world geometry still win over placement. If no valid nearby position exists, the normal task is skipped.
+
+Mandatory passability work does not use this fallback. A bridge or step is tied to the obstacle it solves. If mandatory infrastructure cannot be resolved safely, the associated front becomes `ABANDONED`.
+
+If block placement fails after construction has already started, already placed world blocks remain. The task is re-resolved against current world state once work continues. Normal infrastructure may then use the same bounded nearby fallback; mandatory infrastructure that remains unresolvable abandons the associated front. V1 performs no automatic rollback of already placed blocks.
+
 ## 15. Navigation anchors and placement protection
 
 Navigation anchors are shared safe semantic points for the mine. They support movement and navigation but do not replace Hytale pathfinding.
@@ -488,12 +503,18 @@ The same rule may be used in reverse for long underground travel toward the surf
 
 ### 15.2 Navigation failure
 
-Hytale native navigation state is the primary failure signal. `BLOCKED` or `ABORTED` first requests one native path recomputation. If navigation still reports terminal failure after that retry:
+Hytale native navigation state is the primary failure signal. `BLOCKED` or `ABORTED` first requests exactly one native path recomputation. If the same target still reports terminal failure after that retry, the navigation adapter reports the failure back to miner work ownership rather than inventing a second scheduler.
 
-- main corridor and work directly in it: return to the last known-safe anchor and retry;
-- side tunnels, rooms and bridge areas: release the task and run normal task selection again.
+V1 handling is:
 
-The side-task release path becomes executable when the multi-task miner scheduler exposes the corresponding real task lifecycle; the navigation adapter must not invent a second scheduler merely to simulate it. `DEFER` is not considered terminal failure without runtime evidence, and an arbitrary time-based stall detector is not the primary mechanism.
+- excavation front: persist the affected front as `BLOCKED`, release transient reservations/claims and select other work;
+- mandatory infrastructure: persist the associated front as `BLOCKED`, release the infrastructure reservation and select other work;
+- normal/optional infrastructure: skip that infrastructure task rather than blocking the whole tunnel;
+- there is no periodic automatic retry of a `BLOCKED` front in V1.
+
+If the miner is in the main corridor and a known-safe anchor exists, the navigation adapter may still use that native teleport recovery as an escape/safety action, but it does not turn the failed work target back into an automatically retried task.
+
+`DEFER` is not considered terminal failure without runtime evidence, and an arbitrary time-based stall detector is not the primary mechanism.
 
 The separate surface-recovery watchdog remains an emergency protection against a miner accidentally escaping to the surface. It is not normal anchor routing or the 50-block travel rule.
 
@@ -655,17 +676,22 @@ Implementation must preserve the repository architecture rules:
 - new gameplay behaviour should be testable at the Core boundary;
 - no speculative systems should be added beyond behaviour required by this specification.
 
-## Current implementation checkpoint - NPC layer 4
+## Current implementation checkpoint - NPC layer 6
 
-The current live miner implementation now covers the execution half of `EXCAVATE_FRONT` for the continuing main tunnel:
+The live miner currently covers planned main/branch excavation fronts, shared front work, miner-built supports/steps/bridges/lights and the V1 obstacle/failure rules from this document.
 
-- one persistent semantic `MineWorkFront` points at the current Layer-3 excavation slice;
-- the slice uses the actual planned variable tunnel cross-section rather than a fixed 4x4 face;
-- a normal tunnel front accepts at most two miners;
-- miners share the front through short-lived block claims, so they cannot work the same block concurrently and no permanent left/right standing slots are introduced;
-- the Hytale world is reconciled as the truth for blocks already excavated, while the front position/state is persisted in `MineNetwork`;
-- Hytale-native movement, the existing looping pickaxe animation and `BlockHarvestUtils.performBlockBreak` execute the physical work;
-- manual interruption, profession changes and disappearing workers release runtime front/claim ownership;
-- support placement is no longer an automatic side effect of excavation. `BUILD_SUPPORT` remains a separate infrastructure task as specified above.
+Implemented obstacle/failure behavior:
 
-This checkpoint intentionally does **not** implement the general multi-task scheduler. Only the current main-tunnel continuation is exposed to live workers, so branch-front selection, priority/aging, room work, infrastructure task selection and distribution of a third miner to another task remain later NPC layers. After one main-tunnel slice completes, the current one-task integration deterministically exposes the next main slice; this is the temporary single-available-task form of the later selection step, not a new priority rule.
+- one native Hytale recompute is attempted for `BLOCKED`/`ABORTED`; terminal failure is then handed back to miner work ownership;
+- unreachable excavation or mandatory-passability work persists the associated front as `BLOCKED`, releases runtime ownership and selects other work;
+- normal support/light work that is unreachable is skipped locally;
+- `BLOCKED` fronts are not automatically retried in V1;
+- safe already-open cave slices with supported floor can be traversed and skipped as completed excavation;
+- bridgeable gaps require a solid approach, accepted span, safe landing and planned continuation;
+- fluid below a bridge span reduces the accepted V1 span to 10 slices; lava makes the crossing unsafe and abandons the front;
+- fluid occupying the navigation corridor is not swum through in V1 and abandons the front;
+- non-bridgeable gaps and unresolved mandatory bridge/step work become `ABANDONED`;
+- normal supports/lights try their preferred slice, then nearest alternatives up to ±3 slices before being skipped;
+- partial infrastructure placement is not rolled back; work is re-resolved against current Hytale world state.
+
+The full general cross-category aging scheduler, room work, large-natural-cave integration as semantic rooms/nodes, explicit unblock/recovery gameplay, materials, decoration and rails remain later work.
