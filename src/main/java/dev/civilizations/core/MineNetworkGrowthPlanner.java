@@ -29,7 +29,7 @@ public final class MineNetworkGrowthPlanner {
     private static final int BRANCH_OPPORTUNITY_SPACING = 8;
     private static final int BRANCH_MIN_LENGTH = 16;
     private static final int BRANCH_LENGTH_INCREMENT = 8;
-    private static final int PARENT_CONNECTION_EXEMPT_POINTS = 7;
+    private static final int PARENT_CONNECTION_EXEMPT_POINTS = 18;
     private static final long MAIN_TUNNEL_ID_SALT = 0x243F6A8885A308D3L;
     private static final long CHILD_ID_SALT = 0x13198A2E03707344L;
     private static final long PATH_SEED_SALT = 0xA4093822299F31D0L;
