@@ -44,9 +44,7 @@ public final class MineInfrastructurePlacementResolver {
         MineInfrastructureTask task,
         MineTunnelGeometry geometry
     ) {
-        for (int index : MineObstaclePolicy.fallbackSliceOrder(
-            task.startSliceIndex(), geometry.slices().size()
-        )) {
+        for (int index : candidateSliceOrder(task, geometry.slices().size())) {
             ResolvedTask resolved = resolveSupportAt(world, geometry, index);
             if (resolved != null) return resolved;
         }
@@ -138,9 +136,7 @@ public final class MineInfrastructurePlacementResolver {
         MineTunnel.Kind tunnelKind,
         MineTunnelGeometry geometry
     ) {
-        for (int index : MineObstaclePolicy.fallbackSliceOrder(
-            task.startSliceIndex(), geometry.slices().size()
-        )) {
+        for (int index : candidateSliceOrder(task, geometry.slices().size())) {
             ResolvedTask resolved = resolveLightAt(world, tunnelKind, geometry, index);
             if (resolved != null) return resolved;
         }
@@ -319,6 +315,17 @@ public final class MineInfrastructurePlacementResolver {
             ? slices.get(task.startSliceIndex() - 1).floorCenter()
             : slices.get(task.startSliceIndex()).floorCenter();
         return new ResolvedTask(workTarget(work), List.copyOf(placements));
+    }
+
+    private static List<Integer> candidateSliceOrder(
+        MineInfrastructureTask task,
+        int sliceCount
+    ) {
+        if (task.mandatory()) {
+            int index = task.startSliceIndex();
+            return index >= 0 && index < sliceCount ? List.of(index) : List.of();
+        }
+        return MineObstaclePolicy.fallbackSliceOrder(task.startSliceIndex(), sliceCount);
     }
 
     private static BlockPosition solidBelow(World world, BlockPosition start) {
