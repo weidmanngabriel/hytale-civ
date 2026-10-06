@@ -2,402 +2,529 @@
 
 Status: canonical planning specification for Plan Phase 1 miner NPC behaviour.
 
-This document defines the intended miner behaviour from the player's point of view before implementation. It complements `docs/mine-design.md` and should be treated as the source of truth for miner task selection, work-front behaviour, navigation hand-off, room work and infrastructure priorities until explicitly changed.
+This document defines the intended miner behaviour from the player's point of view before implementation. It complements `docs/mine-design.md` and is the source of truth for miner state flow, task selection, task priority, reservations, room work, interruption handling and the contract with the mine system until explicitly changed.
 
-The design goal is an autonomous miner that looks purposeful and local rather than globally scripted. Civ decides what the miner should do, why and where. Hytale should handle actual movement and pathfinding wherever possible.
+The design goal is an autonomous miner that looks purposeful and local rather than globally scripted. Civ decides what the miner should do, why and where. Hytale handles actual movement and pathfinding wherever possible.
 
 ## 1. Scope
 
 Plan Phase 1 supports at most three miners assigned to one mine.
 
-The design covers:
+This document covers:
 
-- work-front behaviour;
-- team distribution across active fronts;
-- local creation of new work fronts;
-- room excavation behaviour;
+- miner states and normal workflow;
+- task types and work units;
+- task priority and aging;
+- distribution of multiple miners across tasks;
+- task reservation and capacity;
 - interruption and reprioritization rules;
-- cave, gap, water and lava encounters;
-- infrastructure work;
-- navigation anchors;
-- long-distance task changes and teleport hand-off;
-- manual player movement commands;
-- high-level miner states visible from gameplay.
+- safety and blocked-work outcomes;
+- room excavation and room construction;
+- infrastructure tasks;
+- navigation-anchor protection;
+- the boundary between miner logic, mine logic and Hytale execution.
 
-The design does not yet define exact placement formulas for supports, lights, rails or decoration. It only defines when miners should perform those tasks and the broad geometry constraints already agreed.
+This document does not define detailed tunnel generation, room geometry, exact prefab construction algorithms, support placement formulas, lighting spacing or native Hytale navigation implementation.
 
-## 2. Core principles
+## 2. Responsibility boundary
 
-Miner behaviour should follow these principles:
+The miner system and mine system work together but own different responsibilities.
 
-1. Prefer local, visible work over global invisible assignment.
-2. New work fronts should emerge from actual excavation, not appear arbitrarily elsewhere in the mine.
-3. Miners normally finish their current small work unit before reprioritizing.
-4. Safety may interrupt immediately.
-5. Avoid long, uninteresting walks when a known-safe navigation anchor can provide a better transition.
-6. Hytale pathfinding is the default. Civ-provided anchors are support points, not a replacement pathfinder.
-7. The main tunnel must continue to make progress over the lifetime of the mine, but miners should not constantly abandon nearby useful work just because the main tunnel exists.
+### 2.1 Mine system
 
-## 3. Work rhythm
+The mine system owns the semantic state of the mine and exposes meaningful work opportunities, for example:
 
-Plan Phase 1 does not introduce artificial work shifts.
+- open main-tunnel fronts;
+- open side-tunnel fronts;
+- room excavation work;
+- room construction work;
+- required supports;
+- due lights;
+- required steps;
+- required bridges;
+- optional decoration work;
+- blocked, abandoned or completed fronts;
+- valid work areas and placement positions.
 
-An assigned miner treats the mine as a persistent workplace and works autonomously whenever no higher-priority activity is active.
+The mine system also owns the geometry constraints that make a task valid.
 
-There is no required periodic check-in at the mine building and no forced commute back to the surface between ordinary tasks.
+### 2.2 Miner system
 
-Future needs such as sleep, food or shifts may interrupt work later, but they are not miner-specific behaviour in Plan Phase 1.
+The miner system owns:
 
-## 4. Work units and reprioritization
+- whether a miner is idle, moving or working;
+- selecting one currently valid task;
+- reserving capacity on that task;
+- executing one defined work unit;
+- reporting success, interruption or blockage back to the mine system;
+- selecting again after each completed work unit.
 
-The normal work unit for excavation is one tunnel face / excavation slice.
+The miner system must not duplicate mine-generation or mine-topology logic.
 
-A miner normally finishes the currently started face before selecting a different task.
+### 2.3 Hytale adapter
 
-This is intentionally larger than a single block so behaviour does not look nervous, but smaller than a full 4-12 block planning segment so miners remain responsive.
+Hytale owns the execution mechanics:
 
-Safety events may interrupt immediately, even in the middle of a face.
+- movement;
+- native pathfinding;
+- animation;
+- world interaction;
+- block breaking and placement;
+- reporting arrival, success or failure back to Civ.
 
-## 5. Work fronts
+Core decides who acts, why, and toward which semantic/world target. Hytale decides how that movement or interaction is physically carried out.
 
-A work front is a real, already-started point of mine expansion or construction.
+## 3. Miner state model
 
-A purely theoretical future branch position is not yet a work front.
+Plan Phase 1 keeps the actual miner state machine deliberately small.
 
-The mine may remember planning opportunities, but they do not become real open work fronts until a miner reaches the location during normal work and actually begins that branch, room or other expansion.
+### 3.1 Persistent autonomous states
 
-The work-front list therefore contains only real started work fronts and is used for:
+The miner has three persistent autonomous states:
 
-- state tracking;
-- priority;
-- blocked / abandoned / complete status;
-- miner task selection among already existing fronts.
+- `IDLE`
+  - no currently suitable work is available;
+- `MOVING_TO_TASK`
+  - a task has been selected and reserved and the miner is moving toward its work area;
+- `WORKING`
+  - the miner is executing one defined work unit of the selected task.
 
-## 6. Local creation of new fronts
+### 3.2 Choosing a task
 
-New fronts emerge locally from the work miners are already doing.
+`CHOOSING_TASK` is a Core decision step, not a long-lived gameplay state.
 
-Example:
+It occurs:
 
-- Three miners are advancing one tunnel.
-- A miner reaches a location where a side branch is allowed and currently desirable.
-- That miner begins the branch.
-- The new branch now becomes a real work front.
-- The remaining miners continue their current tunnel work unless another priority causes them to change later.
+- when an idle miner gains available work;
+- after a completed work unit;
+- after a manual command ends;
+- after a task is interrupted;
+- after a safety/blockage result;
+- after a task becomes invalid.
 
-A new branch must not spontaneously appear elsewhere in the network and summon a miner to it.
+The expected flow is:
 
-The mine planner may decide whether a branch is allowed or desirable at the miner's current location, but from the player's perspective the miner discovers and starts the opportunity locally.
+`IDLE -> choose task -> MOVING_TO_TASK -> WORKING -> choose task -> ...`
 
-## 7. Team distribution with three miners
+If no suitable task exists after selection, the miner enters `IDLE`.
 
-Plan Phase 1 supports exactly these three-miner distribution patterns:
+### 3.3 Manual player commands
 
-- `3`
-- `2 + 1`
-- `1 + 1 + 1`
+Manual player control is not a miner-specific state.
 
-These are not fixed squad types. They are the natural result of how many real useful work fronts currently exist and which miners locally encounter them.
+It is an overriding inhabitant activity handled by the shared NPC activity system. While manual control is active, autonomous miner work is suppressed.
 
-Default behaviour should favour miners staying together unless real useful additional work fronts have emerged.
+When manual control ends, the miner does not rigidly return to the previous task. Normal task selection runs again using the current mine state.
 
-A miner is not pulled away from an active branch merely because another task exists elsewhere.
+### 3.4 Safety blocked
 
-Team distribution changes at natural task boundaries, especially:
+`SAFETY_BLOCKED` is not a persistent miner state.
 
-- after a face is completed;
-- when a front completes;
-- when a front becomes blocked or abandoned;
-- when a local branch or room becomes a real new task;
-- when a clearly higher-priority task should be taken next.
+It is a task outcome meaning the current work cannot safely continue and no already-known direct solution can be executed as part of the current work.
 
-## 8. Task selection after a work unit
+After this result:
 
-After completing a face or equivalent work unit, a miner chooses the next task in a local-first order.
+1. the affected mine task/front is updated by the mine system;
+2. the miner releases the reservation;
+3. task selection runs again.
 
-Preferred behaviour:
+The miner should not remain standing indefinitely in a dedicated blocked/waiting state.
 
-1. resolve a safety condition at the current location;
-2. take a higher-priority local task such as a due room or required infrastructure;
-3. continue the current real work front;
-4. start a newly allowed local branch or expansion if current mine priorities favour it;
-5. only then consider another already-existing work front elsewhere.
+## 4. Work rhythm and reprioritization
 
-Priority can override pure distance, but unnecessary movement should be avoided.
+A miner normally finishes the currently started small work unit before reprioritizing.
 
-If a front completes or is abandoned, the miner chooses the nearest sensible existing task that still matches current mine priorities. If no special task is appropriate, the miner may join another active front.
+The key rule is:
 
-## 9. Main-tunnel priority
+> After every completed work unit, the miner selects again.
 
-The main tunnel must continue to grow over the lifetime of the mine.
+A miner does not reconsider after every individual block, because that would look nervous and inefficient.
 
-Main-tunnel priority influences task selection; it is not a separate task type.
+A miner also does not blindly continue an entire long planning segment without reconsideration.
 
-If the main tunnel has not advanced for long enough, its priority may increase until one or more miners prefer it at their next natural reprioritization point.
+Only two things may interrupt an active work unit before its normal completion in Plan Phase 1:
 
-This should not normally cause miners to abandon a face mid-work or instantly leave useful side-branch work.
+1. a manual player command;
+2. an immediate safety/passability problem.
 
-## 10. Priority order
+Normal priority changes wait until the current work unit is complete.
 
-Plan Phase 1 uses the following gameplay priority order:
+## 5. Task types
 
-1. **Immediate safety / passability**
-   - fall risk;
-   - unsafe cave opening;
-   - dangerous water or lava situation;
-   - missing safe continuation;
-   - required bridge before further progress.
+Plan Phase 1 uses the following semantic miner task types.
 
-2. **Manual player command**
-   - temporarily overrides autonomous work.
+### 5.1 `EXCAVATE_FRONT`
 
-3. **Due room**
-   - high priority when a valid room opportunity is reached and enough space exists.
+Excavate one normal tunnel front / slice.
 
-4. **Required infrastructure**
-   - due support;
-   - due light;
-   - step / stair treatment when needed for passability;
-   - bridge when needed for continuation.
+Main tunnel and side tunnel are not separate task types. The task references the tunnel/front metadata that identifies whether it belongs to the main tunnel or a side tunnel.
 
-5. **Continue current real work front**
+### 5.2 `EXCAVATE_ROOM`
 
-6. **Start a new local real work front**
-   - side branch or similar opportunity reached during current work.
+Excavate one defined room work unit.
 
-7. **Take another existing work front**
+The whole room is not treated as one indivisible task execution. Room excavation is divided into smaller slices so priorities can be reconsidered regularly.
 
-8. **Rails**
+### 5.3 `BUILD_ROOM`
 
-9. **Decoration**
+Construct one defined build section of a room prefab or room furnishing.
 
-A higher-priority task does not automatically pull all miners from other fronts. Busy miners normally finish their current work unit first unless the situation is an immediate safety issue.
+This is separate from excavation because a room may first need to be excavated and later have its actual workshop, break-room, storage or similar prefab/components built.
 
-## 11. Rooms
+### 5.4 `BUILD_SUPPORT`
 
-Rooms have high priority once a valid room location is reached and enough space exists to build the intended room.
+Build one required mine support.
 
-A room does not globally summon miners from distant side branches.
+### 5.5 `PLACE_LIGHT`
 
-Behaviour:
+Place one due light at a valid placement location.
 
-- a free miner near the room can take the task;
-- miners already working elsewhere finish their current work unit first;
-- after that they may choose the room if its priority is still higher than their alternatives.
+### 5.6 `BUILD_STEP`
 
-In Plan Phase 1, accommodation, storage, workshop, ore rooms and similar spaces are structure and atmosphere only.
+Create a safe passable step treatment for a local elevation change when required.
 
-They do not yet provide real NPC behaviours such as sleeping, fetching materials, tool use or logistics.
+### 5.7 `BUILD_BRIDGE`
 
-### 11.1 Room shape
+Build a bridge section required to cross an accepted bridgeable gap.
 
-Rooms should not be excavated as perfect boxes.
+### 5.8 Optional decoration
 
-The default room shape is rounded / oval-like:
+Optional mine-decoration work may exist as lower-base-priority tasks.
 
-- corner blocks commonly remain in place;
-- larger rooms may keep stepped corner areas rather than a single untouched block;
-- mild asymmetry is desirable;
-- usable space, entrances and safe navigation take priority over visual rounding.
+Decoration is still real work and must eventually be performed rather than remaining permanently starved.
 
-The miner excavates the actual room geometry over time; the room should not simply appear fully completed at once.
+## 6. Work-unit completion
 
-## 12. Natural caves, gaps, water and lava
+### 6.1 Tunnel fronts
 
-A miner must never blindly continue an excavation sequence into unsafe empty space.
+The normal excavation work unit is one complete tunnel front / excavation slice.
 
-If the miner is advancing an eight-block planning stretch and, for example, discovers a deep opening after four blocks, normal forward excavation stops immediately before entering the unsafe area.
+A miner that starts the front normally finishes that front before selecting again.
 
-The encounter is then classified by mine logic.
+A possible future continuation of the tunnel is not already an active task simply because the previous front completed. The next front becomes relevant only through the next task-selection decision.
 
-Typical outcomes:
+There is no special concept of a "half-finished main tunnel" for task priority.
 
-- small opening: integrate safely and continue;
-- bridgeable gap: create bridge work before further advance;
-- large useful cave: accept it as a natural chamber / mine node;
-- dangerous or unusable cave: redirect or abandon the front;
-- unsafe water / lava: stop and treat as a special obstacle.
+If a main-tunnel front is interrupted, it remains a normal open main-tunnel task and competes by the normal priority rules when miners select again.
 
-A natural area becomes part of normal mine movement only after mine logic has accepted it as safe and usable.
+### 6.2 Room excavation
 
-A miner should not step into an unclassified gap merely because excavation exposed it.
+Room excavation is divided into small geometric slices, initially targeting roughly 1-2 blocks of depth per work unit where suitable.
 
-### 12.1 Breaking out to the outside world
+The exact shape and slice generation belong to the mine system.
 
-If a tunnel breaks through a mountainside or otherwise reaches the outside world, this does not automatically create a second official mine entrance.
+After each completed room slice, the miner selects again.
 
-Plan Phase 1 keeps one official surface transition through the authored mine entrance / workplace access.
+### 6.3 Room construction
 
-A breakout front should normally be stopped, redirected or abandoned instead of being treated as an unrestricted new exit.
+Room construction is divided into small meaningful build sections rather than placing the entire room prefab as one indivisible miner action.
 
-## 13. What counts as being inside the mine
+The exact sectioning belongs to the room/prefab system.
 
-Mine membership is semantic, not based on absolute Y height.
+After each completed build section, the miner selects again.
 
-A side tunnel may rise above the Y level of the mine building and still be fully inside the mine.
+### 6.4 Infrastructure
 
-Known mine-space includes accepted tunnel sections, junctions, rooms, bridges and safe natural cave integrations.
+A support, light, step or bridge task completes when its defined infrastructure work unit is successfully constructed and reported back to the mine system.
 
-The relevant distinction is:
+## 7. Task priority
 
-- **inside the known mine network**;
-- **outside the mine network / surface world**.
+Plan Phase 1 uses a simple 10-point base-priority system.
 
-Absolute Y height must not be used as the general definition.
+| Base priority | Task category |
+| --- | --- |
+| `10` | mandatory safety / passability work |
+| `8` | room work (`EXCAVATE_ROOM`, `BUILD_ROOM`) |
+| `6` | side-tunnel excavation |
+| `5` | lighting |
+| `4` | main-tunnel excavation |
+| `2` | optional decoration |
 
-## 14. Bridges
+Required supports, bridges or steps that are necessary for safe continuation belong to priority `10`.
 
-A bridge has immediate high priority when further safe progress requires it.
+The distinction between a side tunnel and the main tunnel is therefore explicit: ordinary side-tunnel work is preferred over ordinary main-tunnel work.
 
-Normal excavation should not continue across an unsafe gap until a valid bridge route is available.
+Rooms remain higher priority than both.
 
-The exact bridge span and prefab rules remain defined by mine design and later implementation tuning.
+## 8. Aging
 
-## 15. Steps and stairs
+Tasks that remain available but are repeatedly skipped gain priority over time so lower-base-priority work does not remain forever.
 
-Do not automatically place a staircase for every vertical change.
+Rule:
 
-Prefer simple steps for ordinary single-block or gentle elevation changes.
+- every time task selection runs and an available, executable task is not chosen, its current priority increases by `+1`;
+- only tasks that were actually available and executable age;
+- blocked, invalid or not-yet-unlocked work does not gain aging merely because time passes;
+- normal task priority is capped at `9`;
+- priority `10` remains reserved for mandatory safety/passability work.
 
-Use a more explicit stair treatment only when the terrain becomes genuinely staircase-like, for example repeated stepped elevation changes.
+Aging is per concrete task, not global per task type.
 
-The goal is safe movement without making every minor height change look artificially engineered.
+This means, for example, a specific decoration or lighting task can eventually overtake normal excavation if it has repeatedly been skipped.
 
-## 16. Supports
+## 9. Tie-breaking
 
-When infrastructure planning marks a support as due, a miner builds it before ordinary excavation continues past that point.
+When multiple tasks have the same current priority, use this order:
 
-Supports must follow the actual tunnel direction and actual excavated cross-section rather than assuming a perfect rectangular tunnel.
+1. higher current priority;
+2. higher original base priority;
+3. nearer suitable task;
+4. random choice when the previous criteria are effectively equal.
 
-Broad geometry rule:
+This keeps behaviour understandable while avoiding completely rigid repeated patterns.
 
-- orient the support with the tunnel;
-- place the top beam at an appropriate high point with enough usable span;
-- extend vertical support posts from the beam down to the actual floor;
-- adapt to asymmetric, diagonal or irregular tunnel geometry;
-- never block the guaranteed navigation corridor.
+## 10. Multiple miners, task capacity and reservations
 
-The exact spacing formula and support-shape algorithm are intentionally deferred.
+Plan Phase 1 supports at most three miners per mine.
 
-## 17. Lighting
+A task may allow more than one miner to work on it. Therefore tasks use a capacity rather than a simple exclusive reservation flag.
 
-Lighting is required infrastructure but does not normally interrupt a face immediately.
+A miner reserves one capacity position when it selects the task.
 
-When lighting becomes due, the miner normally finishes the current face and then places the light before continuing ordinary excavation.
+### 10.1 Initial V1 capacities
 
-The exact spacing and placement formulas are deferred.
+- normal tunnel front: maximum `2` miners;
+- room excavation: up to `3` miners;
+- room construction: typically up to `2` miners;
+- individual infrastructure tasks: normally `1` miner;
+- individual decoration tasks: normally `1` miner.
 
-## 18. Rails
+Room/task-specific design may lower a capacity when the available geometry makes fewer simultaneous workers sensible.
 
-Rails exist only in the main tunnel in Plan Phase 1.
+### 10.2 Natural distribution
 
-Rail work is lower priority than excavation, rooms and required safety infrastructure.
+The system does not hard-code squad patterns such as `2+1` or `1+1+1`.
 
-The rail line is built in sections between consecutive navigation anchors that lie on the main-tunnel route.
+Those distributions emerge naturally from:
 
-Not every anchor inside the mine belongs to the rail line. Anchors created in rooms, side branches or other off-route spaces must not make the rail path deviate from the main tunnel.
+- task priorities;
+- available task capacities;
+- reservations;
+- distance tie-breaking;
+- which tasks currently exist.
 
-The intended unit is therefore:
+For example, a tunnel front with capacity `2` plus one valid light task can naturally produce a `2+1` distribution.
 
-`main-tunnel anchor A -> main-tunnel anchor B = candidate rail section`
+### 10.3 No fixed per-miner work slots in V1
 
-## 19. Navigation anchors
+A shared task defines a work area, not a permanent individual standing position for each miner.
 
-Navigation anchors are shared safe points for the whole mine, not per-miner markers.
+The task capacity limits how many miners may work there, while Hytale/native execution may find suitable local positions within the work area.
 
-They are generated from actual miner movement through the known tunnel system.
+Dedicated per-miner work slots are deferred unless tests show that miners consistently collide, stack or block each other.
 
-While a miner is moving inside accepted mine space:
+## 11. Reservation lifecycle
 
-- if the miner is more than roughly 10 blocks from the next suitable existing safe anchor;
-- and no other suitable anchor is already within roughly 10 blocks;
-- and the miner's current position is safe and navigable;
-- a new anchor may be created at that position.
+A reservation is created only after task selection has actually chosen the task.
 
-This means the anchor network grows along paths miners actually use.
+The reservation remains while the miner is:
 
-Anchors should not be created on temporary ledges, unsafe cave edges or unfinished locations that are not valid navigation positions.
+- `MOVING_TO_TASK`;
+- `WORKING` on that task.
 
-## 20. Anchor responsibilities
+The reservation is released when:
 
-Anchors have three purposes in Plan Phase 1:
+- the work unit completes;
+- a manual player command interrupts the miner;
+- a safety/blockage result ends the current work;
+- the task becomes invalid;
+- the NPC disappears;
+- the NPC changes profession or otherwise stops being eligible for the task.
 
-1. known-safe mine locations;
-2. optional navigation waypoints;
-3. possible teleport entry points for long task changes.
+Plan Phase 1 does not add an arbitrary time-based reservation timeout.
 
-Anchors do not replace Hytale pathfinding.
+If navigation later exposes a reliable explicit failure result, that result may release the reservation and trigger fresh task selection.
 
-Default navigation policy:
+## 12. Safety and blocked work
 
-1. give Hytale the real target and let native navigation try to reach it;
-2. if direct navigation is unsuitable or unreliable, Civ may choose a useful anchor or anchor sequence as intermediate semantic targets;
-3. Hytale still performs the actual local pathfinding between those targets.
+A miner must never blindly continue excavation into unsafe or unclassified space.
 
-Do not build a full custom Civ pathfinder unless later evidence shows native navigation cannot support the required behaviour.
+When a problem is detected, distinguish between two cases.
 
-## 21. Long-distance task changes inside the mine
+### 12.1 Known solvable problem
 
-When a miner changes to a task that is very far away inside the same mine, the system may skip the long commute.
+If mine logic already knows a direct safe solution, the problem becomes a mandatory task, for example:
 
-Instead, the miner may be teleported to a suitable known-safe anchor near the new task and then continue with normal Hytale navigation.
+- required bridge;
+- required step;
+- required support;
+- another explicitly defined passability fix.
 
-This applies generally, for example:
+The current work stops at the safe boundary and task selection can select the mandatory solution at priority `10`.
 
-- side branch -> main tunnel after main-tunnel priority increases;
-- one distant branch -> a higher-priority room or task;
-- after a manual player command when autonomous work resumes.
+### 12.2 Not safely solvable
 
-The selected anchor should not merely be geometrically closest. It should be a safe known anchor from which the target task is expected to be reachable.
+If no defined safe solution exists, the current task/front is reported as blocked.
 
-The exact distance threshold for teleporting is a tuning value and is intentionally not fixed yet.
+Examples may include:
 
-## 22. Surface transition
+- a dangerous or unsuitable cave;
+- a non-bridgeable gap;
+- unsafe water/lava without an implemented solution;
+- an invalid or unreachable work area.
 
-When a miner needs to move from an underground mine task to an outside-world target, the official mine exit is abstracted through the authored surface access point.
+The mine system then decides whether the front remains blocked, is redirected or is abandoned.
 
-The miner may be teleported to `workplace_access` and then continue normal Hytale navigation from there.
+The miner releases the task and selects again rather than waiting indefinitely.
 
-This is the same broad transition model already used when a player manually calls an underground miner to an outside target.
+## 13. Rooms
 
-Normal movement between two mine tasks should not use the surface transition.
+At most two rooms may be active at the same time in the current mine design.
 
-## 23. Manual player commands
+Room work as a category has base priority `8`, regardless of whether the current room phase is excavation or construction.
 
-A manual movement command temporarily overrides autonomous mining work.
+There is no separate priority boost for `BUILD_ROOM` over `EXCAVATE_ROOM`; the room lifecycle determines which phase is currently available.
 
-If the manual target is outside the mine while the miner is deep underground, the surface transition may be used so the miner does not need to walk the entire mine network back to the entrance.
+A simple semantic room lifecycle may expose states such as:
 
-When manual control ends, the miner does not have to return rigidly to the exact previous front.
+`PLANNED -> EXCAVATING -> READY_TO_BUILD -> BUILT`
 
-Instead, autonomous task selection runs again using current priorities and real existing work fronts.
+The exact internal room model remains owned by the mine/room system.
 
-If the selected next task is far away, the long-distance anchor teleport rule may be used.
+## 14. Infrastructure
 
-## 24. High-level miner states
+### 14.1 Supports
 
-The player-facing Plan Phase 1 behaviour can be represented with these high-level states:
+A support that is required for safe continuation is mandatory priority `10` work.
 
-- moving to mine / work location;
-- working at an active front;
-- excavating a room;
-- building infrastructure;
-- handling / waiting on a safety obstacle;
-- choosing the next task;
-- moving to another task;
-- executing a manual player command;
-- idle because no sensible work is currently available.
+The exact support shape, orientation and placement formula belong to the mine system.
 
-Do not treat animation timing, facing, block timers or similar implementation details as gameplay states in this design document.
+### 14.2 Steps
 
-## 25. Deferred features
+A step task is mandatory when a local elevation difference would otherwise make the intended route unsafe or unusable.
 
-The following are intentionally outside Plan Phase 1:
+Do not automatically build elaborate stairs for every vertical change. The mine system determines the appropriate geometry.
 
-- actual sleeping / accommodation use;
+### 14.3 Bridges
+
+A bridge is mandatory priority `10` when safe continuation requires crossing an accepted bridgeable gap.
+
+Ordinary excavation must not continue through the unsafe gap before the bridge work is complete.
+
+### 14.4 Lighting
+
+Lighting has base priority `5`.
+
+It is intentionally important but does not normally interrupt a currently active work unit.
+
+Because lighting participates in aging, a repeatedly skipped light task will rise in priority and eventually be performed.
+
+### 14.5 Decoration
+
+Optional decoration begins at base priority `2` but also participates in aging.
+
+Decoration may therefore eventually overtake ordinary excavation, but it can never age to mandatory safety priority `10`.
+
+## 15. Navigation anchors and placement protection
+
+Navigation anchors are shared safe semantic points for the mine. They support movement and navigation but do not replace Hytale pathfinding.
+
+Placed mine objects must not obstruct anchor navigation.
+
+V1 placement rule:
+
+- never place a new blocking object directly on an anchor point;
+- keep the immediate horizontal area around an anchor clear where possible;
+- treat roughly one block of horizontal clearance around the anchor as the initial protection target;
+- protect the usable walking corridor rather than blindly reserving a full `3x3x3` cube;
+- if a planned placement conflicts with the protected navigation area, the mine system should choose another valid placement position;
+- if no valid alternative exists, preserving the anchor/navigation corridor wins over placing the optional object.
+
+This applies to placed infrastructure, decoration and room/prefab construction where relevant.
+
+The miner should normally receive an already-valid placement target from the mine system rather than independently solving anchor-clearance geometry.
+
+## 16. Manual interruption behaviour
+
+A manual movement command immediately suppresses autonomous miner work.
+
+If a miner is currently moving to or working on a task:
+
+1. the task reservation is released;
+2. the task remains in the mine's normal semantic state unless the mine system has another reason to change it;
+3. the player command executes;
+4. after manual control ends, task selection runs again.
+
+There is no automatic resume bonus for the previously interrupted task.
+
+In particular, an interrupted main-tunnel front remains an ordinary main-tunnel task at its normal priority. If side-tunnel work is more important, miners may legitimately select that instead.
+
+## 17. Core information requirements
+
+The Core model needs enough information to make gameplay decisions without owning Hytale pathfinding details.
+
+### 17.1 Per miner
+
+At minimum:
+
+- current miner state (`IDLE`, `MOVING_TO_TASK`, `WORKING`);
+- currently selected task reference, if any;
+- current work-unit reference/progress where needed;
+- whether the miner currently holds task capacity/reservation.
+
+### 17.2 Per task
+
+At minimum:
+
+- stable task identity;
+- task type;
+- mine element reference (front, room, support point, light point, bridge, etc.);
+- base priority;
+- current priority including aging;
+- task status;
+- capacity;
+- current reservation count/owners as required;
+- semantic work area or valid target information;
+- whether the task is currently executable.
+
+Core does not need Hytale path nodes, detailed native path state or engine-specific movement internals.
+
+## 18. Normal lifecycle summary
+
+Normal success path:
+
+`IDLE`
+
+`-> choose available task`
+
+`-> reserve task capacity`
+
+`-> MOVING_TO_TASK`
+
+`-> arrive`
+
+`-> WORKING`
+
+`-> complete one work unit`
+
+`-> report result to mine system`
+
+`-> release reservation`
+
+`-> choose again`
+
+Interruption path:
+
+`MOVING_TO_TASK / WORKING`
+
+`-> manual command or safety result`
+
+`-> release reservation`
+
+`-> update mine/task state where required`
+
+`-> after override/problem handling, choose again`
+
+## 19. Deferred features
+
+The following are intentionally outside Plan Phase 1 or remain implementation/tuning work:
+
+- dedicated per-miner work slots inside shared tasks;
+- arbitrary reservation timeouts;
+- sleep / accommodation behaviour;
 - real storage logistics;
 - workshop usage;
-- material consumption for supports, bridges, rails or rooms;
+- material consumption for supports, bridges, rooms or decoration;
 - hunger, sleep and other needs;
 - formal work shifts;
 - specialist miner professions;
@@ -406,29 +533,20 @@ The following are intentionally outside Plan Phase 1:
 - advanced rail economics;
 - final support-spacing formula;
 - final lighting-spacing formula;
-- final rail-shape algorithm;
+- final bridge algorithm;
+- final room-slice dimensions and build-section sizes;
+- final anchor-clearance tuning;
 - final decoration rules.
 
-## 26. Open tuning values
-
-The following should remain configuration or tuning decisions until implementation tests provide evidence:
-
-- exact distance threshold for long-distance teleport;
-- exact anchor spacing tolerance around the 10-block target;
-- exact main-vs-branch priority weights;
-- exact duration / trigger before main-tunnel priority increases;
-- exact support spacing;
-- exact lighting spacing;
-- exact rail construction timing;
-- exact room-shape variation strength.
-
-## 27. Implementation boundary
+## 20. Implementation boundary
 
 This document defines intended behaviour only.
 
-Implementation should preserve the repository architecture rules:
+Implementation must preserve the repository architecture rules:
 
-- Civ owns gameplay priorities, semantic tasks and decisions;
+- Civ/Core owns gameplay states, priorities, semantic tasks, aging, reservations and decisions;
+- the mine model owns mine topology, valid work opportunities and placement constraints;
 - Hytale owns native movement and pathfinding wherever suitable;
 - anchor points are semantic support targets, not a reason to recreate Hytale navigation;
+- new gameplay behaviour should be testable at the Core boundary;
 - no speculative systems should be added beyond behaviour required by this specification.
