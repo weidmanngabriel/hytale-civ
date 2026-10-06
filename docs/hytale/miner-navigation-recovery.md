@@ -36,6 +36,16 @@ For a Civ miner with an active move target:
 
 A small watchdog may only be added later if runtime evidence shows a native stuck case that never reaches a useful `NavState`.
 
+## Planned geometry and tunnel membership
+
+The live mine runtime regenerates the deterministic Layer-3 `MineTunnelGeometry` for every planned main/branch tunnel after the mine is loaded for work. `MineTunnelRegistry` keeps that geometry only as runtime data keyed by world, mine and tunnel.
+
+`MinerNavigationSystem` uses those geometry volumes to identify which semantic tunnel contains the miner and which tunnel is closest to a movement target. It no longer derives tunnel membership from legacy `MineSegment` bounds or `MineTunnel.segmentIds`.
+
+This geometry is not treated as proof that a block is safe. It only supplies semantic tunnel ownership. Hytale remains authoritative for the actual world, and trusted navigation anchors still require observed traversal of an exact empty block.
+
+`MinerSurfaceRecoverySystem` uses the same regenerated geometry to avoid treating planned/excavated underground tunnel positions as surface escapes. Its existing Y-level heuristic remains a temporary emergency watchdog rather than normal mine navigation.
+
 ## Anchor world validation
 
 `BlockType.EMPTY` exists as the canonical empty block type in the pinned API. Navigation anchors intentionally require exact `BlockType.EMPTY`; empty-material blocks, half slabs, barrels, decoration or other passable-looking blocks are not accepted merely because native navigation can cross them.
@@ -49,7 +59,7 @@ The mine planner does not manufacture trusted anchors from planned geometry.
 
 ## Teleport execution
 
-The existing miner surface recovery already uses Hytale's ECS `Teleport` component. Long-distance anchor travel should use the same native teleport mechanism while preserving the current movement target, so native Hytale navigation resumes for the local remainder.
+The existing miner surface recovery already uses Hytale's ECS `Teleport` component. Long-distance anchor travel uses the same native teleport mechanism while preserving the current movement target, so native Hytale navigation resumes for the local remainder.
 
 The surface-recovery watchdog remains separate from normal long-distance mine travel and from native navigation-failure recovery.
 
