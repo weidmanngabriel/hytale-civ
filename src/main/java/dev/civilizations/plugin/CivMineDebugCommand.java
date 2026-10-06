@@ -87,29 +87,22 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
                 "Mine " + snapshot.mine().id()
                     + " | phase=" + snapshot.mine().phase()
                     + " | distance=" + String.format(Locale.ROOT, "%.1f", snapshot.distanceBlocks())
-                    + " | segments=" + snapshot.segments().size()
+                    + " | tunnels=" + snapshot.tunnels().size()
                     + " | active=" + snapshot.activeFrontCount()
                     + " | open=" + snapshot.openFrontCount()
             ));
 
-            snapshot.segments().stream()
+            snapshot.tunnels().stream()
                 .sorted(Comparator
-                    .comparingInt(CivMineDebugService.SegmentDebugSnapshot::branchLevel)
-                    .thenComparing(debug -> debug.segment().id()))
+                    .comparingInt((CivMineDebugService.TunnelDebugSnapshot debug) -> debug.tunnel().branchDepth())
+                    .thenComparing(debug -> debug.tunnel().id()))
                 .forEach(debug -> context.sendMessage(Message.raw(
-                    "segment=" + debug.segment().id()
-                        + " | topology=" + (debug.root() ? "ROOT" : "LEGACY_CHILD")
-                        + " | level=" + debug.branchLevel()
-                        + " | heading=" + debug.segment().direction()
-                        + " | status=" + debug.segment().status()
-                        + " | progress=" + debug.segment().nextBlockIndex()
-                            + "/" + debug.segment().blockCount()
+                    "tunnel=" + debug.tunnel().id()
+                        + " | kind=" + debug.tunnel().kind()
+                        + " | depth=" + debug.tunnel().branchDepth()
+                        + " | front=" + (debug.front() == null ? "none" : debug.front().state())
+                        + " | geometry=" + (debug.geometry() == null ? "not-generated" : debug.geometry().slices().size() + " slices")
                 )));
-
-            context.sendMessage(Message.raw(
-                "Nicht vorhanden im aktuellen Mine-Core: MAIN-vs-BRANCH-Klassifikation nach Root, "
-                    + "Navigation-Anker, Räume/Knoten, Brückenmarker, Formphase und Next-Segment-Preview."
-            ));
         }
     }
 
@@ -117,7 +110,7 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
         private final CivMineDebugService service;
 
         private ShowCommand(CivMineDebugService service) {
-            super("show", "Shows player-local mine debug volumes for the nearest mine.");
+            super("show", "Shows player-local mine work-front volumes for the nearest mine.");
             this.service = service;
             addSubCommand(new BoundsCommand(service));
             requireNoPermission();
@@ -152,7 +145,7 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
                     + " | 500x500=" + (result.boundsIncluded() ? "on" : "off")
             ));
             context.sendMessage(Message.raw(
-                "Farben: gelb=MINING, orange=RESERVED, cyan=Root, blau=abgeschlossen/sonstige Segmente."
+                "Farben: gelb=ACTIVE, orange=OPEN, cyan=MAIN abgeschlossen, blau=BRANCH abgeschlossen."
             ));
         }
 
