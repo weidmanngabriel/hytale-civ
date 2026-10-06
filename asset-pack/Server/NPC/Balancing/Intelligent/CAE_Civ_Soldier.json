@@ -14,7 +14,7 @@
         }
       }
     ],
-    "MinRunUtility": 0.01,
+    "MinRunUtility": 0.5,
     "MinActionUtility": 0.01,
     "AvailableActions": {
       "SelectSwordTarget": {
