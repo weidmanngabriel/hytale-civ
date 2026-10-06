@@ -246,11 +246,15 @@ Before creating a bridge, verify:
 - the resulting route is navigable;
 - fluids do not make the route unsafe.
 
-Initial bridge span target is roughly 12-16 blocks maximum. Layer-5 V1 uses at most 16 planned floor slices and reduces that to 10 when fluid is detected below the gap. This is deliberately conservative and is not yet a complete cave/lava classifier.
+Initial bridge span target is roughly 12-16 blocks maximum. The implemented V1 accepts at most 16 planned floor slices and reduces that to 10 when non-lava fluid is detected below the gap.
+
+A bridge is created only when there is a solid approach, a safe opposite landing and at least one planned continuation slice beyond that landing. A missing-floor run that exceeds the accepted span, lacks a safe landing/continuation, or contains lava is not bridgeable in V1 and the work front becomes `ABANDONED`.
 
 A Layer-5 bridge is real miner work (`BUILD_BRIDGE`, priority 10), not an instant prefab. The V1 structure has a three-block-wide deck, Fir longitudinal side beams and periodic cross-girders below the deck. It does not require supports all the way to a deep cave floor, and railings remain optional/deferred where they could complicate NPC navigation. The route beyond an unfinished required bridge is not executable.
 
-Water is less severe than lava. Lava should be treated as a dangerous obstacle; miners should not blindly tunnel or navigate into it.
+Water is less severe than lava. V1 does not make miners swim, pump, fill or redirect water: water below an accepted crossing may be bridged, while fluid occupying the actual navigation corridor makes the front unusable. Lava is always treated as a dangerous obstacle for this layer; no lava bridge is built.
+
+Safe already-open cave space with usable floor is simply traversed and the planned tunnel continues at the next solid face. V1 does not yet convert a large useful natural cave into its own semantic room/node; that richer cave integration remains later work.
 
 ## 14. Navigation anchors
 
@@ -282,10 +286,11 @@ The same principle may be used for long underground travel back toward the surfa
 
 ### 14.2 Native failure recovery
 
-Hytale's native navigation state is the primary failure signal. On `BLOCKED` or `ABORTED`, Civ first requests one native path recomputation. If the native navigation still reports terminal failure after that retry:
+Hytale's native navigation state is the primary failure signal. On `BLOCKED` or `ABORTED`, Civ first requests exactly one native path recomputation. If the same work target still reports terminal failure after that retry, the failure is handed back to the miner work lifecycle.
 
-- main corridor and work directly in it: return to the last known-safe anchor and retry;
-- side tunnels, rooms and bridge areas: release the affected task and select another available work item once the multi-task miner scheduler owns that task lifecycle.
+An affected excavation front or mandatory-passability task marks its associated work front `BLOCKED`, releases transient reservations and lets the miner select other work. `BLOCKED` is deliberately not retried on a timer in V1. Normal support/light work that is itself unreachable is skipped rather than blocking the whole tunnel.
+
+A safe-anchor teleport in the main corridor remains an allowed emergency recovery for the NPC position, but it does not automatically reopen or retry the failed work front.
 
 `DEFER` is not treated as terminal failure without runtime evidence. A Civ-owned elapsed-time stall detector is not the primary failure mechanism.
 
@@ -308,6 +313,7 @@ Layer-5 supports are dynamically built block-by-block and do not use the old fix
 Initial support rules:
 
 - target spacing is 6-10 blocks/slices along a tunnel;
+- normal support placement may search up to three neighboring slices before/after the planned point when the preferred slice is unsuitable; nearest valid alternatives are preferred;
 - the selected frame may move up to roughly 3 blocks before or after that target to find a cleaner local cross-section, especially around curves;
 - the opening inside the frame must remain at least 4 blocks wide and 3 blocks high;
 - otherwise the support is shifted or skipped rather than narrowing the guaranteed corridor;
@@ -578,3 +584,19 @@ These should be decided only when their implementation layer needs them.
 Live miner excavation is connected to the Layer-2/3/4 mine plan. The active work unit is one `MineTunnelGeometry.Slice`; its variable width/height and voxel set come directly from the planned tunnel geometry. A persistent `MineWorkFront` tracks the current semantic front for every planned main or branch tunnel, while already excavated blocks remain world truth.
 
 Up to two miners may share a normal tunnel front. Their per-block claims are transient execution coordination and are not stored as permanent worker slots. After each completed slice, miners select again from currently executable fronts; active fronts with free capacity are filled first, otherwise Branch priority 6 precedes Main priority 4, followed by distance and stable tie-breaking. Rooms, supports, steps, bridges, lighting, decoration and rails remain separate later integrations. Supports are not placed automatically by the excavation loop; they remain dedicated mine work according to `docs/miner-npc-design.md`.
+
+## Current implementation checkpoint - NPC layer 6 obstacles and failures
+
+NPC layer 6 now gives live miner work explicit safe failure outcomes:
+
+- persistent `BLOCKED` means a route is currently unusable and is not periodically retried in V1;
+- persistent `ABANDONED` means the route has no safe V1 continuation and is removed from autonomous selection;
+- safe natural cave openings with usable floor are crossed without inventing a room integration;
+- conservative gaps become `BUILD_BRIDGE` only with a safe approach, span, landing and continuation;
+- water may be bridged only under the existing conservative span rule; miners do not swim through flooded navigation space;
+- lava and non-bridgeable gaps abandon the front;
+- mandatory bridge/step resolution failure abandons the front;
+- recurring support/light placement searches up to ±3 slices for a safe nearby position before being skipped;
+- terminal Hytale navigation failure uses one native recompute first, then blocks the affected front/mandatory task or skips normal infrastructure.
+
+The richer natural-cave-as-room/node behavior and any explicit unblock/recovery mechanic remain deferred.
