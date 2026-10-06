@@ -54,6 +54,10 @@ Direkte JAR-Inspektion von `CombatActionEvaluator` zeigt: Die Schlüssel unter `
 
 Für den normalen Combat-Substate ist deshalb `ActionSets.Default` der passende Vertrag. Zusätzliche ActionSets wie `Melee` oder `Ranged` benötigen entsprechende Combat-Substates in der Role.
 
+Die Hytale-Role-Validierung verlangt außerdem für einen von `Sensor.Type: "State"` referenzierten Zustand eine passende `State`-Setter-Action in den Role-Instructions. Der Soldier definiert deshalb bereits im Idle-State die native Transition nach `Combat`, sobald Civ ein Ziel in `TargetMemory` gespiegelt hat. Das erhält Civ als Entscheider für das Ziel und macht den State-Wechsel zugleich für Hytales State-Mapping vollständig.
+
+Der Runtime-Loader des gepinnten Servers lehnt CAE-Profile mit `MinRunUtility` unter `0.5` ab. `CAE_Civ_Soldier` setzt daher `MinRunUtility: 0.5`; `MinActionUtility` bleibt davon unabhängig.
+
 ## Civ-Soldier-Integration
 
 Der Civ-Soldier ist als normaler `Civ_Inhabitant` weiterhin ein `Generic`-Role, besitzt aber `CombatConfig: "CAE_Civ_Soldier"`.
