@@ -29,8 +29,8 @@ class CivInhabitantRoleValidationTest {
         assertEquals("Walk", role.path("MotionControllerList").path(0).path("Type").asText());
 
         JsonNode idleInstructions = role.path("Instructions").path(0).path("Instructions");
-        JsonNode normalMovement = idleInstructions.path(0);
-        JsonNode minerMovement = idleInstructions.path(1);
+        JsonNode normalMovement = idleInstructions.path(1);
+        JsonNode minerMovement = idleInstructions.path(2);
 
         assertEquals("ReadPosition", normalMovement.path("Sensor").path("Type").asText());
         assertEquals("CivMoveTarget", normalMovement.path("Sensor").path("Slot").asText());
@@ -67,6 +67,11 @@ class CivInhabitantRoleValidationTest {
         assertEquals("State", combatInstruction.path("Sensor").path("Type").asText());
         assertEquals("Combat", combatInstruction.path("Sensor").path("State").asText());
 
+        JsonNode idleTargetTransition = role.path("Instructions").path(0).path("Instructions").path(0);
+        assertEquals("HasHostileTargetMemory", idleTargetTransition.path("Sensor").path("Type").asText());
+        assertEquals("State", idleTargetTransition.path("Actions").path(0).path("Type").asText());
+        assertEquals("Combat", idleTargetTransition.path("Actions").path(0).path("State").asText());
+
         JsonNode targetInstruction = combatInstruction.path("Instructions").path(0);
         assertEquals(
             "HasHostileTargetMemory",
@@ -90,6 +95,7 @@ class CivInhabitantRoleValidationTest {
 
         assertEquals("CombatActionEvaluator", cae.path("Type").asText());
         JsonNode evaluator = cae.path("CombatActionEvaluator");
+        assertTrue(evaluator.path("MinRunUtility").asDouble() >= 0.5);
         JsonNode selector = evaluator.path("AvailableActions").path("SelectSwordTarget");
         assertEquals("SelectBasicAttackTarget", selector.path("Type").asText());
         assertEquals(0, selector.path("WeaponSlot").asInt(-1));
