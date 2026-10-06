@@ -40,6 +40,8 @@ Vor neuer Hytale-spezifischer Arbeit zuerst diese Übersicht und die relevante T
 
 ## Themen
 
+- [Native APIs für die Entwicklungsbrücke](development-bridge.md)
+
 - [Verifikation und API-Recherche](verification.md)
 - [Headless-Server und Runtime-Probe](server-headless.md)
 - [Threading und World-Ausführung](threading.md)

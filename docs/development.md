@@ -141,6 +141,8 @@ Falls bereits ein normales deploytes Verzeichnis <code>hytale-civ-assets</code> 
 
 ## Lokales Deployment
 
+Für direkt vom lokalen Coding-Agent gesteuerte Experimente gibt es den optionalen [lokalen Hytale-MCP-Server](local-mcp.md). Er baut die Mod, installiert sie in eine eigene Runtime und bietet eine opt-in Engine-Brücke für NPC-Experimente. Einrichtung und erster Soldier-Durchlauf stehen dort. Das Werkzeug ist unabhängig vom Self-Hosted-Runner und kein Merge-Gate.
+
 <code>HYTALE_MODS_DIR</code> setzen und ausführen:
 
 ~~~bash

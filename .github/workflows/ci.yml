@@ -88,9 +88,23 @@ jobs:
             build/test-results/test/
           if-no-files-found: ignore
 
+  mcp:
+    name: Local MCP (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test MCP protocol and lifecycle guards
+        run: node --test tools/hytale-mcp/test/*.test.mjs
+
   release:
     name: Publish GitHub Release
-    needs: build
+    needs: [build, mcp]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     permissions:
