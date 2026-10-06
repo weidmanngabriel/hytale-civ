@@ -34,9 +34,11 @@ The first implementation intentionally treats these as balance values rather tha
 - unrelated-tunnel rock gap: `5` blocks in addition to the two local half-widths;
 - intentional crossing chance after a detected unrelated collision: `5%`;
 - branch continuation starts at `95%`;
-- continuation probability drops by `8` percentage points per additional 8-block continuation unit;
+- continuation probability drops by `4` percentage points per additional 8-block continuation unit;
 - continuation probability has a `20%` floor;
 - branch length starts at `16` blocks and grows in 8-block units.
+
+The initial `8`-percentage-point continuation drop proved too aggressive in deterministic long-run tests: 100+ block branches became effectively exceptional rather than occasional. The value was therefore reduced to `4` percentage points so the implementation matches the canonical requirement for a visible long tail of branch lengths.
 
 A branch attaches through an exempt connection throat before ordinary collision spacing applies to its parent tunnel. This exemption exists only so the child can physically leave the parent passage; later geometry is again subject to normal spacing checks.
 
