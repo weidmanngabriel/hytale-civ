@@ -16,7 +16,7 @@ final class MinePersistenceFlushContractTest {
             Path.of("src/main/java/dev/civilizations/hytale/CivMinePersistenceService.java")
         );
 
-        assertTrue(source.contains("resource(world).setSegments"),
+        assertTrue(source.contains("resource(world).setNetworks"),
             "mine progress must still be staged in the native world resource");
         assertFalse(source.contains(".saveAllResources();"),
             "frequent mine progress must not force overlapping global resource saves");
