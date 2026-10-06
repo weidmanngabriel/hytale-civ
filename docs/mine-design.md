@@ -239,20 +239,42 @@ Water is less severe than lava. Lava should be treated as a dangerous obstacle; 
 
 ## 14. Navigation anchors
 
-For the first version, persist a guaranteed-safe navigation anchor approximately every 10 blocks of constructed tunnel.
+Navigation anchors are evidence of world space that an NPC has actually traversed successfully. They are not generated merely because the mine planner or excavation geometry predicts that a point should be safe.
 
-Also create anchors at important topology points such as:
+For V1, create a regular anchor when all of the following are true:
 
-- junctions;
-- rooms;
-- bridge starts and ends;
-- strong turns;
-- significant height transitions;
-- open work fronts.
+- a miner has actually walked through the candidate block;
+- the candidate block is exactly Hytale `BlockType.EMPTY`;
+- it is approximately 10 blocks from surrounding existing anchors. Exactly 10 blocks is acceptable; closer candidates are skipped.
 
-These anchors do not replace Hytale's native pathfinding. They provide known-safe intermediate targets. Civ chooses the next safe anchor; Hytale should determine the actual local route whenever native navigation supports it.
+Semantic anchors such as junctions, room accesses, bridge starts and bridge ends follow the same physical rule: the point becomes trusted only after successful traversal of an `EMPTY` block. The semantic type adds routing meaning after that validation. Strong turns and height transitions do not require their own synthetic anchors merely because the planner predicts them; normal traversed anchors already cover those areas when spacing allows.
 
-For autonomous re-entry after a miner has been brought to the surface, the planned route is `workplace_access -> mine_tunnel_connector -> work position`. If the selected work position is more than 20 blocks from the connector, reaching the connector instead triggers a teleport to the suitable existing navigation anchor for that task, after which Hytale-native navigation handles the remaining local route. Prefer an anchor on the correct tunnel branch and, among suitable anchors, one within 20 blocks of the work position. If no such anchor exists, use the best valid anchor on the target branch rather than blocking work.
+The current moving excavation position is not represented by a moving `WORK_FRONT` anchor in V1. The miner routes through the known-safe anchor network and the existing dynamic work target handles the final local approach to the current face.
+
+Anchors do not replace Hytale's native pathfinding. Civ stores only the small semantic graph of known-safe points and chooses the shortest currently valid semantic route when more than one anchor route exists. Hytale determines the physical local path between movement targets. Connections are normally bidirectional when physically safe. An unfinished bridge does not create an active graph connection; a bridge route becomes trusted only after the completed bridge has been traversed successfully.
+
+### 14.1 Long-distance mine travel
+
+The long-distance threshold is **more than 50 blocks measured as Euclidean air-line distance**. It is deliberately not based on semantic route length.
+
+A miner returning from above ground always walks normally through:
+
+`workplace_access -> mine_tunnel_connector`
+
+No long-distance teleport may happen before the miner reaches the tunnel connector. Once the miner is at the connector or already underground, Civ compares the relevant safe reference point with the next work target. At more than 50 blocks air-line distance, Civ may teleport the miner to an already known, reachable safe anchor on the valid target route. Prefer the reachable safe anchor on that route that is closest to the target. Never teleport directly to the work position; Hytale-native navigation handles the remaining local distance.
+
+The same principle may be used for long underground travel back toward the surface. The underground portion may use a safe anchor teleport, but the actual mine exit remains logically routed through the tunnel connector.
+
+### 14.2 Native failure recovery
+
+Hytale's native navigation state is the primary failure signal. On `BLOCKED` or `ABORTED`, Civ first requests one native path recomputation. If the native navigation still reports terminal failure after that retry:
+
+- main corridor and work directly in it: return to the last known-safe anchor and retry;
+- side tunnels, rooms and bridge areas: release the affected task and select another available work item once the multi-task miner scheduler owns that task lifecycle.
+
+`DEFER` is not treated as terminal failure without runtime evidence. A Civ-owned elapsed-time stall detector is not the primary failure mechanism.
+
+The existing surface-recovery watchdog remains a separate emergency safety net for miners that accidentally escape to the surface; it is not the normal 50-block travel mechanism.
 
 This is intentionally simple for V1. Persistence may later be optimized if storing every regular anchor proves unnecessary.
 
@@ -453,7 +475,9 @@ Implement nested branch creation, decreasing continuation probability, spacing/c
 
 ### Layer 5 - NPC navigation
 
-Implement approximately 10-block safe anchors and use Hytale-native pathfinding between appropriate intermediate targets. Handle work-front switching, staged re-entry through `workplace_access` and `mine_tunnel_connector`, and the >20-block connector-to-anchor teleport rule for distant work.
+Layer 5 uses sparse known-safe anchors created from actual NPC traversal rather than planned geometry. A candidate regular anchor must be an actually traversed exact `BlockType.EMPTY` position and approximately 10 blocks from surrounding anchors. Civ owns the small semantic anchor graph and shortest safe graph-route choice; Hytale remains the local physical pathfinder. The existing dynamic work target remains responsible for the final approach to the excavation face rather than a moving `WORK_FRONT` anchor.
+
+Long-distance travel uses the >50-block Euclidean air-line rule described in section 14. A miner returning from above ground must physically reach `mine_tunnel_connector` before any anchor teleport is considered. Native `NavState` is the primary failure signal: request a native recompute first, then recover to the last safe main-corridor anchor when needed. Side-task release/reselection binds to the multi-task scheduler once that lifecycle is implemented.
 
 ### Layer 6 - rooms and prefabs
 

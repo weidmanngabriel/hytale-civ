@@ -44,6 +44,7 @@ import dev.civilizations.hytale.FarmBuildingRegistry;
 import dev.civilizations.hytale.FarmFieldRegistry;
 import dev.civilizations.hytale.FarmNpcWorkSystem;
 import dev.civilizations.hytale.MineTunnelRegistry;
+import dev.civilizations.hytale.MinerNavigationSystem;
 import dev.civilizations.hytale.MinerSurfaceRecoverySystem;
 import dev.civilizations.hytale.MinerWorkSystem;
 import dev.civilizations.hytale.PrefabPlacementService;
@@ -184,6 +185,11 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getEntityStoreRegistry().registerSystem(farmNpcWorkSystem);
         getEntityStoreRegistry().registerSystem(woodcutterWorkSystem);
         getEntityStoreRegistry().registerSystem(minerWorkSystem);
+        getEntityStoreRegistry().registerSystem(
+            new MinerNavigationSystem(
+                unitRegistry, activityRegistry, buildingRegistry, mineTunnelRegistry
+            )
+        );
         getEntityStoreRegistry().registerSystem(
             new MinerSurfaceRecoverySystem(
                 unitRegistry, activityRegistry, buildingRegistry, mineTunnelRegistry
