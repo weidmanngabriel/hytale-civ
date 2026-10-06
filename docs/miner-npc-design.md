@@ -361,7 +361,7 @@ The reservation is released when:
 
 Plan Phase 1 does not add an arbitrary time-based reservation timeout.
 
-If navigation later exposes a reliable explicit failure result, that result may release the reservation and trigger fresh task selection.
+A reliable explicit native navigation failure result releases the reservation and triggers fresh task selection once the multi-task scheduler owns that task lifecycle. The current navigation adapter uses Hytale `NavState` as the primary failure signal instead of an arbitrary stall timer.
 
 ## 12. Safety and blocked work
 
@@ -447,6 +447,10 @@ Decoration may therefore eventually overtake ordinary excavation, but it can nev
 
 Navigation anchors are shared safe semantic points for the mine. They support movement and navigation but do not replace Hytale pathfinding.
 
+An anchor becomes trusted only after a miner has actually traversed its block and that block is exactly Hytale `BlockType.EMPTY`. Planned tunnel geometry alone cannot create a trusted anchor. Regular candidates are accepted at approximately 10-block spacing; a candidate closer than 10 blocks to an existing anchor is skipped.
+
+Junction, room-access, bridge-start and bridge-end anchors use the same traversal and `EMPTY` validation and only add semantic meaning. A moving excavation face is not represented by a moving `WORK_FRONT` anchor in V1; the existing dynamic work target handles the final local approach.
+
 Placed mine objects must not obstruct anchor navigation.
 
 V1 placement rule:
@@ -462,17 +466,30 @@ This applies to placed infrastructure, decoration and room/prefab construction w
 
 The miner should normally receive an already-valid placement target from the mine system rather than independently solving anchor-clearance geometry.
 
-### 15.1 Planned autonomous re-entry
+### 15.1 Autonomous travel and re-entry
 
-After a miner has been brought out of the mine and autonomous work resumes, the planned staged route is:
+After a miner has been brought out of the mine and autonomous work resumes, the staged route remains:
 
 `workplace_access -> mine_tunnel_connector -> work position`
 
-If the selected work position is more than `20` blocks from the connector, entering/reaching the connector triggers a teleport to the suitable existing navigation anchor for the selected task. From that anchor, Hytale-native navigation handles the remaining route to the work position.
+The miner must physically walk from above ground through `workplace_access` to `mine_tunnel_connector`. No long-distance teleport is allowed before the connector has been reached.
 
-Prefer an anchor on the correct tunnel branch and, among suitable anchors, one within `20` blocks of the work position. If no anchor within that range exists, use the best valid anchor on the target branch rather than blocking the task.
+Long-distance travel uses a threshold of **more than 50 blocks measured as Euclidean air-line distance**. At the connector, the distance reference is the connector. For a miner already underground, use the current relevant known-safe anchor/reference point.
 
-This connector-to-anchor teleport is a planned target behaviour. The current 4x4 miner vertical slice in `docs/mine-worker.md` still documents the presently implemented no-teleport autonomous re-entry and must not be confused with this target design.
+When the next work target is farther than that threshold, Civ may teleport the miner to an already known, reachable safe anchor on the valid target route. Prefer the reachable anchor on that route that is closest to the work target. Never teleport directly to the work position. From the selected anchor, Hytale-native navigation handles the remaining local route.
+
+The same rule may be used in reverse for long underground travel toward the surface, while the actual exit remains routed through `mine_tunnel_connector`.
+
+### 15.2 Navigation failure
+
+Hytale native navigation state is the primary failure signal. `BLOCKED` or `ABORTED` first requests one native path recomputation. If navigation still reports terminal failure after that retry:
+
+- main corridor and work directly in it: return to the last known-safe anchor and retry;
+- side tunnels, rooms and bridge areas: release the task and run normal task selection again.
+
+The side-task release path becomes executable when the multi-task miner scheduler exposes the corresponding real task lifecycle; the navigation adapter must not invent a second scheduler merely to simulate it. `DEFER` is not considered terminal failure without runtime evidence, and an arbitrary time-based stall detector is not the primary mechanism.
+
+The separate surface-recovery watchdog remains an emergency protection against a miner accidentally escaping to the surface. It is not normal anchor routing or the 50-block travel rule.
 
 ## 16. Manual interruption behaviour
 
@@ -628,6 +645,6 @@ Implementation must preserve the repository architecture rules:
 - the mine model owns mine topology, valid work opportunities and placement constraints;
 - Hytale owns native movement and pathfinding wherever suitable;
 - anchor points are semantic support targets, not a reason to recreate Hytale navigation;
-- connector-to-anchor teleport is a bounded re-entry transition, not a replacement for local Hytale pathfinding;
+- long-distance anchor teleport is a bounded underground travel optimization, never an above-ground shortcut and never a replacement for local Hytale pathfinding;
 - new gameplay behaviour should be testable at the Core boundary;
 - no speculative systems should be added beyond behaviour required by this specification.
