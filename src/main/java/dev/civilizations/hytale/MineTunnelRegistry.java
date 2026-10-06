@@ -83,12 +83,6 @@ public final class MineTunnelRegistry {
         save(world);
     }
 
-    /** Temporary compile bridge removed with the MinerWorkSystem cleanup in this same branch. */
-    @Deprecated
-    public List<?> segmentsForMine(UUID worldId, UUID mineId) {
-        return List.of();
-    }
-
     private void save(World world) {
         UUID worldId = world.getWorldConfig().getUuid();
         persistence.save(world, new ArrayList<>(networks.getOrDefault(worldId, Map.of()).values()));
