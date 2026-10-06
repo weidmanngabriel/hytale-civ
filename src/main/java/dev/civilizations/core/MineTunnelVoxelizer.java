@@ -35,7 +35,7 @@ public final class MineTunnelVoxelizer {
 
             MutableSlice slice = new MutableSlice(point.index(), center, width, height);
             addCrossSection(slice.excavation, point, floorY, width, height);
-            addNavigationCore(slice.navigationCore, point, floorY, width, height);
+            addNavigationCore(slice.navigationCore, center, width, height);
             slice.excavation.addAll(slice.navigationCore);
             mutableSlices.add(slice);
 
@@ -54,7 +54,7 @@ public final class MineTunnelVoxelizer {
             previousCenter = center;
         }
 
-        connectNavigationCore(path, mutableSlices);
+        connectNavigationCore(mutableSlices);
         addOrganicClusters(path, mutableSlices);
 
         List<MineTunnelGeometry.Slice> slices = new ArrayList<>(mutableSlices.size());
@@ -106,76 +106,74 @@ public final class MineTunnelVoxelizer {
         }
     }
 
+    /**
+     * The guaranteed corridor is deliberately conservative: a small axis-aligned prism around the
+     * rounded centerline sample. The visible structural cross-section may rotate with the tangent,
+     * but the trusted core must never become diagonally disconnected because of voxel rounding.
+     */
     private static void addNavigationCore(
         Set<BlockPosition> result,
-        MinePathPoint point,
-        int floorY,
+        BlockPosition center,
         int width,
         int height
     ) {
         int coreWidth = Math.min(NAVIGATION_CORE_WIDTH, width);
         int coreHeight = Math.min(NAVIGATION_CORE_HEIGHT, height);
-        double radians = Math.toRadians(point.tangentAngleDegrees());
-        double sideX = -Math.sin(radians);
-        double sideZ = Math.cos(radians);
-        double start = -(coreWidth - 1) / 2.0;
+        int minOffset = -(coreWidth / 2);
+        int maxOffset = minOffset + coreWidth - 1;
 
-        for (int w = 0; w < coreWidth; w++) {
-            double offset = start + w;
-            int x = (int) Math.round(point.x() + sideX * offset);
-            int z = (int) Math.round(point.z() + sideZ * offset);
-            for (int y = 0; y < coreHeight; y++) {
-                result.add(new BlockPosition(x, floorY + y, z));
+        for (int xOffset = minOffset; xOffset <= maxOffset; xOffset++) {
+            for (int zOffset = minOffset; zOffset <= maxOffset; zOffset++) {
+                for (int y = 0; y < coreHeight; y++) {
+                    result.add(new BlockPosition(
+                        center.x() + xOffset,
+                        center.y() + y,
+                        center.z() + zOffset
+                    ));
+                }
             }
         }
     }
 
     /**
-     * Consecutive rounded cross-sections can otherwise touch only diagonally on curves or at a Y
-     * change. Fill the small integer-space gap explicitly so the trusted corridor stays connected.
+     * Rounded centerline samples may move diagonally in X/Z and may also change Y by one block.
+     * Walk between their floor centers one axis at a time and stamp the trusted core at every
+     * intermediate position. This creates a six-neighbor-connected corridor by construction.
      */
-    private static void connectNavigationCore(MineTunnelPath path, List<MutableSlice> slices) {
+    private static void connectNavigationCore(List<MutableSlice> slices) {
         for (int i = 1; i < slices.size(); i++) {
             MutableSlice previous = slices.get(i - 1);
             MutableSlice current = slices.get(i);
-            BlockPosition from = previous.floorCenter;
-            BlockPosition to = current.floorCenter;
-            int dx = to.x() - from.x();
-            int dy = to.y() - from.y();
-            int dz = to.z() - from.z();
-            int count = Math.max(Math.abs(dx), Math.max(Math.abs(dy), Math.abs(dz)));
-            if (count == 0) continue;
+            int x = previous.floorCenter.x();
+            int y = previous.floorCenter.y();
+            int z = previous.floorCenter.z();
 
-            MinePathPoint point = path.points().get(i);
-            double radians = Math.toRadians(point.tangentAngleDegrees());
-            double sideX = -Math.sin(radians);
-            double sideZ = Math.cos(radians);
-            for (int step = 0; step <= count; step++) {
-                double t = (double) step / count;
-                double x = from.x() + dx * t;
-                double y = from.y() + dy * t;
-                double z = from.z() + dz * t;
-                addCoreAt(current.navigationCore, x, y, z, sideX, sideZ);
+            while (x != current.floorCenter.x()) {
+                x += Integer.compare(current.floorCenter.x(), x);
+                addNavigationCore(
+                    current.navigationCore,
+                    new BlockPosition(x, y, z),
+                    current.width,
+                    current.height
+                );
             }
-        }
-    }
-
-    private static void addCoreAt(
-        Set<BlockPosition> result,
-        double centerX,
-        double floorY,
-        double centerZ,
-        double sideX,
-        double sideZ
-    ) {
-        double start = -(NAVIGATION_CORE_WIDTH - 1) / 2.0;
-        for (int w = 0; w < NAVIGATION_CORE_WIDTH; w++) {
-            double offset = start + w;
-            int x = (int) Math.round(centerX + sideX * offset);
-            int z = (int) Math.round(centerZ + sideZ * offset);
-            int baseY = (int) Math.round(floorY);
-            for (int y = 0; y < NAVIGATION_CORE_HEIGHT; y++) {
-                result.add(new BlockPosition(x, baseY + y, z));
+            while (z != current.floorCenter.z()) {
+                z += Integer.compare(current.floorCenter.z(), z);
+                addNavigationCore(
+                    current.navigationCore,
+                    new BlockPosition(x, y, z),
+                    current.width,
+                    current.height
+                );
+            }
+            while (y != current.floorCenter.y()) {
+                y += Integer.compare(current.floorCenter.y(), y);
+                addNavigationCore(
+                    current.navigationCore,
+                    new BlockPosition(x, y, z),
+                    current.width,
+                    current.height
+                );
             }
         }
     }
