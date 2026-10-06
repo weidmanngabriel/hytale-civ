@@ -5,14 +5,16 @@ import com.hypixel.hytale.protocol.packets.player.RemoveTriggerVolumeDisplay;
 import com.hypixel.hytale.protocol.packets.player.TriggerVolumeDisplayEntry;
 import com.hypixel.hytale.protocol.packets.player.TriggerVolumeShapeType;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
+import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
-import dev.civilizations.core.MineSegment;
-import dev.civilizations.core.MineTuning;
+import dev.civilizations.core.MineNetwork;
+import dev.civilizations.core.MineTunnel;
+import dev.civilizations.core.MineTunnelGeometry;
+import dev.civilizations.core.MineWorkFront;
 import org.joml.Vector3dc;
 import org.joml.Vector3f;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -20,16 +22,16 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Read-only, player-local visualization of the currently persisted Civ mine state. */
+/** Read-only, player-local visualization of the current Civ mine network. */
 public final class CivMineDebugService {
 
     private static final String MINE_BUILDING = "mine";
     private static final double MAX_SELECTION_DISTANCE = 128.0;
-    private static final float SEGMENT_OPACITY = 0.22f;
+    private static final float FRONT_OPACITY = 0.26f;
     private static final Vector3f COMPLETE_COLOR = new Vector3f(0.25f, 0.55f, 1.0f);
     private static final Vector3f ACTIVE_COLOR = new Vector3f(1.0f, 0.85f, 0.15f);
     private static final Vector3f OPEN_COLOR = new Vector3f(1.0f, 0.50f, 0.12f);
-    private static final Vector3f ROOT_COLOR = new Vector3f(0.20f, 0.95f, 0.95f);
+    private static final Vector3f MAIN_COLOR = new Vector3f(0.20f, 0.95f, 0.95f);
     private static final Vector3f BOUNDS_COLOR = new Vector3f(0.70f, 0.70f, 0.70f);
 
     private final BuildingPlacementRegistry buildingRegistry;
@@ -48,23 +50,21 @@ public final class CivMineDebugService {
         BuildingPlacementRegistry.BuildingInstance mine = nearestMine(worldId, playerPosition);
         if (mine == null) return null;
 
-        List<MineSegment> segments = tunnelRegistry.segmentsForMine(worldId, mine.id());
-        Map<UUID, MineSegment> byId = new HashMap<>();
-        for (MineSegment segment : segments) byId.put(segment.id(), segment);
-
-        List<SegmentDebugSnapshot> projected = segments.stream()
-            .map(segment -> new SegmentDebugSnapshot(
-                segment,
-                branchLevel(segment, byId),
-                segment.parentId() == null,
-                segment.status() == MineSegment.Status.MINING,
-                segment.status() == MineSegment.Status.RESERVED
-                    || segment.status() == MineSegment.Status.MINING
-            ))
-            .toList();
+        MineNetwork network = tunnelRegistry.networkForMine(worldId, mine.id());
+        Map<UUID, MineTunnelGeometry> geometries = tunnelRegistry.geometriesForMine(worldId, mine.id());
+        List<TunnelDebugSnapshot> tunnels = new ArrayList<>();
+        if (network != null) {
+            for (MineTunnel tunnel : network.tunnels()) {
+                MineWorkFront front = network.workFronts().stream()
+                    .filter(candidate -> candidate.tunnelId().equals(tunnel.id()))
+                    .findFirst()
+                    .orElse(null);
+                tunnels.add(new TunnelDebugSnapshot(tunnel, front, geometries.get(tunnel.id())));
+            }
+        }
 
         double distance = horizontalDistance(playerPosition, mine.bounds());
-        return new MineDebugSnapshot(mine, distance, projected);
+        return new MineDebugSnapshot(mine, distance, tunnels);
     }
 
     public ShowResult show(PlayerRef playerRef, MineDebugSnapshot snapshot, boolean includeBounds) {
@@ -74,9 +74,11 @@ public final class CivMineDebugService {
         hide(playerRef);
 
         Set<String> ids = new HashSet<>();
-        for (SegmentDebugSnapshot segment : snapshot.segments()) {
-            String id = id(playerRef, "segment:" + segment.segment().id());
-            TriggerVolumeDisplayEntry entry = segmentEntry(id, segment);
+        for (TunnelDebugSnapshot tunnel : snapshot.tunnels()) {
+            MineTunnelGeometry.Slice slice = currentSlice(tunnel);
+            if (slice == null) continue;
+            String id = id(playerRef, "front:" + tunnel.tunnel().id());
+            TriggerVolumeDisplayEntry entry = frontEntry(id, tunnel, slice);
             playerRef.getPacketHandler().write(new AddOrUpdateTriggerVolumeDisplay(id, entry));
             ids.add(id);
         }
@@ -117,17 +119,18 @@ public final class CivMineDebugService {
         return bestDistance <= MAX_SELECTION_DISTANCE ? best : null;
     }
 
-    static int branchLevel(MineSegment segment, Map<UUID, MineSegment> byId) {
-        int level = 0;
-        UUID parentId = segment.parentId();
-        Set<UUID> visited = new HashSet<>();
-        while (parentId != null && visited.add(parentId)) {
-            MineSegment parent = byId.get(parentId);
-            if (parent == null) break;
-            level++;
-            parentId = parent.parentId();
+    private static MineTunnelGeometry.Slice currentSlice(TunnelDebugSnapshot debug) {
+        if (debug.geometry() == null || debug.front() == null) return null;
+        MineTunnelGeometry.Slice closest = null;
+        long bestDistance = Long.MAX_VALUE;
+        for (MineTunnelGeometry.Slice slice : debug.geometry().slices()) {
+            long distance = distanceSquared(slice.floorCenter(), debug.front().position());
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                closest = slice;
+            }
         }
-        return level;
+        return closest;
     }
 
     private static double horizontalDistance(Vector3dc position, BuildingBounds bounds) {
@@ -136,26 +139,36 @@ public final class CivMineDebugService {
         return Math.hypot(position.x() - centerX, position.z() - centerZ);
     }
 
-    private static TriggerVolumeDisplayEntry segmentEntry(String id, SegmentDebugSnapshot debug) {
-        MineSegment segment = debug.segment();
-        MineSegment.HorizontalBounds horizontal = segment.horizontalBounds();
-        float minX = horizontal.minX();
-        float maxX = horizontal.maxX() + 1.0f;
-        float minZ = horizontal.minZ();
-        float maxZ = horizontal.maxZ() + 1.0f;
-        float minY = segment.start().y();
-        float maxY = minY + MineTuning.TUNNEL_HEIGHT_BLOCKS;
+    private static TriggerVolumeDisplayEntry frontEntry(
+        String id,
+        TunnelDebugSnapshot debug,
+        MineTunnelGeometry.Slice slice
+    ) {
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        int maxZ = Integer.MIN_VALUE;
+        for (BlockPosition block : slice.excavationBlocks()) {
+            minX = Math.min(minX, block.x());
+            minY = Math.min(minY, block.y());
+            minZ = Math.min(minZ, block.z());
+            maxX = Math.max(maxX, block.x());
+            maxY = Math.max(maxY, block.y());
+            maxZ = Math.max(maxZ, block.z());
+        }
 
-        Vector3f color = debug.active() ? ACTIVE_COLOR
-            : debug.open() ? OPEN_COLOR
-            : debug.root() ? ROOT_COLOR
+        MineWorkFront.State state = debug.front().state();
+        Vector3f color = state == MineWorkFront.State.ACTIVE ? ACTIVE_COLOR
+            : state == MineWorkFront.State.OPEN ? OPEN_COLOR
+            : debug.tunnel().kind() == MineTunnel.Kind.MAIN ? MAIN_COLOR
             : COMPLETE_COLOR;
-        String topology = debug.root() ? "ROOT" : "LEGACY_CHILD";
-        String label = topology
-            + " · L" + debug.branchLevel()
-            + " · " + segment.direction()
-            + " · " + segment.status();
-        return box(id, minX, minY, minZ, maxX, maxY, maxZ, color, SEGMENT_OPACITY, label);
+        String label = debug.tunnel().kind()
+            + " · depth=" + debug.tunnel().branchDepth()
+            + " · " + state;
+        return box(id, minX, minY, minZ, maxX + 1.0f, maxY + 1.0f, maxZ + 1.0f,
+            color, FRONT_OPACITY, label);
     }
 
     private static TriggerVolumeDisplayEntry mineBoundsEntry(String id, BuildingBounds mineBounds) {
@@ -207,6 +220,13 @@ public final class CivMineDebugService {
         return entry;
     }
 
+    private static long distanceSquared(BlockPosition first, BlockPosition second) {
+        long dx = (long) first.x() - second.x();
+        long dy = (long) first.y() - second.y();
+        long dz = (long) first.z() - second.z();
+        return dx * dx + dy * dy + dz * dz;
+    }
+
     private static String id(PlayerRef playerRef, String suffix) {
         return "civ:mine-debug:" + playerRef.getUuid() + ":" + suffix;
     }
@@ -214,28 +234,33 @@ public final class CivMineDebugService {
     public record MineDebugSnapshot(
         BuildingPlacementRegistry.BuildingInstance mine,
         double distanceBlocks,
-        List<SegmentDebugSnapshot> segments
+        List<TunnelDebugSnapshot> tunnels
     ) {
         public MineDebugSnapshot {
-            segments = List.copyOf(segments == null ? new ArrayList<>() : segments);
+            tunnels = List.copyOf(tunnels == null ? new ArrayList<>() : tunnels);
         }
 
         public long activeFrontCount() {
-            return segments.stream().filter(SegmentDebugSnapshot::active).count();
+            return tunnels.stream().filter(TunnelDebugSnapshot::active).count();
         }
 
         public long openFrontCount() {
-            return segments.stream().filter(SegmentDebugSnapshot::open).count();
+            return tunnels.stream().filter(TunnelDebugSnapshot::open).count();
         }
     }
 
-    public record SegmentDebugSnapshot(
-        MineSegment segment,
-        int branchLevel,
-        boolean root,
-        boolean active,
-        boolean open
+    public record TunnelDebugSnapshot(
+        MineTunnel tunnel,
+        MineWorkFront front,
+        MineTunnelGeometry geometry
     ) {
+        public boolean active() {
+            return front != null && front.state() == MineWorkFront.State.ACTIVE;
+        }
+
+        public boolean open() {
+            return front != null && front.state() == MineWorkFront.State.OPEN;
+        }
     }
 
     public record ShowResult(int displayedEntryCount, boolean boundsIncluded) {
