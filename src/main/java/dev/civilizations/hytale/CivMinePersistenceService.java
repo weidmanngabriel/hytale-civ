@@ -20,7 +20,8 @@ import java.util.UUID;
 /** Persists Civ-owned semantic mine-network state in the world entity store. */
 public final class CivMinePersistenceService {
 
-    private static final String FORMAT_HEADER = "N2";
+    private static final String FORMAT_HEADER = "N3";
+    private static final String PREVIOUS_FORMAT_HEADER = "N2";
 
     private final ResourceType<EntityStore, CivMineDataResource> resourceType;
 
@@ -78,6 +79,9 @@ public final class CivMinePersistenceService {
             lines.add(String.join("|", "A", anchor.id().toString(), anchor.tunnelId().toString(),
                 anchor.type().name(), encodePosition(anchor.position()), encodeIds(anchor.connectedAnchorIds())));
         }
+        for (UUID taskId : network.completedInfrastructureTaskIds()) {
+            lines.add(String.join("|", "I", taskId.toString()));
+        }
         return String.join("\n", lines);
     }
 
@@ -85,9 +89,11 @@ public final class CivMinePersistenceService {
         String[] lines = encoded.split("\\n");
         if (lines.length == 0) throw new IllegalArgumentException("empty network");
         String[] header = lines[0].split("\\|", -1);
-        if (header.length != 3 || !FORMAT_HEADER.equals(header[0])) {
+        if (header.length != 3
+            || (!FORMAT_HEADER.equals(header[0]) && !PREVIOUS_FORMAT_HEADER.equals(header[0]))) {
             throw new IllegalArgumentException("unsupported mine persistence format");
         }
+        boolean supportsInfrastructure = FORMAT_HEADER.equals(header[0]);
 
         UUID mineId = UUID.fromString(header[1]);
         UUID mainTunnelId = UUID.fromString(header[2]);
@@ -95,6 +101,7 @@ public final class CivMinePersistenceService {
         List<MineRoom> rooms = new ArrayList<>();
         List<MineWorkFront> fronts = new ArrayList<>();
         List<MineNavigationAnchor> anchors = new ArrayList<>();
+        Set<UUID> completedInfrastructureTaskIds = new LinkedHashSet<>();
 
         for (int i = 1; i < lines.length; i++) {
             String[] parts = lines[i].split("\\|", -1);
@@ -124,10 +131,19 @@ public final class CivMinePersistenceService {
                     anchors.add(new MineNavigationAnchor(UUID.fromString(parts[1]), UUID.fromString(parts[2]),
                         decodePosition(parts[4]), MineNavigationAnchor.Type.valueOf(parts[3]), decodeIds(parts[5])));
                 }
+                case "I" -> {
+                    if (!supportsInfrastructure) {
+                        throw new IllegalArgumentException("infrastructure completion record in legacy format");
+                    }
+                    requireFieldCount(parts, 2);
+                    completedInfrastructureTaskIds.add(UUID.fromString(parts[1]));
+                }
                 default -> throw new IllegalArgumentException("unknown network record: " + parts[0]);
             }
         }
-        return new MineNetwork(mineId, mainTunnelId, tunnels, rooms, fronts, anchors);
+        return new MineNetwork(
+            mineId, mainTunnelId, tunnels, rooms, fronts, anchors, completedInfrastructureTaskIds
+        );
     }
 
     private static void requireFieldCount(String[] fields, int expected) {
