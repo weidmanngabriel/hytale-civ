@@ -55,6 +55,11 @@ Die Detailregeln dieser Bereiche werden nicht vorab festgelegt, bevor das zugeh�
 - Die Hytale-Welt ist die Wahrheit über tatsächlich ausgehobene und gebaute Blöcke. Das Minennetz speichert keine zweite vollständige Kopie der Weltgeometrie.
 - Deterministisch wiederkehrende Infrastrukturarbeit darf ihre abgeschlossenen Task-IDs im Minennetz speichern, damit sie nach einem Restart nicht erneut angeboten wird. Das ist kein Reparatursystem: Entfernt ein Spieler später fertige Infrastruktur, wird sie nicht allein wegen des fehlenden Weltblocks neu gebaut.
 - Aktuelle Infrastrukturtypen sind `BUILD_SUPPORT`, `BUILD_STEP`, `BUILD_BRIDGE` und `PLACE_LIGHT`. Verpflichtende Passierbarkeitsarbeit kann Priorität 10 besitzen und normalen Weiterbau sperren.
+- Eine Work Front im Zustand `BLOCKED` ist aktuell nicht nutzbar, bleibt aber fachlich potentiell später wieder freigebbar. V1 versucht solche Fronten nicht automatisch periodisch erneut.
+- Eine Work Front im Zustand `ABANDONED` besitzt keine sichere V1-Fortsetzung und wird von autonomen Minern nicht mehr ausgewählt.
+- Terminal gescheiterte native Navigation nach genau einem Repath-Versuch blockiert eine betroffene Abbaufront oder Pflicht-Infrastruktur; normale Support-/Lichtarbeit wird lokal übersprungen.
+- Nicht überbrückbare Lücken, Lava, geflutete begehbare Korridore und dauerhaft nicht auflösbare Pflicht-Brücken/-Stufen führen in V1 zum Aufgeben der betroffenen Front.
+- Normale Support-/Lichtarbeit darf vor dem Überspringen bis zu drei Slices vor oder zurück nach einer gültigen Ersatzposition suchen. Pflicht-Infrastruktur bleibt an das konkrete Hindernis gebunden.
 
 ## Holzfäller
 
