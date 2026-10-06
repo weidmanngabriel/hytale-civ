@@ -5,7 +5,12 @@ import dev.civilizations.core.BuildingBounds;
 import dev.civilizations.core.MineHeading;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class MinerWorkFrontExecutionTest {
 
@@ -21,5 +26,30 @@ final class MinerWorkFrontExecutionTest {
             MinerWorkSystem.initialCenterlineOrigin(connector, MineHeading.SOUTH));
         assertEquals(new BlockPosition(12, 20, 29),
             MinerWorkSystem.initialCenterlineOrigin(connector, MineHeading.NORTH));
+    }
+
+    @Test
+    void runtimePlansMultipleTunnelFrontsAndDelegatesSelectionToCoreScheduler() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
+        );
+
+        assertTrue(source.contains("RUNTIME_PLANNING_TUNNEL_BUDGET"));
+        assertTrue(source.contains("planned.tunnels()"));
+        assertTrue(source.contains("MineFrontTaskScheduler.select"));
+        assertTrue(source.contains("putRuntimeGeometries"));
+        assertFalse(source.contains("V1_PLANNING_TUNNEL_BUDGET = 1"));
+        assertFalse(source.contains("planned.mainTunnel().geometry()"));
+    }
+
+    @Test
+    void completedSliceReopensFrontForFreshTaskSelection() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
+        );
+
+        assertTrue(source.contains("MineWorkFront.State.OPEN"));
+        assertTrue(source.contains("frontCoordinator.releaseFront(plan.frontId)"));
+        assertTrue(source.contains("runtime.clearWorkAssignment()"));
     }
 }
