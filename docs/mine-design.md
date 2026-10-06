@@ -407,11 +407,11 @@ Persist only the state required to continue Civ's mine behaviour, for example:
 
 Open work state, task priority and unfinished work progress belong to the mine/task state rather than to a particular miner. Temporary miner-to-task assignments and capacity reservations do not need to survive a server restart: after load, miners assigned to the mine select again from the persisted open work. Completed tasks are removed from the task system once their durable result is represented by the mine metadata and/or Hytale world state, so finished work cannot be selected again merely because historical task records remain.
 
-Layer 1 persists the semantic `MineNetwork` separately from concrete `MineSegment` excavation progress. The network stores logical tunnels, their parent hierarchy, segment membership, rooms, work fronts and navigation anchors. It does not persist excavated blocks, pathfinding routes, decoration, supports or other world geometry already represented by Hytale.
+`MineNetwork` is the semantic persistent mine state. It stores logical tunnels, their parent hierarchy, rooms, work fronts and navigation anchors. It does not persist excavated blocks, pathfinding routes, decoration, supports or other world geometry already represented by Hytale.
 
-Layer 4 now supplies deterministic Core planning for a nested logical tunnel network, including branch probability, branch continuation, spacing/collision checks and growth-front fairness. Persistence wiring for Layer-4 generator state is deliberately still deferred. The current live miner continues to create and excavate the old concrete `MineSegment` representation and therefore still assigns those legacy runtime segments to the logical main tunnel until the later runtime integration replaces that execution path with the Layer-2/3/4 model. The planned network and the old 4x4 live excavation must not become two permanent competing runtime truths.
+Layer 4 supplies deterministic Core planning for a nested logical tunnel network, including branch probability, branch continuation, spacing/collision checks and growth-front fairness. The live miner consumes this Layer-2/3/4 plan directly through persistent work fronts. Concrete tunnel geometry is regenerated deterministically from the stable mine identity after restart, while Hytale world blocks remain authoritative for excavation progress.
 
-Existing development saves that contain segments but no network are converted at world load into one main-tunnel network using a deterministic main-tunnel ID derived from the mine building ID. All existing segments of that mine are assigned to that main tunnel. No parallel legacy runtime model is retained after conversion.
+Mine persistence uses the current network-only format. Development saves from earlier mine formats are intentionally not migrated; incompatible records are ignored and the mine initializes fresh runtime state on next use.
 
 Use a deterministic seed only where it materially reduces persistence or improves reproducibility without making regeneration expensive.
 
@@ -457,13 +457,13 @@ Layer 1 is implemented with the following current model:
 - `MineTunnel` represents either the one `MAIN` tunnel or a nested `BRANCH`; branch depth follows the parent hierarchy.
 - `MineRoom`, `MineWorkFront` and `MineNavigationAnchor` reference logical tunnel IDs rather than concrete block geometry.
 - `MineNavigationAnchor` may store explicit neighbouring anchor IDs, but these are semantic safe-point connections only; Hytale remains responsible for pathfinding.
-- Concrete `MineSegment` objects remain the current excavation/progress representation and are assigned to exactly one logical tunnel through that tunnel's `segmentIds`.
-- Segment parentage remains temporarily available for the existing straight/junction worker sequence, but it is no longer the authoritative representation of branch topology.
-- Form phases, geometry generation, branch probabilities and work-front scheduling remain intentionally deferred to later layers.
+- `MineTunnel` contains only semantic tunnel identity, kind, parentage, branch depth and origin; concrete excavation geometry is planned separately.
+- `MineRoom`, `MineWorkFront` and `MineNavigationAnchor` reference logical tunnel IDs and do not depend on excavation-segment IDs.
+- Form phases, concrete geometry, branching and work-front scheduling are implemented by the later layers below rather than duplicated in the Layer-1 model.
 
 ### Layer 2 - tunnel path and form phases
 
-Layer 2 is implemented as Hytale-independent planning in Core. It does not yet excavate world blocks and it is not yet wired into the existing `MineSegment` worker sequence; Layer 3 will consume the planned path when concrete tunnel volumes replace the old fixed 4x4 geometry.
+Layer 2 is implemented as Hytale-independent planning in Core. It does not excavate world blocks itself; Layer 3 converts the planned path into concrete tunnel volumes, and the live Hytale miner consumes those Layer-3 slices.
 
 Current Layer-2 model:
 
@@ -495,7 +495,7 @@ Layer 4 is implemented as an Hytale-independent Core planning foundation:
 - Random collisions are normally rejected; a small 5% intentional-crossing opportunity exists, while special crossing geometry remains deferred.
 - `MineWorkFrontGrowthSelector` gives branches ordinary priority while guaranteeing that an available main front is not starved beyond three consecutive branch selections.
 - These values are current tuning values, not persistence contracts; final balancing remains Layer 11 work.
-- The live Hytale miner is not yet wired to this planned network and still excavates the pre-overhaul 4x4 `MineSegment` runtime geometry. Layer 4 must therefore not be read as completion of the later runtime migration.
+- The live Hytale miner is wired to this planned network. It creates or resumes one persistent work front per planned tunnel and executes Layer-3 slices for main and branch tunnels.
 
 See `docs/mine-layer4-implementation.md` for the implementation handoff and explicit limitations.
 
@@ -559,6 +559,6 @@ These should be decided only when their implementation layer needs them.
 
 ## Current implementation checkpoint - NPC layer 4 work fronts
 
-Live miner excavation is now connected to the new tunnel geometry for the current main-tunnel front. The active work unit is one `MineTunnelGeometry.Slice`; its variable width/height and voxel set come from Layers 2/3 rather than the old fixed 4x4 `MineSegment` runtime geometry. A persistent `MineWorkFront` tracks the current semantic front, while already excavated blocks remain world truth.
+Live miner excavation is connected to the Layer-2/3/4 mine plan. The active work unit is one `MineTunnelGeometry.Slice`; its variable width/height and voxel set come directly from the planned tunnel geometry. A persistent `MineWorkFront` tracks the current semantic front for every planned main or branch tunnel, while already excavated blocks remain world truth.
 
-Up to two miners may share that normal tunnel front. Their per-block claims are transient execution coordination and are not stored as permanent worker slots. This layer does not yet activate the complete Layer-4 branch network as miner tasks: multi-front selection, branch task availability, rooms, supports, steps, bridges, lighting, decoration and rails remain separate later integrations. In particular, supports are no longer placed automatically by the excavation loop; they remain dedicated mine work according to `docs/miner-npc-design.md`.
+Up to two miners may share a normal tunnel front. Their per-block claims are transient execution coordination and are not stored as permanent worker slots. After each completed slice, miners select again from currently executable fronts; active fronts with free capacity are filled first, otherwise Branch priority 6 precedes Main priority 4, followed by distance and stable tie-breaking. Rooms, supports, steps, bridges, lighting, decoration and rails remain separate later integrations. Supports are not placed automatically by the excavation loop; they remain dedicated mine work according to `docs/miner-npc-design.md`.
