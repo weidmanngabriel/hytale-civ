@@ -2,6 +2,8 @@
 
 ## Ziel
 
+Optionaler Entwicklungszugriff: `tools/hytale-mcp` besitzt stdio-MCP, Build/Deployment und den lokalen Serverprozess; `CivDevBridge` an der Plugin-Grenze bietet private Loopback-HTTP-Aktionen. Sie verwendet `CivUnitRegistry`, `CivActivityRegistry`, `NpcInfoProvider` und native Aufrufe auf dem World Thread. Der Core enthält keine MCP-/HTTP-Abhängigkeit. Details: [local-mcp.md](local-mcp.md), Begründung: [ADR 0010](decisions/0009-local-development-mcp.md).
+
 Die Simulation soll testbar bleiben, ohne Hytale starten zu müssen. Hytale ist eine Integrationsgrenze und nicht das Domänenmodell.
 
 Vor Version 1 ist Rückwärtskompatibilität kein Ziel, wenn dafür Migrationen, parallele Altpfade, Kompatibilitäts-Defaults oder featurespezifische Ausnahmen nötig wären. Die aktuell dokumentierte Architektur und das Datenmodell sind maßgeblich. Diese Regel muss neu bewertet werden, bevor persistente Spielerwelten oder öffentliche stabile Releases Kompatibilität zu einer Produktanforderung machen.
@@ -295,4 +297,4 @@ Beim Start eines Minen-Upgrades verwendet derselbe verifizierte native `Teleport
 
 `web-viewer/` ist eine eigenständige Vite-/Three.js-Präsentation außerhalb des Plugin-Classpaths. `Replay` rekonstruiert ausschließlich die aufgezeichneten Änderungen. Der Renderer verwendet gerichtete solid/air-Grenzflächen für die freie Spectator-Kamera. Kamera und Playback besitzen keine Gameplay-Regeln. Die Swing-Viewer bleiben als lokale Entwicklungshilfen verfügbar.
 
-Die Actions-/Pages-Grenze und die begrenzte Aufbewahrung sind in [ADR 0009](decisions/0009-browser-simulation-recordings.md) beschrieben. Der veröffentlichte Viewer stammt aus `main`; Branch-Aufzeichnungen identifizieren ihren exakten Quellcode-Commit und Run-Attempt. Der Browser benötigt keine GitHub-Zugangsdaten.
+Die Actions-/Pages-Grenze und die begrenzte Aufbewahrung sind in [ADR 0010](decisions/0010-browser-simulation-recordings.md) beschrieben. Der veröffentlichte Viewer stammt aus `main`; Branch-Aufzeichnungen identifizieren ihren exakten Quellcode-Commit und Run-Attempt. Der Browser benötigt keine GitHub-Zugangsdaten.

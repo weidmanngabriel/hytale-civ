@@ -88,9 +88,37 @@ jobs:
             build/test-results/test/
           if-no-files-found: ignore
 
+  mcp:
+    name: Local MCP (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test MCP protocol and lifecycle guards
+        run: node --test tools/hytale-mcp/test/*.test.mjs
+
+  viewer:
+    name: Browser Viewer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web-viewer/package-lock.json
+      - run: npm ci --prefix web-viewer
+      - run: npm test --prefix web-viewer
+      - run: npm run build --prefix web-viewer
+
   release:
     name: Publish GitHub Release
-    needs: build
+    needs: [build, mcp, viewer]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     permissions:
