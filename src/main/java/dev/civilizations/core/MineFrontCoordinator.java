@@ -81,12 +81,9 @@ public final class MineFrontCoordinator<W> {
         for (UUID frontId : emptyFronts) fronts.remove(frontId);
     }
 
-    public synchronized void clearClaims(UUID frontId) {
-        FrontState<W> state = fronts.get(frontId);
-        if (state == null) return;
-        state.workerClaims.clear();
-        state.blockOwners.clear();
-        cleanup(frontId, state);
+    /** Releases all transient capacity and block ownership after one front work unit completes. */
+    public synchronized void releaseFront(UUID frontId) {
+        if (frontId != null) fronts.remove(frontId);
     }
 
     public synchronized int workerCount(UUID frontId) {
