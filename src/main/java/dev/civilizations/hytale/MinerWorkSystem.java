@@ -205,6 +205,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         RuntimeMinePlan minePlan = ensureRuntimePlan(world, mine, connector);
         if (minePlan == null) return;
+        // Detect passability work before treating already-empty cave slices as completed
+        // excavation. Otherwise a naturally open gap could be skipped before BUILD_BRIDGE exists.
+        refreshBridgeTasks(world, mine, minePlan);
         advanceAlreadyExcavatedSlices(world, mine, minePlan);
         refreshBridgeTasks(world, mine, minePlan);
 
@@ -890,8 +893,13 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         RuntimeMinePlan minePlan
     ) {
         for (RuntimeFrontPlan plan : minePlan.fronts.values()) {
-            while (!plan.complete && sliceComplete(world, plan.slices.get(plan.sliceIndex))) {
+            while (!plan.complete
+                && !hasPendingMandatoryInfrastructure(minePlan, plan)
+                && sliceComplete(world, plan.slices.get(plan.sliceIndex))) {
                 completeCurrentSlice(world, mine, plan);
+                // A newly reached slice can expose a due stair/bridge on the next outer tick.
+                // Stop here rather than skipping multiple semantic work boundaries at once.
+                if (hasPendingMandatoryInfrastructure(minePlan, plan)) break;
             }
         }
     }
