@@ -18,7 +18,7 @@ jobs:
           ref: agent/miner-work-front-v1
           fetch-depth: 0
       - name: Patch maintained docs
-        shell: python
+        shell: python {0}
         run: |
           from pathlib import Path
 
