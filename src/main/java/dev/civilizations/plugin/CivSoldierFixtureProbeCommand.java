@@ -339,6 +339,15 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
                     "CIV_SOLDIER_TARGET_DAMAGE_OBSERVED hostileHealth=" + currentHostileHealth
                 );
             }
+            if (!state.damageMarkerPrinted
+                && state.targetDamageObserved
+                && state.soldierDamageObserved) {
+                state.damageMarkerPrinted = true;
+                System.out.println(
+                    "CIV_SOLDIER_RECIPROCAL_DAMAGE soldierHealth=" + health(primary)
+                        + " hostileHealth=" + currentHostileHealth
+                );
+            }
 
             if (state.resumeObserved
                 && allTrue(state.targetAcquired)
@@ -471,6 +480,7 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
         private final boolean[] chaseObserved;
         private boolean targetDamageObserved;
         private boolean soldierDamageObserved;
+        private boolean damageMarkerPrinted;
         private boolean manualIssued;
         private boolean interruptionObserved;
         private boolean resumeObserved;
