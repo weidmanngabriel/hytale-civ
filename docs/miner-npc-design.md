@@ -676,17 +676,22 @@ Implementation must preserve the repository architecture rules:
 - new gameplay behaviour should be testable at the Core boundary;
 - no speculative systems should be added beyond behaviour required by this specification.
 
-## Current implementation checkpoint - NPC layer 4
+## Current implementation checkpoint - NPC layer 6
 
-The current live miner implementation now covers the execution half of `EXCAVATE_FRONT` for the continuing main tunnel:
+The live miner currently covers planned main/branch excavation fronts, shared front work, miner-built supports/steps/bridges/lights and the V1 obstacle/failure rules from this document.
 
-- one persistent semantic `MineWorkFront` points at the current Layer-3 excavation slice;
-- the slice uses the actual planned variable tunnel cross-section rather than a fixed 4x4 face;
-- a normal tunnel front accepts at most two miners;
-- miners share the front through short-lived block claims, so they cannot work the same block concurrently and no permanent left/right standing slots are introduced;
-- the Hytale world is reconciled as the truth for blocks already excavated, while the front position/state is persisted in `MineNetwork`;
-- Hytale-native movement, the existing looping pickaxe animation and `BlockHarvestUtils.performBlockBreak` execute the physical work;
-- manual interruption, profession changes and disappearing workers release runtime front/claim ownership;
-- support placement is no longer an automatic side effect of excavation. `BUILD_SUPPORT` remains a separate infrastructure task as specified above.
+Implemented obstacle/failure behavior:
 
-This checkpoint intentionally does **not** implement the general multi-task scheduler. Only the current main-tunnel continuation is exposed to live workers, so branch-front selection, priority/aging, room work, infrastructure task selection and distribution of a third miner to another task remain later NPC layers. After one main-tunnel slice completes, the current one-task integration deterministically exposes the next main slice; this is the temporary single-available-task form of the later selection step, not a new priority rule.
+- one native Hytale recompute is attempted for `BLOCKED`/`ABORTED`; terminal failure is then handed back to miner work ownership;
+- unreachable excavation or mandatory-passability work persists the associated front as `BLOCKED`, releases runtime ownership and selects other work;
+- normal support/light work that is unreachable is skipped locally;
+- `BLOCKED` fronts are not automatically retried in V1;
+- safe already-open cave slices with supported floor can be traversed and skipped as completed excavation;
+- bridgeable gaps require a solid approach, accepted span, safe landing and planned continuation;
+- fluid below a bridge span reduces the accepted V1 span to 10 slices; lava makes the crossing unsafe and abandons the front;
+- fluid occupying the navigation corridor is not swum through in V1 and abandons the front;
+- non-bridgeable gaps and unresolved mandatory bridge/step work become `ABANDONED`;
+- normal supports/lights try their preferred slice, then nearest alternatives up to ±3 slices before being skipped;
+- partial infrastructure placement is not rolled back; work is re-resolved against current Hytale world state.
+
+The full general cross-category aging scheduler, room work, large-natural-cave integration as semantic rooms/nodes, explicit unblock/recovery gameplay, materials, decoration and rails remain later work.
