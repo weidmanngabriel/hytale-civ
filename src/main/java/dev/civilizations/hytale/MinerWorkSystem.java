@@ -40,7 +40,6 @@ import org.joml.Vector3i;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -280,7 +279,6 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         CivUnitRegistry.UnitKey workerKey,
         WorkerRuntime runtime
     ) {
-        MineTunnelGeometry.Slice slice = plan.slices.get(plan.sliceIndex);
         BlockPosition target = frontCoordinator.claimNext(
             plan.frontId,
             workerKey,
@@ -425,7 +423,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 MineWorkFront.State.ACTIVE
             );
         }
-        frontCoordinator.clearClaims(plan.frontId);
+        frontCoordinator.releaseFront(plan.frontId);
         tunnelRegistry.putNetwork(world, network.withWorkFront(updated));
         decisionSink.record(
             mine.id(), plan.frontId, MineDecisionCategory.PLANNING, "WORK_UNIT_COMPLETED",
@@ -478,12 +476,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
     private static List<List<BlockPosition>> orderedBlocks(List<MineTunnelGeometry.Slice> slices) {
         List<List<BlockPosition>> result = new ArrayList<>(slices.size());
-        Comparator<BlockPosition> order = Comparator
-            .comparingInt(BlockPosition::y)
-            .thenComparingInt(BlockPosition::x)
-            .thenComparingInt(BlockPosition::z);
         for (MineTunnelGeometry.Slice slice : slices) {
-            result.add(slice.excavationBlocks().stream().sorted(order).toList());
+            result.add(List.copyOf(slice.excavationBlocks()));
         }
         return List.copyOf(result);
     }
@@ -609,10 +603,16 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         return dz >= 0 ? MineHeading.SOUTH : MineHeading.NORTH;
     }
 
-    private static BlockPosition initialCenterlineOrigin(BuildingBounds connector, MineHeading heading) {
-        int x = (int) Math.floor((connector.minX() + connector.maxX()) * 0.5 + heading.unitX());
+    static BlockPosition initialCenterlineOrigin(BuildingBounds connector, MineHeading heading) {
+        int centerX = (int) Math.floor((connector.minX() + connector.maxX()) * 0.5);
+        int centerZ = (int) Math.floor((connector.minZ() + connector.maxZ()) * 0.5);
         int y = (int) Math.floor(connector.minY());
-        int z = (int) Math.floor((connector.minZ() + connector.maxZ()) * 0.5 + heading.unitZ());
+        int x = heading.unitX() > 0.01
+            ? (int) Math.ceil(connector.maxX())
+            : heading.unitX() < -0.01 ? (int) Math.floor(connector.minX()) - 1 : centerX;
+        int z = heading.unitZ() > 0.01
+            ? (int) Math.ceil(connector.maxZ())
+            : heading.unitZ() < -0.01 ? (int) Math.floor(connector.minZ()) - 1 : centerZ;
         return new BlockPosition(x, y, z);
     }
 
