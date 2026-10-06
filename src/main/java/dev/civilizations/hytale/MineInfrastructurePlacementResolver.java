@@ -6,6 +6,7 @@ import com.hypixel.hytale.server.core.asset.type.blocktype.config.RotationTuple;
 import com.hypixel.hytale.server.core.universe.world.World;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.MineInfrastructureTask;
+import dev.civilizations.core.MineObstaclePolicy;
 import dev.civilizations.core.MineTunnel;
 import dev.civilizations.core.MineTunnelGeometry;
 import org.joml.Vector3d;
@@ -43,7 +44,20 @@ public final class MineInfrastructurePlacementResolver {
         MineInfrastructureTask task,
         MineTunnelGeometry geometry
     ) {
-        int index = task.startSliceIndex();
+        for (int index : MineObstaclePolicy.fallbackSliceOrder(
+            task.startSliceIndex(), geometry.slices().size()
+        )) {
+            ResolvedTask resolved = resolveSupportAt(world, geometry, index);
+            if (resolved != null) return resolved;
+        }
+        return null;
+    }
+
+    private static ResolvedTask resolveSupportAt(
+        World world,
+        MineTunnelGeometry geometry,
+        int index
+    ) {
         if (index <= 0 || index >= geometry.slices().size() - 1) return null;
         MineTunnelGeometry.Slice slice = geometry.slices().get(index);
         Cardinal forward = localForward(geometry.slices(), index);
@@ -124,7 +138,21 @@ public final class MineInfrastructurePlacementResolver {
         MineTunnel.Kind tunnelKind,
         MineTunnelGeometry geometry
     ) {
-        int index = task.startSliceIndex();
+        for (int index : MineObstaclePolicy.fallbackSliceOrder(
+            task.startSliceIndex(), geometry.slices().size()
+        )) {
+            ResolvedTask resolved = resolveLightAt(world, tunnelKind, geometry, index);
+            if (resolved != null) return resolved;
+        }
+        return null;
+    }
+
+    private static ResolvedTask resolveLightAt(
+        World world,
+        MineTunnel.Kind tunnelKind,
+        MineTunnelGeometry geometry,
+        int index
+    ) {
         if (index <= 0 || index >= geometry.slices().size() - 1) return null;
         MineTunnelGeometry.Slice slice = geometry.slices().get(index);
         Cardinal forward = localForward(geometry.slices(), index);
