@@ -389,7 +389,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         MineNetwork persisted = tunnelRegistry.networkForMine(key.worldId, mine.id());
         if (!matchesPlan(persisted, planned.network(), frontIds)) {
-            if (persisted != null || !tunnelRegistry.segmentsForMine(key.worldId, mine.id()).isEmpty()) {
+            if (persisted != null) {
                 tunnelRegistry.removeMine(world, mine.id());
             }
             persisted = planned.network();
