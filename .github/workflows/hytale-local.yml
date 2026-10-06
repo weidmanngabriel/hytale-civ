@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   authorize:
@@ -17,6 +18,9 @@ jobs:
       head_sha: ${{ steps.gate.outputs.head_sha }}
       requested_by: ${{ steps.gate.outputs.requested_by }}
       scenarios: ${{ steps.gate.outputs.scenarios }}
+      artifact_available: ${{ steps.gate.outputs.artifact_available }}
+      artifact_name: ${{ steps.gate.outputs.artifact_name }}
+      artifact_run_id: ${{ steps.gate.outputs.artifact_run_id }}
 
     steps:
       - name: Validate runtime request
@@ -25,6 +29,9 @@ jobs:
         with:
           script: |
             core.setOutput('authorized', 'false');
+            core.setOutput('artifact_available', 'false');
+            core.setOutput('artifact_name', '');
+            core.setOutput('artifact_run_id', '');
 
             const requestIssue = 126;
             const allowedActors = new Set(['weidmanngabriel']);
@@ -129,16 +136,55 @@ jobs:
               selected = requested;
             }
 
+            const artifactName = `hytale-runtime-plugin-${headSha}`;
+            let artifactRunId = '';
+            try {
+              const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+                owner,
+                repo,
+                workflow_id: 'ci.yml',
+                head_sha: headSha,
+                status: 'completed',
+                per_page: 100,
+              });
+
+              const successfulRuns = runs
+                .filter(run => run.conclusion === 'success')
+                .sort((left, right) => right.run_number - left.run_number);
+
+              for (const run of successfulRuns) {
+                const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
+                  owner,
+                  repo,
+                  run_id: run.id,
+                  per_page: 100,
+                });
+                const matchingArtifact = artifacts.find(artifact => artifact.name === artifactName && !artifact.expired);
+                if (matchingArtifact) {
+                  artifactRunId = String(run.id);
+                  break;
+                }
+              }
+            } catch (error) {
+              core.warning(`Could not inspect CI artifacts for ${headSha}; local Gradle fallback will be used: ${error.message}`);
+            }
+
             core.setOutput('authorized', 'true');
             core.setOutput('head_sha', headSha);
             core.setOutput('requested_by', actor);
             core.setOutput('scenarios', selected.join(','));
+            core.setOutput('artifact_name', artifactName);
+            core.setOutput('artifact_run_id', artifactRunId);
+            core.setOutput('artifact_available', artifactRunId ? 'true' : 'false');
 
             console.log('Authorized Hytale runtime request');
             console.log(`Request issue: #${requestIssue}`);
             console.log(`Commit: ${headSha}`);
             console.log(`Requested by: ${actor}`);
             console.log(`Scenarios: ${selected.join(', ')}`);
+            console.log(artifactRunId
+              ? `Using tested CI artifact ${artifactName} from workflow run ${artifactRunId}.`
+              : `No successful CI artifact found for ${headSha}; local Gradle fallback will run.`);
 
   local-runtime-probe:
     name: Verify local Hytale gameplay runtime
@@ -148,6 +194,7 @@ jobs:
     timeout-minutes: 12
     permissions:
       contents: read
+      actions: read
 
     steps:
       - name: Check out exact authorized revision
@@ -215,7 +262,32 @@ jobs:
           Write-Host 'Hytale server JAR: OK'
           Write-Host 'Hytale Assets.zip: OK'
 
-      - name: Run tests and build Civ plugin
+      - name: Download tested CI plugin
+        if: needs.authorize.outputs.artifact_available == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.authorize.outputs.artifact_name }}
+          path: build/libs
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.authorize.outputs.artifact_run_id }}
+
+      - name: Record CI artifact reuse
+        if: needs.authorize.outputs.artifact_available == 'true'
+        shell: 'powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $jars = @(Get-ChildItem -Path 'build\libs' -Filter 'hytale-civ-*.jar' -File)
+          if ($jars.Count -ne 1) {
+            throw "Expected exactly one downloaded Civ plugin JAR, found $($jars.Count)."
+          }
+          Write-Host "Reusing tested CI plugin: $($jars[0].Name)"
+          if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+            Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- Plugin source: **tested CI artifact**"
+          }
+
+      - name: Run tests and build Civ plugin fallback
+        if: needs.authorize.outputs.artifact_available != 'true'
         shell: 'powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"'
         run: |
           $ErrorActionPreference = 'Stop'
@@ -233,6 +305,7 @@ jobs:
             $seconds = [Math]::Round($gradleTimer.Elapsed.TotalSeconds, 2)
             Write-Host "HCIV_TIMING gradle_test_jar_seconds=$seconds"
             if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+              Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- Plugin source: **local Gradle fallback**"
               Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- Gradle test + jar: **$seconds s**"
             }
           }
