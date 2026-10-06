@@ -44,7 +44,7 @@ class CivMinePersistenceServiceTest {
     }
 
     @Test
-    void roundTripKeepsMineNetworkTopology() {
+    void roundTripKeepsMineNetworkTopologyAndMultipleFronts() {
         UUID mineId = UUID.randomUUID();
         UUID mainId = UUID.randomUUID();
         UUID branchId = UUID.randomUUID();
@@ -57,6 +57,8 @@ class CivMinePersistenceServiceTest {
                 new BlockPosition(10, 2, 3), List.of(segmentId)))
             .withRoom(new MineRoom(UUID.randomUUID(), branchId, MineRoom.Type.SMALL_NICHE,
                 new BlockPosition(12, 2, 4)))
+            .withWorkFront(new MineWorkFront(UUID.randomUUID(), mainId,
+                new BlockPosition(8, 2, 3), MineWorkFront.State.ACTIVE))
             .withWorkFront(new MineWorkFront(UUID.randomUUID(), branchId,
                 new BlockPosition(16, 2, 3), MineWorkFront.State.OPEN));
 
