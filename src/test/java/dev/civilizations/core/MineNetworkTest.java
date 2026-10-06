@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MineNetworkTest {
 
@@ -44,6 +45,11 @@ class MineNetworkTest {
         assertEquals(room, network.rooms().getFirst());
         assertEquals(front, network.workFronts().getFirst());
         assertEquals(2, network.navigationAnchors().size());
+
+        UUID infrastructureTaskId = UUID.randomUUID();
+        MineNetwork completed = network.withInfrastructureTaskCompleted(infrastructureTaskId);
+        assertTrue(completed.infrastructureTaskCompleted(infrastructureTaskId));
+        assertEquals(Set.of(infrastructureTaskId), completed.completedInfrastructureTaskIds());
     }
 
     @Test
