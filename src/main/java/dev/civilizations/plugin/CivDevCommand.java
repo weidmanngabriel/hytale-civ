@@ -32,6 +32,7 @@ import dev.civilizations.core.Profession;
 import dev.civilizations.core.WorldPosition;
 import dev.civilizations.hytale.CivActivityRegistry;
 import dev.civilizations.hytale.CivInhabitantData;
+import dev.civilizations.hytale.CivMineDebugService;
 import dev.civilizations.hytale.CivMinerAssignmentService;
 import dev.civilizations.hytale.CivUnitRegistry;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
@@ -62,6 +63,7 @@ final class CivDevCommand extends AbstractCommandCollection {
         CivActivityRegistry activities,
         CivMinerAssignmentService minerAssignments,
         BuildingPlacementRegistry buildings,
+        CivMineDebugService mineDebug,
         CivDevScenarioService scenarios,
         CivDevEventHistory history
     ) {
@@ -72,6 +74,7 @@ final class CivDevCommand extends AbstractCommandCollection {
         addSubCommand(new MoveCommand(units, activities));
         addSubCommand(new ProfessionCommand(units));
         addSubCommand(new MinesCommand(buildings, units, activities));
+        addSubCommand(new MineInfoCommand(mineDebug));
         addSubCommand(new AssignMineCommand(buildings, minerAssignments));
         addSubCommand(new CivDevScenarioCommand(scenarios));
         addSubCommand(new CivDevResetCommand(scenarios));
@@ -412,6 +415,50 @@ final class CivDevCommand extends AbstractCommandCollection {
                 case NOT_A_MINE -> context.sendMessage(Message.raw("CIVDEV_ERROR building is not a mine"));
                 case UPGRADING -> context.sendMessage(Message.raw("CIVDEV_ERROR mine is upgrading"));
                 case MISSING_CONNECTOR -> context.sendMessage(Message.raw("CIVDEV_ERROR mine has no valid tunnel connector"));
+            }
+        }
+    }
+
+    private static final class MineInfoCommand extends WorldCommand {
+        private final RequiredArg<UUID> mineUuid;
+        private final CivMineDebugService mineDebug;
+
+        MineInfoCommand(CivMineDebugService mineDebug) {
+            super("mine-info", "Shows tunnel and work-front state for a registered mine.");
+            this.mineDebug = mineDebug;
+            mineUuid = withRequiredArg("mine", "Mine UUID from civdev mines.", ArgTypes.UUID);
+        }
+
+        @Override
+        protected void executeWorld(CommandContext context, World world, Store<EntityStore> store) {
+            UUID worldId = world.getWorldConfig().getUuid();
+            UUID id = context.get(mineUuid);
+            CivMineDebugService.MineDebugSnapshot snapshot = mineDebug.snapshot(worldId, id);
+            if (snapshot == null) {
+                context.sendMessage(Message.raw("CIVDEV_ERROR mine not found in the default world: " + id));
+                return;
+            }
+
+            BuildingPlacementRegistry.BuildingInstance mine = snapshot.mine();
+            context.sendMessage(Message.raw(
+                "CIVDEV_MINE_INFO id=" + id + " phase=" + mine.phase()
+                    + " tunnels=" + snapshot.tunnels().size()
+                    + " active=" + snapshot.activeFrontCount()
+                    + " open=" + snapshot.openFrontCount()
+            ));
+            for (CivMineDebugService.TunnelDebugSnapshot tunnel : snapshot.tunnels()) {
+                String front = tunnel.front() == null ? "none"
+                    : tunnel.front().state() + "@" + tunnel.front().position();
+                String slices = tunnel.geometry() == null ? "not-generated"
+                    : Integer.toString(tunnel.geometry().slices().size());
+                context.sendMessage(Message.raw(
+                    "tunnel=" + tunnel.tunnel().id()
+                        + " kind=" + tunnel.tunnel().kind()
+                        + " depth=" + tunnel.tunnel().branchDepth()
+                        + " origin=" + tunnel.tunnel().origin()
+                        + " front=" + front
+                        + " slices=" + slices
+                ));
             }
         }
     }

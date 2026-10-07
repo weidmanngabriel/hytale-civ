@@ -50,6 +50,27 @@ public final class CivMineDebugService {
         BuildingPlacementRegistry.BuildingInstance mine = nearestMine(worldId, playerPosition);
         if (mine == null) return null;
 
+        return snapshot(worldId, mine, playerPosition);
+    }
+
+    public MineDebugSnapshot snapshot(UUID worldId, UUID mineId) {
+        BuildingPlacementRegistry.BuildingInstance mine =
+            buildingRegistry.findIncludingUpgrading(worldId, mineId);
+        if (mine == null || !MINE_BUILDING.equals(mine.buildingType())) return null;
+        Vector3dc center = new org.joml.Vector3d(
+            (mine.bounds().minX() + mine.bounds().maxX()) * 0.5,
+            (mine.bounds().minY() + mine.bounds().maxY()) * 0.5,
+            (mine.bounds().minZ() + mine.bounds().maxZ()) * 0.5
+        );
+        return snapshot(worldId, mine, center);
+    }
+
+    private MineDebugSnapshot snapshot(
+        UUID worldId,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        Vector3dc referencePosition
+    ) {
+
         MineNetwork network = tunnelRegistry.networkForMine(worldId, mine.id());
         Map<UUID, MineTunnelGeometry> geometries = tunnelRegistry.geometriesForMine(worldId, mine.id());
         List<TunnelDebugSnapshot> tunnels = new ArrayList<>();
@@ -63,7 +84,7 @@ public final class CivMineDebugService {
             }
         }
 
-        double distance = horizontalDistance(playerPosition, mine.bounds());
+        double distance = horizontalDistance(referencePosition, mine.bounds());
         return new MineDebugSnapshot(mine, distance, tunnels);
     }
 
