@@ -442,15 +442,18 @@ public final class SimulationRecordingExporter {
         Set<BlockPosition> excavation = new LinkedHashSet<>();
         tunnels.forEach(tunnel -> excavation.addAll(tunnel.geometry().excavationBlocks()));
         if (excavation.isEmpty()) return Map.of();
-        int minX = excavation.stream().mapToInt(BlockPosition::x).min().orElseThrow() - 2;
-        int maxX = excavation.stream().mapToInt(BlockPosition::x).max().orElseThrow() + 2;
-        int minY = excavation.stream().mapToInt(BlockPosition::y).min().orElseThrow() - 2;
-        int maxY = excavation.stream().mapToInt(BlockPosition::y).max().orElseThrow() + 2;
-        int minZ = excavation.stream().mapToInt(BlockPosition::z).min().orElseThrow() - 2;
-        int maxZ = excavation.stream().mapToInt(BlockPosition::z).max().orElseThrow() + 2;
+
+        // The replay only needs rock close to planned excavation. Filling one bounding cuboid
+        // across a branched network stores and renders vast untouched regions between tunnels.
         Map<BlockPosition, Integer> world = new LinkedHashMap<>();
-        for (int x = minX; x <= maxX; x++) for (int y = minY; y <= maxY; y++) for (int z = minZ; z <= maxZ; z++) {
-            world.put(new BlockPosition(x, y, z), ROCK);
+        for (BlockPosition block : excavation) {
+            for (int dx = -2; dx <= 2; dx++) {
+                for (int dy = -2; dy <= 2; dy++) {
+                    for (int dz = -2; dz <= 2; dz++) {
+                        world.put(new BlockPosition(block.x() + dx, block.y() + dy, block.z() + dz), ROCK);
+                    }
+                }
+            }
         }
         return world;
     }
