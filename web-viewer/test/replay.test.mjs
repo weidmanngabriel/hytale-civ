@@ -16,6 +16,10 @@ test('seeking backwards reconstructs removed rock and forward support placement 
   replay.seek(0);assert.equal(replay.world.get('0,0,0'),1);
   replay.seek(2);assert.equal(replay.world.get('1,0,0'),1);
 });
+test('accepts semantic-slice mine recordings',()=>{
+  const replay=new Replay({...sample(),timeUnit:'semantic-slice'});
+  assert.equal(replay.data.timeUnit,'semantic-slice');
+});
 test('reject incompatible replay data instead of showing an old or partial state',()=>{
   assert.throws(()=>new Replay({...sample(),schemaVersion:2}));
   const data=sample();data.frames[1].changes=[[1,2,3,9]];assert.throws(()=>new Replay(data));
