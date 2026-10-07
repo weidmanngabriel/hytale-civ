@@ -210,7 +210,7 @@ public final class SimulationRecordingExporter {
 
             Map<BlockPosition, Integer> world = prefabPlatform(access);
             recorder = new Recorder(world, rockBounds(plan.tunnels()));
-            markers.addAll(plan.tunnels().stream().map(SimulationRecordingExporter::tunnelMarker).toList());
+            markers.addAll(plan.tunnels().stream().map(SimulationRecordingExporter::plannedTunnelMarker).toList());
             markers.add(pointMarker("mine-access", "workplace_access", access));
             markers.add(pointMarker("mine-connector", "mine_tunnel_connector", connector));
 
@@ -222,11 +222,17 @@ public final class SimulationRecordingExporter {
             );
             markers.add(sliceMarker("water-gap", "water_obstacle", main.geometry(), bridgeStart, bridgeEnd));
 
+            Set<UUID> parentTunnelIds = ordered.stream()
+                .map(tunnel -> tunnel.tunnel().parentTunnelId())
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
             MineNetworkGrowthPlanner.PlannedTunnel hazardous = ordered.stream()
                 .filter(tunnel -> tunnel.tunnel().kind() == MineTunnel.Kind.BRANCH)
-                .findFirst().orElse(null);
+                .filter(tunnel -> !parentTunnelIds.contains(tunnel.tunnel().id()))
+                .max((a, b) -> Integer.compare(a.geometry().slices().size(), b.geometry().slices().size()))
+                .orElse(null);
+            int hazardSlice = hazardous == null ? -1 : lateHazardSlice(hazardous.geometry());
             if (hazardous != null) {
-                int hazardSlice = Math.min(4, hazardous.geometry().slices().size() - 1);
                 markers.add(sliceMarker("lava-front", "lava_obstacle", hazardous.geometry(), hazardSlice, hazardSlice));
             }
 
@@ -321,7 +327,7 @@ public final class SimulationRecordingExporter {
 
                     boolean abandonHere = hazardous != null
                         && tunnelId.equals(hazardous.tunnel().id())
-                        && sliceIndex == Math.min(4, tunnel.geometry().slices().size() - 1);
+                        && sliceIndex == hazardSlice;
                     if (abandonHere) {
                         for (int worker : workersAtFront) {
                             minerPositions[worker] = slice.floorCenter();
@@ -420,6 +426,13 @@ public final class SimulationRecordingExporter {
                 if (allFrontsTerminal(ordered, progress, abandoned)) break;
             }
 
+            for (var tunnel : ordered) {
+                int developedSlices = progress.getOrDefault(tunnel.tunnel().id(), 0);
+                if (developedSlices > 0) {
+                    markers.add(developedTunnelMarker(tunnel, developedSlices));
+                }
+            }
+
             for (int i = 0; i < minerStates.length; i++) {
                 minerStates[i] = "COMPLETE";
                 minerTunnels[i] = null;
@@ -468,6 +481,59 @@ public final class SimulationRecordingExporter {
             abandoned.contains(tunnel.tunnel().id())
                 || progress.getOrDefault(tunnel.tunnel().id(), 0) >= tunnel.geometry().slices().size()
         );
+    }
+
+    private static int lateHazardSlice(MineTunnelGeometry geometry) {
+        int size = geometry.slices().size();
+        return Math.min(size - 2, Math.max(12, (size * 2) / 3));
+    }
+
+    private static Marker plannedTunnelMarker(MineNetworkGrowthPlanner.PlannedTunnel tunnel) {
+        return boundedTunnelMarker(
+            "planned-" + tunnel.tunnel().id(),
+            tunnel.tunnel().kind() == MineTunnel.Kind.MAIN
+                ? "planned_main_tunnel"
+                : "planned_branch_tunnel",
+            tunnel.geometry().slices(),
+            tunnel.geometry().slices().size()
+        );
+    }
+
+    private static Marker developedTunnelMarker(
+        MineNetworkGrowthPlanner.PlannedTunnel tunnel,
+        int developedSlices
+    ) {
+        return boundedTunnelMarker(
+            "developed-" + tunnel.tunnel().id(),
+            tunnel.tunnel().kind() == MineTunnel.Kind.MAIN
+                ? "developed_main_tunnel"
+                : "developed_branch_tunnel",
+            tunnel.geometry().slices(),
+            Math.min(developedSlices, tunnel.geometry().slices().size())
+        );
+    }
+
+    private static Marker boundedTunnelMarker(
+        String id,
+        String type,
+        List<MineTunnelGeometry.Slice> slices,
+        int sliceCount
+    ) {
+        int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+        for (int i = 0; i < sliceCount; i++) {
+            for (BlockPosition block : slices.get(i).excavationBlocks()) {
+                minX = Math.min(minX, block.x());
+                minY = Math.min(minY, block.y());
+                minZ = Math.min(minZ, block.z());
+                maxX = Math.max(maxX, block.x());
+                maxY = Math.max(maxY, block.y());
+                maxZ = Math.max(maxZ, block.z());
+            }
+        }
+        return new Marker(id, type, new double[]{
+            minX, minY, minZ, maxX + 1.0, maxY + 1.0, maxZ + 1.0
+        });
     }
 
     private static Map<BlockPosition, Integer> prefabPlatform(BlockPosition access) {
