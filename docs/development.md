@@ -157,6 +157,8 @@ Alternativ:
 
 Der Task kopiert sowohl das Plugin-JAR als auch <code>hytale-civ-assets/</code> in das konfigurierte Mods-Verzeichnis. Normale Tests und Builds benötigen diese Einstellung nicht.
 
+Das Plugin-JAR enthält außerdem die benötigten Bibliotheken aus Gradles <code>runtimeClasspath</code>. Hytales Plugin-Lader löst Gradle-Abhängigkeiten nicht selbst auf. Die Hytale-Server-API bleibt eine Compile-only-Abhängigkeit und wird nicht in das Plugin-JAR gepackt.
+
 ## Hytale Local / Runtime-Tests
 
 Hytale Local bezeichnet im Projekt die gezielte Ausführung echter Hytale-Runtime-Szenarien auf dem lokalen Windows-Self-Hosted-Runner. Es ergänzt Unit-, Simulations- und Adaptertests dort, wo eine Frage nur in der echten Engine zuverlässig beantwortet werden kann, zum Beispiel bei Lifecycle, Event-Dispatch, Navigation, Client-/Server-Interaktion, Asset-Verhalten oder anderen runtime-abhängigen Hytale-Verträgen.

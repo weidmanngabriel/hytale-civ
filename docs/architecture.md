@@ -52,6 +52,8 @@ Die Headless-Simulation ist keine zweite Gameplay-Implementierung und kein Ersat
 
 Adapter zwischen Hytale-Konzepten und Core-Konzepten. Entitäten, NPCs, Weltzugriff, Navigation, Kamera, Eingabe, UI und Rendering gehören hierher.
 
+Das Plugin-JAR enthält neben Civ-Klassen auch die zur Laufzeit benötigten `implementation`-Bibliotheken. Hytale erhält diese Abhängigkeiten nicht automatisch aus Gradles Build-Konfiguration; deshalb werden die JARs aus `runtimeClasspath` beim Paketieren in das Plugin-JAR übernommen. Die Hytale-Server-API bleibt `compileOnly` und wird nicht mit ausgeliefert.
+
 Der aktuelle RTS-Validierungsprototyp sowie Farm- und Holzfäller-Slice enthalten bewusst kleine Hytale-nahe Komponenten:
 
 - <code>RtsCameraController</code> setzt die feste schräge Cursor-Kamera und gibt die Kontrolle über Hytales nativen <code>CameraManager.resetCamera</code>-Lifecycle zurück. RTS-Modus schaltet nicht in den Spectator-Modus.

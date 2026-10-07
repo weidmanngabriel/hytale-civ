@@ -81,6 +81,14 @@ tasks.withType<Test>().configureEach {
 
 val pluginJar = tasks.named<Jar>("jar") {
     archiveBaseName = artifactBaseName
+    // Hytale loads plugin JARs without resolving Gradle's implementation dependencies.
+    // Include runtime libraries used by plugin code (currently Jackson) in the plugin JAR.
+    from({
+        configurations.runtimeClasspath.get()
+            .filter { it.isFile && it.extension == "jar" }
+            .map { zipTree(it) }
+    })
+    duplicatesStrategy = org.gradle.api.file.DuplicatesStrategy.EXCLUDE
     manifest {
         attributes(
             "Implementation-Title" to "Hytale Civ Plugin",
