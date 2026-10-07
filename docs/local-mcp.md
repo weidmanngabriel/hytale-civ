@@ -64,4 +64,4 @@ Diese Werkzeuge besitzen nur den von ihnen selbst gestarteten Prozess. `hytale_l
 node --test tools/hytale-mcp/test/*.test.mjs
 ```
 
-Die Node-Tests prüfen MCP-Protokoll, Command-Transport, Status, Build-/Deployment-Lifecycle und Fehlerfälle. Java-Tests prüfen den localhost-only HTTP-Endpunkt. Ein echter In-Game-Durchlauf muss zusätzlich bestätigen, dass die installierte Civ-Mod den Port öffnet und Hytales `CommandManager` Command-Ausgabe wie erwartet zurückliefert.
+Die Node-Tests prüfen MCP-Protokoll, Command-Transport, Status, Build-/Deployment-Lifecycle und Fehlerfälle. Der Java-Build prüft die verwendeten Hytale-API-Signaturen. Ein echter In-Game-Durchlauf muss zusätzlich bestätigen, dass die installierte Civ-Mod den Port öffnet und Hytales `CommandManager` Command-Ausgabe wie erwartet zurückliefert.
