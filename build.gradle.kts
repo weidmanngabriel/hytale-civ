@@ -24,8 +24,6 @@ repositories {
 val hytaleServerVersion = providers.gradleProperty("hytaleServerVersion").get()
 val artifactBaseName = providers.gradleProperty("artifactBaseName").getOrElse("hytale-civ")
 val assetPackDir = layout.projectDirectory.dir("asset-pack")
-val buildVersion = project.version.toString()
-val manifestVersionPattern = Regex("\"Version\"\\s*:\\s*\"[^\"]+\"")
 val hytaleServerRuntime = configurations.create("hytaleServerRuntime") {
     isCanBeConsumed = false
     isCanBeResolved = true
@@ -57,14 +55,19 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.processResources {
+    val resolvedManifestVersion = project.version.toString()
     filesMatching("manifest.json") {
         filter { line ->
-            line.replace(manifestVersionPattern, "\"Version\": \"$buildVersion\"")
+            line.replace(
+                Regex("\"Version\"\\s*:\\s*\"[^\"]+\""),
+                "\"Version\": \"$resolvedManifestVersion\""
+            )
         }
     }
 }
 
 tasks.withType<Test>().configureEach {
+    systemProperty("projectVersion", project.version.toString())
     useJUnitPlatform()
     testLogging {
         events("failed", "skipped")
@@ -87,6 +90,8 @@ val pluginJar = tasks.named<Jar>("jar") {
 }
 
 val releaseBundle = tasks.register<Zip>("releaseBundle") {
+    val resolvedManifestVersion = project.version.toString()
+
     group = "distribution"
     description = "Packages the plugin JAR and editable Hytale asset pack into one release ZIP."
     dependsOn(pluginJar)
@@ -103,7 +108,10 @@ val releaseBundle = tasks.register<Zip>("releaseBundle") {
         into("$artifactBaseName-assets")
         filesMatching("manifest.json") {
             filter { line ->
-                line.replace(manifestVersionPattern, "\"Version\": \"$buildVersion\"")
+                line.replace(
+                    Regex("\"Version\"\\s*:\\s*\"[^\"]+\""),
+                    "\"Version\": \"$resolvedManifestVersion\""
+                )
             }
         }
     }
@@ -219,6 +227,8 @@ hytaleServerBareProbe.configure {
 }
 
 tasks.register("deployToHytale") {
+    val resolvedManifestVersion = project.version.toString()
+
     group = "development"
     description = "Builds and copies the plugin JAR plus editable asset pack to HYTALE_MODS_DIR (or -PhytaleModsDir)."
     dependsOn(pluginJar)
@@ -241,7 +251,10 @@ tasks.register("deployToHytale") {
             into(file(destination).resolve("$artifactBaseName-assets"))
             filesMatching("manifest.json") {
                 filter { line ->
-                    line.replace(manifestVersionPattern, "\"Version\": \"$buildVersion\"")
+                    line.replace(
+                        Regex("\"Version\"\\s*:\\s*\"[^\"]+\""),
+                        "\"Version\": \"$resolvedManifestVersion\""
+                    )
                 }
             }
         }
