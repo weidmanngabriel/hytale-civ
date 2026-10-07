@@ -34,6 +34,12 @@ Prefabs, die Civ zur Laufzeit aus dem separaten `hytale-civ-assets`-Pack benöti
 
 Bei der späteren Weltabfrage darf Civ außerdem nicht davon ausgehen, dass die Schreibweise einer Block-ID exakt der Schreibweise im Prefab-JSON entspricht. Im Minen-Runtime-Test wurde der Querbalken aus `Wood_Fir_Trunk` als `wood_fir_trunk` beobachtet. Vergleiche zwischen erwarteten Prefab-Blocktypen und `BlockType.getId()` müssen deshalb für denselben Asset-Namen gegenüber Groß-/Kleinschreibung tolerant sein. Das ist nur eine ID-Normalisierung; unterschiedliche Blocktypen dürfen dadurch nicht zusammengefasst werden.
 
+## Minenraum-Prefabs
+
+Layer 6 verwendet die bestehende native Prefab-Grenze auch für unterirdische Räume, behandelt einen Minenraum aber nicht als eigenständiges Civ-Gebäude. Es gibt deshalb keine zusätzliche Building-ID, Spielerplatzierung, Baustellen-Preview oder Gebäude-Trigger-Lifecycle pro Raum.
+
+Die drei V1-Testprefabs werden über `PrefabStore.getAssetPrefabFromAnyPack(...)` geladen. Civ rotiert die geladene `BlockSelection` am authored Anchor mit der bereits verifizierten 90-Grad-Orientierungsabbildung und platziert einzelne belegte Y-Layer als kleine `BUILD_ROOM`-Abschnitte über `BlockSelection.placeNoReturn(...)`. Diese Nutzung wurde erneut gegen die gepinnte `HytaleServer.jar` verifiziert. Die Prefabs enthalten bewusst nur einfache Blöcke; spätere visuelle Varianten können ausgetauscht werden, ohne den Raumplaner zu ändern.
+
 ## Anker und Höhe
 
 Für einfache Creator-Prefabs liegt der logische Civ-Bauanker weiterhin einen Block unter dem anvisierten Oberflächenblock. `groundSinkBlocks` wird bei der Erzeugung dieses terrain-relativen Civ-Ankers angewendet.
