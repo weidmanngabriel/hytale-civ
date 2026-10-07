@@ -111,6 +111,10 @@ public final class CivilizationsPlugin extends JavaPlugin {
         CivPlayerRigDebugService playerRigDebugService =
             new CivPlayerRigDebugService(inhabitantDataType);
         CivActivityRegistry activityRegistry = new CivActivityRegistry(unitRegistry);
+        CivDevEventHistory devEventHistory = new CivDevEventHistory();
+        CivDevRuntimeState devRuntimeState = new CivDevRuntimeState();
+        CivDevScenarioService devScenarioService =
+            new CivDevScenarioService(unitRegistry, devRuntimeState, devEventHistory);
         CivSelectedNpcHudController selectedNpcHudController =
             new CivSelectedNpcHudController(unitRegistry, activityRegistry);
         FarmBuildingRegistry farmRegistry = new FarmBuildingRegistry(unitRegistry);
@@ -206,6 +210,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getEntityStoreRegistry().registerSystem(constructionWorkSystem);
         getEntityStoreRegistry().registerSystem(soldierWorkSystem);
         getEntityStoreRegistry().registerSystem(
+            new CivDevEventTraceSystem(unitRegistry, activityRegistry, devEventHistory)
+        );
+        getEntityStoreRegistry().registerSystem(
             new CivInhabitantLifecycleSystem(
                 inhabitantDataType,
                 inhabitantService,
@@ -229,7 +236,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
         );
 
         commandBridge = new CivCommandBridge(getLogger());
-        getCommandRegistry().registerCommand(new CivDevCommand(unitRegistry, activityRegistry));
+        getCommandRegistry().registerCommand(
+            new CivDevCommand(unitRegistry, activityRegistry, devScenarioService, devEventHistory)
+        );
         getCommandRegistry().registerCommand(new CivTestCommand());
         if (Boolean.getBoolean("civilizations.runtimeProbe")) {
             getEntityStoreRegistry().registerSystem(new CivRuntimeDamageTraceSystem());

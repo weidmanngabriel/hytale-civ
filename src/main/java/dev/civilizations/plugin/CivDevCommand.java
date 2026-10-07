@@ -55,13 +55,21 @@ import java.util.function.BiConsumer;
 final class CivDevCommand extends AbstractCommandCollection {
     private static final int NPC_LIST_LIMIT = 100;
 
-    CivDevCommand(CivUnitRegistry units, CivActivityRegistry activities) {
+    CivDevCommand(
+        CivUnitRegistry units,
+        CivActivityRegistry activities,
+        CivDevScenarioService scenarios,
+        CivDevEventHistory history
+    ) {
         super("civdev", "Console-capable Civilizations development commands.");
         addSubCommand(new NpcsCommand(units, activities));
         addSubCommand(new NpcCommand(units, activities));
-        addSubCommand(new SpawnCommand(units));
+        addSubCommand(new SpawnCommand(units, scenarios));
         addSubCommand(new MoveCommand(units, activities));
         addSubCommand(new ProfessionCommand(units));
+        addSubCommand(new CivDevScenarioCommand(scenarios));
+        addSubCommand(new CivDevResetCommand(scenarios));
+        addSubCommand(new CivDevEventsCommand(history));
     }
 
     private abstract static class WorldCommand extends AbstractAsyncCommand {
@@ -185,10 +193,12 @@ final class CivDevCommand extends AbstractCommandCollection {
         private final RequiredArg<Double> y;
         private final RequiredArg<Double> z;
         private final CivUnitRegistry units;
+        private final CivDevScenarioService scenarios;
 
-        SpawnCommand(CivUnitRegistry units) {
+        SpawnCommand(CivUnitRegistry units, CivDevScenarioService scenarios) {
             super("spawn", "Spawns a native Hytale NPC in the default world.");
             this.units = units;
+            this.scenarios = scenarios;
             role = withRequiredArg("role", "Native Hytale NPC role.", ArgTypes.STRING);
             x = withRequiredArg("x", "World X coordinate.", ArgTypes.DOUBLE);
             y = withRequiredArg("y", "World Y coordinate.", ArgTypes.DOUBLE);
@@ -222,9 +232,11 @@ final class CivDevCommand extends AbstractCommandCollection {
                     claimed = units.toggleClaim(ref);
                 }
                 UUIDComponent uuid = store.getComponent(ref, UUIDComponent.getComponentType());
+                UUID trackedUuid = scenarios.registerSpawned(ref, resolved);
                 context.sendMessage(Message.raw(
                     "CIVDEV_SPAWNED uuid=" + (uuid == null ? "unavailable" : uuid.getUuid())
                         + " role=" + resolved + " claimed=" + claimed
+                        + " resetTracked=" + (trackedUuid != null)
                 ));
             } catch (RuntimeException exception) {
                 context.sendMessage(Message.raw(

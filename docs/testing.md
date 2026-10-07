@@ -239,3 +239,8 @@ Mobilgeräte-FPS und tatsächliche Hytale-Navigation sind durch die headless Che
 ## Live-MCP-Grenzen
 
 `DevEntityTrackerTest` schützt Reset gegen Löschen ausgewählter bestehender Bewohner und behält nicht entfernte eigene NPCs für einen späteren Versuch. Die Node-Live-Tests verbinden einen externen HTTP-Testserver und prüfen Zugangsdaten, Session-Mismatch, Attach/Detach sowie gesperrtes Start/Stop/Deployment ohne Prozessbesitz. Ein echter Client-/Einzelspieler-Durchlauf bleibt offen; die manuelle Schrittfolge steht in [local-mcp.md](local-mcp.md).
+
+
+## Civdev/MCP-Diagnostik
+
+Die lokale `civdev`-Diagnostik ist kein Ersatz für Gameplay-Tests. Reine Zustandscontainer wie die begrenzte Event-Historie und das explizite Tracking von Dev-Spawns werden als normale JUnit-Tests geprüft. Hytale-spezifische Command-, Spawn- und Entity-Removal-Signaturen werden durch den normalen Java-Build gegen die gepinnte Server-Abhängigkeit abgesichert. Ein echter In-Game-Test des localhost-MCP bleibt eine optionale Runtime-Verifikation und kein Merge-Gate.
