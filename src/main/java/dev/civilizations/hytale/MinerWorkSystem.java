@@ -282,19 +282,67 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             selectInfrastructureTask(world, mine, minePlan, position, workerKey, runtime, true);
         if (mandatoryInfrastructure != null) {
             if (runtime.frontId != null) frontCoordinator.releaseWorker(workerKey);
+            if (runtime.roomId != null) roomCoordinator.releaseWorker(workerKey);
             runtime.clearFrontAssignment();
+            runtime.clearRoomAssignment();
             executeInfrastructure(
                 world, mine, minePlan, mandatoryInfrastructure, ref, store, position, workerKey, runtime
             );
             return;
         }
 
+        if (runtime.roomId != null && roomCoordinator.workerCount(runtime.roomId) == 0) {
+            runtime.clearRoomAssignment();
+        }
+        RuntimeRoomPlan currentRoomPlan =
+            runtime.roomId == null ? null : minePlan.rooms.get(runtime.roomId);
+        MineRoom currentRoom = currentRoomPlan == null
+            ? null : currentRoom(worldId, mine.id(), currentRoomPlan.roomId);
+        if (currentRoomPlan != null && currentRoom != null
+            && !currentRoom.terminal() && !currentRoomPlan.unavailable) {
+            executeRoom(
+                world, mine, minePlan, currentRoomPlan, currentRoom, ref, store, commandBuffer,
+                position, workerKey, runtime
+            );
+            return;
+        }
+        if (runtime.roomId != null) {
+            roomCoordinator.releaseWorker(workerKey);
+            runtime.clearRoomAssignment();
+        }
+
         if (runtime.frontId != null && frontCoordinator.workerCount(runtime.frontId) == 0) {
-            runtime.clearWorkAssignment();
+            runtime.clearFrontAssignment();
         }
 
         RuntimeFrontPlan plan = runtime.frontId == null ? null : minePlan.fronts.get(runtime.frontId);
         MineWorkFront front = plan == null ? null : currentFront(worldId, mine.id(), plan.frontId);
+
+        if (plan == null && runtime.frontId == null) {
+            MineNormalTaskSelector.Candidate candidate =
+                selectNormalCandidate(world, mine, minePlan, position);
+            if (candidate != null
+                && (candidate.workerCount() > 0
+                    || candidate.kind() == MineNormalTaskSelector.Kind.ROOM)) {
+                if (candidate.kind() == MineNormalTaskSelector.Kind.ROOM) {
+                    RuntimeRoomPlan selectedRoomPlan =
+                        selectRoom(world, mine, minePlan, candidate.id(), workerKey, runtime);
+                    MineRoom selectedRoom = selectedRoomPlan == null
+                        ? null : currentRoom(worldId, mine.id(), selectedRoomPlan.roomId);
+                    if (selectedRoomPlan != null && selectedRoom != null) {
+                        executeRoom(
+                            world, mine, minePlan, selectedRoomPlan, selectedRoom, ref, store,
+                            commandBuffer, position, workerKey, runtime
+                        );
+                        return;
+                    }
+                } else {
+                    plan = selectFront(world, mine, minePlan, position, workerKey, runtime);
+                    front = plan == null ? null : currentFront(worldId, mine.id(), plan.frontId);
+                }
+            }
+        }
+
         if (plan == null && runtime.frontId == null) {
             RuntimeInfrastructureTask infrastructure =
                 selectInfrastructureTask(world, mine, minePlan, position, workerKey, runtime, false);
@@ -305,9 +353,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 return;
             }
         }
+
         if (plan == null || plan.complete || !available(front)) {
             if (runtime.frontId != null) frontCoordinator.releaseWorker(workerKey);
-            runtime.clearWorkAssignment();
+            runtime.clearFrontAssignment();
             plan = selectFront(world, mine, minePlan, position, workerKey, runtime);
             front = plan == null ? null : currentFront(worldId, mine.id(), plan.frontId);
         }
