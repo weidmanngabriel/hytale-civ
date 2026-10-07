@@ -22,6 +22,9 @@ Der Zugriff erfolgt als Hytale-`ConsoleSender`. Befehle, die zwingend einen Spie
 - `civdev spawn <role> <x> <y> <z>`: verwendet Hytales natives `NPCPlugin.spawnNPC`. Ein erzeugter `Civ_Inhabitant` wird direkt als Civ-Bewohner initialisiert.
 - `civdev move <uuid> <x> <y> <z>`: nutzt den normalen Civ-Manual-Move-Pfad und damit dieselben Unterbrechungs-/Resume-Regeln wie ein Spielerauftrag.
 - `civdev profession <uuid> <profession>`: vergibt den Beruf über `CivUnitRegistry` einschließlich vorhandener Bootstrap-Ausrüstung.
+- `civdev scenario soldier <x> <y> <z>`: setzt einen reproduzierbaren Soldier-Test mit drei Civ-Soldaten und einem nativen `Bear_Grizzly` um den angegebenen Mittelpunkt auf. Vorherige `civdev`-Spawns werden dabei zurückgesetzt.
+- `civdev reset`: entfernt ausschließlich Entities, die in dieser Plugin-Session über `civdev spawn` oder `civdev scenario` erzeugt wurden.
+- `civdev events <uuid>`: zeigt eine begrenzte Historie relevanter Zustandswechsel eines Civ-NPCs; `--json` liefert maschinenlesbare Daten. Erfasst werden unter anderem Beruf, manueller Bewegungsstatus/-ziel, Combat-Target und HP-Änderungen.
 
 Alle Commands arbeiten in der aktuellen Hytale-Default-World und führen Welt-/Entity-Zugriffe über deren World-Executor aus. Es entsteht keine zweite Remote-Gameplay-API.
 
