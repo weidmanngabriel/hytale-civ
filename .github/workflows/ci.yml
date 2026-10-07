@@ -40,11 +40,28 @@ jobs:
             exit 1
           fi
 
+          if [[ ! "$configured_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
+            echo "projectVersion must use X.Y.Z-SNAPSHOT, got: $configured_version" >&2
+            exit 1
+          fi
+
           base_version="${configured_version%-SNAPSHOT}"
+
+          plugin_manifest_version="$(sed -n 's/^[[:space:]]*"Version":[[:space:]]*"\([^"]*\)".*/\1/p' src/main/resources/manifest.json | head -n 1)"
+          asset_manifest_version="$(sed -n 's/^[[:space:]]*"Version":[[:space:]]*"\([^"]*\)".*/\1/p' asset-pack/manifest.json | head -n 1)"
+          if [[ "$plugin_manifest_version" != "$base_version" || "$asset_manifest_version" != "$base_version" ]]; then
+            echo "Source manifest versions must match base project version $base_version." >&2
+            echo "Plugin manifest: $plugin_manifest_version; asset manifest: $asset_manifest_version" >&2
+            exit 1
+          fi
 
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             project_version="${GITHUB_REF_NAME#v}"
             release_tag="$GITHUB_REF_NAME"
+            if [[ "$project_version" != "$base_version" ]]; then
+              echo "Stable tag $release_tag does not match projectVersion base $base_version." >&2
+              exit 1
+            fi
           else
             project_version="$base_version-dev.$GITHUB_RUN_NUMBER"
             release_tag="v$project_version"
