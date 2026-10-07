@@ -8,7 +8,9 @@ import dev.civilizations.simulation.SimulationScenarios;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -93,9 +95,26 @@ final class SimulationRecordingExporterTest {
         assertEquals("completed", recording.status(), recording.error());
         assertEquals("semantic-step", recording.timeUnit());
         assertEquals("mine-full", recording.id());
-        assertTrue(recording.initialVoxels().isEmpty(),
-            "Implicit rock should not be expanded into initial voxels");
+        assertTrue(recording.initialVoxels().stream().anyMatch(cell -> cell[3] == SimulationRecording.PREFAB),
+            "Full scenario should visibly start at a headless Mine prefab platform");
         assertEquals(6, recording.rockBounds().length);
+        assertEquals("START_AT_PREFAB", recording.frames().getFirst().metrics().get("phase"));
+        assertTrue(recording.markers().stream().anyMatch(marker ->
+            marker.type().equals("workplace_access")));
+        assertTrue(recording.markers().stream().anyMatch(marker ->
+            marker.type().equals("mine_tunnel_connector")));
+        assertTrue(recording.frames().stream().anyMatch(frame ->
+            "ENTERING_MINE".equals(frame.metrics().get("phase"))));
+        assertTrue(recording.frames().stream().anyMatch(frame ->
+            "AT_CONNECTOR".equals(frame.metrics().get("phase"))));
+        assertTrue(recording.frames().stream().anyMatch(frame -> {
+            Set<String> tunnelIds = new HashSet<>();
+            frame.residents().forEach(resident -> {
+                Object tunnelId = resident.details().get("tunnelId");
+                if (tunnelId != null) tunnelIds.add(tunnelId.toString());
+            });
+            return tunnelIds.size() >= 2;
+        }), "Once multiple fronts are executable, miners should visibly split across tunnels");
         assertTrue(recording.frames().stream().anyMatch(frame ->
             "LEAVING_MINE".equals(frame.metrics().get("phase"))));
         assertTrue(recording.frames().stream().anyMatch(frame ->
