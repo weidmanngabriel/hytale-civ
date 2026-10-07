@@ -998,6 +998,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             RUNTIME_PLANNING_TUNNEL_BUDGET,
             seed
         );
+        List<MineRoom> plannedRooms = MineRoomPlanner.plan(planned);
 
         Map<UUID, UUID> frontIds = new LinkedHashMap<>();
         Map<UUID, MineTunnelGeometry> geometries = new LinkedHashMap<>();
@@ -1012,6 +1013,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 tunnelRegistry.removeMine(world, mine.id());
             }
             persisted = planned.network();
+            for (MineRoom room : plannedRooms) persisted = persisted.withRoom(room);
             for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : planned.tunnels()) {
                 UUID id = frontIds.get(tunnel.tunnel().id());
                 MineTunnelGeometry.Slice firstSlice = tunnel.geometry().slices().getFirst();
@@ -1032,6 +1034,15 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 );
             }
             tunnelRegistry.putNetwork(world, persisted);
+        } else {
+            boolean roomsChanged = false;
+            for (MineRoom room : plannedRooms) {
+                if (roomById(persisted, room.id()) == null) {
+                    persisted = persisted.withRoom(room);
+                    roomsChanged = true;
+                }
+            }
+            if (roomsChanged) tunnelRegistry.putNetwork(world, persisted);
         }
 
         tunnelRegistry.putRuntimeGeometries(key.worldId, mine.id(), geometries);
@@ -1055,6 +1066,22 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             ));
         }
 
+        Map<UUID, RuntimeRoomPlan> rooms = new LinkedHashMap<>();
+        for (MineRoom plannedRoom : plannedRooms) {
+            MineRoom persistedRoom = roomById(persisted, plannedRoom.id());
+            if (persistedRoom == null) continue;
+            MineTunnelGeometry tunnelGeometry = geometries.get(persistedRoom.tunnelId());
+            if (tunnelGeometry == null) continue;
+            rooms.put(
+                persistedRoom.id(),
+                new RuntimeRoomPlan(
+                    persistedRoom.id(),
+                    MineRoomGeometry.generate(persistedRoom, tunnelGeometry),
+                    false
+                )
+            );
+        }
+
         Map<UUID, RuntimeInfrastructureTask> infrastructureTasks = new LinkedHashMap<>();
         for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : planned.tunnels()) {
             for (MineInfrastructureTask task :
@@ -1072,7 +1099,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         RuntimeMinePlan runtime = new RuntimeMinePlan(
-            planned.network().mainTunnelId(), fronts, infrastructureTasks
+            planned.network().mainTunnelId(), fronts, rooms, infrastructureTasks
         );
         runtimePlans.put(key, runtime);
         return runtime;
