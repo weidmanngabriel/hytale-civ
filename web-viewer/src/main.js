@@ -48,7 +48,7 @@ function clearGroup(group, disposeMaterials=true) {
 function rebuildWorld() {
   clearGroup(worldGroup,false);
   const vertices=[],normals=[],colors=[];
-  for (const face of surfaceFaces(replay.world)) {
+  for (const face of surfaceFaces(replay.world,replay.data.rockBounds)) {
     const color = palette[face.material];
     for (const i of [0,1,2,0,2,3]) {
       const c=face.corners[i];
@@ -121,7 +121,7 @@ function seek(index) {
   // Rebuild only when geometry changed, or when moving backwards through prior deltas.
   if (replay.index<previous || replay.data.frames.slice(previous+1,replay.index+1).some(f=>f.changes.length)) rebuildWorld();
   if (selectedBlock) {
-    const [x,y,z]=selectedBlock;const material=replay.world.get(selectedBlock.join(',')) || 0;
+    const [x,y,z]=selectedBlock;const material=replay.materialAt(x,y,z);
     selection.visible=!!material;if(material)boxAt(selection,{x,y,z});
     $('block-info').textContent=`${x} / ${y} / ${z}\n${MATERIALS[material]}`;
   } else selection.visible=false;
@@ -137,9 +137,15 @@ function setCamera(position, target) {
   yaw=Math.atan2(-direction.x,-direction.z);updateRotation();
 }
 function overview() {
-  if (!replay?.world.size) { setCamera(new THREE.Vector3(12,12,16),new THREE.Vector3());return; }
+  if (!replay) return;
   const bounds=new THREE.Box3();
-  for (const k of replay.world.keys()) {const [x,y,z]=k.split(',').map(Number);bounds.expandByPoint(new THREE.Vector3(x,y,z));bounds.expandByPoint(new THREE.Vector3(x+1,y+1,z+1));}
+  if (replay.data.rockBounds) {
+    const [x,y,z,xx,yy,zz]=replay.data.rockBounds;
+    bounds.set(new THREE.Vector3(x,y,z),new THREE.Vector3(xx,yy,zz));
+  } else {
+    if (!replay.world.size) { setCamera(new THREE.Vector3(12,12,16),new THREE.Vector3());return; }
+    for (const k of replay.world.keys()) {const [x,y,z]=k.split(',').map(Number);bounds.expandByPoint(new THREE.Vector3(x,y,z));bounds.expandByPoint(new THREE.Vector3(x+1,y+1,z+1));}
+  }
   const center=bounds.getCenter(new THREE.Vector3());
   const size=bounds.getSize(new THREE.Vector3());
   const distance=Math.max(size.x,size.y,size.z,10)*1.35;
@@ -268,7 +274,7 @@ canvas.addEventListener('click',event=>{
   if(!replay||event.button!==0)return;
   const rect=canvas.getBoundingClientRect();
   const ray=new THREE.Raycaster();ray.setFromCamera(new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1),camera);
-  const wall=visibleVoxel(replay.world,ray.ray.origin.toArray(),ray.ray.direction.toArray());
+  const wall=visibleVoxel(replay.world,ray.ray.origin.toArray(),ray.ray.direction.toArray(),1000,replay.data.rockBounds);
   const worker=ray.intersectObjects(residentGroup.children)[0];
   if(worker&&(!wall||worker.distance<wall.distance)){
     residentId=worker.object.userData.id;$('resident').value=residentId;updateResidents();renderDetails();return;

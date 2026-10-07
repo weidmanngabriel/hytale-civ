@@ -30,10 +30,12 @@ final class SimulationRecordingExporterTest {
 
             var json = new ObjectMapper().readTree(new ObjectMapper().writeValueAsBytes(recording));
             assertEquals(1, json.path("schemaVersion").asInt());
-            assertTrue(json.path("initialVoxels").get(0).isArray());
+            assertTrue(json.path("initialVoxels").isArray());
+            assertTrue(json.path("initialVoxels").isEmpty());
+            assertEquals(6, json.path("rockBounds").size());
             assertTrue(json.path("frames").get(0).path("residents").get(0).path("position").has("x"));
-            assertTrue(recording.frames().stream().mapToInt(frame -> frame.changes().size()).sum()
-                < recording.initialVoxels().size(), "Record deltas rather than repeating the rock envelope");
+            assertTrue(recording.frames().stream().mapToInt(frame -> frame.changes().size()).sum() > 0,
+                "Record excavation as sparse deltas inside implicit rock");
         }
     }
 
@@ -50,8 +52,11 @@ final class SimulationRecordingExporterTest {
                 recording.frames().getLast().metrics().get("completedTunnels")
             );
             assertEquals("COMPLETE", recording.frames().getLast().residents().getFirst().state());
-            assertTrue(replay(recording).size() < recording.initialVoxels().size(),
-                "Final replay should contain carved air where planned geometry was excavated");
+            assertEquals(6, recording.rockBounds().length);
+            assertTrue(recording.initialVoxels().isEmpty());
+            assertTrue(recording.frames().stream().flatMap(frame -> frame.changes().stream())
+                .anyMatch(cell -> cell[3] == SimulationRecording.AIR),
+                "Final replay should contain carved air inside implicit rock");
             assertTrue(new ObjectMapper().writeValueAsBytes(recording).length < 32 * 1024 * 1024,
                 "Fits the publisher's recording size budget");
         }
@@ -63,8 +68,9 @@ final class SimulationRecordingExporterTest {
         assertEquals("completed", recording.status(), recording.error());
         assertEquals("semantic-step", recording.timeUnit());
         assertEquals("mine-full", recording.id());
-        assertTrue(recording.initialVoxels().size() <= 100_000,
-            "Fits the publisher's initial voxel limit");
+        assertTrue(recording.initialVoxels().isEmpty(),
+            "Implicit rock should not be expanded into initial voxels");
+        assertEquals(6, recording.rockBounds().length);
         assertTrue(recording.frames().stream().anyMatch(frame ->
             "LEAVING_MINE".equals(frame.metrics().get("phase"))));
         assertTrue(recording.frames().stream().anyMatch(frame ->

@@ -9,6 +9,10 @@ const sample = () => ({schemaVersion:1,id:'mine-north',title:'Mine',description:
   {step:1,time:1,changes:[[0,0,0,0]],residents:[]},
   {step:2,time:2,changes:[[0,0,0,3]],residents:[]}
 ]});
+const implicitSample = () => ({schemaVersion:1,id:'mine-xray',title:'Mine X-Ray',description:'Fixture',timeUnit:'semantic-step',status:'completed',initialVoxels:[],rockBounds:[0,0,0,8,3,3],markers:[],frames:[
+  {step:0,time:0,changes:[],residents:[]},
+  {step:1,time:1,changes:[[3,1,1,0],[4,1,1,0]],residents:[]}
+]});
 test('seeking backwards reconstructs removed rock and forward support placement exactly',()=>{
   const replay=new Replay(sample());
   replay.seek(2);assert.equal(replay.world.get('0,0,0'),3);
@@ -22,7 +26,19 @@ test('accepts semantic-slice mine recordings',()=>{
 });
 test('reject incompatible replay data instead of showing an old or partial state',()=>{
   assert.throws(()=>new Replay({...sample(),schemaVersion:2}));
+  assert.throws(()=>new Replay({...sample(),rockBounds:[0,0,0,0,1,1]}));
   const data=sample();data.frames[1].changes=[[1,2,3,9]];assert.throws(()=>new Replay(data));
+});
+test('implicit rock keeps the full x-ray volume without expanding it into voxels',()=>{
+  const replay=new Replay(implicitSample());
+  assert.equal(replay.materialAt(2,1,1),1);
+  assert.equal(surfaceFaces(replay.world,replay.data.rockBounds).length,0);
+  replay.seek(1);
+  assert.equal(replay.materialAt(3,1,1),0);
+  assert.equal(replay.materialAt(5,1,1),1);
+  assert.equal(surfaceFaces(replay.world,replay.data.rockBounds).length,10);
+  assert.deepEqual(visibleVoxel(replay.world,[.5,1.5,1.5],[1,0,0],1000,replay.data.rockBounds).position,[5,1,1]);
+  assert.deepEqual(visibleVoxel(replay.world,[-2,1.5,1.5],[1,0,0],1000,replay.data.rockBounds).position,[5,1,1]);
 });
 test('solid interfaces have outward winding and no faces between neighboring solid materials',()=>{
   const world=new Map([['0,0,0',1],['1,0,0',3]]);
