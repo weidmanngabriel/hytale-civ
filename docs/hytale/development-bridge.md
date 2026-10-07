@@ -35,6 +35,8 @@ Die Commands lesen beziehungsweise verändern nur die aktuelle Default-World und
 
 `civdev npc <uuid> --json` ist der maschinenlesbare Diagnoseeinstieg für MCP. Er kombiniert UUID, Rolle, Displayname, Position, native Gesundheit, Item in Hand, Civ-Zustand, Movement-Zustand und – falls gesetzt – das native Combat-Target.
 
+Für reproduzierbare Live-Diagnose hält Civ zusätzlich ausschließlich in-memory eine Liste der über `civdev` erzeugten UUIDs. `civdev reset` entfernt nur diese Entities über Hytales verifiziertes `Store.removeEntity(..., RemoveReason.REMOVE)`; normale Welt-Entities werden nicht berührt. Ein kleiner nicht-paralleler Diagnose-Sampler beobachtet geladene Civ-Bewohner im Abstand von 250 ms und hält pro UUID höchstens 128 Zustandswechsel in einem Ringpuffer. Diese Historie ist Diagnosezustand, keine Gameplay-Wahrheit und wird nicht persistiert.
+
 ## Grenze
 
 Der Remote-Befehl läuft als Serverkonsole. Ein `AbstractPlayerCommand`, der zwingend einen Spieler-Sender benötigt, kann darüber nicht automatisch verwendet werden. Für Civ-spezifische Entwicklungsaktionen sollen bei Bedarf kleine console-fähige Commands ergänzt werden.
