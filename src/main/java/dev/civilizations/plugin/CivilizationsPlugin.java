@@ -26,6 +26,7 @@ import dev.civilizations.hytale.CivInhabitantLifecycleSystem;
 import dev.civilizations.hytale.CivInhabitantService;
 import dev.civilizations.hytale.CivInhabitantUseSystem;
 import dev.civilizations.hytale.CivManualMovementSystem;
+import dev.civilizations.hytale.CivMinerAssignmentService;
 import dev.civilizations.hytale.CivMineDataResource;
 import dev.civilizations.hytale.CivMineDebugService;
 import dev.civilizations.hytale.CivMineDecisionDiagnostics;
@@ -120,6 +121,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
         FarmBuildingRegistry farmRegistry = new FarmBuildingRegistry(unitRegistry);
         FarmFieldRegistry fieldRegistry = new FarmFieldRegistry();
         BuildingPlacementRegistry buildingRegistry = new BuildingPlacementRegistry();
+        CivMinerAssignmentService minerAssignments = new CivMinerAssignmentService(
+            unitRegistry, activityRegistry, farmRegistry, buildingRegistry
+        );
         CivMineDebugService mineDebugService =
             new CivMineDebugService(buildingRegistry, mineTunnelRegistry);
         PrefabPlacementService prefabPlacementService = new PrefabPlacementService();
@@ -138,6 +142,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
             unitRegistry,
             activityRegistry,
             farmRegistry,
+            minerAssignments,
             fieldRegistry,
             buildingRegistry,
             prefabPlacementService,
@@ -237,7 +242,10 @@ public final class CivilizationsPlugin extends JavaPlugin {
 
         commandBridge = new CivCommandBridge(getLogger());
         getCommandRegistry().registerCommand(
-            new CivDevCommand(unitRegistry, activityRegistry, devScenarioService, devEventHistory)
+            new CivDevCommand(
+                unitRegistry, activityRegistry, minerAssignments, buildingRegistry,
+                devScenarioService, devEventHistory
+            )
         );
         getCommandRegistry().registerCommand(new CivTestCommand());
         if (Boolean.getBoolean("civilizations.runtimeProbe")) {

@@ -32,7 +32,9 @@ import dev.civilizations.core.Profession;
 import dev.civilizations.core.WorldPosition;
 import dev.civilizations.hytale.CivActivityRegistry;
 import dev.civilizations.hytale.CivInhabitantData;
+import dev.civilizations.hytale.CivMinerAssignmentService;
 import dev.civilizations.hytale.CivUnitRegistry;
+import dev.civilizations.hytale.BuildingPlacementRegistry;
 import dev.civilizations.hytale.SoldierWorkSystem;
 import org.joml.Vector3d;
 
@@ -58,6 +60,8 @@ final class CivDevCommand extends AbstractCommandCollection {
     CivDevCommand(
         CivUnitRegistry units,
         CivActivityRegistry activities,
+        CivMinerAssignmentService minerAssignments,
+        BuildingPlacementRegistry buildings,
         CivDevScenarioService scenarios,
         CivDevEventHistory history
     ) {
@@ -67,6 +71,8 @@ final class CivDevCommand extends AbstractCommandCollection {
         addSubCommand(new SpawnCommand(units, scenarios));
         addSubCommand(new MoveCommand(units, activities));
         addSubCommand(new ProfessionCommand(units));
+        addSubCommand(new MinesCommand(buildings, units, activities));
+        addSubCommand(new AssignMineCommand(buildings, minerAssignments));
         addSubCommand(new CivDevScenarioCommand(scenarios));
         addSubCommand(new CivDevResetCommand(scenarios));
         addSubCommand(new CivDevEventsCommand(history));
@@ -318,6 +324,95 @@ final class CivDevCommand extends AbstractCommandCollection {
             context.sendMessage(Message.raw(
                 "CIVDEV_PROFESSION uuid=" + context.get(uuid) + " profession=" + units.getProfession(ref)
             ));
+        }
+    }
+
+    private static final class MinesCommand extends WorldCommand {
+        private final BuildingPlacementRegistry buildings;
+        private final CivUnitRegistry units;
+        private final CivActivityRegistry activities;
+
+        MinesCommand(
+            BuildingPlacementRegistry buildings,
+            CivUnitRegistry units,
+            CivActivityRegistry activities
+        ) {
+            super("mines", "Lists completed mines and their loaded Civ workers.");
+            this.buildings = buildings;
+            this.units = units;
+            this.activities = activities;
+        }
+
+        @Override
+        protected void executeWorld(CommandContext context, World world, Store<EntityStore> store) {
+            List<Map<String, Object>> workers = loadedNpcSnapshots(world, store, units, activities);
+            List<BuildingPlacementRegistry.BuildingInstance> mines = buildings.buildings(world.getWorldConfig().getUuid())
+                .stream().filter(building -> "mine".equals(building.buildingType()))
+                .sorted(Comparator.comparing(building -> building.id().toString())).toList();
+            context.sendMessage(Message.raw("CIVDEV_MINES world=" + world.getName() + " count=" + mines.size()));
+            for (BuildingPlacementRegistry.BuildingInstance mine : mines) {
+                long assigned = workers.stream().filter(row -> {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> civ = (Map<String, Object>) row.get("civ");
+                    return "MINER".equals(civ.get("profession"))
+                        && mine.id().toString().equals(civ.get("workplaceId"));
+                }).count();
+                boolean connector = mine.semanticVolumes().stream()
+                    .anyMatch(volume -> volume.hasTag("civ.type", "mine_tunnel_connector")
+                        && volume.hasTag("civ.building", "mine"));
+                var bounds = mine.bounds();
+                context.sendMessage(Message.raw(
+                    "id=" + mine.id() + " phase=" + mine.phase() + " workers=" + assigned
+                        + " upgrading=" + buildings.isUpgrading(mine.worldId(), mine.id())
+                        + " connector=" + connector + " bounds=" + bounds.minX() + "," + bounds.minY() + ","
+                        + bounds.minZ() + ".." + bounds.maxX() + "," + bounds.maxY() + "," + bounds.maxZ()
+                ));
+            }
+        }
+    }
+
+    private static final class AssignMineCommand extends WorldCommand {
+        private final RequiredArg<UUID> npcUuid;
+        private final RequiredArg<UUID> mineUuid;
+        private final BuildingPlacementRegistry buildings;
+        private final CivMinerAssignmentService minerAssignments;
+
+        AssignMineCommand(
+            BuildingPlacementRegistry buildings,
+            CivMinerAssignmentService minerAssignments
+        ) {
+            super("assign-mine", "Assigns a loaded Civ inhabitant to a completed mine.");
+            this.buildings = buildings;
+            this.minerAssignments = minerAssignments;
+            npcUuid = withRequiredArg("npc", "Loaded Civ inhabitant UUID.", ArgTypes.UUID);
+            mineUuid = withRequiredArg("mine", "Mine building UUID from civdev mines.", ArgTypes.UUID);
+        }
+
+        @Override
+        protected void executeWorld(CommandContext context, World world, Store<EntityStore> store) {
+            UUID npcId = context.get(npcUuid);
+            UUID mineId = context.get(mineUuid);
+            Ref<EntityStore> miner = requireEntity(context, world, npcId);
+            if (miner == null) return;
+            BuildingPlacementRegistry.BuildingInstance mine = buildings.findIncludingUpgrading(
+                world.getWorldConfig().getUuid(), mineId
+            );
+            if (mine == null) {
+                context.sendMessage(Message.raw("CIVDEV_ERROR mine not found in the default world: " + mineId));
+                return;
+            }
+            CivMinerAssignmentService.Result result = minerAssignments.assign(miner, mine);
+            switch (result) {
+                case ASSIGNED -> context.sendMessage(Message.raw(
+                    "CIVDEV_ASSIGNED_MINE npc=" + npcId + " mine=" + mineId + " profession=MINER"
+                ));
+                case NOT_CIV_INHABITANT -> context.sendMessage(Message.raw(
+                    "CIVDEV_ERROR assignment requires a loaded Civ inhabitant"
+                ));
+                case NOT_A_MINE -> context.sendMessage(Message.raw("CIVDEV_ERROR building is not a mine"));
+                case UPGRADING -> context.sendMessage(Message.raw("CIVDEV_ERROR mine is upgrading"));
+                case MISSING_CONNECTOR -> context.sendMessage(Message.raw("CIVDEV_ERROR mine has no valid tunnel connector"));
+            }
         }
     }
 

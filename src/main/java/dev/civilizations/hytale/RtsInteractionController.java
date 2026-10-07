@@ -47,6 +47,7 @@ public final class RtsInteractionController {
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
     private final FarmBuildingRegistry farmRegistry;
+    private final CivMinerAssignmentService minerAssignments;
     private final FarmFieldRegistry fieldRegistry;
     private final BuildingPlacementRegistry placementRegistry;
     private final PrefabPlacementService placementService;
@@ -66,6 +67,7 @@ public final class RtsInteractionController {
         CivUnitRegistry unitRegistry,
         CivActivityRegistry activityRegistry,
         FarmBuildingRegistry farmRegistry,
+        CivMinerAssignmentService minerAssignments,
         FarmFieldRegistry fieldRegistry,
         BuildingPlacementRegistry placementRegistry,
         PrefabPlacementService placementService,
@@ -81,6 +83,7 @@ public final class RtsInteractionController {
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
         this.farmRegistry = farmRegistry;
+        this.minerAssignments = minerAssignments;
         this.fieldRegistry = fieldRegistry;
         this.placementRegistry = placementRegistry;
         this.placementService = placementService;
@@ -1065,26 +1068,16 @@ public final class RtsInteractionController {
     ) {
         removeInvalidCommandNpc(session);
         if (session.commandNpc == null) return;
-        if (placementRegistry.isUpgrading(mine.worldId(), mine.id())) {
-            playerRef.sendMessage(Message.raw(
+        Ref<EntityStore> miner = session.commandNpc;
+        CivMinerAssignmentService.Result result = minerAssignments.assign(miner, mine);
+        switch (result) {
+            case ASSIGNED -> playerRef.sendMessage(Message.raw("Minenabbauer zugewiesen."));
+            case UPGRADING -> playerRef.sendMessage(Message.raw(
                 "Diese Mine wird gerade erweitert und kann bis zur Fertigstellung nicht betreten werden."
             ));
-            return;
+            case MISSING_CONNECTOR -> playerRef.sendMessage(Message.raw("Diese Mine hat keinen gültigen Tunnelanschluss."));
+            default -> playerRef.sendMessage(Message.raw("Miner konnte dieser Mine nicht zugewiesen werden."));
         }
-        Ref<EntityStore> miner = session.commandNpc;
-        boolean hasConnector = mine.semanticVolumes().stream()
-            .anyMatch(volume -> volume.hasTag(TYPE_TAG, "mine_tunnel_connector")
-                && volume.hasTag(BUILDING_TAG, "mine"));
-        if (!hasConnector) {
-            playerRef.sendMessage(Message.raw("Diese Mine hat keinen gültigen Tunnelanschluss."));
-            return;
-        }
-        farmRegistry.unassignFarmer(miner);
-        activityRegistry.cancelManualMove(miner);
-        unitRegistry.cancelMoveTarget(miner);
-        unitRegistry.assignProfession(miner, Profession.MINER);
-        unitRegistry.assignWorkplace(miner, mine.id());
-        playerRef.sendMessage(Message.raw("Minenabbauer zugewiesen."));
     }
 
     private void assignFarmerProfession(PlayerRef playerRef, Ref<EntityStore> selected) {
