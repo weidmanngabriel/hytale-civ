@@ -63,3 +63,27 @@ test('invalid descriptors and stale sessions cannot establish attachment', async
     assert.equal(runtime.attached, null);
   });
 });
+
+
+test('command bridge works without live attachment and returns command output', async () => {
+  const server = createServer(async (req, res) => {
+    let bytes = ''; for await (const chunk of req) bytes += chunk;
+    assert.equal(req.url, '/command');
+    assert.equal(req.method, 'POST');
+    assert.deepEqual(JSON.parse(bytes), { command: 'version' });
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ success: true, command: 'version', output: ['Hytale test version'] }));
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const runtime = new LocalRuntime({ root: process.cwd(), commandBridgePort: server.address().port });
+  try {
+    const result = await runtime.command('version');
+    assert.equal(result.success, true);
+    assert.deepEqual(result.output, ['Hytale test version']);
+    assert.equal(runtime.attached, null);
+    assert.equal(runtime.child, null);
+  } finally {
+    await runtime.close();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
