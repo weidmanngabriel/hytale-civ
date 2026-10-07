@@ -883,31 +883,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     }
 
     private static MineTunnelGeometry geometryFor(RuntimeFrontPlan front) {
-        List<MineTunnelGeometry.Slice> slices = front.slices;
-        Set<BlockPosition> excavation = new HashSet<>();
-        Set<BlockPosition> navigation = new HashSet<>();
-        for (MineTunnelGeometry.Slice slice : slices) {
-            excavation.addAll(slice.excavationBlocks());
-            navigation.addAll(slice.navigationCoreBlocks());
-        }
-        List<MineTunnelGeometry.StepTransition> steps = new ArrayList<>();
-        for (int index = 1; index < slices.size(); index++) {
-            BlockPosition previous = slices.get(index - 1).floorCenter();
-            BlockPosition current = slices.get(index).floorCenter();
-            if (Math.abs(current.y() - previous.y()) == 1) {
-                steps.add(new MineTunnelGeometry.StepTransition(
-                    index - 1, index, previous, current
-                ));
-            }
-        }
-        return new MineTunnelGeometry(
-            front.tunnelKind,
-            0L,
-            slices,
-            excavation,
-            navigation,
-            steps
-        );
+        return front.geometry;
     }
 
     private static double squaredDistance(Vector3d position, BlockPosition block) {
@@ -1488,6 +1464,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 id,
                 tunnel.tunnel().id(),
                 tunnel.tunnel().kind(),
+                tunnel.geometry(),
                 tunnel.geometry().slices(),
                 orderedBlocks(tunnel.geometry().slices()),
                 sliceIndex,
@@ -2101,6 +2078,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private final UUID frontId;
         private final UUID tunnelId;
         private final MineTunnel.Kind tunnelKind;
+        private final MineTunnelGeometry geometry;
         private final List<MineTunnelGeometry.Slice> slices;
         private final List<List<BlockPosition>> orderedBlocks;
         private int sliceIndex;
@@ -2111,6 +2089,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             UUID frontId,
             UUID tunnelId,
             MineTunnel.Kind tunnelKind,
+            MineTunnelGeometry geometry,
             List<MineTunnelGeometry.Slice> slices,
             List<List<BlockPosition>> orderedBlocks,
             int sliceIndex,
@@ -2120,6 +2099,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             this.frontId = frontId;
             this.tunnelId = tunnelId;
             this.tunnelKind = tunnelKind;
+            this.geometry = geometry;
             this.slices = List.copyOf(slices);
             this.orderedBlocks = List.copyOf(orderedBlocks);
             this.sliceIndex = sliceIndex;
