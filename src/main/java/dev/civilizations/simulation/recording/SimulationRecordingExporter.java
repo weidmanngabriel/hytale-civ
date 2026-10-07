@@ -243,7 +243,8 @@ public final class SimulationRecordingExporter {
         MineInfrastructureTask step,
         MineInfrastructureTask bridge
     ) {
-        for (MineInfrastructureTask task : List.of(support, light, step, bridge)) {
+        MineInfrastructureTask[] candidates = {support, light, step, bridge};
+        for (MineInfrastructureTask task : candidates) {
             if (task != null && task.startSliceIndex() == sliceIndex) return task;
         }
         return null;
