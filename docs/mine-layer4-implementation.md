@@ -39,10 +39,11 @@ After every completed slice the transient worker/block claims for that front are
 
 For currently executable tunnel fronts:
 
-- an already active normal front with free capacity is filled before opening a different normal front;
+- an unoccupied executable front is opened before another miner joins an already occupied normal front;
 - a normal tunnel front has capacity `2` through `MineFrontCoordinator`;
 - when no active front has capacity, a branch front uses base priority `6` and a main-tunnel front base priority `4`;
 - equal choices use worker distance and then a stable id tie-break;
+- only when every executable front already has a worker may a second miner join one of them, up to the normal capacity of 2;
 - after a slice completes, workers select again.
 
 This is miner task scheduling. It is separate from `MineWorkFrontGrowthSelector`, which remains the mine-generation fairness rule that prevents the logical main tunnel from being starved by branch growth.

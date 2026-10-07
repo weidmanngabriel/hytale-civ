@@ -85,7 +85,8 @@ async function main() {
   const index=[];
   for(const run of runs) {
     const base={commit:run.head_sha,branch:run.head_branch,runId:String(run.id),runAttempt:String(run.run_attempt),
-      createdAt:run.created_at,conclusion:run.conclusion,available:false,testStatus:'failed',scenarios:[]};
+      createdAt:run.created_at,commitAt:run.head_commit?.timestamp || run.created_at,
+      conclusion:run.conclusion,available:false,testStatus:'failed',scenarios:[]};
     const artifacts=await api(`actions/runs/${run.id}/artifacts?per_page=100`);
     const artifact=artifacts.artifacts.find(a=>a.name==='simulation-recordings'&&!a.expired);
     if(!artifact) { index.push({...base,error:'Keine Aufzeichnung verfügbar (Build fehlgeschlagen oder Artefakt abgelaufen).'});continue; }

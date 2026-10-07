@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Replay, surfaceFaces, visibleVoxel, MATERIALS } from './replay.js';
+import { sortBranchesByLatestCommit } from './catalog.js';
 import './style.css';
 
 const $ = id => document.getElementById(id);
@@ -66,12 +67,21 @@ function rebuildWorld() {
 function boxAt(helper,p) {
   helper.box.min.set(p.x,p.y,p.z); helper.box.max.set(p.x+1,p.y+1,p.z+1); helper.visible=true;
 }
+function markerColor(type) {
+  if (type?.startsWith('planned_')) return 0x526b75;
+  if (type?.startsWith('developed_')) return 0x91ddb2;
+  if (type === 'water_obstacle') return 0x6eb9ff;
+  if (type === 'lava_obstacle') return 0xff765f;
+  if (type === 'workplace_access') return 0xe6cb73;
+  if (type === 'mine_tunnel_connector') return 0x72d8d0;
+  return 0x9ddcca;
+}
 function rebuildMarkers() {
   clearGroup(markerGroup);
   for (const marker of replay.data.markers || []) {
     const [x,y,z,xx,yy,zz]=marker.bounds;
     const b=new THREE.Box3(new THREE.Vector3(x,y,z),new THREE.Vector3(xx,yy,zz));
-    const helper=new THREE.Box3Helper(b,0x9ddcca); markerGroup.add(helper);
+    const helper=new THREE.Box3Helper(b,markerColor(marker.type)); markerGroup.add(helper);
   }
   markerGroup.visible=$('markers').checked;
 }
@@ -220,7 +230,7 @@ async function loadCatalog() {
     if(catalog.schemaVersion!==1||!Array.isArray(catalog.runs))throw new Error('Unbekannter Laufkatalog.');
     catalog.runs.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
     if(!catalog.runs.length)throw new Error('Noch kein Szenario-Lauf veröffentlicht. Nach einem Branch-Push erscheint er hier.');
-    const branches=[...new Set(catalog.runs.map(r=>r.branch))].sort((a,b)=>a==='main'?-1:b==='main'?1:a.localeCompare(b));
+    const branches=sortBranchesByLatestCommit(catalog.runs);
     fillSelect('branch',branches.map(b=>[b,b]));
     const params=new URLSearchParams(location.search);
     if(branches.includes(params.get('branch')))$('branch').value=params.get('branch');
