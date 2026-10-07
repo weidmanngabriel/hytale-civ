@@ -50,8 +50,9 @@ Die Detailregeln dieser Bereiche werden nicht vorab festgelegt, bevor das zugeh�
 - `branchDepth` ist aus der Parent-Beziehung ableitbar und muss beim direkten Parent immer genau um eins steigen. Zirkuläre Tunnelhierarchien sind ungültig.
 - Ein logischer Tunnel und seine konkrete Layer-3-Voxelgeometrie sind unterschiedliche Begriffe. Die Geometrie wird deterministisch regeneriert und nicht als zweite vollständige Weltkopie persistiert.
 - Räume, Work Fronts und Navigationsanker gehören jeweils zu einem existierenden logischen Tunnel.
-- Ein Minenraum besitzt den persistenten Lifecycle `PLANNED -> EXCAVATING -> READY_TO_BUILD -> BUILT`. Der Aushubfortschritt und fertiggestellte Prefab-Bauabschnitte gehören zum Raumzustand; temporäre Arbeiterreservierungen und Block-/Abschnittsclaims nicht.
-- Aktuell werden nur Unterkunft, Materiallager und kleine Nische als gebaute V1-Räume erzeugt. Natürliche große Kammern bleiben ein eigener späterer Höhlenfall.
+- Ein gebauter Minenraum besitzt den persistenten Lifecycle `PLANNED -> EXCAVATING -> READY_TO_BUILD -> BUILT`. Der Aushubfortschritt und fertiggestellte Prefab-Bauabschnitte gehören zum Raumzustand; temporäre Arbeiterreservierungen und Block-/Abschnittsclaims nicht.
+- Eine große natürliche Kammer wird nicht gebaut. Wenn Layer 7 einen bereits vorhandenen großen nutzbaren natürlichen Hohlraum erkennt, wird er als `LARGE_NATURAL_CHAMBER` mit terminalem Zustand `NATURAL_INTEGRATED` persistiert.
+- Aktuell werden Unterkunft, Materiallager und kleine Nische als gebaute V1-Räume erzeugt. Große natürliche Kammern entstehen ausschließlich aus beobachteter Hytale-Weltgeometrie und nicht aus einer synthetischen Prozentchance.
 - Work Fronts sind persistente semantische Fortsetzungspunkte. Mehrere offene Work Fronts pro Mine sind zulässig und werden von der aktuellen Miner-Arbeitsauswahl genutzt.
 - Navigationsanker sind bekannte sichere semantische Punkte und dürfen explizite Nachbarschaftsbeziehungen zu anderen Ankern speichern. Diese Verbindungen sind keine eigene Wegfindung; Hytales Navigation bleibt für den realen Weg zwischen Zielen zuständig.
 - Die Hytale-Welt ist die Wahrheit über tatsächlich ausgehobene und gebaute Blöcke. Das Minennetz speichert keine zweite vollständige Kopie der Weltgeometrie.
@@ -61,6 +62,7 @@ Die Detailregeln dieser Bereiche werden nicht vorab festgelegt, bevor das zugeh�
 - Eine Work Front im Zustand `ABANDONED` besitzt keine sichere V1-Fortsetzung und wird von autonomen Minern nicht mehr ausgewählt.
 - Terminal gescheiterte native Navigation nach genau einem Repath-Versuch blockiert eine betroffene Abbaufront oder Pflicht-Infrastruktur; normale Support-/Lichtarbeit wird lokal übersprungen.
 - Nicht überbrückbare Lücken, Lava, geflutete begehbare Korridore und dauerhaft nicht auflösbare Pflicht-Brücken/-Stufen führen in V1 zum Aufgeben der betroffenen Front.
+- Kleine sichere natürliche Höhlenöffnungen werden ohne eigene Aufgabe in den geplanten Tunnel integriert. Große nutzbare natürliche Höhlen werden als semantische natürliche Kammer gespeichert; Civ berechnet daraus keinen eigenen physischen Pfad.
 - Normale Support-/Lichtarbeit darf vor dem Überspringen bis zu drei Slices vor oder zurück nach einer gültigen Ersatzposition suchen. Pflicht-Infrastruktur bleibt an das konkrete Hindernis gebunden.
 
 ## Holzfäller
