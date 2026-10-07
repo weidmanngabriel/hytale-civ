@@ -58,8 +58,6 @@ import dev.civilizations.hytale.WoodcutterWorkSystem;
 
 public final class CivilizationsPlugin extends JavaPlugin {
 
-    private CivDevBridge devBridge;
-    private CivLiveBridgeService liveBridge;
     private CivCommandBridge commandBridge;
 
     private static final String CIV_INHABITANT_DATA_ID = "CivInhabitantData";
@@ -230,15 +228,10 @@ public final class CivilizationsPlugin extends JavaPlugin {
             new CivSelectedBuildingHudSystem(selectedBuildingHudController)
         );
 
-        liveBridge = new CivLiveBridgeService(unitRegistry, activityRegistry);
         commandBridge = new CivCommandBridge(getLogger());
-        getCommandRegistry().registerCommand(new CivMcpCommand(liveBridge, getLogger()));
         getCommandRegistry().registerCommand(new CivTestCommand());
-        if (Boolean.getBoolean("civilizations.runtimeProbe") || Boolean.getBoolean("civilizations.devBridge")) {
+        if (Boolean.getBoolean("civilizations.runtimeProbe")) {
             getEntityStoreRegistry().registerSystem(new CivRuntimeDamageTraceSystem());
-        }
-        if (Boolean.getBoolean("civilizations.devBridge")) {
-            devBridge = new CivDevBridge(unitRegistry, activityRegistry);
         }
         if (Boolean.getBoolean("civilizations.runtimeProbe")) {
             getCommandRegistry().registerCommand(
@@ -307,19 +300,10 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 "Local Civ command bridge unavailable; gameplay continues without remote command access"
             );
         }
-        if (devBridge != null) {
-            try { devBridge.start(); }
-            catch (java.io.IOException exception) {
-                devBridge.close();
-                throw new IllegalStateException("Could not start the local development bridge", exception);
-            }
-        }
     }
 
     @Override
     public void shutdown() {
-        if (liveBridge != null) liveBridge.close();
-        if (devBridge != null) devBridge.close();
         if (commandBridge != null) commandBridge.close();
     }
 }
