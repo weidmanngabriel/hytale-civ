@@ -61,6 +61,30 @@ class CivMinePersistenceServiceTest {
         assertEquals(Set.of(completedInfrastructure), decoded.completedInfrastructureTaskIds());
     }
 
+
+    @Test
+    void roundTripKeepsIntegratedNaturalChamberState() {
+        UUID mineId = UUID.randomUUID();
+        UUID mainId = UUID.randomUUID();
+        MineRoom chamber = new MineRoom(
+            UUID.randomUUID(),
+            mainId,
+            MineRoom.Type.LARGE_NATURAL_CHAMBER,
+            new BlockPosition(40, 12, 18),
+            MineHeading.EAST,
+            21,
+            MineRoom.State.NATURAL_INTEGRATED,
+            0,
+            Set.of()
+        );
+        MineNetwork network = MineNetwork.create(mineId, mainId, new BlockPosition(1, 2, 3))
+            .withRoom(chamber);
+
+        MineNetwork decoded = service.decodeNetwork(service.encodeNetwork(network));
+
+        assertEquals(chamber, decoded.rooms().getFirst());
+    }
+
     @Test
     void readsPreviousN3RoomRecordWithDefaultRoomProgress() {
         UUID mineId = UUID.randomUUID();
