@@ -197,23 +197,27 @@ After selecting a Farm through `/civbuild`, confirm it with left click. The stat
 
 ## Browser-Replay-Vertrag
 
-`SimulationRecordingExporterTest` prüft die Minengeometrie weiterhin in allen vier Ausrichtungen, veröffentlicht im Browser aber nur eine `NORTH`-Referenz statt vier nahezu identischer Szenarien. Zusätzlich prüft der Test `Mine · Full Scenario`: drei Miner, geteilte Arbeitsfront, mindestens eine Infrastrukturaktion, Bridge/Water-Marker, Lava-Abbruch sowie die Phasen `LEAVING_MINE`, `OUTSIDE` und `REENTERING_MINE`. Sämtliche gemeinsamen Runtime-Szenarien werden weiterhin gegen ihre direkte Java-Ausführung geprüft. Fehler bei der Szenarioinitialisierung liefern einen lesbaren Fehler-Replay. Die normalen Java-Tests bleiben eigenständige Assertions; ein exportierter Lauf mit Status `completed` bedeutet allein, dass der aufgezeichnete Ablauf beendet wurde.
+`SimulationRecordingExporterTest` prüft die Minengeometrie weiterhin in allen vier Ausrichtungen, veröffentlicht im Browser aber nur eine feste `NORTH`-Referenz. Für die Mine existieren drei bewusst getrennte Browser-Szenarien: `Mine · Geometry` isoliert Layer 2/3 ohne Infrastruktur, `Mine · Straight Full` zeigt einen einzelnen Hauptstollen mit allen vom produktiven `MineInfrastructurePlanner` geplanten Infrastrukturaufgaben, und `Mine · Full Scenario` kombiniert mehrere Miner, Branches, vollständige Core-Infrastrukturplanung sowie kontrollierte Layer-6-Hindernisse. Die normalen Java-Tests bleiben eigenständige Assertions; ein exportierter Lauf mit Status `completed` bedeutet allein, dass der aufgezeichnete Ablauf beendet wurde.
 
-`npm test --prefix web-viewer` prüft Vor-/Rückwärtssprünge, inkompatible Daten, gerichtete Grenzflächen, den Blick von außen/im Fels/im Tunnel, einen realen Three.js-Raycast sowie Publisher-Provenienz und Kataloggrenzen. Der Pages-Publisher führt diese Tests vor jeder Veröffentlichung aus.
+`MineTunnelVoxelizerTest` enthält zusätzlich visuelle Qualitätsinvarianten über viele deterministische Seeds: benachbarte Slice-Mittelpunkte dürfen nicht springen, Breite und Höhe ändern sich nur schrittweise, die gesamte Ausgrabungsmenge bleibt sechsfach zusammenhängend und organische Ausbuchtungen bleiben innerhalb einer begrenzten lokalen Hülle. Diese Checks sollen grobe optische Fehlformen bereits ohne Hytale erkennen; sie ersetzen keine Engine-/Asset-Verifikation.
+
+`npm test --prefix web-viewer` prüft Vor-/Rückwärtssprünge, inkompatible Daten, gerichtete Grenzflächen, den Blick von außen/im Fels/im Tunnel, implizite `rockBounds`, einen realen Three.js-Raycast sowie Publisher-Provenienz und Kataloggrenzen. Der Pages-Publisher führt diese Tests vor jeder Veröffentlichung aus.
 
 Manueller Viewer-Check:
 
-1. Site öffnen, Branch und Commit prüfen, ein `Mine`-Szenario wählen.
-2. `Start` drücken, dann pausieren. Einzelschritte und Zeitleiste müssen Arbeiter und Blockzustand ändern; Rückspringen muss entfernten Fels wiederherstellen.
-3. `Zum Arbeiter` drücken. Mit Rechtsziehen umsehen; WASD fliegt, Q/E ändert die Höhe, Shift beschleunigt. Im Fels müssen gegenüberliegende Tunnelwände sichtbar bleiben, im Tunnel die nahen Wände.
-4. Einen Arbeiter oder sichtbaren Block anklicken und Inspector prüfen. `Marker` zeigt die authored semantischen Zonen, ohne den Ablauf zu verändern.
-5. Auf einem Touch-Gerät links bewegen, rechts umsehen und Höhe mit ↑/↓ ändern. Hoch- und Querformat sowie Start/Pause/Zeitleiste prüfen.
-6. Ein anderes Szenario und danach einen anderen Lauf wählen. Zustand und Inspector müssen zum neuen Lauf gehören. Ein fehlgeschlagener Build darf keinen alten Replay als neuen Erfolg zeigen.
+1. Site öffnen, Branch und Commit prüfen und zuerst `Mine · Geometry` wählen. Der Tunnel muss ohne Infrastruktur sauber und zusammenhängend entstehen.
+2. `Mine · Straight Full` öffnen. Beim Vorspulen müssen wiederholt Stützen und Lichter zwischen normalen Ausgrabungsschritten erscheinen; geplante Stufen erscheinen an Höhenwechseln.
+3. `Mine · Full Scenario` öffnen. Mehrere Miner, Branches, wiederholte Infrastruktur, Bridge/Water, Lava-Abbruch sowie Leave/Re-entry müssen im Ablauf erkennbar sein.
+4. `Zum Arbeiter` drücken. Mit Rechtsziehen umsehen; WASD fliegt, Q/E ändert die Höhe, Shift beschleunigt. Im Fels müssen gegenüberliegende Tunnelwände sichtbar bleiben, ohne dass die äußere Felsquader-Hülle gerendert wird.
+5. Einen Arbeiter oder sichtbaren Block anklicken und Inspector prüfen. `Marker` zeigt die semantischen Zonen, ohne den Ablauf zu verändern.
+6. Auf einem Touch-Gerät links bewegen, rechts umsehen und Höhe mit ↑/↓ ändern. Hoch- und Querformat sowie Start/Pause/Zeitleiste prüfen.
 
 Mobilgeräte-FPS und tatsächliche Hytale-Navigation sind durch die headless Checks nicht belegt.
 
-### Mine · Full Scenario
+### Mine-Szenarien
 
-Der veröffentlichte Browser enthält genau einen großen Minen-Referenzlauf in `NORTH`-Ausrichtung. Er verwendet das aktuelle `MineNetwork` und die vorhandenen Core-Planer statt des entfernten Legacy-`MineSegment`-Fixtures. Sichtbar sind drei Miner, gemeinsam genutzte Fronten, variable Haupt-/Seitenstollen, geplante Supports/Licht/Steps, ein expliziter Bridge-Task über einen kontrollierten Wasser-Gap, ein Lava-bedingt aufgegebener Branch sowie ein Miner, der die Mine verlässt und später wieder einsteigt.
+`Mine · Geometry` ist der reine Geometrie-Test. Er verwendet die produktiven Layer-2/3-Planer, zeigt aber bewusst keine Supports, Lichter, Treppen, Bridges oder Hindernisse.
 
-Das Szenario ist absichtlich kein zweites Gameplay-System: Tunnel und Infrastrukturtermine stammen aus den produktiven Core-Planern; Layer-6-Zustände verwenden `MineObstaclePolicy`. Weltabhängige Details wie echte Hytale-Navigation, Fluidphysik, Assetauflösung und konkrete Blockplatzierung bleiben kontrollierte Headless-Fixtures und müssen separat im Hytale-Runtime-Pfad verifiziert werden. Rotationskorrektheit wird automatisiert getestet, erzeugt aber keine vier Browser-Szenarien mehr.
+`Mine · Straight Full` ist der verständliche Miner-Ablauf für einen einzelnen Hauptstollen. Alle vom produktiven `MineInfrastructurePlanner` gelieferten Supports, Lichter und Steps werden nach dem gleichen semantischen Fortschrittsrhythmus abgearbeitet, den der Hytale-Adapter verwendet. Die sichtbare Blockform dieser Infrastruktur ist eine richtungsbewusste Headless-Darstellung und behauptet nicht Hytales konkrete Assetauflösung.
+
+`Mine · Full Scenario` verwendet das aktuelle `MineNetwork`, drei Miner und Haupt-/Seitenstollen. Für jeden Tunnel werden sämtliche Core-geplanten Infrastrukturaufgaben sichtbar abgearbeitet. Ein kontrollierter Bridge-Task läuft vor der blockierten Front; Wasser-/Lava-Marker, Abbruch sowie Rausgehen/Wiedereinstieg testen zusätzliche Ablaufzustände. Hytale-Navigation, Fluidphysik und konkrete Assetplatzierung bleiben außerhalb des Headless-Systems.

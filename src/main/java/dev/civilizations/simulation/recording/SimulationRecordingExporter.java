@@ -46,6 +46,9 @@ public final class SimulationRecordingExporter {
         SimulationRecording mineRecording = recordMine(referenceOrientation);
         write(output, mineRecording, scenarios);
         failed |= mineRecording.status().equals("failed");
+        SimulationRecording straightFull = recordStraightFull();
+        write(output, straightFull, scenarios);
+        failed |= straightFull.status().equals("failed");
         SimulationRecording fullMine = recordFullMine();
         write(output, fullMine, scenarios);
         failed |= fullMine.status().equals("failed");
@@ -81,10 +84,10 @@ public final class SimulationRecordingExporter {
 
     public static SimulationRecording recordMine(BuildingOrientation orientation) {
         return recordPlannedMine(
-            "mine-" + orientation.name().toLowerCase(Locale.ROOT),
-            "Mine · " + orientation.name(),
-            "Aktuelle Layer-2/3-Minengeometrie: ein variabler Hauptstollen wird Slice für Slice aus dem geplanten Felsvolumen entfernt. Reine Core-Aufzeichnung; keine Hytale-Navigation.",
-            orientation, 72, 1, 123456789L
+            "mine-geometry-" + orientation.name().toLowerCase(Locale.ROOT),
+            "Mine · Geometry",
+            "Isolierter Layer-2/3-Test: ein einzelner variabler Hauptstollen wird Slice für Slice ausgegraben. Keine Infrastruktur, keine Hindernisse und keine Hytale-Navigation.",
+            orientation, 96, 1, 123456789L
         );
     }
 
@@ -92,11 +95,95 @@ public final class SimulationRecordingExporter {
         return recordPlannedMine(
             "mine-combinations-" + orientation.name().toLowerCase(Locale.ROOT),
             "Mine · Netzwerk · " + orientation.name(),
-            "Aktuelles MineNetwork mit variablem Hauptstollen und geplanten Seitenstollen. Die Aufzeichnung gräbt die vom Layer-4-Plan erzeugten Layer-3-Slices in Topologie-Reihenfolge aus. Reine Core-Aufzeichnung; keine Hytale-Navigation oder zweite Gameplay-Logik.",
+            "Aktuelles MineNetwork mit variablem Hauptstollen und geplanten Seitenstollen. Reine Core-Aufzeichnung für automatisierte Netzwerk-/Rotationschecks; nicht Teil des Browser-Referenzkatalogs.",
             orientation, 220, 24, 99887766L
         );
     }
 
+    public static SimulationRecording recordStraightFull() {
+        final String id = "mine-straight-full";
+        Recorder recorder = null;
+        String error = null;
+        List<Marker> markers = new ArrayList<>();
+        try {
+            BuildingOrientation orientation = BuildingOrientation.NORTH;
+            long seed = 77112233L;
+            UUID mineId = UUID.nameUUIDFromBytes((id + ":" + seed).getBytes(StandardCharsets.UTF_8));
+            MineNetworkGrowthPlanner.Plan plan = MineNetworkGrowthPlanner.plan(
+                mineId, MINE_ORIGIN, orientation.rotate(MineHeading.NORTH), 140, 1, seed
+            );
+            MineNetworkGrowthPlanner.PlannedTunnel main = plan.mainTunnel();
+            MineTunnelGeometry geometry = main.geometry();
+            List<MineInfrastructureTask> infrastructure =
+                MineInfrastructurePlanner.plan(main.tunnel().id(), geometry);
+
+            Map<BlockPosition, Integer> world = Map.of();
+            recorder = new Recorder(world, rockBounds(plan.tunnels()));
+            markers.add(tunnelMarker(main));
+
+            BlockPosition position = geometry.slices().getFirst().floorCenter();
+            Set<BlockPosition> excavated = new LinkedHashSet<>();
+            int stepNumber = 0;
+            int infrastructureCompleted = 0;
+            recorder.capture(0, world,
+                List.of(resident(position, null, "READY", main.tunnel(), 0, geometry.slices().size())),
+                null, Map.of(
+                    "phase", "START",
+                    "excavatedBlocks", 0,
+                    "infrastructureCompleted", 0,
+                    "plannedInfrastructure", infrastructure.size()
+                ));
+
+            for (int sliceIndex = 0; sliceIndex < geometry.slices().size(); sliceIndex++) {
+                MineTunnelGeometry.Slice slice = geometry.slices().get(sliceIndex);
+                Map<BlockPosition, Integer> delta = new LinkedHashMap<>();
+                for (BlockPosition block : slice.excavationBlocks()) {
+                    if (excavated.add(block)) delta.put(block, AIR);
+                }
+                position = slice.floorCenter();
+                recorder.captureDelta(++stepNumber, delta,
+                    List.of(resident(position, position,
+                        "EXCAVATING slice " + (sliceIndex + 1) + "/" + geometry.slices().size(),
+                        main.tunnel(), sliceIndex + 1, geometry.slices().size())),
+                    position, Map.of(
+                        "phase", "EXCAVATING",
+                        "excavatedBlocks", excavated.size(),
+                        "infrastructureCompleted", infrastructureCompleted,
+                        "plannedInfrastructure", infrastructure.size()
+                    ));
+
+                for (MineInfrastructureTask task : tasksStartingAt(infrastructure, sliceIndex)) {
+                    infrastructureCompleted++;
+                    Map<BlockPosition, Integer> built = headlessInfrastructureVoxels(task, geometry);
+                    recorder.captureDelta(++stepNumber, built,
+                        List.of(resident(task.anchor(), task.anchor(), task.type().name(),
+                            main.tunnel(), sliceIndex + 1, geometry.slices().size())),
+                        task.anchor(), Map.of(
+                            "phase", task.type().name(),
+                            "excavatedBlocks", excavated.size(),
+                            "infrastructureCompleted", infrastructureCompleted,
+                            "plannedInfrastructure", infrastructure.size()
+                        ));
+                }
+            }
+
+            recorder.captureDelta(++stepNumber, Map.of(),
+                List.of(resident(position, null, "COMPLETE", main.tunnel(),
+                    geometry.slices().size(), geometry.slices().size())),
+                null, Map.of(
+                    "phase", "COMPLETE",
+                    "excavatedBlocks", excavated.size(),
+                    "infrastructureCompleted", infrastructureCompleted,
+                    "plannedInfrastructure", infrastructure.size()
+                ));
+        } catch (RuntimeException exception) {
+            error = exception.getClass().getSimpleName() + ": " + exception.getMessage();
+        }
+        if (recorder == null) recorder = emptyRecorder();
+        return recorder.finish(id, "Mine · Straight Full",
+            "Ein Miner baut einen einzelnen längeren Hauptstollen vollständig aus: echte Core-Ausgrabungsgeometrie plus alle vom MineInfrastructurePlanner geplanten Stützen, Lichter und Stufen. Die sichtbaren Infrastrukturblöcke sind eine richtungsbewusste Headless-Darstellung, nicht Hytales Asset-Auflösung.",
+            "semantic-step", markers, error);
+    }
 
     public static SimulationRecording recordFullMine() {
         final String id = "mine-full";
@@ -111,24 +198,11 @@ public final class SimulationRecordingExporter {
                 mineId, MINE_ORIGIN, orientation.rotate(MineHeading.NORTH), 180, 18, seed
             );
             List<MineNetworkGrowthPlanner.PlannedTunnel> ordered = topologicalOrder(plan);
-            int[] rockBounds = rockBounds(plan.tunnels());
             Map<BlockPosition, Integer> world = Map.of();
-            recorder = new Recorder(world, rockBounds);
+            recorder = new Recorder(world, rockBounds(plan.tunnels()));
             markers.addAll(plan.tunnels().stream().map(SimulationRecordingExporter::tunnelMarker).toList());
 
             MineNetworkGrowthPlanner.PlannedTunnel main = plan.mainTunnel();
-            List<MineInfrastructureTask> mainInfrastructure =
-                MineInfrastructurePlanner.plan(main.tunnel().id(), main.geometry());
-            MineInfrastructureTask support = mainInfrastructure.stream()
-                .filter(task -> task.type() == MineInfrastructureTask.Type.BUILD_SUPPORT)
-                .findFirst().orElse(null);
-            MineInfrastructureTask light = mainInfrastructure.stream()
-                .filter(task -> task.type() == MineInfrastructureTask.Type.PLACE_LIGHT)
-                .findFirst().orElse(null);
-            MineInfrastructureTask step = mainInfrastructure.stream()
-                .filter(task -> task.type() == MineInfrastructureTask.Type.BUILD_STEP)
-                .findFirst().orElse(null);
-
             int bridgeStart = Math.min(18, main.geometry().slices().size() - 4);
             int bridgeEnd = Math.min(bridgeStart + 3, main.geometry().slices().size() - 2);
             MineInfrastructureTask bridge = MineInfrastructurePlanner.bridgeTask(
@@ -160,6 +234,11 @@ public final class SimulationRecordingExporter {
             for (int tunnelIndex = 0; tunnelIndex < ordered.size(); tunnelIndex++) {
                 var tunnel = ordered.get(tunnelIndex);
                 List<MineTunnelGeometry.Slice> slices = tunnel.geometry().slices();
+                List<MineInfrastructureTask> infrastructure = new ArrayList<>(
+                    MineInfrastructurePlanner.plan(tunnel.tunnel().id(), tunnel.geometry())
+                );
+                if (tunnel.tunnel().id().equals(main.tunnel().id())) infrastructure.add(bridge);
+
                 int worker = tunnelIndex % minerPositions.length;
                 boolean abandonThisTunnel = hazardous != null && tunnel.tunnel().id().equals(hazardous.tunnel().id());
                 int abandonAt = abandonThisTunnel ? Math.min(4, slices.size() - 1) : -1;
@@ -177,6 +256,18 @@ public final class SimulationRecordingExporter {
                         break;
                     }
 
+                    for (MineInfrastructureTask task : tasksStartingAt(infrastructure, sliceIndex)) {
+                        if (task.type() != MineInfrastructureTask.Type.BUILD_BRIDGE) continue;
+                        Map<BlockPosition, Integer> built = headlessInfrastructureVoxels(task, tunnel.geometry());
+                        infrastructureCompleted++;
+                        minerPositions[worker] = task.anchor();
+                        minerStates[worker] = task.type().name();
+                        recorder.captureDelta(++stepNumber, built,
+                            residents(minerPositions, minerStates, task.anchor()), task.anchor(),
+                            fullMetrics(plan, excavated.size(), infrastructureCompleted, abandonedFronts,
+                                task.type().name()));
+                    }
+
                     Map<BlockPosition, Integer> delta = new LinkedHashMap<>();
                     for (BlockPosition block : slice.excavationBlocks()) {
                         if (excavated.add(block)) delta.put(block, AIR);
@@ -192,35 +283,36 @@ public final class SimulationRecordingExporter {
                         residents(minerPositions, minerStates, slice.floorCenter()), slice.floorCenter(),
                         fullMetrics(plan, excavated.size(), infrastructureCompleted, abandonedFronts, "EXCAVATING"));
 
-                    if (tunnel.tunnel().id().equals(main.tunnel().id())) {
-                        MineInfrastructureTask due = dueInfrastructure(sliceIndex, support, light, step, bridge);
-                        if (due != null) {
-                            Map<BlockPosition, Integer> built = infrastructureVoxels(due, main.geometry());
-                            infrastructureCompleted++;
-                            minerStates[worker] = due.type().name();
-                            recorder.captureDelta(++stepNumber, built,
-                                residents(minerPositions, minerStates, due.anchor()), due.anchor(),
-                                fullMetrics(plan, excavated.size(), infrastructureCompleted, abandonedFronts,
-                                    due.type().name()));
-                        }
-                        if (sliceIndex == Math.min(30, slices.size() - 1)) {
-                            int leavingMiner = 1;
-                            minerStates[leavingMiner] = "LEAVING MINE";
-                            minerPositions[leavingMiner] = entrance;
-                            recorder.captureDelta(++stepNumber, Map.of(),
-                                residents(minerPositions, minerStates, outside), entrance,
-                                fullMetrics(plan, excavated.size(), infrastructureCompleted, abandonedFronts, "LEAVING_MINE"));
-                            minerPositions[leavingMiner] = outside;
-                            minerStates[leavingMiner] = "OUTSIDE";
-                            recorder.captureDelta(++stepNumber, Map.of(),
-                                residents(minerPositions, minerStates, entrance), outside,
-                                fullMetrics(plan, excavated.size(), infrastructureCompleted, abandonedFronts, "OUTSIDE"));
-                            minerPositions[leavingMiner] = entrance;
-                            minerStates[leavingMiner] = "REENTERING MINE";
-                            recorder.captureDelta(++stepNumber, Map.of(),
-                                residents(minerPositions, minerStates, slice.floorCenter()), entrance,
-                                fullMetrics(plan, excavated.size(), infrastructureCompleted, abandonedFronts, "REENTERING_MINE"));
-                        }
+                    for (MineInfrastructureTask task : tasksStartingAt(infrastructure, sliceIndex)) {
+                        if (task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE) continue;
+                        Map<BlockPosition, Integer> built = headlessInfrastructureVoxels(task, tunnel.geometry());
+                        infrastructureCompleted++;
+                        minerPositions[worker] = task.anchor();
+                        minerStates[worker] = task.type().name();
+                        recorder.captureDelta(++stepNumber, built,
+                            residents(minerPositions, minerStates, task.anchor()), task.anchor(),
+                            fullMetrics(plan, excavated.size(), infrastructureCompleted, abandonedFronts,
+                                task.type().name()));
+                    }
+
+                    if (tunnel.tunnel().id().equals(main.tunnel().id())
+                        && sliceIndex == Math.min(30, slices.size() - 1)) {
+                        int leavingMiner = 1;
+                        minerStates[leavingMiner] = "LEAVING MINE";
+                        minerPositions[leavingMiner] = entrance;
+                        recorder.captureDelta(++stepNumber, Map.of(),
+                            residents(minerPositions, minerStates, outside), entrance,
+                            fullMetrics(plan, excavated.size(), infrastructureCompleted, abandonedFronts, "LEAVING_MINE"));
+                        minerPositions[leavingMiner] = outside;
+                        minerStates[leavingMiner] = "OUTSIDE";
+                        recorder.captureDelta(++stepNumber, Map.of(),
+                            residents(minerPositions, minerStates, entrance), outside,
+                            fullMetrics(plan, excavated.size(), infrastructureCompleted, abandonedFronts, "OUTSIDE"));
+                        minerPositions[leavingMiner] = entrance;
+                        minerStates[leavingMiner] = "REENTERING MINE";
+                        recorder.captureDelta(++stepNumber, Map.of(),
+                            residents(minerPositions, minerStates, slice.floorCenter()), entrance,
+                            fullMetrics(plan, excavated.size(), infrastructureCompleted, abandonedFronts, "REENTERING_MINE"));
                     }
                 }
             }
@@ -233,52 +325,105 @@ public final class SimulationRecordingExporter {
         }
         if (recorder == null) recorder = emptyRecorder();
         return recorder.finish(id, "Mine · Full Scenario",
-            "Ein repräsentativer Layer-2-bis-6-Lauf in fester NORTH-Ausrichtung: drei Miner, geteilte Arbeitsfronten, variable Tunnel und Branches, Support/Licht/Step/Bridge, kurzer Wasser-Gap, Lava-Abbruch sowie Rausgehen und Wiedereinstieg. Engine-nahe Weltreaktionen sind kontrollierte Headless-Fixtures; echte Hytale-Navigation, Fluidphysik und Assetplatzierung werden hier nicht behauptet.",
+            "Mehrere Miner arbeiten an einem verzweigten Layer-2-bis-6-Minenlauf. Alle Core-geplanten Stützen, Lichter und Stufen werden sichtbar abgearbeitet; dazu kommen geteilte Fronten, eine kontrollierte Brücken-/Wasser-Fikstur, Lava-Abbruch und Wiedereinstieg. Hytale-Navigation, Fluidphysik und konkrete Asset-Auflösung bleiben außerhalb dieses Headless-Tests.",
             "semantic-step", markers, error);
     }
 
-    private static MineInfrastructureTask dueInfrastructure(
-        int sliceIndex,
-        MineInfrastructureTask support,
-        MineInfrastructureTask light,
-        MineInfrastructureTask step,
-        MineInfrastructureTask bridge
+    private static List<MineInfrastructureTask> tasksStartingAt(
+        List<MineInfrastructureTask> tasks,
+        int sliceIndex
     ) {
-        MineInfrastructureTask[] candidates = {support, light, step, bridge};
-        for (MineInfrastructureTask task : candidates) {
-            if (task != null && task.startSliceIndex() == sliceIndex) return task;
-        }
-        return null;
+        return tasks.stream()
+            .filter(task -> task.startSliceIndex() == sliceIndex)
+            .sorted((a, b) -> {
+                int priority = Integer.compare(b.priority(), a.priority());
+                return priority != 0 ? priority : a.type().compareTo(b.type());
+            })
+            .toList();
     }
 
-    private static Map<BlockPosition, Integer> infrastructureVoxels(
+    private static Map<BlockPosition, Integer> headlessInfrastructureVoxels(
         MineInfrastructureTask task,
         MineTunnelGeometry geometry
     ) {
         Map<BlockPosition, Integer> delta = new LinkedHashMap<>();
-        BlockPosition p = task.anchor();
+        int index = Math.max(0, Math.min(task.startSliceIndex(), geometry.slices().size() - 1));
+        MineTunnelGeometry.Slice slice = geometry.slices().get(index);
+        BlockPosition p = slice.floorCenter();
+        int[] axes = localAxes(geometry.slices(), index);
+        int crossX = -axes[1];
+        int crossZ = axes[0];
+        int minOffset = -(slice.widthBlocks() / 2);
+        int maxOffset = minOffset + slice.widthBlocks() - 1;
+
         switch (task.type()) {
             case BUILD_SUPPORT -> {
-                for (int y = 0; y < 3; y++) {
-                    delta.put(new BlockPosition(p.x() - 2, p.y() + y, p.z()), SUPPORT);
-                    delta.put(new BlockPosition(p.x() + 2, p.y() + y, p.z()), SUPPORT);
+                int beamY = p.y() + Math.max(3, slice.heightBlocks() - 1);
+                for (int y = p.y(); y < beamY; y++) {
+                    delta.put(offset(p, crossX, crossZ, minOffset, y), SUPPORT);
+                    delta.put(offset(p, crossX, crossZ, maxOffset, y), SUPPORT);
                 }
-                for (int x = -2; x <= 2; x++) delta.put(new BlockPosition(p.x() + x, p.y() + 3, p.z()), SUPPORT);
+                for (int lateral = minOffset; lateral <= maxOffset; lateral++) {
+                    delta.put(offset(p, crossX, crossZ, lateral, beamY), SUPPORT);
+                }
             }
-            case PLACE_LIGHT -> delta.put(new BlockPosition(p.x() + 2, p.y() + 2, p.z()), CONSTRUCTION);
+            case PLACE_LIGHT -> {
+                int lateral = Math.abs(minOffset + 1) > 1 ? minOffset + 1 : maxOffset - 1;
+                delta.put(offset(p, crossX, crossZ, lateral, p.y()), CONSTRUCTION);
+                delta.put(offset(p, crossX, crossZ, lateral, p.y() + 1), CONSTRUCTION);
+            }
             case BUILD_STEP -> {
-                delta.put(p, PREFAB);
-                delta.put(new BlockPosition(p.x() + 1, p.y(), p.z()), PREFAB);
-                delta.put(new BlockPosition(p.x() - 1, p.y(), p.z()), PREFAB);
+                BlockPosition low = p;
+                if (task.endSliceIndex() < geometry.slices().size()) {
+                    BlockPosition other = geometry.slices().get(task.endSliceIndex()).floorCenter();
+                    if (other.y() < low.y()) low = other;
+                }
+                for (int lateral = -1; lateral <= 1; lateral++) {
+                    delta.put(offset(low, crossX, crossZ, lateral, low.y()), PREFAB);
+                }
             }
             case BUILD_BRIDGE -> {
-                for (int index = task.startSliceIndex(); index <= task.endSliceIndex(); index++) {
-                    BlockPosition floor = geometry.slices().get(index).floorCenter();
-                    for (int x = -1; x <= 1; x++) delta.put(new BlockPosition(floor.x() + x, floor.y(), floor.z()), WOOD);
+                for (int sliceIndex = task.startSliceIndex();
+                     sliceIndex <= task.endSliceIndex() && sliceIndex < geometry.slices().size();
+                     sliceIndex++) {
+                    MineTunnelGeometry.Slice bridgeSlice = geometry.slices().get(sliceIndex);
+                    int[] bridgeAxes = localAxes(geometry.slices(), sliceIndex);
+                    int bridgeCrossX = -bridgeAxes[1];
+                    int bridgeCrossZ = bridgeAxes[0];
+                    BlockPosition floor = bridgeSlice.floorCenter();
+                    for (int lateral = -1; lateral <= 1; lateral++) {
+                        delta.put(offset(floor, bridgeCrossX, bridgeCrossZ, lateral, floor.y() - 1), WOOD);
+                    }
+                    delta.put(offset(floor, bridgeCrossX, bridgeCrossZ, -2, floor.y() - 1), SUPPORT);
+                    delta.put(offset(floor, bridgeCrossX, bridgeCrossZ, 2, floor.y() - 1), SUPPORT);
                 }
             }
         }
         return delta;
+    }
+
+    private static int[] localAxes(List<MineTunnelGeometry.Slice> slices, int index) {
+        BlockPosition before = slices.get(Math.max(0, index - 1)).floorCenter();
+        BlockPosition after = slices.get(Math.min(slices.size() - 1, index + 1)).floorCenter();
+        int dx = after.x() - before.x();
+        int dz = after.z() - before.z();
+        if (Math.abs(dx) >= Math.abs(dz) && dx != 0) return new int[]{Integer.signum(dx), 0};
+        if (dz != 0) return new int[]{0, Integer.signum(dz)};
+        return new int[]{1, 0};
+    }
+
+    private static BlockPosition offset(
+        BlockPosition center,
+        int directionX,
+        int directionZ,
+        int distance,
+        int y
+    ) {
+        return new BlockPosition(
+            center.x() + directionX * distance,
+            y,
+            center.z() + directionZ * distance
+        );
     }
 
     private static Marker sliceMarker(

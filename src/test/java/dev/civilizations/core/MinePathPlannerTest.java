@@ -130,6 +130,21 @@ final class MinePathPlannerTest {
     }
 
     @Test
+    void truncatedFinalPhaseKeepsCurrentFormInsteadOfCompressingANewTurn() {
+        MineTunnelPath path = MinePathPlanner.plan(
+            MineTunnel.Kind.MAIN, ORIGIN, MineHeading.NORTH_EAST, 220, 25L
+        );
+        MineFormPhase last = path.phases().getLast();
+
+        assertTrue(last.lengthBlocks() < 10, "Fixture should end with a truncated main phase");
+        assertEquals(last.startHeading(), last.targetHeading());
+        assertEquals(last.startWidth(), last.targetWidth());
+        assertEquals(last.startHeight(), last.targetHeight());
+        assertEquals(last.startLateralOffset(), last.targetLateralOffset());
+        assertEquals(0, last.verticalDeltaBlocks());
+    }
+
+    @Test
     void lateralDriftChangesAtMostOneBlockPerPhaseAndDoesNotJitterEveryBlock() {
         MineTunnelPath path = MinePathPlanner.plan(
             MineTunnel.Kind.MAIN, ORIGIN, MineHeading.SOUTH_EAST, 500, 9988L
