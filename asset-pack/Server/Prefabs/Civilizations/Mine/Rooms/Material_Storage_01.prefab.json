@@ -6,94 +6,73 @@
   "anchorZ": 0,
   "blocks": [
     {
-      "x": -1,
+      "x": -3,
       "y": 0,
-      "z": -3,
-      "name": "Wood_Fir_Trunk",
+      "z": -2,
+      "name": "Rock_Stone",
       "support": 15
     },
     {
-      "x": 0,
-      "y": 0,
-      "z": -3,
-      "name": "Wood_Fir_Trunk",
-      "support": 15
-    },
-    {
-      "x": 1,
-      "y": 0,
-      "z": -3,
-      "name": "Wood_Fir_Trunk",
-      "support": 15
-    },
-    {
-      "x": -1,
-      "y": 0,
-      "z": 3,
-      "name": "Wood_Fir_Trunk",
-      "support": 15
-    },
-    {
-      "x": 0,
-      "y": 0,
-      "z": 3,
-      "name": "Wood_Fir_Trunk",
-      "support": 15
-    },
-    {
-      "x": 1,
-      "y": 0,
-      "z": 3,
-      "name": "Wood_Fir_Trunk",
-      "support": 15
-    },
-    {
-      "x": -2,
-      "y": 0,
-      "z": -3,
-      "name": "Wood_Fir_Branch_Long",
-      "support": 15
-    },
-    {
-      "x": -2,
+      "x": -3,
       "y": 1,
-      "z": -3,
-      "name": "Wood_Fir_Branch_Long",
+      "z": -2,
+      "name": "Rock_Stone",
+      "support": 15
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": -2,
+      "name": "Rock_Stone",
+      "support": 15
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "z": -2,
+      "name": "Rock_Stone",
+      "support": 15
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone",
+      "support": 15
+    },
+    {
+      "x": -3,
+      "y": 1,
+      "z": 2,
+      "name": "Rock_Stone",
+      "support": 15
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 2,
+      "name": "Rock_Stone",
+      "support": 15
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "z": 2,
+      "name": "Rock_Stone",
       "support": 15
     },
     {
       "x": -2,
       "y": 0,
       "z": 3,
-      "name": "Wood_Fir_Branch_Long",
+      "name": "Rock_Stone",
       "support": 15
     },
     {
-      "x": -2,
-      "y": 1,
-      "z": 3,
-      "name": "Wood_Fir_Branch_Long",
-      "support": 15
-    },
-    {
-      "x": 1,
+      "x": 2,
       "y": 0,
-      "z": 0,
-      "name": "Wood_Fir_Trunk",
-      "support": 15
-    },
-    {
-      "x": 1,
-      "y": 1,
-      "z": 0,
-      "name": "Wood_Fir_Branch_Long",
-      "support": 15
-    },
-    {
-      "x": 1,
-      "y": 2,
-      "z": 0,
-      "name": "Wood_Fir_Trunk",
+      "z": 3,
+      "name": "Rock_Stone",
       "support": 15
     }
   ],
