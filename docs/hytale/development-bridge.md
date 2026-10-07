@@ -1,25 +1,43 @@
-# Native APIs für die Entwicklungsbrücke
+# Native APIs für den lokalen Entwicklungszugriff
 
-Der optionale lokale MCP nutzt eine private Bridge an der Plugin-Grenze. Einrichtung und aktueller Implementierungsumfang stehen in [local-mcp.md](../local-mcp.md).
+Der lokale MCP greift nicht mehr über eine eigene Gameplay-Bridge mit Attach-Lifecycle auf Hytale zu. Stattdessen startet die Civ-Mod beim Pluginstart eine kleine localhost-only Command Bridge.
 
-## Strukturell verifiziert
+## Verifizierte native Bausteine
 
-Die im Projekt bereitgestellte Server-JAR enthält:
+Die gepinnte Hytale-JAR enthält:
 
-- `NPCPlugin.getRoleTemplateNames(boolean)` und `hasRoleName(String)` für native Rollenabfragen;
-- `NPCPlugin.spawnNPC(Store, String, String, Vector3dc, Rotation3fc)` für den bereits im Soldier-Probe verwendeten Spawn;
-- `Store.removeEntity(Ref, RemoveReason)` und `RemoveReason.REMOVE` für Entfernung registrierter Test-Entities;
-- `World.execute(Runnable)` und `getChunkAsync(...)`, siehe [Threading](threading.md) und [Headless-Server](server-headless.md);
-- `PluginManager.reload(PluginIdentifier)`. Diese Signatur ist kein Nachweis, dass Civ-ECS-Komponenten und laufende Zustände sicher hot-reloadbar sind.
+- `CommandManager.get()`;
+- `CommandManager.handleCommand(CommandSender, String)` mit `CompletableFuture<Void>`;
+- `ConsoleSender.INSTANCE`;
+- `CommandSender.sendMessage(Message)`;
+- `MessageUtil.toAnsiString(Message)`.
 
-Im isolierten Modus begrenzt die Bridge Mutationen auf eine eigene Flat-Welt. Der Live-Modus bindet sich explizit an eine bestehende World-Instanz und den freigebenden Einzelspieler-Besitzer. Er löst Entity-UUIDs erneut auf dem World Thread auf und verändert nur geladene Positionen im begrenzten Spielerumkreis. Snapshots enthalten Werte/IDs; kein mutable Engine-Objekt wird an MCP ausgegeben. HTTP wartet außerhalb des World Threads.
+Diese Bausteine erlauben, einen nativen Hytale-Serverbefehl aus einem lokalen HTTP-Aufruf heraus auszuführen und dessen Command-Ausgabe direkt zu sammeln.
 
-## Für den Live-Modus strukturell verifiziert
+Die Implementierung verwendet dafür einen eigenen `CommandSender`, der Berechtigungen und Identität an Hytales `ConsoleSender` delegiert, aber `sendMessage` abfängt. Dadurch muss die Entwicklungssteuerung keine Serverlogs auswerten.
 
-Die bereitgestellte JAR enthält zusätzlich `SingleplayerModule.isOwner(PlayerRef)` (statisch), `World.getPlayerRefs()`, `World.isAlive()`, `Universe.getWorld(UUID)` und `EntityStore.getRefFromUUID(UUID)`. `Store.forEachChunk(Query, BiConsumer)` mit `Archetype.of(...)` ist bereits im Produktionscode zur NPC-Abfrage verwendet. `AbstractPlayerCommand` ist laut offizieller [API-Dokumentation](https://docs.hytale.com/api/com/hypixel/hytale/server/core/command/system/basecommands/AbstractPlayerCommand) an den World Thread des sendenden Spielers gebunden. Die Aktivierung benutzt diesen nativen Befehlseinstieg; HTTP-/Datei-I/O der Freigabe läuft anschließend außerhalb des World Threads, und die Abschlussmeldung wird über `World` als Executor zurückdispatcht.
+## Transport
 
-Hytale beschreibt [Einzelspieler als lokalen Server](https://hytale.com/news/2025/11/hytale-modding-strategy-and-status) mit ausgewählten Mods. Ein zusätzliches Client-Plugin oder eine dokumentierte allgemeine Hytale-MCP-API ist für diese serverseitige Bridge nicht nötig. Der Client-Lifecycle des neuen `/civmcp`-Befehls ist damit noch nicht praktisch nachgewiesen.
+Die Civ-Mod bindet die Command Bridge ausschließlich an `127.0.0.1`, standardmäßig Port `5523`.
+
+- `GET /health` bestätigt, dass das Plugin und der lokale Endpoint laufen.
+- `POST /command` mit `{"command":"..."}` führt einen Hytale-Serverbefehl aus und liefert `success`, `output` und gegebenenfalls `error` zurück.
+
+Der Node-MCP stellt diesen Zugriff als `hytale_command` bereit.
+
+Es gibt keinen `/civmcp on`-Befehl, keine `bridge.json`, keine zufällige Portdatei und keinen Token-/Session-Lifecycle mehr.
+
+## Grenze
+
+Der Remote-Befehl läuft als Serverkonsole. Ein `AbstractPlayerCommand`, der zwingend einen Spieler-Sender benötigt, kann darüber nicht automatisch verwendet werden. Für Civ-spezifische Entwicklungsaktionen sollen bei Bedarf kleine console-fähige Commands ergänzt werden.
+
+Der Endpoint ist ein lokales Entwicklungswerkzeug. Die Loopback-Bindung verhindert Netzwerkzugriff, ersetzt aber keine lokale Prozess-/Benutzerisolation.
 
 ## Offen
 
-Der vollständige neue Bridge-Lifecycle, Wiederholbarkeit von Spawn/Reset, Client-Verbindung zur Offline-Instanz und sichtbare Animationen/UI benötigen einen ersten realen lokalen Durchlauf. Vorhandene Soldier-/Flat-Probes belegen die verwendeten bisherigen Engine-Pfade, nicht automatisch den neuen HTTP-/MCP-Ablauf.
+Der reale Launcher-/Singleplayer-Durchlauf muss noch bestätigen:
+
+1. Die installierte Civ-Mod öffnet den Command-Port zuverlässig.
+2. `hytale_status` erkennt den Endpoint.
+3. `hytale_command version` liefert eine native Command-Antwort.
+4. Ein geeigneter console-fähiger Civ-Command kann sichtbaren Spielzustand verändern.

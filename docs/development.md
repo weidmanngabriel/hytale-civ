@@ -141,7 +141,7 @@ Falls bereits ein normales deploytes Verzeichnis <code>hytale-civ-assets</code> 
 
 ## Lokales Deployment
 
-Für direkt vom lokalen Coding-Agent gesteuerte Experimente gibt es den optionalen [lokalen Hytale-MCP-Server](local-mcp.md). Er baut die Mod, installiert sie in eine eigene Runtime und bietet eine opt-in Engine-Brücke für NPC-Experimente. Alternativ gibt `/civmcp on` in einer normalen Einzelspieler-Welt lokalen Zugriff frei; `hytale_connect` verbindet den Agent ohne Serverstart. Java-Neuinstallation in dieser normalen Session erfolgt über den bisherigen lokalen Deployment-Ablauf mit Weltneustart. Einrichtung und erster Soldier-Durchlauf stehen dort. Das Werkzeug ist unabhängig vom Self-Hosted-Runner und kein Merge-Gate.
+Für direkt vom lokalen Coding-Agent gesteuerte Experimente gibt es den optionalen [lokalen Hytale-MCP-Server](local-mcp.md). Die Civ-Mod stellt in einer laufenden Session eine localhost-only Command Bridge bereit; `hytale_command` führt native Serverbefehle aus und liefert deren Command-Ausgabe direkt zurück. Der frühere `/civmcp on`-/Attach-Lifecycle wurde entfernt. Build, Deployment und Prozesssteuerung des MCP bleiben auf dessen eigene isolierte Runtime begrenzt. Das Werkzeug ist unabhängig vom Self-Hosted-Runner und kein Merge-Gate.
 
 <code>HYTALE_MODS_DIR</code> setzen und ausführen:
 

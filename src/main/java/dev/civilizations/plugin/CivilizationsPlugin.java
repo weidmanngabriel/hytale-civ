@@ -58,8 +58,7 @@ import dev.civilizations.hytale.WoodcutterWorkSystem;
 
 public final class CivilizationsPlugin extends JavaPlugin {
 
-    private CivDevBridge devBridge;
-    private CivLiveBridgeService liveBridge;
+    private CivCommandBridge commandBridge;
 
     private static final String CIV_INHABITANT_DATA_ID = "CivInhabitantData";
     private static final String CIV_BUILDING_DATA_ID = "CivBuildingData";
@@ -229,14 +228,10 @@ public final class CivilizationsPlugin extends JavaPlugin {
             new CivSelectedBuildingHudSystem(selectedBuildingHudController)
         );
 
-        liveBridge = new CivLiveBridgeService(unitRegistry, activityRegistry);
-        getCommandRegistry().registerCommand(new CivMcpCommand(liveBridge, getLogger()));
+        commandBridge = new CivCommandBridge(getLogger());
         getCommandRegistry().registerCommand(new CivTestCommand());
-        if (Boolean.getBoolean("civilizations.runtimeProbe") || Boolean.getBoolean("civilizations.devBridge")) {
+        if (Boolean.getBoolean("civilizations.runtimeProbe")) {
             getEntityStoreRegistry().registerSystem(new CivRuntimeDamageTraceSystem());
-        }
-        if (Boolean.getBoolean("civilizations.devBridge")) {
-            devBridge = new CivDevBridge(unitRegistry, activityRegistry);
         }
         if (Boolean.getBoolean("civilizations.runtimeProbe")) {
             getCommandRegistry().registerCommand(
@@ -297,18 +292,18 @@ public final class CivilizationsPlugin extends JavaPlugin {
 
     @Override
     public void start() {
-        if (devBridge != null) {
-            try { devBridge.start(); }
-            catch (java.io.IOException exception) {
-                devBridge.close();
-                throw new IllegalStateException("Could not start the local development bridge", exception);
-            }
+        try {
+            commandBridge.start();
+        } catch (java.io.IOException | RuntimeException exception) {
+            commandBridge.close();
+            getLogger().atWarning().withCause(exception).log(
+                "Local Civ command bridge unavailable; gameplay continues without remote command access"
+            );
         }
     }
 
     @Override
     public void shutdown() {
-        if (liveBridge != null) liveBridge.close();
-        if (devBridge != null) devBridge.close();
+        if (commandBridge != null) commandBridge.close();
     }
 }

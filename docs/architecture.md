@@ -2,7 +2,7 @@
 
 ## Ziel
 
-Optionaler Entwicklungszugriff: `tools/hytale-mcp` besitzt stdio-MCP, Build/Deployment und ausschließlich seinen eigenen lokalen Serverprozess; ein separater Attach-Modus verbindet eine über `/civmcp on` freigegebene normale Einzelspieler-Session ohne Prozessbesitz; `CivDevBridge` an der Plugin-Grenze bietet private Loopback-HTTP-Aktionen. `CivLiveBridgeService` besitzt den opt-in Lifecycle und die geschützte lokale Verbindungsdatei. `DevEntityTracker` trennt erzeugte von ausgewählten bestehenden NPCs über Session-Handles und UUIDs; Reset entfernt nur eigene geladene NPCs. Die Bridge verwendet `CivUnitRegistry`, `CivActivityRegistry`, `NpcInfoProvider` und native Aufrufe auf dem World Thread. Der Core enthält keine MCP-/HTTP-Abhängigkeit. Details: [local-mcp.md](local-mcp.md), Begründung: [ADR 0010](decisions/0009-local-development-mcp.md).
+Optionaler Entwicklungszugriff: `tools/hytale-mcp` besitzt stdio-MCP sowie Build/Deployment und ausschließlich seinen eigenen gestarteten Serverprozess. Für ein normal laufendes Hytale-Spiel startet die Civ-Mod eine kleine localhost-only `CivCommandBridge`; `hytale_command` führt darüber native Hytale-Serverbefehle über `CommandManager` aus und gibt Command-Ausgabe direkt zurück. Es gibt keinen separaten Attach-Lifecycle, keine Verbindungsdatei und keine parallele Gameplay-API mehr. Der Core enthält keine MCP-/HTTP-Abhängigkeit. Details: [local-mcp.md](local-mcp.md), Begründung: [ADR 0009](decisions/0009-local-development-mcp.md).
 
 Die Simulation soll testbar bleiben, ohne Hytale starten zu müssen. Hytale ist eine Integrationsgrenze und nicht das Domänenmodell.
 
