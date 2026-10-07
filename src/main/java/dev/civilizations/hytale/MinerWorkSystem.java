@@ -433,6 +433,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (ref == null) return;
         CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
         frontCoordinator.releaseWorker(key);
+        roomCoordinator.releaseWorker(key);
         WorkerRuntime runtime = workers.remove(key);
         if (runtime != null) releaseInfrastructureReservation(key, runtime);
         navigationFailures.forget(key);
@@ -1613,6 +1614,18 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         CivUnitRegistry.UnitKey workerKey,
         WorkerRuntime runtime
     ) {
+        if (runtime.roomId != null) {
+            RuntimeRoomPlan room = minePlan.rooms.get(runtime.roomId);
+            if (room != null) room.unavailable = true;
+            roomCoordinator.releaseWorker(workerKey);
+            unitRegistry.clearMoveTarget(ref);
+            stopMiningAnimation(ref, store, runtime);
+            stopBuildingAnimation(ref, store, runtime);
+            runtime.clearRoomAssignment();
+            runtime.navigationArrived();
+            return;
+        }
+
         RuntimeFrontPlan affected = null;
         RuntimeInfrastructureTask infrastructure = runtime.infrastructureTaskId == null
             ? null
@@ -1650,6 +1663,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         frontCoordinator.releaseWorker(workerKey);
+        roomCoordinator.releaseWorker(workerKey);
         releaseInfrastructureReservation(workerKey, runtime);
         unitRegistry.clearMoveTarget(ref);
         stopMiningAnimation(ref, store, runtime);
@@ -1668,6 +1682,18 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private MineWorkFront currentFront(UUID worldId, UUID mineId, UUID frontId) {
         MineNetwork network = tunnelRegistry.networkForMine(worldId, mineId);
         return network == null ? null : workFrontById(network, frontId);
+    }
+
+    private MineRoom currentRoom(UUID worldId, UUID mineId, UUID roomId) {
+        MineNetwork network = tunnelRegistry.networkForMine(worldId, mineId);
+        return network == null ? null : roomById(network, roomId);
+    }
+
+    private static MineRoom roomById(MineNetwork network, UUID roomId) {
+        return network.rooms().stream()
+            .filter(room -> room.id().equals(roomId))
+            .findFirst()
+            .orElse(null);
     }
 
     private static boolean available(MineWorkFront front) {
@@ -1869,6 +1895,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             releaseInfrastructureReservation(key, runtime);
         }
         frontCoordinator.releaseWorker(key);
+        roomCoordinator.releaseWorker(key);
         navigationFailures.forget(key);
     }
 
@@ -1916,16 +1943,31 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private static final class RuntimeMinePlan {
         private final UUID mainTunnelId;
         private final Map<UUID, RuntimeFrontPlan> fronts;
+        private final Map<UUID, RuntimeRoomPlan> rooms;
         private final Map<UUID, RuntimeInfrastructureTask> infrastructureTasks;
 
         private RuntimeMinePlan(
             UUID mainTunnelId,
             Map<UUID, RuntimeFrontPlan> fronts,
+            Map<UUID, RuntimeRoomPlan> rooms,
             Map<UUID, RuntimeInfrastructureTask> infrastructureTasks
         ) {
             this.mainTunnelId = mainTunnelId;
             this.fronts = new LinkedHashMap<>(fronts);
+            this.rooms = new LinkedHashMap<>(rooms);
             this.infrastructureTasks = new LinkedHashMap<>(infrastructureTasks);
+        }
+    }
+
+    private static final class RuntimeRoomPlan {
+        private final UUID roomId;
+        private final MineRoomGeometry geometry;
+        private boolean unavailable;
+
+        private RuntimeRoomPlan(UUID roomId, MineRoomGeometry geometry, boolean unavailable) {
+            this.roomId = roomId;
+            this.geometry = geometry;
+            this.unavailable = unavailable;
         }
     }
 
@@ -1983,6 +2025,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private UUID mineId;
         private int minePhase;
         private UUID frontId;
+        private UUID roomId;
+        private Integer roomBuildSection;
         private int sliceIndex = -1;
         private BlockPosition claimedBlock;
         private UUID infrastructureTaskId;
@@ -2009,6 +2053,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         private void clearWorkAssignment() {
             clearFrontAssignment();
+            clearRoomAssignment();
             clearInfrastructureAssignment();
             workElapsed = 0.0;
         }
@@ -2016,6 +2061,13 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private void clearFrontAssignment() {
             frontId = null;
             sliceIndex = -1;
+            claimedBlock = null;
+            workElapsed = 0.0;
+        }
+
+        private void clearRoomAssignment() {
+            roomId = null;
+            roomBuildSection = null;
             claimedBlock = null;
             workElapsed = 0.0;
         }
