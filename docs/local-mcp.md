@@ -15,7 +15,15 @@ Beispiel für den Agent:
 
 > Verwende hytale-civ-local. Prüfe hytale_status und führe danach mit hytale_command den Serverbefehl `version` aus.
 
-Der Zugriff erfolgt als Hytale-`ConsoleSender`. Befehle, die zwingend einen Spieler als Sender benötigen, funktionieren dadurch nicht automatisch. Für wiederholbare Civ-Entwicklungsaktionen sollen gezielt console-fähige Dev-Kommandos ergänzt werden, statt erneut eine zweite Remote-Gameplay-API aufzubauen.
+Der Zugriff erfolgt als Hytale-`ConsoleSender`. Befehle, die zwingend einen Spieler als Sender benötigen, funktionieren dadurch nicht automatisch. Für wiederholbare Civ-Entwicklungsaktionen gibt es deshalb die kleine console-fähige `civdev`-Command-Sammlung:
+
+- `civdev npcs`: listet bis zu 100 aktuell geladene native NPCs mit UUID, Rolle, Position und – falls vorhanden – Civ-Name/Beruf.
+- `civdev npc <uuid>`: zeigt nativen Zustand und Civ-Zustand eines geladenen NPCs; `--json` liefert einen maschinenlesbaren Snapshot.
+- `civdev spawn <role> <x> <y> <z>`: verwendet Hytales natives `NPCPlugin.spawnNPC`. Ein erzeugter `Civ_Inhabitant` wird direkt als Civ-Bewohner initialisiert.
+- `civdev move <uuid> <x> <y> <z>`: nutzt den normalen Civ-Manual-Move-Pfad und damit dieselben Unterbrechungs-/Resume-Regeln wie ein Spielerauftrag.
+- `civdev profession <uuid> <profession>`: vergibt den Beruf über `CivUnitRegistry` einschließlich vorhandener Bootstrap-Ausrüstung.
+
+Alle Commands arbeiten in der aktuellen Hytale-Default-World und führen Welt-/Entity-Zugriffe über deren World-Executor aus. Es entsteht keine zweite Remote-Gameplay-API.
 
 Die Schnittstelle ist nur auf Loopback gebunden und damit nicht aus dem Netzwerk erreichbar. Sie besitzt aktuell bewusst keine zusätzliche Authentifizierung; sie ist ein lokales Entwicklungswerkzeug. Wer Code auf demselben Betriebssystemkonto ausführen kann, kann den lokalen Port ansprechen.
 
