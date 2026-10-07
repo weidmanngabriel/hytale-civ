@@ -48,8 +48,16 @@ public final class MineCaveScanner {
 
         Set<BlockPosition> excludedMine = new HashSet<>();
         for (MineTunnelGeometry geometry : knownMineGeometries) {
-            for (BlockPosition block : geometry.excavationBlocks()) {
-                if (insideBounds(origin, block, horizontal, vertical)) excludedMine.add(block);
+            for (MineTunnelGeometry.Slice slice : geometry.slices()) {
+                BlockPosition center = slice.floorCenter();
+                if (Math.abs(center.x() - origin.x()) > horizontal + 10
+                    || Math.abs(center.z() - origin.z()) > horizontal + 10
+                    || Math.abs(center.y() - origin.y()) > vertical + 4) {
+                    continue;
+                }
+                for (BlockPosition block : slice.excavationBlocks()) {
+                    if (insideBounds(origin, block, horizontal, vertical)) excludedMine.add(block);
+                }
             }
         }
 
