@@ -111,8 +111,9 @@ public final class SimulationRecordingExporter {
                 mineId, MINE_ORIGIN, orientation.rotate(MineHeading.NORTH), 180, 18, seed
             );
             List<MineNetworkGrowthPlanner.PlannedTunnel> ordered = topologicalOrder(plan);
-            Map<BlockPosition, Integer> world = rockEnvelope(plan.tunnels());
-            recorder = new Recorder(world);
+            int[] rockBounds = rockBounds(plan.tunnels());
+            Map<BlockPosition, Integer> world = Map.of();
+            recorder = new Recorder(world, rockBounds);
             markers.addAll(plan.tunnels().stream().map(SimulationRecordingExporter::tunnelMarker).toList());
 
             MineNetworkGrowthPlanner.PlannedTunnel main = plan.mainTunnel();
@@ -438,24 +439,17 @@ public final class SimulationRecordingExporter {
             new double[]{minX, minY, minZ, maxX + 1.0, maxY + 1.0, maxZ + 1.0});
     }
 
-    static Map<BlockPosition, Integer> rockEnvelope(List<MineNetworkGrowthPlanner.PlannedTunnel> tunnels) {
+    static int[] rockBounds(List<MineNetworkGrowthPlanner.PlannedTunnel> tunnels) {
         Set<BlockPosition> excavation = new LinkedHashSet<>();
         tunnels.forEach(tunnel -> excavation.addAll(tunnel.geometry().excavationBlocks()));
-        if (excavation.isEmpty()) return Map.of();
-
-        // The replay only needs rock close to planned excavation. Filling one bounding cuboid
-        // across a branched network stores and renders vast untouched regions between tunnels.
-        Map<BlockPosition, Integer> world = new LinkedHashMap<>();
-        for (BlockPosition block : excavation) {
-            for (int dx = -2; dx <= 2; dx++) {
-                for (int dy = -2; dy <= 2; dy++) {
-                    for (int dz = -2; dz <= 2; dz++) {
-                        world.put(new BlockPosition(block.x() + dx, block.y() + dy, block.z() + dz), ROCK);
-                    }
-                }
-            }
-        }
-        return world;
+        if (excavation.isEmpty()) return null;
+        int minX = excavation.stream().mapToInt(BlockPosition::x).min().orElseThrow() - 2;
+        int maxX = excavation.stream().mapToInt(BlockPosition::x).max().orElseThrow() + 3;
+        int minY = excavation.stream().mapToInt(BlockPosition::y).min().orElseThrow() - 2;
+        int maxY = excavation.stream().mapToInt(BlockPosition::y).max().orElseThrow() + 3;
+        int minZ = excavation.stream().mapToInt(BlockPosition::z).min().orElseThrow() - 2;
+        int maxZ = excavation.stream().mapToInt(BlockPosition::z).max().orElseThrow() + 3;
+        return new int[]{minX, minY, minZ, maxX, maxY, maxZ};
     }
 
     public static SimulationRecording recordRuntime(SimulationScenario scenario, int ticks) {
