@@ -4,5 +4,6 @@
   "javaExecutable": "C:/path/to/jdk-25/bin/java.exe",
   "gamePort": 5521,
   "bridgePort": 5522,
+  "commandBridgePort": 5523,
   "maxHeapMb": 2048
 }
