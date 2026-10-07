@@ -54,7 +54,20 @@ tasks.withType<JavaCompile>().configureEach {
     options.release = 25
 }
 
+tasks.processResources {
+    val resolvedManifestVersion = project.version.toString()
+    filesMatching("manifest.json") {
+        filter { line ->
+            line.replace(
+                Regex("\"Version\"\\s*:\\s*\"[^\"]+\""),
+                "\"Version\": \"$resolvedManifestVersion\""
+            )
+        }
+    }
+}
+
 tasks.withType<Test>().configureEach {
+    systemProperty("projectVersion", project.version.toString())
     useJUnitPlatform()
     testLogging {
         events("failed", "skipped")
@@ -77,6 +90,8 @@ val pluginJar = tasks.named<Jar>("jar") {
 }
 
 val releaseBundle = tasks.register<Zip>("releaseBundle") {
+    val resolvedManifestVersion = project.version.toString()
+
     group = "distribution"
     description = "Packages the plugin JAR and editable Hytale asset pack into one release ZIP."
     dependsOn(pluginJar)
@@ -91,6 +106,14 @@ val releaseBundle = tasks.register<Zip>("releaseBundle") {
 
     from(assetPackDir) {
         into("$artifactBaseName-assets")
+        filesMatching("manifest.json") {
+            filter { line ->
+                line.replace(
+                    Regex("\"Version\"\\s*:\\s*\"[^\"]+\""),
+                    "\"Version\": \"$resolvedManifestVersion\""
+                )
+            }
+        }
     }
 }
 
@@ -204,6 +227,8 @@ hytaleServerBareProbe.configure {
 }
 
 tasks.register("deployToHytale") {
+    val resolvedManifestVersion = project.version.toString()
+
     group = "development"
     description = "Builds and copies the plugin JAR plus editable asset pack to HYTALE_MODS_DIR (or -PhytaleModsDir)."
     dependsOn(pluginJar)
@@ -224,6 +249,14 @@ tasks.register("deployToHytale") {
         copy {
             from(assetPackDir)
             into(file(destination).resolve("$artifactBaseName-assets"))
+            filesMatching("manifest.json") {
+                filter { line ->
+                    line.replace(
+                        Regex("\"Version\"\\s*:\\s*\"[^\"]+\""),
+                        "\"Version\": \"$resolvedManifestVersion\""
+                    )
+                }
+            }
         }
 
         logger.lifecycle(
