@@ -256,6 +256,18 @@ public final class SimulationRecordingExporter {
                         break;
                     }
 
+                    for (MineInfrastructureTask task : tasksStartingAt(infrastructure, sliceIndex)) {
+                        if (task.type() != MineInfrastructureTask.Type.BUILD_BRIDGE) continue;
+                        Map<BlockPosition, Integer> built = headlessInfrastructureVoxels(task, tunnel.geometry());
+                        infrastructureCompleted++;
+                        minerPositions[worker] = task.anchor();
+                        minerStates[worker] = task.type().name();
+                        recorder.captureDelta(++stepNumber, built,
+                            residents(minerPositions, minerStates, task.anchor()), task.anchor(),
+                            fullMetrics(plan, excavated.size(), infrastructureCompleted, abandonedFronts,
+                                task.type().name()));
+                    }
+
                     Map<BlockPosition, Integer> delta = new LinkedHashMap<>();
                     for (BlockPosition block : slice.excavationBlocks()) {
                         if (excavated.add(block)) delta.put(block, AIR);
@@ -272,6 +284,7 @@ public final class SimulationRecordingExporter {
                         fullMetrics(plan, excavated.size(), infrastructureCompleted, abandonedFronts, "EXCAVATING"));
 
                     for (MineInfrastructureTask task : tasksStartingAt(infrastructure, sliceIndex)) {
+                        if (task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE) continue;
                         Map<BlockPosition, Integer> built = headlessInfrastructureVoxels(task, tunnel.geometry());
                         infrastructureCompleted++;
                         minerPositions[worker] = task.anchor();
