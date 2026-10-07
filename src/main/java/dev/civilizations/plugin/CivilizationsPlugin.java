@@ -60,6 +60,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
 
     private CivDevBridge devBridge;
     private CivLiveBridgeService liveBridge;
+    private CivCommandBridge commandBridge;
 
     private static final String CIV_INHABITANT_DATA_ID = "CivInhabitantData";
     private static final String CIV_BUILDING_DATA_ID = "CivBuildingData";
@@ -230,6 +231,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
         );
 
         liveBridge = new CivLiveBridgeService(unitRegistry, activityRegistry);
+        commandBridge = new CivCommandBridge(getLogger());
         getCommandRegistry().registerCommand(new CivMcpCommand(liveBridge, getLogger()));
         getCommandRegistry().registerCommand(new CivTestCommand());
         if (Boolean.getBoolean("civilizations.runtimeProbe") || Boolean.getBoolean("civilizations.devBridge")) {
@@ -297,6 +299,14 @@ public final class CivilizationsPlugin extends JavaPlugin {
 
     @Override
     public void start() {
+        try {
+            commandBridge.start();
+        } catch (java.io.IOException | RuntimeException exception) {
+            commandBridge.close();
+            getLogger().atWarning().withCause(exception).log(
+                "Local Civ command bridge unavailable; gameplay continues without remote command access"
+            );
+        }
         if (devBridge != null) {
             try { devBridge.start(); }
             catch (java.io.IOException exception) {
@@ -310,5 +320,6 @@ public final class CivilizationsPlugin extends JavaPlugin {
     public void shutdown() {
         if (liveBridge != null) liveBridge.close();
         if (devBridge != null) devBridge.close();
+        if (commandBridge != null) commandBridge.close();
     }
 }
