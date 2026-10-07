@@ -24,6 +24,8 @@ repositories {
 val hytaleServerVersion = providers.gradleProperty("hytaleServerVersion").get()
 val artifactBaseName = providers.gradleProperty("artifactBaseName").getOrElse("hytale-civ")
 val assetPackDir = layout.projectDirectory.dir("asset-pack")
+val buildVersion = project.version.toString()
+val manifestVersionPattern = Regex("\"Version\"\\s*:\\s*\"[^\"]+\"")
 val hytaleServerRuntime = configurations.create("hytaleServerRuntime") {
     isCanBeConsumed = false
     isCanBeResolved = true
@@ -52,6 +54,14 @@ java {
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.release = 25
+}
+
+tasks.processResources {
+    filesMatching("manifest.json") {
+        filter { line ->
+            line.replace(manifestVersionPattern, "\"Version\": \"$buildVersion\"")
+        }
+    }
 }
 
 tasks.withType<Test>().configureEach {
@@ -91,6 +101,11 @@ val releaseBundle = tasks.register<Zip>("releaseBundle") {
 
     from(assetPackDir) {
         into("$artifactBaseName-assets")
+        filesMatching("manifest.json") {
+            filter { line ->
+                line.replace(manifestVersionPattern, "\"Version\": \"$buildVersion\"")
+            }
+        }
     }
 }
 
@@ -224,6 +239,11 @@ tasks.register("deployToHytale") {
         copy {
             from(assetPackDir)
             into(file(destination).resolve("$artifactBaseName-assets"))
+            filesMatching("manifest.json") {
+                filter { line ->
+                    line.replace(manifestVersionPattern, "\"Version\": \"$buildVersion\"")
+                }
+            }
         }
 
         logger.lifecycle(
