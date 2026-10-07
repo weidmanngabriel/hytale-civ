@@ -44,8 +44,11 @@ final class CivCommandBridge implements AutoCloseable {
     }
 
     void start() throws IOException {
-        int port = Integer.getInteger("civilizations.commandBridgePort", 5523);
-        if (port < 1024 || port > 65535) {
+        start(Integer.getInteger("civilizations.commandBridgePort", 5523));
+    }
+
+    void start(int port) throws IOException {
+        if (port != 0 && (port < 1024 || port > 65535)) {
             throw new IllegalArgumentException("Invalid command bridge port");
         }
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 8);
@@ -58,7 +61,11 @@ final class CivCommandBridge implements AutoCloseable {
         server.createContext("/health", this::handleHealth);
         server.createContext("/command", this::handle);
         server.start();
-        logger.atInfo().log("Civ command bridge listening on 127.0.0.1:%d", port);
+        logger.atInfo().log("Civ command bridge listening on 127.0.0.1:%d", server.getAddress().getPort());
+    }
+
+    int port() {
+        return server.getAddress().getPort();
     }
 
     private void handleHealth(HttpExchange exchange) throws IOException {
