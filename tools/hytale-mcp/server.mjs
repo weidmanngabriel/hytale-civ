@@ -18,6 +18,7 @@ export const TOOLS = [
   tool('hytale_stop', 'Request native graceful shutdown of the server started by this MCP instance. Wait up to 15 seconds.'),
   tool('hytale_logs', 'Read bounded incremental stdout/stderr from a server process started by this MCP instance.',
     { after: { type: 'integer', minimum: 0 }, limit: { type: 'integer', minimum: 1, maximum: 300 }, contains: { type: 'string', minLength: 0, maxLength: 128 } }, [], true)
+];
 
 export function dispatcher(runtime) {
   return (name, args) => {
