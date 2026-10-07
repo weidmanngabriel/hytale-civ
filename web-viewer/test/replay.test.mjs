@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { Replay, key, surfaceFaces, visibleVoxel } from '../src/replay.js';
+import { sortBranchesByLatestCommit } from '../src/catalog.js';
 import { selectRuns, validateBundle } from '../../scripts/collect-simulation-recordings.mjs';
 
 const sample = () => ({schemaVersion:1,id:'mine-north',title:'Mine',description:'Fixture',timeUnit:'semantic-step',status:'completed',initialVoxels:[[0,0,0,1],[1,0,0,1]],markers:[],frames:[
@@ -75,6 +76,15 @@ test('publisher preserves branch/commit/run provenance and rejects path injectio
   assert.equal(validateBundle(files,run).testStatus,'passed');
   assert.throws(()=>validateBundle(files,{...run,head_sha:'b'.repeat(40)}));
   files['manifest.json'].scenarios[0].file='../evil.json';assert.throws(()=>validateBundle(files,run));
+});
+test('branch selector keeps main first and orders other branches by newest commit',()=>{
+  const branches=sortBranchesByLatestCommit([
+    {branch:'feature/old',createdAt:'2026-10-07T09:00:00Z',commitAt:'2026-10-07T08:00:00Z'},
+    {branch:'main',createdAt:'2026-10-01T09:00:00Z',commitAt:'2026-10-01T08:00:00Z'},
+    {branch:'feature/new',createdAt:'2026-10-07T08:00:00Z',commitAt:'2026-10-07T10:00:00Z'},
+    {branch:'feature/old',createdAt:'2026-10-07T11:00:00Z',commitAt:'2026-10-07T08:30:00Z'}
+  ]);
+  assert.deepEqual(branches,['main','feature/new','feature/old']);
 });
 test('catalog includes failed internal runs, excludes foreign and expired runs, caps each branch',()=>{
   const now=Date.parse('2026-10-06T00:00:00Z');
