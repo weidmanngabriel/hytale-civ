@@ -195,6 +195,12 @@ Select **Farm** and verify that Hytale's native moving Paste ghost appears. It s
 
 After selecting a Farm through `/civbuild`, confirm it with left click. The stationary blueprint should align vertically with the correctly positioned moving native ghost. Run `/civbuildcancel`; the stationary blueprint must disappear immediately without rejoining the world. Also verify that disconnecting removes the player's runtime blueprint previews. Progressive NPC block replacement is not part of this regression yet because `PersistentPrefabPreview` cannot hide individual prefab blocks.
 
+## Minenraum-Abdeckung
+
+`MineRoomPlannerTest` prüft deterministische Raumplanung, die kanonischen Wahrscheinlichkeitsbereiche sowie die V1-Verteilung der drei authored Typen. `MineRoomGeometryTest` prüft, dass der Raum-Aushub vollständig durch kleine semantische Work-Units abgedeckt wird. `MineNormalTaskSelectorTest` schützt die Regel „aktive normale Arbeit zuerst auffüllen“ auch zwischen Raum- und Tunnelarbeit sowie die Raumpriorität 8 beim Öffnen neuer Arbeit. `CivMinePersistenceServiceTest` prüft N4-Raumfortschritt und das rückwärtskompatible Lesen von N3/N2. `MineRoomPrefabAssetValidationTest` hält die drei ersten Test-Prefabs klein und auf bekannte einfache Blocktypen begrenzt.
+
+Die tatsächliche Hytale-Prefab-Ladung, sichtbare Raumrotation und NPC-Navigation in einen gebauten Raum sind Engine-/Client-Verhalten. Ein Hytale-Local-Lauf ist für diesen Change kein Merge-Gate und wurde ohne ausdrückliche Freigabe in diesem Chat nicht ausgeführt.
+
 ## Browser-Replay-Vertrag
 
 `SimulationRecordingExporterTest` prüft die Minengeometrie weiterhin in allen vier Ausrichtungen, veröffentlicht im Browser aber nur eine feste `NORTH`-Referenz. Für die Mine existieren drei bewusst getrennte Browser-Szenarien: `Mine · Geometry` isoliert Layer 2/3 ohne Infrastruktur, `Mine · Straight Full` zeigt einen einzelnen Hauptstollen mit allen vom produktiven `MineInfrastructurePlanner` geplanten Infrastrukturaufgaben, und `Mine · Full Scenario` kombiniert mehrere Miner, Branches, vollständige Core-Infrastrukturplanung sowie kontrollierte Layer-6-Hindernisse. Die normalen Java-Tests bleiben eigenständige Assertions; ein exportierter Lauf mit Status `completed` bedeutet allein, dass der aufgezeichnete Ablauf beendet wurde.
