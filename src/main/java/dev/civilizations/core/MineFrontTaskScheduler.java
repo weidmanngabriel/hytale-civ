@@ -9,9 +9,9 @@ import java.util.UUID;
  * Chooses one executable tunnel-front task for a miner.
  *
  * <p>This is intentionally narrower than the full miner task model from the design document: the
- * current runtime only exposes tunnel excavation. Unoccupied executable fronts are opened before
- * an already occupied front is filled; within that pool branch priority, distance and a stable id
- * break ties. Shared work is therefore a fallback when no additional front is available.</p>
+ * current runtime only exposes tunnel excavation. Already-active fronts with free capacity are
+ * filled before a new normal front is opened; within the chosen pool priority, distance and a
+ * stable id break ties.</p>
  */
 public final class MineFrontTaskScheduler {
 
@@ -38,10 +38,10 @@ public final class MineFrontTaskScheduler {
             .toList();
         if (available.isEmpty()) return null;
 
-        List<MineWorkFront> unoccupied = available.stream()
-            .filter(front -> workerCounts.getOrDefault(front.id(), 0) == 0)
+        List<MineWorkFront> active = available.stream()
+            .filter(front -> workerCounts.getOrDefault(front.id(), 0) > 0)
             .toList();
-        List<MineWorkFront> pool = unoccupied.isEmpty() ? available : unoccupied;
+        List<MineWorkFront> pool = active.isEmpty() ? available : active;
 
         return pool.stream()
             .min(Comparator
