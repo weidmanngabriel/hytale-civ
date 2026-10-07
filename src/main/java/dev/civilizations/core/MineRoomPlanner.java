@@ -18,7 +18,6 @@ public final class MineRoomPlanner {
     public static final int MATERIAL_STORAGE_MAX_SPACING_BLOCKS = 80;
     public static final double TOOL_WORKSHOP_CHANCE = 0.125;
     public static final double ORE_COLLECTION_CHANCE = 0.20;
-    public static final double LARGE_NATURAL_CHAMBER_CHANCE = 0.075;
     public static final double SMALL_NICHE_CHANCE = 0.25;
     public static final double SUPPORT_SUPPLY_CHANCE = 0.15;
     public static final double WATER_DRAINAGE_CHANCE = 0.05;
