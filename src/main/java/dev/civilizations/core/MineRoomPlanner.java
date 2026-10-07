@@ -43,10 +43,10 @@ public final class MineRoomPlanner {
         Set<BlockPosition> occupiedCenters = new HashSet<>();
 
         MineNetworkGrowthPlanner.PlannedTunnel main = minePlan.mainTunnel();
-        planMainRooms(main, random, rooms, occupiedCenters);
+        planMainRooms(main, minePlan.tunnels(), random, rooms, occupiedCenters);
         for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : minePlan.tunnels()) {
             if (tunnel.tunnel().kind() == MineTunnel.Kind.BRANCH) {
-                planBranchRooms(tunnel, random, rooms, occupiedCenters);
+                planBranchRooms(tunnel, minePlan.tunnels(), random, rooms, occupiedCenters);
             }
         }
         return List.copyOf(rooms);
@@ -54,6 +54,7 @@ public final class MineRoomPlanner {
 
     private static void planMainRooms(
         MineNetworkGrowthPlanner.PlannedTunnel tunnel,
+        List<MineNetworkGrowthPlanner.PlannedTunnel> allTunnels,
         SplittableRandom random,
         List<MineRoom> rooms,
         Set<BlockPosition> occupiedCenters
@@ -82,6 +83,7 @@ public final class MineRoomPlanner {
 
     private static void planBranchRooms(
         MineNetworkGrowthPlanner.PlannedTunnel tunnel,
+        List<MineNetworkGrowthPlanner.PlannedTunnel> allTunnels,
         SplittableRandom random,
         List<MineRoom> rooms,
         Set<BlockPosition> occupiedCenters
@@ -96,6 +98,7 @@ public final class MineRoomPlanner {
 
     private static boolean tryAdd(
         MineNetworkGrowthPlanner.PlannedTunnel tunnel,
+        List<MineNetworkGrowthPlanner.PlannedTunnel> allTunnels,
         int sliceIndex,
         MineRoom.Type type,
         SplittableRandom random,
@@ -128,6 +131,7 @@ public final class MineRoomPlanner {
             );
             MineRoomGeometry geometry = MineRoomGeometry.generate(candidate, tunnel.geometry());
             if (collidesWithTunnelBody(geometry, tunnel.geometry(), sliceIndex)) continue;
+            if (collidesWithUnrelatedTunnel(geometry, tunnel.tunnel().id(), allTunnels)) continue;
 
             rooms.add(candidate);
             occupiedCenters.add(center);
@@ -147,6 +151,20 @@ public final class MineRoomPlanner {
         for (int index = 0; index < parent.slices().size(); index++) {
             if (Math.abs(index - attachmentSliceIndex) <= exemptRadius) continue;
             for (BlockPosition block : parent.slices().get(index).excavationBlocks()) {
+                if (room.excavationBlocks().contains(block)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean collidesWithUnrelatedTunnel(
+        MineRoomGeometry room,
+        UUID parentTunnelId,
+        List<MineNetworkGrowthPlanner.PlannedTunnel> tunnels
+    ) {
+        for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : tunnels) {
+            if (tunnel.tunnel().id().equals(parentTunnelId)) continue;
+            for (BlockPosition block : tunnel.geometry().excavationBlocks()) {
                 if (room.excavationBlocks().contains(block)) return true;
             }
         }
