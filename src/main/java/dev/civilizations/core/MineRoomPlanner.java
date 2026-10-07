@@ -63,7 +63,7 @@ public final class MineRoomPlanner {
 
         int restIndex = random.nextInt(REST_MIN_SPACING_BLOCKS, REST_MAX_SPACING_BLOCKS + 1);
         while (restIndex < sliceCount - 8) {
-            tryAdd(tunnel, restIndex, MineRoom.Type.REST_ACCOMMODATION, random, rooms, occupiedCenters);
+            tryAdd(tunnel, allTunnels, restIndex, MineRoom.Type.REST_ACCOMMODATION, random, rooms, occupiedCenters);
             restIndex += random.nextInt(REST_MIN_SPACING_BLOCKS, REST_MAX_SPACING_BLOCKS + 1);
         }
 
@@ -72,7 +72,7 @@ public final class MineRoomPlanner {
         );
         for (int index = storageEligible; index < sliceCount - 6; index += OPPORTUNITY_SPACING) {
             if (random.nextDouble() <= MATERIAL_STORAGE_CHANCE
-                && tryAdd(tunnel, index, MineRoom.Type.MATERIAL_STORAGE, random, rooms, occupiedCenters)) {
+                && tryAdd(tunnel, allTunnels, index, MineRoom.Type.MATERIAL_STORAGE, random, rooms, occupiedCenters)) {
                 storageEligible = index + random.nextInt(
                     MATERIAL_STORAGE_MIN_SPACING_BLOCKS, MATERIAL_STORAGE_MAX_SPACING_BLOCKS + 1
                 );
@@ -91,7 +91,7 @@ public final class MineRoomPlanner {
         int sliceCount = tunnel.geometry().slices().size();
         for (int index = OPPORTUNITY_SPACING; index < sliceCount - 4; index += OPPORTUNITY_SPACING) {
             if (random.nextDouble() <= SMALL_NICHE_CHANCE) {
-                tryAdd(tunnel, index, MineRoom.Type.SMALL_NICHE, random, rooms, occupiedCenters);
+                tryAdd(tunnel, allTunnels, index, MineRoom.Type.SMALL_NICHE, random, rooms, occupiedCenters);
             }
         }
     }
