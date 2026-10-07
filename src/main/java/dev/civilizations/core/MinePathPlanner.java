@@ -86,19 +86,28 @@ public final class MinePathPlanner {
                 forwardBlocks - generatedBlocks
             );
 
-            MineHeading targetHeading = chooseHeading(
-                tunnelKind,
-                currentHeading,
-                actualX,
-                actualZ,
-                footprintCenter.x(),
-                footprintCenter.z(),
-                random
-            );
-            int targetWidth = nextSize(currentWidth, minSize, maxSize, random);
-            int targetHeight = nextSize(currentHeight, minSize, maxSize, random);
-            double targetLateralOffset = nextLateralOffset(currentLateralOffset, random);
-            int verticalDelta = chooseVerticalDelta(tunnelKind, random);
+            boolean truncatedFinalPhase = phaseLength < minimumPhaseLength(tunnelKind);
+            MineHeading targetHeading = truncatedFinalPhase
+                ? currentHeading
+                : chooseHeading(
+                    tunnelKind,
+                    currentHeading,
+                    actualX,
+                    actualZ,
+                    footprintCenter.x(),
+                    footprintCenter.z(),
+                    random
+                );
+            int targetWidth = truncatedFinalPhase
+                ? currentWidth
+                : nextSize(currentWidth, minSize, maxSize, random);
+            int targetHeight = truncatedFinalPhase
+                ? currentHeight
+                : nextSize(currentHeight, minSize, maxSize, random);
+            double targetLateralOffset = truncatedFinalPhase
+                ? currentLateralOffset
+                : nextLateralOffset(currentLateralOffset, random);
+            int verticalDelta = truncatedFinalPhase ? 0 : chooseVerticalDelta(tunnelKind, random);
 
             MineFormPhase phase = new MineFormPhase(
                 phaseIndex,
@@ -242,6 +251,10 @@ public final class MinePathPlanner {
             if (roll <= 0.0) return candidates[i];
         }
         return currentHeading;
+    }
+
+    private static int minimumPhaseLength(MineTunnel.Kind tunnelKind) {
+        return tunnelKind == MineTunnel.Kind.MAIN ? MAIN_MIN_PHASE_LENGTH : BRANCH_MIN_PHASE_LENGTH;
     }
 
     private static int randomPhaseLength(MineTunnel.Kind tunnelKind, SplittableRandom random) {
