@@ -16,23 +16,23 @@ async function ready(handle) {
   assert.equal((await handle(initialize)).result.protocolVersion, '2025-11-25');
   await handle({ jsonrpc: '2.0', method: 'notifications/initialized' });
 }
-test('MCP lifecycle and invalid mutations never reach runtime', async () => {
+test('MCP lifecycle validates command calls before runtime', async () => {
   const calls = [];
   const handle = createProtocol(TOOLS, async (name, args) => { calls.push({ name, args }); return { ok: true }; });
   assert.equal((await handle({ jsonrpc: '2.0', id: 0, method: 'tools/list' })).error.code, -32000);
   await ready(handle);
-  const toolCall = arguments_ => handle({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'hytale_move', arguments: arguments_ } });
-  assert.equal((await toolCall({ handle: 'test', x: 0, y: 1, z: 0, command: 'arbitrary' })).error.code, -32602);
-  assert.equal((await toolCall({ handle: 'test', x: 30000001, y: 1, z: 0 })).error.code, -32602);
+  const toolCall = arguments_ => handle({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'hytale_command', arguments: arguments_ } });
+  assert.equal((await toolCall({ command: '' })).error.code, -32602);
+  assert.equal((await toolCall({ command: 'version', extra: true })).error.code, -32602);
   assert.equal(calls.length, 0);
-  assert.equal((await toolCall({ handle: 'test', x: 0, y: 1, z: 0 })).result.isError, undefined);
+  assert.equal((await toolCall({ command: 'version' })).result.isError, undefined);
   assert.equal(calls.length, 1);
   assert.equal((await handle({ jsonrpc: '2.0', id: 3, method: 'tools/list' })).result.tools.length, TOOLS.length);
 });
 test('tool failures remain MCP tool results, not successful operations', async () => {
   const handle = createProtocol(TOOLS, async () => { throw new Error('Server not ready'); });
   await ready(handle);
-  const response = await handle({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'hytale_arena', arguments: {} } });
+  const response = await handle({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'hytale_command', arguments: { command: 'version' } } });
   assert.equal(response.result.isError, true);
   assert.match(response.result.content[0].text, /not ready/);
 });
@@ -104,23 +104,23 @@ test('build/deploy/start/status/stop lifecycle with owned test child (not Hytale
     execFileSync('git', ['-c', 'user.name=MCP Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'test fixture'], { cwd: root });
     const listener = createServer();
     await new Promise(resolve => listener.listen(0, '127.0.0.1', resolve));
-    const bridgePort = listener.address().port;
+    const commandBridgePort = listener.address().port;
     await new Promise(resolve => listener.close(resolve));
     const fakeJava = join(root, 'test-java');
     await writeFile(fakeJava, `#!/usr/bin/env node
 const http = require('node:http');
 const readline = require('node:readline');
-const port = Number(process.argv.find(a => a.startsWith('-Dcivilizations.devBridgePort=')).split('=')[1]);
+const port = Number(process.argv.find(a => a.startsWith('-Dcivilizations.commandBridgePort=')).split('=')[1]);
 const server = http.createServer((req, res) => {
   res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify({ ready: true, sessionId: process.env.CIV_DEV_SESSION }));
+  res.end(JSON.stringify({ ready: true, version: 1 }));
 }).listen(port, '127.0.0.1');
 readline.createInterface({ input: process.stdin }).on('line', line => {
   if (line === 'stop') server.close(() => process.exit(0));
 });
 `, { mode: 0o755 });
     runtime = new LocalRuntime({ root, runtime: join(root, '.hytale-dev', 'runtime'),
-      javaExecutable: fakeJava, serverJar: fakeJava, assetsPath: join(root, 'asset-pack'), bridgePort, gamePort: 5521, maxHeapMb: 512 });
+      javaExecutable: fakeJava, serverJar: fakeJava, assetsPath: join(root, 'asset-pack'), commandBridgePort, gamePort: 5521, maxHeapMb: 512 });
     const build = await runtime.build();
     for (let i = 0; i < 100 && runtime.job(build.jobId).state === 'running'; i++) await new Promise(resolve => setTimeout(resolve, 10));
     assert.equal(runtime.job(build.jobId).state, 'succeeded');
@@ -129,10 +129,10 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     assert.match(deployed.jarSha256, /^[a-f0-9]{64}$/);
     await runtime.start();
     for (let i = 0; i < 100; i++) {
-      if ((await runtime.status()).bridge.ready) break;
+      if ((await runtime.status()).commandBridge.ready) break;
       await new Promise(resolve => setTimeout(resolve, 10));
     }
-    assert.equal((await runtime.status()).bridge.ready, true);
+    assert.equal((await runtime.status()).commandBridge.ready, true);
     await assert.rejects(runtime.deploy(build.jobId), /Stop the development server/);
     assert.equal((await runtime.stop()).state, 'stopped');
     assert.equal((await runtime.status()).running, false);
