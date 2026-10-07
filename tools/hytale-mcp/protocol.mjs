@@ -34,7 +34,7 @@ export function createProtocol(definitions, call) {
       phase = 'initializing';
       return reply({ protocolVersion: VERSIONS.includes(message.params.protocolVersion) ? message.params.protocolVersion : VERSIONS[0],
         capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'hytale-civ-local', version: '0.1.0' },
-        instructions: 'Local development only. Build, poll the job, deploy, start, then create an arena. All entity actions use real Hytale/Civ paths. State readings do not prove client rendering. Never automatically retry a timed-out mutation; inspect state first.' });
+        instructions: 'Local development only. Use hytale_status to check the localhost command bridge and hytale_command to execute native Hytale server-console commands with direct output. Build/deploy/start/stop only own processes started by this MCP instance.' });
     }
     if (message.method === 'notifications/initialized' && notification && phase === 'initializing') { phase = 'ready'; return; }
     if (message.method === 'ping') return reply({});
