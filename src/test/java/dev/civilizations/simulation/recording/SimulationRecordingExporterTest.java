@@ -58,6 +58,35 @@ final class SimulationRecordingExporterTest {
     }
 
     @Test
+    void fullMineScenarioShowsCurrentNetworkInfrastructureObstaclesAndReentry() throws Exception {
+        SimulationRecording recording = SimulationRecordingExporter.recordFullMine();
+        assertEquals("completed", recording.status(), recording.error());
+        assertEquals("semantic-step", recording.timeUnit());
+        assertEquals("mine-full", recording.id());
+        assertTrue(recording.frames().stream().anyMatch(frame ->
+            "LEAVING_MINE".equals(frame.metrics().get("phase"))));
+        assertTrue(recording.frames().stream().anyMatch(frame ->
+            "OUTSIDE".equals(frame.metrics().get("phase"))));
+        assertTrue(recording.frames().stream().anyMatch(frame ->
+            "REENTERING_MINE".equals(frame.metrics().get("phase"))));
+        assertTrue(recording.frames().stream().anyMatch(frame ->
+            "BUILD_BRIDGE".equals(frame.metrics().get("phase"))));
+        assertTrue(recording.frames().stream().anyMatch(frame ->
+            "BUILD_SUPPORT".equals(frame.metrics().get("phase"))
+                || "PLACE_LIGHT".equals(frame.metrics().get("phase"))
+                || "BUILD_STEP".equals(frame.metrics().get("phase"))));
+        assertTrue(recording.markers().stream().anyMatch(marker ->
+            marker.type().equals("water_obstacle")));
+        assertTrue(recording.markers().stream().anyMatch(marker ->
+            marker.type().equals("lava_obstacle")));
+        assertTrue(((Number) recording.frames().getLast().metrics().get("abandonedFronts")).intValue() >= 1);
+        assertEquals(3, recording.frames().getFirst().residents().size());
+        assertEquals("COMPLETE", recording.frames().getLast().metrics().get("phase"));
+        assertTrue(new ObjectMapper().writeValueAsBytes(recording).length < 32 * 1024 * 1024,
+            "Fits the publisher's recording size budget");
+    }
+
+    @Test
     void allSharedRuntimeScenariosRecordTheSameWorldAndResidentStateAsDirectExecution() {
         for (SimulationScenario scenario : SimulationScenarios.all()) {
             var recording = SimulationRecordingExporter.recordRuntime(scenario, 100);
