@@ -221,7 +221,13 @@ hytale-civ-0.1.0-dev.42.zip
 
 Der Commit-SHA bleibt zur Nachverfolgbarkeit in den Release Notes, wird aber nicht mehr als Release-Version verwendet. Dadurch bleiben Development-Releases natürlich sortierbar und stabile Versionen wie <code>v0.1.0</code> bilden das Ende der jeweiligen SemVer-Linie.
 
-Vor Beginn der Entwicklung für die nächste stabile Versionslinie muss <code>projectVersion</code> entsprechend erhöht werden, zum Beispiel von <code>0.1.0-SNAPSHOT</code> auf <code>0.2.0-SNAPSHOT</code>.
+Die Versionsregeln sind:
+- neues Feature: <code>MINOR</code> erhöhen und <code>PATCH</code> auf 0 setzen, z. B. <code>0.1.0 → 0.2.0</code>;
+- Bugfix: <code>PATCH</code> erhöhen, z. B. <code>0.2.0 → 0.2.1</code>;
+- Zwischenstände: automatisch als <code>X.Y.Z-dev.&lt;run&gt;</code>;
+- erster stabiler Hauptrelease: <code>1.0.0</code>.
+
+Vor Beginn der Entwicklung für die nächste stabile Versionslinie muss <code>projectVersion</code> entsprechend erhöht werden.
 
 Die GitHub-Release-Beschreibung enthält den Betreff des veröffentlichten Commits. Da abgeschlossene Projektänderungen per Squash-Merge integriert werden, erhält jedes Main-Release damit eine einzeilige Zusammenfassung der jeweiligen Änderung.
 
