@@ -11,6 +11,8 @@ const tool = (name, description, properties = {}, required = [], readOnly = fals
   inputSchema: { type: 'object', properties, required, additionalProperties: false },
   annotations: { readOnlyHint: readOnly, destructiveHint: !readOnly, idempotentHint: readOnly, openWorldHint: false } });
 export const TOOLS = [
+  tool('hytale_command', 'Execute a Hytale server-console command through the always-on localhost command bridge and return the command output directly. Does not require /civmcp on.',
+    { command: { type: 'string', minLength: 1, maxLength: 4096 } }, ['command']),
   tool('hytale_connect', 'Attach to a running singleplayer session explicitly enabled with /civmcp on. No game process is launched.', { connectionFile: { type: 'string', minLength: 1, maxLength: 4096 } }),
   tool('hytale_disconnect', 'Detach from the live game without stopping it or deleting NPCs.'),
   tool('hytale_context', 'Read the enabling player, current world and loaded NPCs within 64 blocks. Does not select existing NPCs.', {}, [], true),
@@ -39,6 +41,7 @@ export const TOOLS = [
 export function dispatcher(runtime) {
   return (name, args) => {
     switch (name) {
+      case 'hytale_command': return runtime.command(args.command);
       case 'hytale_connect': return runtime.connect(args.connectionFile);
       case 'hytale_disconnect': return runtime.disconnect();
       case 'hytale_status': return runtime.status();
