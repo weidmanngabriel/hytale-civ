@@ -59,6 +59,7 @@ import dev.civilizations.hytale.WoodcutterWorkSystem;
 public final class CivilizationsPlugin extends JavaPlugin {
 
     private CivDevBridge devBridge;
+    private CivLiveBridgeService liveBridge;
 
     private static final String CIV_INHABITANT_DATA_ID = "CivInhabitantData";
     private static final String CIV_BUILDING_DATA_ID = "CivBuildingData";
@@ -228,6 +229,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
             new CivSelectedBuildingHudSystem(selectedBuildingHudController)
         );
 
+        liveBridge = new CivLiveBridgeService(unitRegistry, activityRegistry);
+        getCommandRegistry().registerCommand(new CivMcpCommand(liveBridge));
         getCommandRegistry().registerCommand(new CivTestCommand());
         if (Boolean.getBoolean("civilizations.runtimeProbe") || Boolean.getBoolean("civilizations.devBridge")) {
             getEntityStoreRegistry().registerSystem(new CivRuntimeDamageTraceSystem());
@@ -305,6 +308,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
 
     @Override
     public void shutdown() {
+        if (liveBridge != null) liveBridge.close();
         if (devBridge != null) devBridge.close();
     }
 }
