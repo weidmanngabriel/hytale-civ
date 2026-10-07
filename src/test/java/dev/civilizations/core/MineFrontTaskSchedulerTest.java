@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 final class MineFrontTaskSchedulerTest {
 
     @Test
-    void opensUnoccupiedFrontBeforeJoiningAnOccupiedFront() {
+    void joinsOccupiedFrontBeforeOpeningAnUnoccupiedFront() {
         Fixture fixture = fixture();
 
         MineWorkFront selected = MineFrontTaskScheduler.select(
@@ -22,7 +22,7 @@ final class MineFrontTaskSchedulerTest {
             new BlockPosition(18, 10, 0)
         );
 
-        assertEquals(fixture.branchFront.id(), selected.id());
+        assertEquals(fixture.mainFront.id(), selected.id());
     }
 
     @Test
@@ -40,7 +40,7 @@ final class MineFrontTaskSchedulerTest {
     }
 
     @Test
-    void joinsOccupiedFrontOnlyWhenNoUnoccupiedFrontRemains() {
+    void joinsOccupiedFrontWhileCapacityRemains() {
         Fixture fixture = fixture();
 
         MineWorkFront selected = MineFrontTaskScheduler.select(
