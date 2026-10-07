@@ -15,6 +15,8 @@
 11. Before Hytale-specific work, read `docs/hytale/README.md` and the relevant topic pages. Treat `docs/hytale/` as the maintained integration wiki for reusable knowledge about the pinned Hytale version, not as a substitute for Civ architecture documentation.
 12. When Hytale-specific investigation or implementation produces a new reusable verified insight, update the relevant `docs/hytale/` page in the same change. Treat the wiki as a current-reference knowledge base: replace or remove stale information when newer verified evidence supersedes it, mark only genuinely unresolved/runtime-dependent behavior explicitly as open, and create/link a new topic page when no existing page fits. Do not leave durable Hytale integration knowledge only in chat, issues or code comments.
 
+Before completing any change, apply the versioning policy in `docs/development.md` and update `projectVersion` only when that change starts a new release line.
+
 ## Architecture boundaries
 
 13. Keep Hytale-specific code out of `src/main/java/dev/civilizations/core`.

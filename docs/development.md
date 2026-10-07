@@ -224,10 +224,11 @@ Der Commit-SHA bleibt zur Nachverfolgbarkeit in den Release Notes, wird aber nic
 Die Versionsregeln sind:
 - neues Feature: <code>MINOR</code> erhöhen und <code>PATCH</code> auf 0 setzen, z. B. <code>0.1.0 → 0.2.0</code>;
 - Bugfix: <code>PATCH</code> erhöhen, z. B. <code>0.2.0 → 0.2.1</code>;
+- reine Refactorings, Tests, Dokumentation oder CI-/Buildpflege ohne neues Produktverhalten erhöhen die Version nicht;
 - Zwischenstände: automatisch als <code>X.Y.Z-dev.&lt;run&gt;</code>;
 - erster stabiler Hauptrelease: <code>1.0.0</code>.
 
-Vor Beginn der Entwicklung für die nächste stabile Versionslinie muss <code>projectVersion</code> entsprechend erhöht werden.
+Die Versionsnummer wird nicht bei jedem Pull Request blind erhöht. Vor Abschluss eines Changes wird geprüft, ob <code>projectVersion</code> bereits die passende kommende Release-Linie beschreibt. Gehört ein weiteres Feature bereits zu der geplanten <code>0.2.0</code>, bleibt <code>0.2.0-SNAPSHOT</code> unverändert. Nur wenn der Change tatsächlich eine neue Release-Linie beginnt, wird die Basisversion angepasst.
 
 Die GitHub-Release-Beschreibung enthält den Betreff des veröffentlichten Commits. Da abgeschlossene Projektänderungen per Squash-Merge integriert werden, erhält jedes Main-Release damit eine einzeilige Zusammenfassung der jeweiligen Änderung.
 
