@@ -7,6 +7,8 @@ import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.command.system.CommandManager;
 import com.hypixel.hytale.server.core.command.system.CommandSender;
 import com.hypixel.hytale.server.core.console.ConsoleSender;
+import com.hypixel.hytale.server.core.modules.singleplayer.SingleplayerModule;
+import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.util.MessageUtil;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -75,6 +77,10 @@ final class CivCommandBridge implements AutoCloseable {
                 respond(exchange, 413, Map.of("error", "Request too large"));
                 return;
             }
+            if (!hasSingleplayerOwner()) {
+                respond(exchange, 409, Map.of("error", "No local singleplayer owner is currently connected"));
+                return;
+            }
             JsonNode input = mapper.readTree(body);
             String command = input == null ? null : input.path("command").asText(null);
             if (command == null || command.isBlank() || command.length() > MAX_COMMAND) {
@@ -88,6 +94,16 @@ final class CivCommandBridge implements AutoCloseable {
         } finally {
             exchange.close();
         }
+    }
+
+    private boolean hasSingleplayerOwner() {
+        Universe universe = Universe.get();
+        if (universe == null) {
+            return false;
+        }
+        return universe.getWorlds().values().stream()
+            .flatMap(world -> world.getPlayerRefs().stream())
+            .anyMatch(SingleplayerModule::isOwner);
     }
 
     private Map<String, Object> execute(String rawCommand) {
