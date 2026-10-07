@@ -27,6 +27,14 @@ Der Node-MCP stellt diesen Zugriff als `hytale_command` bereit.
 
 Es gibt keinen `/civmcp on`-Befehl, keine `bridge.json`, keine zufällige Portdatei und keinen Token-/Session-Lifecycle mehr.
 
+## Console-fähige Civ-Entwicklungscommands
+
+Die gepinnte Hytale-JAR stellt `AbstractAsyncCommand`, `CommandManager`, `Universe.getDefaultWorld()`, `World` als `Executor`, `EntityStore.getRefFromUUID(UUID)`, `Store.forEachChunk(Query, ...)`, `NPCPlugin.spawnNPC(...)`, `UUIDComponent` und `TransformComponent` bereit. Civ nutzt diese Bausteine für eine kleine `civdev`-Command-Sammlung statt für eine zweite Remote-Entity-API.
+
+Die Commands lesen beziehungsweise verändern nur die aktuelle Default-World und dispatchen World-/Entity-Arbeit auf deren World-Executor. NPC-Auflistung und Snapshots verwenden native ECS-Komponenten; Civ-Beruf, Workplace und manueller Bewegungszustand werden aus den bestehenden Civ-Registries beziehungsweise der persistenten `CivInhabitantData` ergänzt. Spawn delegiert an `NPCPlugin.spawnNPC`; Bewegung und Berufswechsel delegieren an die bestehenden Civ-Pfade.
+
+`civdev npc <uuid> --json` ist der maschinenlesbare Diagnoseeinstieg für MCP. Er kombiniert UUID, Rolle, Displayname, Position, native Gesundheit, Item in Hand, Civ-Zustand, Movement-Zustand und – falls gesetzt – das native Combat-Target.
+
 ## Grenze
 
 Der Remote-Befehl läuft als Serverkonsole. Ein `AbstractPlayerCommand`, der zwingend einen Spieler-Sender benötigt, kann darüber nicht automatisch verwendet werden. Für Civ-spezifische Entwicklungsaktionen sollen bei Bedarf kleine console-fähige Commands ergänzt werden.

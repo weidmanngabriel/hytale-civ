@@ -229,6 +229,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
         );
 
         commandBridge = new CivCommandBridge(getLogger());
+        getCommandRegistry().registerCommand(new CivDevCommand(unitRegistry, activityRegistry));
         getCommandRegistry().registerCommand(new CivTestCommand());
         if (Boolean.getBoolean("civilizations.runtimeProbe")) {
             getEntityStoreRegistry().registerSystem(new CivRuntimeDamageTraceSystem());
