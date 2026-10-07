@@ -112,6 +112,71 @@ final class MineTunnelVoxelizerTest {
         }
     }
 
+    @Test
+    void visualShapeStaysLocallyCoherentAcrossManySeeds() {
+        for (MineTunnel.Kind kind : MineTunnel.Kind.values()) {
+            for (long seed = 0; seed < 100; seed++) {
+                MineTunnelPath path = MinePathPlanner.plan(
+                    kind, ORIGIN, MineHeading.NORTH_EAST, 220, seed
+                );
+                MineTunnelGeometry geometry = MineTunnelVoxelizer.voxelize(path);
+
+                for (int i = 1; i < geometry.slices().size(); i++) {
+                    MineTunnelGeometry.Slice previous = geometry.slices().get(i - 1);
+                    MineTunnelGeometry.Slice current = geometry.slices().get(i);
+                    int dx = Math.abs(current.floorCenter().x() - previous.floorCenter().x());
+                    int dy = Math.abs(current.floorCenter().y() - previous.floorCenter().y());
+                    int dz = Math.abs(current.floorCenter().z() - previous.floorCenter().z());
+
+                    assertTrue(dx <= 2 && dz <= 2,
+                        "Tunnel centerline must not jump horizontally between neighboring slices");
+                    assertTrue(dy <= 1,
+                        "Tunnel centerline must not jump vertically between neighboring slices");
+                    assertTrue(Math.abs(current.widthBlocks() - previous.widthBlocks()) <= 1,
+                        "Tunnel width must change gradually");
+                    assertTrue(Math.abs(current.heightBlocks() - previous.heightBlocks()) <= 1,
+                        "Tunnel height must change gradually");
+                }
+            }
+        }
+    }
+
+    @Test
+    void excavationNeverContainsDisconnectedVisualIslands() {
+        for (MineTunnel.Kind kind : MineTunnel.Kind.values()) {
+            for (long seed = 0; seed < 60; seed++) {
+                MineTunnelGeometry geometry = MineTunnelVoxelizer.voxelize(MinePathPlanner.plan(
+                    kind, ORIGIN, MineHeading.SOUTH_EAST, 180, seed
+                ));
+                assertConnected(geometry.excavationBlocks());
+            }
+        }
+    }
+
+    @Test
+    void organicCutoutsStayWithinAControlledEnvelopeAroundEachSlice() {
+        for (MineTunnel.Kind kind : MineTunnel.Kind.values()) {
+            for (long seed = 0; seed < 60; seed++) {
+                MineTunnelGeometry geometry = MineTunnelVoxelizer.voxelize(MinePathPlanner.plan(
+                    kind, ORIGIN, MineHeading.NORTH, 180, seed
+                ));
+                for (MineTunnelGeometry.Slice slice : geometry.slices()) {
+                    int horizontalLimit = (int) Math.ceil(slice.widthBlocks() / 2.0) + 3;
+                    int minY = slice.floorCenter().y();
+                    int maxY = slice.floorCenter().y() + slice.heightBlocks() + 1;
+                    for (BlockPosition block : slice.excavationBlocks()) {
+                        int dx = Math.abs(block.x() - slice.floorCenter().x());
+                        int dz = Math.abs(block.z() - slice.floorCenter().z());
+                        assertTrue(dx <= horizontalLimit && dz <= horizontalLimit,
+                            "Organic cutout escaped the local tunnel envelope");
+                        assertTrue(block.y() >= minY && block.y() <= maxY,
+                            "Organic cutout escaped the local vertical envelope");
+                    }
+                }
+            }
+        }
+    }
+
     private static void assertConnected(Set<BlockPosition> blocks) {
         assertFalse(blocks.isEmpty());
         Set<BlockPosition> remaining = new HashSet<>(blocks);
