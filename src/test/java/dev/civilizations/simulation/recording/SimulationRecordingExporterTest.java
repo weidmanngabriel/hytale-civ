@@ -133,6 +133,15 @@ final class SimulationRecordingExporterTest {
             marker.type().equals("water_obstacle")));
         assertTrue(recording.markers().stream().anyMatch(marker ->
             marker.type().equals("lava_obstacle")));
+        long plannedBranches = recording.markers().stream()
+            .filter(marker -> marker.type().equals("planned_branch_tunnel")).count();
+        long developedBranches = recording.markers().stream()
+            .filter(marker -> marker.type().equals("developed_branch_tunnel")).count();
+        assertTrue(plannedBranches > 0);
+        assertEquals(plannedBranches, developedBranches,
+            "A late leaf hazard must not leave planned branch subtrees completely untouched");
+        assertTrue(recording.markers().stream().anyMatch(marker ->
+            marker.type().equals("developed_main_tunnel")));
         assertTrue(((Number) recording.frames().getLast().metrics().get("abandonedFronts")).intValue() >= 1);
         assertEquals(3, recording.frames().getFirst().residents().size());
         assertEquals("COMPLETE", recording.frames().getLast().metrics().get("phase"));
