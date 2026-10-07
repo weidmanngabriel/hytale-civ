@@ -43,6 +43,10 @@ Verwende auf den Themenseiten möglichst diese Begriffe:
 
 Die Hytale-Dokumentation ist eine **Current-Truth-Dokumentation**. Wenn neue Evidenz eine frühere Annahme widerlegt oder präzisiert, muss die betroffene Aussage im selben Change korrigiert oder entfernt werden. Widerlegte Ansätze dürfen nicht als weiterhin gültige Anleitung stehen bleiben. Historische Fehlversuche werden nur dann aufbewahrt, wenn sie als Architekturentscheidung oder Warnung weiterhin relevant sind; dafür eignen sich ADRs oder ausdrücklich als historisch markierte Abschnitte.
 
+## Manifest-Versionen
+
+**Verifiziert:** In der gepinnten Hytale-Server-JAR verwendet <code>PluginManifest.Version</code> den Typ <code>com.hypixel.hytale.common.semver.Semver</code>. <code>Semver</code> besitzt explizite Pre-Release-Bestandteile und kann Versionen wie <code>0.2.1-dev.42</code> darstellen. Hytale Civ darf deshalb Development-Builds mit normaler SemVer-Pre-Release-Syntax in ausgelieferten Manifesten versionieren.
+
 ## Verifikation reiner Dokumentationsänderungen
 
 Änderungen, die ausschließlich Dokumentation betreffen und weder Code, Assets, Build-Konfiguration noch Runtime-Verhalten verändern, benötigen **keinen eigenen Test-, Build- oder Hytale-Local-Lauf**. Inhalt, Links und betroffene Querverweise sollen direkt geprüft werden; ein automatisch durch GitHub ausgelöster Workflow muss für eine reine Doku-Änderung nicht zusätzlich als fachlicher Testschritt abgewartet oder manuell erneut gestartet werden.
