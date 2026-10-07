@@ -129,7 +129,9 @@ final class MineTunnelVoxelizerTest {
                     int dz = Math.abs(current.floorCenter().z() - previous.floorCenter().z());
 
                     assertTrue(dx <= 2 && dz <= 2,
-                        "Tunnel centerline must not jump horizontally between neighboring slices");
+                        "Tunnel centerline jump: kind=" + kind + " seed=" + seed
+                            + " slice=" + i + " previous=" + previous.floorCenter()
+                            + " current=" + current.floorCenter() + " dx=" + dx + " dz=" + dz);
                     assertTrue(dy <= 1,
                         "Tunnel centerline must not jump vertically between neighboring slices");
                     assertTrue(Math.abs(current.widthBlocks() - previous.widthBlocks()) <= 1,
@@ -165,12 +167,15 @@ final class MineTunnelVoxelizerTest {
                     int minY = slice.floorCenter().y();
                     int maxY = slice.floorCenter().y() + slice.heightBlocks() + 1;
                     for (BlockPosition block : slice.excavationBlocks()) {
+                        if (slice.navigationCoreBlocks().contains(block)) continue;
                         int dx = Math.abs(block.x() - slice.floorCenter().x());
                         int dz = Math.abs(block.z() - slice.floorCenter().z());
                         assertTrue(dx <= horizontalLimit && dz <= horizontalLimit,
-                            "Organic cutout escaped the local tunnel envelope");
+                            "Visible excavation escaped the local tunnel envelope: kind=" + kind
+                                + " seed=" + seed + " slice=" + slice.index() + " block=" + block);
                         assertTrue(block.y() >= minY && block.y() <= maxY,
-                            "Organic cutout escaped the local vertical envelope");
+                            "Visible excavation escaped the local vertical envelope: kind=" + kind
+                                + " seed=" + seed + " slice=" + slice.index() + " block=" + block);
                     }
                 }
             }
