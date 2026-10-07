@@ -13,7 +13,6 @@ import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -26,8 +25,8 @@ import java.util.regex.Pattern;
 /**
  * Small localhost-only development command endpoint.
  *
- * <p>This is intentionally independent from the structured CivDevBridge attach lifecycle:
- * it exists only to prove reliable external control and return command output directly.</p>
+ * <p>It exposes Hytale's native command dispatcher to a local development client and returns
+ * command output directly instead of requiring server-log scraping.</p>
  */
 final class CivCommandBridge implements AutoCloseable {
     private static final int MAX_BODY = 16_384;
