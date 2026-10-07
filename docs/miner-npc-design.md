@@ -416,11 +416,13 @@ Room work as a category has base priority `8`, regardless of whether the current
 
 There is no separate priority boost for `BUILD_ROOM` over `EXCAVATE_ROOM`; the room lifecycle determines which phase is currently available.
 
-A simple semantic room lifecycle may expose states such as:
+The implemented semantic room lifecycle is:
 
 `PLANNED -> EXCAVATING -> READY_TO_BUILD -> BUILT`
 
-The exact internal room model remains owned by the mine/room system.
+A room becomes executable only after its attachment tunnel slice is physically open. Layer-6 V1 persists lifecycle and work progress, but not transient worker/block/build-section claims. Up to three miners may share room excavation; current room-prefab construction allows up to two miners on distinct build sections. After each completed excavation work unit or build section, the affected miners reselect normally.
+
+Only accommodation, material storage and small niches have authored Layer-6 V1 prefabs. Other room types remain unavailable until their content or later-layer world semantics exist.
 
 ## 14. Infrastructure
 

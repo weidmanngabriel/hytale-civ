@@ -1,6 +1,5 @@
 package dev.civilizations.core;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -38,17 +37,21 @@ public final class MineFrontTaskScheduler {
             .toList();
         if (available.isEmpty()) return null;
 
-        List<MineWorkFront> active = available.stream()
-            .filter(front -> workerCounts.getOrDefault(front.id(), 0) > 0)
-            .toList();
-        List<MineWorkFront> pool = active.isEmpty() ? available : active;
-
-        return pool.stream()
-            .min(Comparator
-                .comparingInt((MineWorkFront front) -> -priority(network, front))
-                .thenComparingDouble(front -> distanceSquared(workerPosition, front.position()))
-                .thenComparing(front -> front.id().toString()))
-            .orElse(null);
+        MineNormalTaskSelector.Candidate selected = MineNormalTaskSelector.select(
+            available.stream()
+                .map(front -> new MineNormalTaskSelector.Candidate(
+                    front.id(),
+                    MineNormalTaskSelector.Kind.TUNNEL_FRONT,
+                    priority(network, front),
+                    workerCounts.getOrDefault(front.id(), 0),
+                    MineFrontCoordinator.NORMAL_TUNNEL_FRONT_CAPACITY,
+                    front.position()
+                ))
+                .toList(),
+            workerPosition
+        );
+        if (selected == null) return null;
+        return available.stream().filter(front -> front.id().equals(selected.id())).findFirst().orElse(null);
     }
 
     static int priority(MineNetwork network, MineWorkFront front) {
@@ -62,10 +65,4 @@ public final class MineFrontTaskScheduler {
         return front.state() == MineWorkFront.State.OPEN || front.state() == MineWorkFront.State.ACTIVE;
     }
 
-    private static double distanceSquared(BlockPosition a, BlockPosition b) {
-        long dx = (long) a.x() - b.x();
-        long dy = (long) a.y() - b.y();
-        long dz = (long) a.z() - b.z();
-        return (double) dx * dx + (double) dy * dy + (double) dz * dz;
-    }
 }

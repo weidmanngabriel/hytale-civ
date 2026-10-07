@@ -20,8 +20,9 @@ import java.util.UUID;
 /** Persists Civ-owned semantic mine-network state in the world entity store. */
 public final class CivMinePersistenceService {
 
-    private static final String FORMAT_HEADER = "N3";
-    private static final String PREVIOUS_FORMAT_HEADER = "N2";
+    private static final String FORMAT_HEADER = "N4";
+    private static final String PREVIOUS_FORMAT_HEADER = "N3";
+    private static final String LEGACY_FORMAT_HEADER = "N2";
 
     private final ResourceType<EntityStore, CivMineDataResource> resourceType;
 
@@ -68,8 +69,18 @@ public final class CivMinePersistenceService {
             ));
         }
         for (MineRoom room : network.rooms()) {
-            lines.add(String.join("|", "R", room.id().toString(), room.tunnelId().toString(),
-                room.type().name(), encodePosition(room.position())));
+            lines.add(String.join("|",
+                "R",
+                room.id().toString(),
+                room.tunnelId().toString(),
+                room.type().name(),
+                encodePosition(room.position()),
+                room.outwardHeading().name(),
+                Integer.toString(room.attachmentSliceIndex()),
+                room.state().name(),
+                Integer.toString(room.excavationWorkUnitIndex()),
+                encodeInts(room.completedBuildSections())
+            ));
         }
         for (MineWorkFront front : network.workFronts()) {
             lines.add(String.join("|", "W", front.id().toString(), front.tunnelId().toString(),
@@ -90,10 +101,14 @@ public final class CivMinePersistenceService {
         if (lines.length == 0) throw new IllegalArgumentException("empty network");
         String[] header = lines[0].split("\\|", -1);
         if (header.length != 3
-            || (!FORMAT_HEADER.equals(header[0]) && !PREVIOUS_FORMAT_HEADER.equals(header[0]))) {
+            || (!FORMAT_HEADER.equals(header[0])
+                && !PREVIOUS_FORMAT_HEADER.equals(header[0])
+                && !LEGACY_FORMAT_HEADER.equals(header[0]))) {
             throw new IllegalArgumentException("unsupported mine persistence format");
         }
-        boolean supportsInfrastructure = FORMAT_HEADER.equals(header[0]);
+        boolean supportsInfrastructure =
+            FORMAT_HEADER.equals(header[0]) || PREVIOUS_FORMAT_HEADER.equals(header[0]);
+        boolean supportsRoomProgress = FORMAT_HEADER.equals(header[0]);
 
         UUID mineId = UUID.fromString(header[1]);
         UUID mainTunnelId = UUID.fromString(header[2]);
@@ -117,9 +132,24 @@ public final class CivMinePersistenceService {
                     ));
                 }
                 case "R" -> {
-                    requireFieldCount(parts, 5);
-                    rooms.add(new MineRoom(UUID.fromString(parts[1]), UUID.fromString(parts[2]),
-                        MineRoom.Type.valueOf(parts[3]), decodePosition(parts[4])));
+                    if (supportsRoomProgress) {
+                        requireFieldCount(parts, 10);
+                        rooms.add(new MineRoom(
+                            UUID.fromString(parts[1]),
+                            UUID.fromString(parts[2]),
+                            MineRoom.Type.valueOf(parts[3]),
+                            decodePosition(parts[4]),
+                            dev.civilizations.core.MineHeading.valueOf(parts[5]),
+                            Integer.parseInt(parts[6]),
+                            MineRoom.State.valueOf(parts[7]),
+                            Integer.parseInt(parts[8]),
+                            decodeInts(parts[9])
+                        ));
+                    } else {
+                        requireFieldCount(parts, 5);
+                        rooms.add(new MineRoom(UUID.fromString(parts[1]), UUID.fromString(parts[2]),
+                            MineRoom.Type.valueOf(parts[3]), decodePosition(parts[4])));
+                    }
                 }
                 case "W" -> {
                     requireFieldCount(parts, 5);
@@ -172,6 +202,19 @@ public final class CivMinePersistenceService {
         Set<UUID> result = new LinkedHashSet<>();
         if (encoded.isBlank()) return result;
         for (String value : encoded.split(",")) result.add(UUID.fromString(value));
+        return result;
+    }
+
+    private static String encodeInts(Iterable<Integer> values) {
+        List<String> encoded = new ArrayList<>();
+        for (Integer value : values) encoded.add(Integer.toString(value));
+        return String.join(",", encoded);
+    }
+
+    private static Set<Integer> decodeInts(String encoded) {
+        Set<Integer> result = new LinkedHashSet<>();
+        if (encoded.isBlank()) return result;
+        for (String value : encoded.split(",")) result.add(Integer.parseInt(value));
         return result;
     }
 }

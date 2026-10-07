@@ -35,8 +35,13 @@ import dev.civilizations.core.MineInfrastructurePlanner;
 import dev.civilizations.core.MineInfrastructureTask;
 import dev.civilizations.core.MineNetwork;
 import dev.civilizations.core.MineNetworkGrowthPlanner;
+import dev.civilizations.core.MineNormalTaskSelector;
 import dev.civilizations.core.MineObstaclePolicy;
 import dev.civilizations.core.MinePathPlanner;
+import dev.civilizations.core.MineRoom;
+import dev.civilizations.core.MineRoomCoordinator;
+import dev.civilizations.core.MineRoomGeometry;
+import dev.civilizations.core.MineRoomPlanner;
 import dev.civilizations.core.MineTunnel;
 import dev.civilizations.core.MineTunnelGeometry;
 import dev.civilizations.core.MineTuning;
@@ -74,6 +79,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private static final String BUILDING_ITEM_ANIMATIONS = "Civ_Construction_Hammer";
     private static final String BUILDING_ANIMATION = "Build";
     private static final double INFRASTRUCTURE_SECONDS_PER_BLOCK = 0.5;
+    private static final double ROOM_BUILD_SECONDS_PER_SECTION = 1.0;
     private static final int MAX_BRIDGE_SPAN = 16;
     private static final int MAX_FLUID_BRIDGE_SPAN = 10;
     private static final double ARRIVAL_DISTANCE = 1.1;
@@ -87,6 +93,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private final MineDecisionSink decisionSink;
     private final MinerNavigationFailureRegistry navigationFailures;
     private final MineFrontCoordinator<CivUnitRegistry.UnitKey> frontCoordinator = new MineFrontCoordinator<>();
+    private final MineRoomCoordinator<CivUnitRegistry.UnitKey> roomCoordinator = new MineRoomCoordinator<>();
     private final Map<CivUnitRegistry.UnitKey, WorkerRuntime> workers = new ConcurrentHashMap<>();
     private final Map<UUID, CivUnitRegistry.UnitKey> infrastructureReservations =
         new ConcurrentHashMap<>();
@@ -175,6 +182,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
             frontCoordinator.releaseWorker(workerKey);
+            roomCoordinator.releaseWorker(workerKey);
             releaseInfrastructureReservation(workerKey, runtime);
             runtime.interruptForManualMove();
             return;
@@ -191,6 +199,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
             frontCoordinator.releaseWorker(workerKey);
+            roomCoordinator.releaseWorker(workerKey);
             releaseInfrastructureReservation(workerKey, runtime);
             runtime.clearAssignment();
             return;
@@ -200,6 +209,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
             frontCoordinator.releaseWorker(workerKey);
+            roomCoordinator.releaseWorker(workerKey);
             releaseInfrastructureReservation(workerKey, runtime);
             runtime.reset(mine.id(), mine.phase());
         }
@@ -211,6 +221,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
             frontCoordinator.releaseWorker(workerKey);
+            roomCoordinator.releaseWorker(workerKey);
             releaseInfrastructureReservation(workerKey, runtime);
             return;
         }
@@ -271,19 +282,67 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             selectInfrastructureTask(world, mine, minePlan, position, workerKey, runtime, true);
         if (mandatoryInfrastructure != null) {
             if (runtime.frontId != null) frontCoordinator.releaseWorker(workerKey);
+            if (runtime.roomId != null) roomCoordinator.releaseWorker(workerKey);
             runtime.clearFrontAssignment();
+            runtime.clearRoomAssignment();
             executeInfrastructure(
                 world, mine, minePlan, mandatoryInfrastructure, ref, store, position, workerKey, runtime
             );
             return;
         }
 
+        if (runtime.roomId != null && roomCoordinator.workerCount(runtime.roomId) == 0) {
+            runtime.clearRoomAssignment();
+        }
+        RuntimeRoomPlan currentRoomPlan =
+            runtime.roomId == null ? null : minePlan.rooms.get(runtime.roomId);
+        MineRoom currentRoom = currentRoomPlan == null
+            ? null : currentRoom(worldId, mine.id(), currentRoomPlan.roomId);
+        if (currentRoomPlan != null && currentRoom != null
+            && !currentRoom.terminal() && !currentRoomPlan.unavailable) {
+            executeRoom(
+                world, mine, minePlan, currentRoomPlan, currentRoom, ref, store, commandBuffer,
+                position, workerKey, runtime
+            );
+            return;
+        }
+        if (runtime.roomId != null) {
+            roomCoordinator.releaseWorker(workerKey);
+            runtime.clearRoomAssignment();
+        }
+
         if (runtime.frontId != null && frontCoordinator.workerCount(runtime.frontId) == 0) {
-            runtime.clearWorkAssignment();
+            runtime.clearFrontAssignment();
         }
 
         RuntimeFrontPlan plan = runtime.frontId == null ? null : minePlan.fronts.get(runtime.frontId);
         MineWorkFront front = plan == null ? null : currentFront(worldId, mine.id(), plan.frontId);
+
+        if (plan == null && runtime.frontId == null) {
+            MineNormalTaskSelector.Candidate candidate =
+                selectNormalCandidate(world, mine, minePlan, position);
+            if (candidate != null
+                && (candidate.workerCount() > 0
+                    || candidate.kind() == MineNormalTaskSelector.Kind.ROOM)) {
+                if (candidate.kind() == MineNormalTaskSelector.Kind.ROOM) {
+                    RuntimeRoomPlan selectedRoomPlan =
+                        selectRoom(world, mine, minePlan, candidate.id(), workerKey, runtime);
+                    MineRoom selectedRoom = selectedRoomPlan == null
+                        ? null : currentRoom(worldId, mine.id(), selectedRoomPlan.roomId);
+                    if (selectedRoomPlan != null && selectedRoom != null) {
+                        executeRoom(
+                            world, mine, minePlan, selectedRoomPlan, selectedRoom, ref, store,
+                            commandBuffer, position, workerKey, runtime
+                        );
+                        return;
+                    }
+                } else {
+                    plan = selectFront(world, mine, minePlan, position, workerKey, runtime);
+                    front = plan == null ? null : currentFront(worldId, mine.id(), plan.frontId);
+                }
+            }
+        }
+
         if (plan == null && runtime.frontId == null) {
             RuntimeInfrastructureTask infrastructure =
                 selectInfrastructureTask(world, mine, minePlan, position, workerKey, runtime, false);
@@ -294,9 +353,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 return;
             }
         }
+
         if (plan == null || plan.complete || !available(front)) {
             if (runtime.frontId != null) frontCoordinator.releaseWorker(workerKey);
-            runtime.clearWorkAssignment();
+            runtime.clearFrontAssignment();
             plan = selectFront(world, mine, minePlan, position, workerKey, runtime);
             front = plan == null ? null : currentFront(worldId, mine.id(), plan.frontId);
         }
@@ -373,6 +433,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (ref == null) return;
         CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
         frontCoordinator.releaseWorker(key);
+        roomCoordinator.releaseWorker(key);
         WorkerRuntime runtime = workers.remove(key);
         if (runtime != null) releaseInfrastructureReservation(key, runtime);
         navigationFailures.forget(key);
@@ -829,6 +890,400 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         runtime.clearInfrastructureAssignment();
     }
 
+    private MineNormalTaskSelector.Candidate selectNormalCandidate(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan minePlan,
+        Vector3d position
+    ) {
+        MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
+        if (network == null) return null;
+
+        List<MineNormalTaskSelector.Candidate> candidates = new ArrayList<>();
+        for (RuntimeFrontPlan candidate : minePlan.fronts.values()) {
+            if (candidate.complete) continue;
+            MineWorkFront front = workFrontById(network, candidate.frontId);
+            if (!available(front) || !frontExecutable(world, minePlan, candidate)) continue;
+            int priority = candidate.tunnelKind == MineTunnel.Kind.BRANCH
+                ? MineFrontTaskScheduler.BRANCH_TUNNEL_PRIORITY
+                : MineFrontTaskScheduler.MAIN_TUNNEL_PRIORITY;
+            candidates.add(new MineNormalTaskSelector.Candidate(
+                front.id(),
+                MineNormalTaskSelector.Kind.TUNNEL_FRONT,
+                priority,
+                frontCoordinator.workerCount(front.id()),
+                MineFrontCoordinator.NORMAL_TUNNEL_FRONT_CAPACITY,
+                front.position()
+            ));
+        }
+
+        int activeRooms = activeRoomCount(network);
+        for (RuntimeRoomPlan roomPlan : minePlan.rooms.values()) {
+            MineRoom room = roomById(network, roomPlan.roomId);
+            if (!roomExecutable(world, minePlan, roomPlan, room, activeRooms)) continue;
+            candidates.add(new MineNormalTaskSelector.Candidate(
+                room.id(),
+                MineNormalTaskSelector.Kind.ROOM,
+                MineRoomPlanner.ROOM_PRIORITY,
+                roomCoordinator.workerCount(room.id()),
+                roomCapacity(room),
+                room.position()
+            ));
+        }
+        return MineNormalTaskSelector.select(candidates, blockPosition(position));
+    }
+
+    private RuntimeRoomPlan selectRoom(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan minePlan,
+        UUID roomId,
+        CivUnitRegistry.UnitKey workerKey,
+        WorkerRuntime runtime
+    ) {
+        MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
+        RuntimeRoomPlan plan = minePlan.rooms.get(roomId);
+        MineRoom room = network == null ? null : roomById(network, roomId);
+        if (plan == null || room == null || !roomCoordinator.tryJoin(roomId, workerKey, roomCapacity(room))) {
+            return null;
+        }
+        runtime.roomId = roomId;
+        runtime.roomBuildSection = null;
+        runtime.navigationArrived();
+        decisionSink.record(
+            mine.id(), roomId, MineDecisionCategory.PLANNING, "TASK_SELECTED",
+            "type", room.state() == MineRoom.State.READY_TO_BUILD ? "BUILD_ROOM" : "EXCAVATE_ROOM",
+            "roomType", room.type(),
+            "tunnel", room.tunnelId()
+        );
+        return plan;
+    }
+
+    private boolean roomExecutable(
+        World world,
+        RuntimeMinePlan minePlan,
+        RuntimeRoomPlan roomPlan,
+        MineRoom room,
+        int activeRooms
+    ) {
+        if (room == null || room.terminal() || roomPlan.unavailable) return false;
+        if (room.state() == MineRoom.State.PLANNED && activeRooms >= MineRoomPlanner.MAX_ACTIVE_ROOMS) {
+            return false;
+        }
+        RuntimeFrontPlan tunnel = frontForTunnel(minePlan, room.tunnelId());
+        if (tunnel == null || room.attachmentSliceIndex() >= tunnel.slices.size()) return false;
+        if (!sliceComplete(world, tunnel.slices.get(room.attachmentSliceIndex()))) return false;
+        if (room.state() == MineRoom.State.READY_TO_BUILD
+            && MineRoomPrefabService.sectionCount(room) <= 0) {
+            return false;
+        }
+        return true;
+    }
+
+    private static int activeRoomCount(MineNetwork network) {
+        int count = 0;
+        for (MineRoom room : network.rooms()) {
+            if (room.state() == MineRoom.State.EXCAVATING
+                || room.state() == MineRoom.State.READY_TO_BUILD) count++;
+        }
+        return count;
+    }
+
+    private static int roomCapacity(MineRoom room) {
+        return room.state() == MineRoom.State.READY_TO_BUILD
+            ? MineRoomPlanner.BUILD_CAPACITY
+            : MineRoomPlanner.EXCAVATION_CAPACITY;
+    }
+
+    private void executeRoom(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan minePlan,
+        RuntimeRoomPlan plan,
+        MineRoom room,
+        Ref<EntityStore> ref,
+        Store<EntityStore> store,
+        CommandBuffer<EntityStore> commandBuffer,
+        Vector3d workerPosition,
+        CivUnitRegistry.UnitKey workerKey,
+        WorkerRuntime runtime
+    ) {
+        if (room.state() == MineRoom.State.PLANNED) {
+            room = room.withState(MineRoom.State.EXCAVATING);
+            persistRoom(world, mine, room);
+        }
+
+        if (room.state() == MineRoom.State.EXCAVATING) {
+            executeRoomExcavation(world, mine, plan, room, ref, store, workerPosition, workerKey, runtime);
+            return;
+        }
+
+        if (room.state() != MineRoom.State.READY_TO_BUILD) {
+            roomCoordinator.releaseWorker(workerKey);
+            runtime.clearRoomAssignment();
+            return;
+        }
+
+        stopMiningAnimation(ref, store, runtime);
+        int sectionCount = MineRoomPrefabService.sectionCount(room);
+        if (sectionCount <= 0) {
+            plan.unavailable = true;
+            roomCoordinator.releaseWorker(workerKey);
+            runtime.clearRoomAssignment();
+            return;
+        }
+        if (room.completedBuildSections().size() >= sectionCount) {
+            MineRoom built = room.withState(MineRoom.State.BUILT);
+            persistRoom(world, mine, built);
+            roomCoordinator.releaseRoom(room.id());
+            runtime.clearRoomAssignment();
+            decisionSink.record(
+                mine.id(), room.id(), MineDecisionCategory.PLANNING, "ROOM_BUILT",
+                "roomType", room.type()
+            );
+            return;
+        }
+
+        if (!roomCoordinator.tryJoin(room.id(), workerKey, MineRoomPlanner.BUILD_CAPACITY)) {
+            runtime.clearRoomAssignment();
+            return;
+        }
+
+        Integer section = runtime.roomBuildSection;
+        if (section == null || room.completedBuildSections().contains(section)) {
+            section = roomCoordinator.claimNextBuildSection(
+                room.id(),
+                workerKey,
+                MineRoomPlanner.BUILD_CAPACITY,
+                sectionCount,
+                room.completedBuildSections()
+            );
+            runtime.roomBuildSection = section;
+        }
+        if (section == null) return;
+
+        Vector3d target = new Vector3d(
+            room.position().x() + 0.5,
+            room.position().y(),
+            room.position().z() + 0.5
+        );
+        if (!arrived(workerPosition, target)) {
+            navigateTo(ref, target, runtime);
+            stopBuildingAnimation(ref, store, runtime);
+            return;
+        }
+
+        runtime.navigationArrived();
+        unitRegistry.clearMoveTarget(ref);
+        if (!runtime.buildingAnimationStarted) {
+            AnimationUtils.playAnimation(
+                ref, AnimationSlot.Action, BUILDING_ITEM_ANIMATIONS, BUILDING_ANIMATION, store
+            );
+            runtime.buildingAnimationStarted = true;
+        }
+
+        runtime.workElapsed += TICK_INTERVAL_SECONDS;
+        if (runtime.workElapsed + 1.0e-9 < ROOM_BUILD_SECONDS_PER_SECTION) return;
+        runtime.workElapsed = 0.0;
+
+        if (!MineRoomPrefabService.placeSection(world, room, section, commandBuffer)) {
+            plan.unavailable = true;
+            roomCoordinator.releaseWorker(workerKey);
+            stopBuildingAnimation(ref, store, runtime);
+            runtime.clearRoomAssignment();
+            return;
+        }
+
+        int completedCount = room.completedBuildSections().contains(section)
+            ? room.completedBuildSections().size()
+            : room.completedBuildSections().size() + 1;
+        MineRoom.State nextState = completedCount >= sectionCount
+            ? MineRoom.State.BUILT
+            : MineRoom.State.READY_TO_BUILD;
+        MineRoom updated = room.withBuildSectionCompleted(section, nextState);
+        persistRoom(world, mine, updated);
+        roomCoordinator.completeBuildSection(room.id(), workerKey, section);
+        roomCoordinator.releaseWorker(workerKey);
+        stopBuildingAnimation(ref, store, runtime);
+        runtime.clearRoomAssignment();
+        decisionSink.record(
+            mine.id(), room.id(), MineDecisionCategory.PLANNING, "WORK_UNIT_COMPLETED",
+            "type", "BUILD_ROOM",
+            "section", section,
+            "state", nextState
+        );
+    }
+
+    private void executeRoomExcavation(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeRoomPlan plan,
+        MineRoom room,
+        Ref<EntityStore> ref,
+        Store<EntityStore> store,
+        Vector3d workerPosition,
+        CivUnitRegistry.UnitKey workerKey,
+        WorkerRuntime runtime
+    ) {
+        MineRoomGeometry geometry = plan.geometry;
+        int unitIndex = room.excavationWorkUnitIndex();
+        if (unitIndex >= geometry.excavationWorkUnits().size()) {
+            MineRoom ready = room.withState(MineRoom.State.READY_TO_BUILD);
+            persistRoom(world, mine, ready);
+            roomCoordinator.releaseRoom(room.id());
+            runtime.clearRoomAssignment();
+            return;
+        }
+
+        List<BlockPosition> workUnit = geometry.excavationWorkUnits().get(unitIndex);
+        if (roomWorkUnitComplete(world, workUnit)) {
+            completeRoomExcavationUnit(world, mine, room, plan, unitIndex, runtime, ref, store);
+            return;
+        }
+        if (containsBlockedSolid(world, mine, workUnit)) {
+            plan.unavailable = true;
+            roomCoordinator.releaseRoom(room.id());
+            stopMiningAnimation(ref, store, runtime);
+            runtime.clearRoomAssignment();
+            return;
+        }
+
+        if (!roomCoordinator.tryJoin(room.id(), workerKey, MineRoomPlanner.EXCAVATION_CAPACITY)) {
+            runtime.clearRoomAssignment();
+            return;
+        }
+
+        BlockPosition work = geometry.workTargetForUnit(unitIndex);
+        Vector3d target = new Vector3d(work.x() + 0.5, work.y(), work.z() + 0.5);
+        if (!arrived(workerPosition, target)) {
+            navigateTo(ref, target, runtime);
+            stopMiningAnimation(ref, store, runtime);
+            return;
+        }
+
+        runtime.navigationArrived();
+        unitRegistry.clearMoveTarget(ref);
+        stopBuildingAnimation(ref, store, runtime);
+        if (!runtime.animationStarted) {
+            AnimationUtils.playAnimation(
+                ref, AnimationSlot.Action, MINING_ITEM_ANIMATIONS, MINING_ANIMATION, store
+            );
+            runtime.animationStarted = true;
+        }
+
+        runtime.workElapsed += TICK_INTERVAL_SECONDS;
+        while (runtime.workElapsed >= MineTuning.secondsPerBlock()) {
+            runtime.workElapsed -= MineTuning.secondsPerBlock();
+            if (!workOneRoomBlock(world, ref, store, mine, room, workUnit, workerKey, runtime)) break;
+            if (roomWorkUnitComplete(world, workUnit)) {
+                completeRoomExcavationUnit(world, mine, room, plan, unitIndex, runtime, ref, store);
+                return;
+            }
+        }
+    }
+
+    private boolean workOneRoomBlock(
+        World world,
+        Ref<EntityStore> worker,
+        Store<EntityStore> entityStore,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        MineRoom room,
+        List<BlockPosition> workUnit,
+        CivUnitRegistry.UnitKey workerKey,
+        WorkerRuntime runtime
+    ) {
+        BlockPosition target = roomCoordinator.claimNextBlock(
+            room.id(),
+            workerKey,
+            MineRoomPlanner.EXCAVATION_CAPACITY,
+            workUnit,
+            block -> isAvailableWorkBlock(world, mine, block)
+        );
+        runtime.claimedBlock = target;
+        if (target == null) return false;
+
+        BlockType type = loadedBlockType(world, target);
+        if (type == null) return false;
+        if (isEmpty(type)) {
+            roomCoordinator.completeBlock(room.id(), workerKey, target);
+            runtime.claimedBlock = null;
+            return true;
+        }
+        if (!safeBlock(world, mine, target)) return false;
+
+        Store<ChunkStore> chunkStore = world.getChunkStore().getStore();
+        BlockHarvestUtils.performBlockBreak(
+            worker,
+            null,
+            List.of(new Vector3i(target.x(), target.y(), target.z())),
+            0,
+            entityStore,
+            chunkStore
+        );
+        if (!isEmpty(loadedBlockType(world, target))) return false;
+
+        roomCoordinator.completeBlock(room.id(), workerKey, target);
+        runtime.claimedBlock = null;
+        return true;
+    }
+
+    private void completeRoomExcavationUnit(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        MineRoom room,
+        RuntimeRoomPlan plan,
+        int completedUnit,
+        WorkerRuntime runtime,
+        Ref<EntityStore> ref,
+        Store<EntityStore> store
+    ) {
+        int next = completedUnit + 1;
+        MineRoom.State nextState = next >= plan.geometry.excavationWorkUnits().size()
+            ? MineRoom.State.READY_TO_BUILD
+            : MineRoom.State.EXCAVATING;
+        MineRoom updated = room.withExcavationProgress(next, nextState);
+        persistRoom(world, mine, updated);
+        roomCoordinator.releaseRoom(room.id());
+        stopMiningAnimation(ref, store, runtime);
+        runtime.clearRoomAssignment();
+        decisionSink.record(
+            mine.id(), room.id(), MineDecisionCategory.PLANNING, "WORK_UNIT_COMPLETED",
+            "type", "EXCAVATE_ROOM",
+            "unit", completedUnit,
+            "state", nextState
+        );
+    }
+
+    private static boolean roomWorkUnitComplete(World world, List<BlockPosition> workUnit) {
+        for (BlockPosition block : workUnit) {
+            BlockType type = loadedBlockType(world, block);
+            if (type == null || !isEmpty(type)) return false;
+        }
+        return true;
+    }
+
+    private boolean containsBlockedSolid(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        List<BlockPosition> blocks
+    ) {
+        for (BlockPosition block : blocks) {
+            BlockType type = loadedBlockType(world, block);
+            if (type == null || isEmpty(type)) continue;
+            if (!safeBlock(world, mine, block)) return true;
+        }
+        return false;
+    }
+
+    private void persistRoom(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        MineRoom room
+    ) {
+        MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
+        if (network != null) tunnelRegistry.putNetwork(world, network.withRoom(room));
+    }
+
     private RuntimeFrontPlan selectFront(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
@@ -938,6 +1393,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             RUNTIME_PLANNING_TUNNEL_BUDGET,
             seed
         );
+        List<MineRoom> plannedRooms = MineRoomPlanner.plan(planned);
 
         Map<UUID, UUID> frontIds = new LinkedHashMap<>();
         Map<UUID, MineTunnelGeometry> geometries = new LinkedHashMap<>();
@@ -952,6 +1408,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 tunnelRegistry.removeMine(world, mine.id());
             }
             persisted = planned.network();
+            for (MineRoom room : plannedRooms) persisted = persisted.withRoom(room);
             for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : planned.tunnels()) {
                 UUID id = frontIds.get(tunnel.tunnel().id());
                 MineTunnelGeometry.Slice firstSlice = tunnel.geometry().slices().getFirst();
@@ -972,6 +1429,15 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 );
             }
             tunnelRegistry.putNetwork(world, persisted);
+        } else {
+            boolean roomsChanged = false;
+            for (MineRoom room : plannedRooms) {
+                if (roomById(persisted, room.id()) == null) {
+                    persisted = persisted.withRoom(room);
+                    roomsChanged = true;
+                }
+            }
+            if (roomsChanged) tunnelRegistry.putNetwork(world, persisted);
         }
 
         tunnelRegistry.putRuntimeGeometries(key.worldId, mine.id(), geometries);
@@ -995,6 +1461,22 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             ));
         }
 
+        Map<UUID, RuntimeRoomPlan> rooms = new LinkedHashMap<>();
+        for (MineRoom plannedRoom : plannedRooms) {
+            MineRoom persistedRoom = roomById(persisted, plannedRoom.id());
+            if (persistedRoom == null) continue;
+            MineTunnelGeometry tunnelGeometry = geometries.get(persistedRoom.tunnelId());
+            if (tunnelGeometry == null) continue;
+            rooms.put(
+                persistedRoom.id(),
+                new RuntimeRoomPlan(
+                    persistedRoom.id(),
+                    MineRoomGeometry.generate(persistedRoom, tunnelGeometry),
+                    false
+                )
+            );
+        }
+
         Map<UUID, RuntimeInfrastructureTask> infrastructureTasks = new LinkedHashMap<>();
         for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : planned.tunnels()) {
             for (MineInfrastructureTask task :
@@ -1012,7 +1494,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         RuntimeMinePlan runtime = new RuntimeMinePlan(
-            planned.network().mainTunnelId(), fronts, infrastructureTasks
+            planned.network().mainTunnelId(), fronts, rooms, infrastructureTasks
         );
         runtimePlans.put(key, runtime);
         return runtime;
@@ -1132,6 +1614,18 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         CivUnitRegistry.UnitKey workerKey,
         WorkerRuntime runtime
     ) {
+        if (runtime.roomId != null) {
+            RuntimeRoomPlan room = minePlan.rooms.get(runtime.roomId);
+            if (room != null) room.unavailable = true;
+            roomCoordinator.releaseWorker(workerKey);
+            unitRegistry.clearMoveTarget(ref);
+            stopMiningAnimation(ref, store, runtime);
+            stopBuildingAnimation(ref, store, runtime);
+            runtime.clearRoomAssignment();
+            runtime.navigationArrived();
+            return;
+        }
+
         RuntimeFrontPlan affected = null;
         RuntimeInfrastructureTask infrastructure = runtime.infrastructureTaskId == null
             ? null
@@ -1169,6 +1663,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         frontCoordinator.releaseWorker(workerKey);
+        roomCoordinator.releaseWorker(workerKey);
         releaseInfrastructureReservation(workerKey, runtime);
         unitRegistry.clearMoveTarget(ref);
         stopMiningAnimation(ref, store, runtime);
@@ -1187,6 +1682,18 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private MineWorkFront currentFront(UUID worldId, UUID mineId, UUID frontId) {
         MineNetwork network = tunnelRegistry.networkForMine(worldId, mineId);
         return network == null ? null : workFrontById(network, frontId);
+    }
+
+    private MineRoom currentRoom(UUID worldId, UUID mineId, UUID roomId) {
+        MineNetwork network = tunnelRegistry.networkForMine(worldId, mineId);
+        return network == null ? null : roomById(network, roomId);
+    }
+
+    private static MineRoom roomById(MineNetwork network, UUID roomId) {
+        return network.rooms().stream()
+            .filter(room -> room.id().equals(roomId))
+            .findFirst()
+            .orElse(null);
     }
 
     private static boolean available(MineWorkFront front) {
@@ -1388,6 +1895,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             releaseInfrastructureReservation(key, runtime);
         }
         frontCoordinator.releaseWorker(key);
+        roomCoordinator.releaseWorker(key);
         navigationFailures.forget(key);
     }
 
@@ -1435,16 +1943,31 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private static final class RuntimeMinePlan {
         private final UUID mainTunnelId;
         private final Map<UUID, RuntimeFrontPlan> fronts;
+        private final Map<UUID, RuntimeRoomPlan> rooms;
         private final Map<UUID, RuntimeInfrastructureTask> infrastructureTasks;
 
         private RuntimeMinePlan(
             UUID mainTunnelId,
             Map<UUID, RuntimeFrontPlan> fronts,
+            Map<UUID, RuntimeRoomPlan> rooms,
             Map<UUID, RuntimeInfrastructureTask> infrastructureTasks
         ) {
             this.mainTunnelId = mainTunnelId;
             this.fronts = new LinkedHashMap<>(fronts);
+            this.rooms = new LinkedHashMap<>(rooms);
             this.infrastructureTasks = new LinkedHashMap<>(infrastructureTasks);
+        }
+    }
+
+    private static final class RuntimeRoomPlan {
+        private final UUID roomId;
+        private final MineRoomGeometry geometry;
+        private boolean unavailable;
+
+        private RuntimeRoomPlan(UUID roomId, MineRoomGeometry geometry, boolean unavailable) {
+            this.roomId = roomId;
+            this.geometry = geometry;
+            this.unavailable = unavailable;
         }
     }
 
@@ -1502,6 +2025,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private UUID mineId;
         private int minePhase;
         private UUID frontId;
+        private UUID roomId;
+        private Integer roomBuildSection;
         private int sliceIndex = -1;
         private BlockPosition claimedBlock;
         private UUID infrastructureTaskId;
@@ -1528,6 +2053,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         private void clearWorkAssignment() {
             clearFrontAssignment();
+            clearRoomAssignment();
             clearInfrastructureAssignment();
             workElapsed = 0.0;
         }
@@ -1535,6 +2061,13 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private void clearFrontAssignment() {
             frontId = null;
             sliceIndex = -1;
+            claimedBlock = null;
+            workElapsed = 0.0;
+        }
+
+        private void clearRoomAssignment() {
+            roomId = null;
+            roomBuildSection = null;
             claimedBlock = null;
             workElapsed = 0.0;
         }

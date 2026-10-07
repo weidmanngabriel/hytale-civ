@@ -225,7 +225,11 @@ General placement preference:
 - Side tunnels: ore collection rooms, smaller chambers, niches and rarer special rooms.
 - Large rooms should not cluster immediately next to each other.
 
-Room sizes are intentionally ranges, not fixed dimensions. Exact prefab sizes will be decided when the prefab set is created.
+Room sizes remain design ranges rather than permanent fixed dimensions. Layer 6 now uses replaceable V1 envelopes only for the first three test-prefab types: small niche 5x4x4, material storage 7x6x4 and rest/accommodation 9x8x5. These are implementation envelopes, not final art dimensions.
+
+Layer-6 V1 generates only those three authored types. Accommodation uses 80-120 block main-tunnel spacing, material storage uses a 30% eligible-opportunity chance with 60-80 block spacing, and small niches use a 25% opportunity chance on branch tunnels. The remaining canonical probabilities stay reserved for later authored room types. `LARGE_NATURAL_CHAMBER` is deliberately not generated as a carved prefab room because natural-cave classification belongs to Layer 7.
+
+A room is not executable until its tunnel attachment slice is physically open. At most two rooms may be active at once. Room excavation proceeds in 1-2-block-depth work units, then the room enters prefab construction. See `docs/mine-room-layer6-implementation.md`.
 
 ## 13. Natural caves, water, lava and bridges
 
@@ -529,7 +533,7 @@ Long-distance travel uses the >50-block Euclidean air-line rule described in sec
 
 ### Layer 6 - rooms and prefabs
 
-Add room opportunity selection, spacing, weighted room types and prefab placement.
+Implemented V1: deterministic room opportunities, persistent lifecycle/progress, room excavation and native prefab construction for accommodation, material storage and small niches. Room work uses priority 8, at most two rooms may be active, and the three initial prefabs are intentionally replaceable test content. Remaining room types and final visual variants are deferred; large natural chambers remain Layer 7 cave integration.
 
 ### Layer 7 - caves, fluids and bridges
 

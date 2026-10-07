@@ -1,6 +1,7 @@
 package dev.civilizations.hytale;
 
 import dev.civilizations.core.BlockPosition;
+import dev.civilizations.core.MineHeading;
 import dev.civilizations.core.MineNavigationAnchor;
 import dev.civilizations.core.MineNetwork;
 import dev.civilizations.core.MineRoom;
@@ -30,8 +31,17 @@ class CivMinePersistenceServiceTest {
         MineNetwork network = MineNetwork.create(mineId, mainId, new BlockPosition(1, 2, 3))
             .withTunnel(new MineTunnel(branchId, MineTunnel.Kind.BRANCH, mainId, 1,
                 new BlockPosition(10, 2, 3)))
-            .withRoom(new MineRoom(UUID.randomUUID(), branchId, MineRoom.Type.SMALL_NICHE,
-                new BlockPosition(12, 2, 4)))
+            .withRoom(new MineRoom(
+                UUID.randomUUID(),
+                branchId,
+                MineRoom.Type.SMALL_NICHE,
+                new BlockPosition(12, 2, 4),
+                MineHeading.NORTH,
+                7,
+                MineRoom.State.EXCAVATING,
+                2,
+                Set.of(0, 2)
+            ))
             .withWorkFront(new MineWorkFront(UUID.randomUUID(), mainId,
                 new BlockPosition(8, 2, 3), MineWorkFront.State.ACTIVE))
             .withWorkFront(new MineWorkFront(UUID.randomUUID(), branchId,
@@ -49,6 +59,22 @@ class CivMinePersistenceServiceTest {
         MineNetwork decoded = service.decodeNetwork(service.encodeNetwork(network));
         assertEquals(network, decoded);
         assertEquals(Set.of(completedInfrastructure), decoded.completedInfrastructureTaskIds());
+    }
+
+    @Test
+    void readsPreviousN3RoomRecordWithDefaultRoomProgress() {
+        UUID mineId = UUID.randomUUID();
+        UUID mainId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        String previous = "N3|" + mineId + "|" + mainId + "\n"
+            + "T|" + mainId + "|MAIN||0|1,2,3\n"
+            + "R|" + roomId + "|" + mainId + "|SMALL_NICHE|12,2,4";
+
+        MineNetwork decoded = service.decodeNetwork(previous);
+
+        assertEquals(MineRoom.State.PLANNED, decoded.rooms().getFirst().state());
+        assertEquals(0, decoded.rooms().getFirst().excavationWorkUnitIndex());
+        assertEquals(Set.of(), decoded.rooms().getFirst().completedBuildSections());
     }
 
     @Test
