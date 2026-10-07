@@ -14,6 +14,8 @@ Diese Seite beschreibt die für `hytale-civ` relevanten Threading-Verträge der 
 
 **Verifiziert:** Hytales `AbstractWorldCommand` und `AbstractAsyncWorldCommand` dokumentieren ausdrücklich, dass World Commands über den World Thread ausgeführt werden, damit Zugriffe auf World Resources threadsicher stattfinden.
 
+**Befund:** `AbstractPlayerCommand` führt den synchronen Command-Einstieg auf dem World Thread des Spielers aus. Wenn ein Command blockierende Datei-/Netzwerk-Arbeit in einen Worker auslagert, muss auch seine spätere Spielerantwort auf diesen World Thread zurückdispatcht werden. `World` implementiert dafür `Executor`; Civ verwendet bei `/civmcp` `thenAcceptAsync(..., world)` statt die Hytale-Nachricht direkt aus dem Common Pool zu senden.
+
 **Verifiziert:** `TickingThread` stellt in der gepinnten JAR `debugAssertInTickingThread()` und `isInThread()` bereit. Diese Methoden sind nützliche Diagnosewerkzeuge, aber kein Ersatz für einen sauberen Ownership-Vertrag im Civ-Code.
 
 Quellen für diese Aussagen:

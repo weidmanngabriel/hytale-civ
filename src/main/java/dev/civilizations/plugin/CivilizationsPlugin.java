@@ -230,7 +230,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
         );
 
         liveBridge = new CivLiveBridgeService(unitRegistry, activityRegistry);
-        getCommandRegistry().registerCommand(new CivMcpCommand(liveBridge));
+        getCommandRegistry().registerCommand(new CivMcpCommand(liveBridge, getLogger()));
         getCommandRegistry().registerCommand(new CivTestCommand());
         if (Boolean.getBoolean("civilizations.runtimeProbe") || Boolean.getBoolean("civilizations.devBridge")) {
             getEntityStoreRegistry().registerSystem(new CivRuntimeDamageTraceSystem());
