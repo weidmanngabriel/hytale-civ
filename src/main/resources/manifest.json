@@ -1,7 +1,7 @@
 {
   "Group": "Civilizations",
   "Name": "HytaleCiv",
-  "Version": "0.1.0",
+  "Version": "0.2.0",
   "Description": "Minimal Hytale plugin bootstrap for Hytale Civ.",
   "Authors": [
     {
