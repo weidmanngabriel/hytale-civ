@@ -17,7 +17,7 @@ final class MineRoomPrefabAssetValidationTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final Set<String> ALLOWED_BLOCKS =
-        Set.of("Wood_Fir_Branch_Long", "Wood_Fir_Trunk", "Rock_Stone");
+        Set.of("Rock_Stone");
 
     @Test
     void threeLayerSixTestPrefabsAreSmallReplaceableAndUseKnownBlocks() throws Exception {
