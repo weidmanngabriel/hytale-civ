@@ -50,6 +50,8 @@ Die Detailregeln dieser Bereiche werden nicht vorab festgelegt, bevor das zugeh�
 - `branchDepth` ist aus der Parent-Beziehung ableitbar und muss beim direkten Parent immer genau um eins steigen. Zirkuläre Tunnelhierarchien sind ungültig.
 - Ein logischer Tunnel und seine konkrete Layer-3-Voxelgeometrie sind unterschiedliche Begriffe. Die Geometrie wird deterministisch regeneriert und nicht als zweite vollständige Weltkopie persistiert.
 - Räume, Work Fronts und Navigationsanker gehören jeweils zu einem existierenden logischen Tunnel.
+- Ein Minenraum besitzt den persistenten Lifecycle `PLANNED -> EXCAVATING -> READY_TO_BUILD -> BUILT`. Der Aushubfortschritt und fertiggestellte Prefab-Bauabschnitte gehören zum Raumzustand; temporäre Arbeiterreservierungen und Block-/Abschnittsclaims nicht.
+- Aktuell werden nur Unterkunft, Materiallager und kleine Nische als gebaute V1-Räume erzeugt. Natürliche große Kammern bleiben ein eigener späterer Höhlenfall.
 - Work Fronts sind persistente semantische Fortsetzungspunkte. Mehrere offene Work Fronts pro Mine sind zulässig und werden von der aktuellen Miner-Arbeitsauswahl genutzt.
 - Navigationsanker sind bekannte sichere semantische Punkte und dürfen explizite Nachbarschaftsbeziehungen zu anderen Ankern speichern. Diese Verbindungen sind keine eigene Wegfindung; Hytales Navigation bleibt für den realen Weg zwischen Zielen zuständig.
 - Die Hytale-Welt ist die Wahrheit über tatsächlich ausgehobene und gebaute Blöcke. Das Minennetz speichert keine zweite vollständige Kopie der Weltgeometrie.
