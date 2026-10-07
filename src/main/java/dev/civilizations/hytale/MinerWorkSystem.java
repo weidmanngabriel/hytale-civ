@@ -35,8 +35,13 @@ import dev.civilizations.core.MineInfrastructurePlanner;
 import dev.civilizations.core.MineInfrastructureTask;
 import dev.civilizations.core.MineNetwork;
 import dev.civilizations.core.MineNetworkGrowthPlanner;
+import dev.civilizations.core.MineNormalTaskSelector;
 import dev.civilizations.core.MineObstaclePolicy;
 import dev.civilizations.core.MinePathPlanner;
+import dev.civilizations.core.MineRoom;
+import dev.civilizations.core.MineRoomCoordinator;
+import dev.civilizations.core.MineRoomGeometry;
+import dev.civilizations.core.MineRoomPlanner;
 import dev.civilizations.core.MineTunnel;
 import dev.civilizations.core.MineTunnelGeometry;
 import dev.civilizations.core.MineTuning;
@@ -74,6 +79,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private static final String BUILDING_ITEM_ANIMATIONS = "Civ_Construction_Hammer";
     private static final String BUILDING_ANIMATION = "Build";
     private static final double INFRASTRUCTURE_SECONDS_PER_BLOCK = 0.5;
+    private static final double ROOM_BUILD_SECONDS_PER_SECTION = 1.0;
     private static final int MAX_BRIDGE_SPAN = 16;
     private static final int MAX_FLUID_BRIDGE_SPAN = 10;
     private static final double ARRIVAL_DISTANCE = 1.1;
@@ -87,6 +93,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private final MineDecisionSink decisionSink;
     private final MinerNavigationFailureRegistry navigationFailures;
     private final MineFrontCoordinator<CivUnitRegistry.UnitKey> frontCoordinator = new MineFrontCoordinator<>();
+    private final MineRoomCoordinator<CivUnitRegistry.UnitKey> roomCoordinator = new MineRoomCoordinator<>();
     private final Map<CivUnitRegistry.UnitKey, WorkerRuntime> workers = new ConcurrentHashMap<>();
     private final Map<UUID, CivUnitRegistry.UnitKey> infrastructureReservations =
         new ConcurrentHashMap<>();
@@ -175,6 +182,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
             frontCoordinator.releaseWorker(workerKey);
+            roomCoordinator.releaseWorker(workerKey);
             releaseInfrastructureReservation(workerKey, runtime);
             runtime.interruptForManualMove();
             return;
@@ -191,6 +199,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
             frontCoordinator.releaseWorker(workerKey);
+            roomCoordinator.releaseWorker(workerKey);
             releaseInfrastructureReservation(workerKey, runtime);
             runtime.clearAssignment();
             return;
@@ -200,6 +209,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
             frontCoordinator.releaseWorker(workerKey);
+            roomCoordinator.releaseWorker(workerKey);
             releaseInfrastructureReservation(workerKey, runtime);
             runtime.reset(mine.id(), mine.phase());
         }
@@ -211,6 +221,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
             frontCoordinator.releaseWorker(workerKey);
+            roomCoordinator.releaseWorker(workerKey);
             releaseInfrastructureReservation(workerKey, runtime);
             return;
         }
