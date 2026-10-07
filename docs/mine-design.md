@@ -535,6 +535,8 @@ Add room opportunity selection, spacing, weighted room types and prefab placemen
 
 Classify natural cave encounters, integrate useful caves, detect dangerous water/lava conditions and construct safe bridge transitions.
 
+Later work in this layer must explicitly revisit **main-tunnel ravine/canyon crossings**. The current conservative bridge handling is only the V1 safety mechanism. The main corridor needs a deliberate bridge solution for larger natural ravines, chasms or similar interruptions so the primary tunnel can remain continuous instead of simply ending whenever such terrain is encountered. Exact span limits, support/visual design, rail compatibility and whether some crossings should reroute instead of bridge remain later design decisions.
+
 ### Layer 8 - supports, lighting and decoration
 
 Add adaptive supports, main-tunnel lantern pillars, side-tunnel torches, chains, barrels and other non-blocking detail.
