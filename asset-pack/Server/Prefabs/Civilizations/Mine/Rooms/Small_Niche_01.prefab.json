@@ -1,0 +1,52 @@
+{
+  "version": 8,
+  "blockIdVersion": 11,
+  "anchorX": 0,
+  "anchorY": 0,
+  "anchorZ": 0,
+  "blocks": [
+    {
+      "x": -1,
+      "y": 0,
+      "z": -2,
+      "name": "Wood_Fir_Trunk",
+      "support": 15
+    },
+    {
+      "x": -1,
+      "y": 1,
+      "z": -2,
+      "name": "Wood_Fir_Branch_Long",
+      "support": 15
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": -2,
+      "name": "Wood_Fir_Trunk",
+      "support": 15
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": -2,
+      "name": "Wood_Fir_Trunk",
+      "support": 15
+    },
+    {
+      "x": 1,
+      "y": 1,
+      "z": -2,
+      "name": "Wood_Fir_Branch_Long",
+      "support": 15
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "z": -2,
+      "name": "Wood_Fir_Trunk",
+      "support": 15
+    }
+  ],
+  "fluids": []
+}
