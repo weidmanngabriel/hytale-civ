@@ -43,9 +43,9 @@ public final class SimulationRecordingExporter {
         List<Map<String, Object>> scenarios = new ArrayList<>();
         boolean failed = false;
         BuildingOrientation referenceOrientation = BuildingOrientation.NORTH;
-        SimulationRecording recording = recordMine(referenceOrientation);
-        write(output, recording, scenarios);
-        failed |= recording.status().equals("failed");
+        SimulationRecording mineRecording = recordMine(referenceOrientation);
+        write(output, mineRecording, scenarios);
+        failed |= mineRecording.status().equals("failed");
         SimulationRecording fullMine = recordFullMine();
         write(output, fullMine, scenarios);
         failed |= fullMine.status().equals("failed");
