@@ -19,6 +19,7 @@ public record SimulationRecording(
     String status,
     String error,
     List<int[]> initialVoxels,
+    int[] rockBounds,
     List<Marker> markers,
     List<Frame> frames
 ) {
@@ -43,12 +44,18 @@ public record SimulationRecording(
         private static final Comparator<BlockPosition> ORDER = Comparator.comparingInt(BlockPosition::x)
             .thenComparingInt(BlockPosition::y).thenComparingInt(BlockPosition::z);
         private final List<int[]> initial;
+        private final int[] rockBounds;
         private final List<Frame> frames = new ArrayList<>();
         private final Map<BlockPosition, Integer> previous;
 
         public Recorder(Map<BlockPosition, Integer> world) {
+            this(world, null);
+        }
+
+        public Recorder(Map<BlockPosition, Integer> world, int[] rockBounds) {
             previous = new LinkedHashMap<>(world);
             initial = cells(world);
+            this.rockBounds = rockBounds == null ? null : rockBounds.clone();
         }
 
         public void capture(
@@ -72,7 +79,7 @@ public record SimulationRecording(
 
         /**
          * Captures an already-known world delta without rescanning the complete voxel world.
-         * AIR removes an existing rendered cell; every other value replaces/adds that cell.
+         * AIR means excavated space for an implicit rock volume and removes explicit voxels otherwise.
          */
         public void captureDelta(
             double time, Map<BlockPosition, Integer> delta, List<Resident> residents,
@@ -91,8 +98,8 @@ public record SimulationRecording(
             List<Marker> markers, String error
         ) {
             return new SimulationRecording(SCHEMA_VERSION, id, title, description, timeUnit,
-                error == null ? "completed" : "failed", error, initial, List.copyOf(markers),
-                List.copyOf(frames));
+                error == null ? "completed" : "failed", error, initial,
+                rockBounds == null ? null : rockBounds.clone(), List.copyOf(markers), List.copyOf(frames));
         }
 
         private void addFrame(
