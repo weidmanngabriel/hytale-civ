@@ -47,6 +47,10 @@ Die Hytale-Dokumentation ist eine **Current-Truth-Dokumentation**. Wenn neue Evi
 
 **Verifiziert:** In der gepinnten Hytale-Server-JAR verwendet <code>PluginManifest.Version</code> den Typ <code>com.hypixel.hytale.common.semver.Semver</code>. <code>Semver</code> besitzt explizite Pre-Release-Bestandteile und kann Versionen wie <code>0.2.1-dev.42</code> darstellen. Hytale Civ darf deshalb Development-Builds mit normaler SemVer-Pre-Release-Syntax in ausgelieferten Manifesten versionieren.
 
+## JSON im Plugin
+
+**Verifiziert für Hytale 0.6.8:** Die Server-JAR enthält Hytales <code>RawJsonReader</code> und <code>RawJsonCodec</code>. Sie enthält auch Gson unter dem umbenannten Paket <code>com.nimbusds.jose.shaded.gson</code>; das ist eine eingebettete, umgepackte Drittanbieterbibliothek und kein belastbarer Civ-API-Vertrag. Civ verwendet Jackson für allgemeine JSON-Ein-/Ausgabe in der lokalen Command Bridge und den maschinenlesbaren Dev-Befehlen. Der Startfehler zeigte, dass Jackson nicht automatisch aus Gradles <code>implementation</code>-Konfiguration in den Plugin-Laufzeitpfad gelangt. Solange diese JSON-Funktionen Jackson verwenden, muss das Plugin-JAR Jackson samt Laufzeitabhängigkeiten enthalten.
+
 ## Verifikation reiner Dokumentationsänderungen
 
 Änderungen, die ausschließlich Dokumentation betreffen und weder Code, Assets, Build-Konfiguration noch Runtime-Verhalten verändern, benötigen **keinen eigenen Test-, Build- oder Hytale-Local-Lauf**. Inhalt, Links und betroffene Querverweise sollen direkt geprüft werden; ein automatisch durch GitHub ausgelöster Workflow muss für eine reine Doku-Änderung nicht zusätzlich als fachlicher Testschritt abgewartet oder manuell erneut gestartet werden.
