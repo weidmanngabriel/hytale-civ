@@ -24,7 +24,7 @@ class ManifestValidationTest {
 
             assertEquals("Civilizations", manifest.path("Group").asText());
             assertEquals("HytaleCiv", manifest.path("Name").asText());
-            assertEquals("0.1.0", manifest.path("Version").asText());
+            assertEquals(System.getProperty("projectVersion"), manifest.path("Version").asText());
             assertEquals("dev.civilizations.plugin.CivilizationsPlugin", manifest.path("Main").asText());
             assertEquals("^0.6.0", manifest.path("ServerVersion").asText());
             assertTrue(manifest.path("Authors").isArray());
