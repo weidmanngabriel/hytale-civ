@@ -26,6 +26,8 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
+import dev.civilizations.core.MineCaveObservation;
+import dev.civilizations.core.MineCavePolicy;
 import dev.civilizations.core.MineDecisionCategory;
 import dev.civilizations.core.MineDecisionSink;
 import dev.civilizations.core.MineFrontCoordinator;
@@ -421,7 +423,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             runtime.workElapsed -= MineTuning.secondsPerBlock();
             if (!workOneBlock(world, ref, store, mine, plan, workerKey, runtime)) break;
             if (sliceComplete(world, slice)) {
-                completeCurrentSlice(world, mine, plan);
+                completeCurrentSlice(world, mine, minePlan, plan);
                 stopMiningAnimation(ref, store, runtime);
                 runtime.clearWorkAssignment();
                 return;
@@ -540,7 +542,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         int landing = end + 1;
-        if (landing >= front.slices.size() || floorMissing(world, front.slices.get(landing))) {
+        if (landing >= front.slices.size()
+            || !hasSafeOppositeLanding(world, front.slices.get(landing))) {
             return BridgeAssessment.abandon("GAP_WITHOUT_SAFE_LANDING", false);
         }
         if (landing + 1 >= front.slices.size()) {
@@ -553,6 +556,39 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             end,
             front.slices.get(start).floorCenter()
         ));
+    }
+
+    private static boolean hasSafeOppositeLanding(
+        World world,
+        MineTunnelGeometry.Slice slice
+    ) {
+        int walkY = slice.floorCenter().y();
+        Set<String> safeColumns = new HashSet<>();
+        Set<String> requiredColumns = new HashSet<>();
+
+        for (BlockPosition block : slice.navigationCoreBlocks()) {
+            if (block.y() != walkY) continue;
+            String column = block.x() + ":" + block.z();
+            if (!requiredColumns.add(column)) continue;
+
+            BlockType walkType = loadedBlockType(world, block);
+            BlockPosition below = new BlockPosition(block.x(), block.y() - 1, block.z());
+            BlockType floorType = loadedBlockType(world, below);
+            WorldChunk chunk = world.getChunkIfLoaded(
+                ChunkUtil.indexChunkFromBlock(block.x(), block.z())
+            );
+            if (walkType != null
+                && isEmpty(walkType)
+                && floorType != null
+                && !isEmpty(floorType)
+                && chunk != null
+                && chunk.getFluidId(block.x(), block.y(), block.z()) == Fluid.EMPTY_ID) {
+                safeColumns.add(column);
+            }
+        }
+
+        int required = Math.min(3, requiredColumns.size());
+        return required > 0 && safeColumns.size() >= required;
     }
 
     private static boolean floorMissing(World world, MineTunnelGeometry.Slice slice) {
@@ -847,31 +883,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     }
 
     private static MineTunnelGeometry geometryFor(RuntimeFrontPlan front) {
-        List<MineTunnelGeometry.Slice> slices = front.slices;
-        Set<BlockPosition> excavation = new HashSet<>();
-        Set<BlockPosition> navigation = new HashSet<>();
-        for (MineTunnelGeometry.Slice slice : slices) {
-            excavation.addAll(slice.excavationBlocks());
-            navigation.addAll(slice.navigationCoreBlocks());
-        }
-        List<MineTunnelGeometry.StepTransition> steps = new ArrayList<>();
-        for (int index = 1; index < slices.size(); index++) {
-            BlockPosition previous = slices.get(index - 1).floorCenter();
-            BlockPosition current = slices.get(index).floorCenter();
-            if (Math.abs(current.y() - previous.y()) == 1) {
-                steps.add(new MineTunnelGeometry.StepTransition(
-                    index - 1, index, previous, current
-                ));
-            }
-        }
-        return new MineTunnelGeometry(
-            front.tunnelKind,
-            0L,
-            slices,
-            excavation,
-            navigation,
-            steps
-        );
+        return front.geometry;
     }
 
     private static double squaredDistance(Vector3d position, BlockPosition block) {
@@ -1452,6 +1464,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 id,
                 tunnel.tunnel().id(),
                 tunnel.tunnel().kind(),
+                tunnel.geometry(),
                 tunnel.geometry().slices(),
                 orderedBlocks(tunnel.geometry().slices()),
                 sliceIndex,
@@ -1533,7 +1546,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 && !plan.unavailable
                 && !hasPendingMandatoryInfrastructure(minePlan, plan)
                 && sliceComplete(world, plan.slices.get(plan.sliceIndex))) {
-                completeCurrentSlice(world, mine, plan);
+                completeCurrentSlice(world, mine, minePlan, plan);
                 // A newly reached slice can expose a due stair/bridge on the next outer tick.
                 // Stop here rather than skipping multiple semantic work boundaries at once.
                 if (hasPendingMandatoryInfrastructure(minePlan, plan)) break;
@@ -1544,6 +1557,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private void completeCurrentSlice(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan minePlan,
         RuntimeFrontPlan plan
     ) {
         MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
@@ -1552,6 +1566,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (current == null) return;
 
         int completedIndex = plan.sliceIndex;
+        network = integrateNaturalCaveIfPresent(
+            world, mine, minePlan, plan, completedIndex, network
+        );
+
         int nextIndex = completedIndex + 1;
         MineWorkFront updated;
         if (nextIndex >= plan.slices.size()) {
@@ -1575,6 +1593,91 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             "slice", completedIndex,
             "nextSlice", plan.complete ? "COMPLETE" : plan.sliceIndex
         );
+    }
+
+    private MineNetwork integrateNaturalCaveIfPresent(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan minePlan,
+        RuntimeFrontPlan front,
+        int sliceIndex,
+        MineNetwork network
+    ) {
+        MineTunnelGeometry.Slice slice = front.slices.get(sliceIndex);
+        List<MineTunnelGeometry> geometries = minePlan.fronts.values().stream()
+            .map(MinerWorkSystem::geometryFor)
+            .toList();
+        MineCaveObservation observation = MineCaveScanner.scan(world, slice, geometries);
+
+        if (observation.status() == MineCaveObservation.Status.INCOMPLETE) {
+            decisionSink.record(
+                mine.id(), front.frontId, MineDecisionCategory.PLANNING, "CAVE_SCAN_INCOMPLETE",
+                "slice", sliceIndex
+            );
+            return network;
+        }
+        if (observation.status() != MineCaveObservation.Status.LARGE) return network;
+
+        for (MineRoom room : network.rooms()) {
+            if (room.type() == MineRoom.Type.LARGE_NATURAL_CHAMBER
+                && MineCavePolicy.sameNaturalChamber(room.position(), observation.center())) {
+                return network;
+            }
+        }
+
+        MineHeading heading = cardinalHeadingAt(front.slices, sliceIndex);
+        UUID roomId = naturalChamberId(
+            mine.id(), front.tunnelId, observation.center()
+        );
+        MineRoom chamber = new MineRoom(
+            roomId,
+            front.tunnelId,
+            MineRoom.Type.LARGE_NATURAL_CHAMBER,
+            observation.center(),
+            heading,
+            sliceIndex,
+            MineRoom.State.NATURAL_INTEGRATED,
+            0,
+            Set.of()
+        );
+        decisionSink.record(
+            mine.id(), roomId, MineDecisionCategory.PLANNING, "NATURAL_CHAMBER_INTEGRATED",
+            "tunnel", front.tunnelId,
+            "slice", sliceIndex,
+            "emptyBlocks", observation.emptyBlocks(),
+            "usableFloorBlocks", observation.usableFloorBlocks(),
+            "spanX", observation.spanX(),
+            "spanY", observation.spanY(),
+            "spanZ", observation.spanZ(),
+            "fluid", observation.hasFluid(),
+            "lava", observation.hasLava()
+        );
+        return network.withRoom(chamber);
+    }
+
+    private static MineHeading cardinalHeadingAt(
+        List<MineTunnelGeometry.Slice> slices,
+        int index
+    ) {
+        BlockPosition before = slices.get(Math.max(0, index - 1)).floorCenter();
+        BlockPosition after = slices.get(Math.min(slices.size() - 1, index + 1)).floorCenter();
+        int dx = after.x() - before.x();
+        int dz = after.z() - before.z();
+        if (Math.abs(dx) >= Math.abs(dz)) return dx >= 0 ? MineHeading.EAST : MineHeading.WEST;
+        return dz >= 0 ? MineHeading.SOUTH : MineHeading.NORTH;
+    }
+
+    private static UUID naturalChamberId(
+        UUID mineId,
+        UUID tunnelId,
+        BlockPosition center
+    ) {
+        int qx = Math.floorDiv(center.x(), 8);
+        int qy = Math.floorDiv(center.y(), 8);
+        int qz = Math.floorDiv(center.z(), 8);
+        return UUID.nameUUIDFromBytes((
+            "civ-natural-chamber:" + mineId + ":" + tunnelId + ":" + qx + ":" + qy + ":" + qz
+        ).getBytes(StandardCharsets.UTF_8));
     }
 
     private void failFront(
@@ -1975,6 +2078,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private final UUID frontId;
         private final UUID tunnelId;
         private final MineTunnel.Kind tunnelKind;
+        private final MineTunnelGeometry geometry;
         private final List<MineTunnelGeometry.Slice> slices;
         private final List<List<BlockPosition>> orderedBlocks;
         private int sliceIndex;
@@ -1985,6 +2089,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             UUID frontId,
             UUID tunnelId,
             MineTunnel.Kind tunnelKind,
+            MineTunnelGeometry geometry,
             List<MineTunnelGeometry.Slice> slices,
             List<List<BlockPosition>> orderedBlocks,
             int sliceIndex,
@@ -1994,6 +2099,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             this.frontId = frontId;
             this.tunnelId = tunnelId;
             this.tunnelKind = tunnelKind;
+            this.geometry = geometry;
             this.slices = List.copyOf(slices);
             this.orderedBlocks = List.copyOf(orderedBlocks);
             this.sliceIndex = sliceIndex;

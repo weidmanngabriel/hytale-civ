@@ -213,7 +213,7 @@ Current room rules:
 | Material storage | 25-35% at eligible room opportunities, with about 60-80 blocks spacing |
 | Tool / workshop room | 10-15% |
 | Ore collection room | 15-25% |
-| Large natural chamber | 5-10% |
+| Large natural chamber | world-derived in Layer 7; no synthetic probability roll |
 | Small niche | 20-30% |
 | Support / supply station | 10-20% |
 | Water / drainage room | 5% |
@@ -227,7 +227,7 @@ General placement preference:
 
 Room sizes remain design ranges rather than permanent fixed dimensions. Layer 6 now uses replaceable V1 envelopes only for the first three test-prefab types: small niche 5x4x4, material storage 7x6x4 and rest/accommodation 9x8x5. These are implementation envelopes, not final art dimensions.
 
-Layer-6 V1 generates only those three authored types. Accommodation uses 80-120 block main-tunnel spacing, material storage uses a 30% eligible-opportunity chance with 60-80 block spacing, and small niches use a 25% opportunity chance on branch tunnels. The remaining canonical probabilities stay reserved for later authored room types. `LARGE_NATURAL_CHAMBER` is deliberately not generated as a carved prefab room because natural-cave classification belongs to Layer 7.
+Layer-6 V1 generates only those three authored prefab types. Accommodation uses 80-120 block main-tunnel spacing, material storage uses a 30% eligible-opportunity chance with 60-80 block spacing, and small niches use a 25% opportunity chance on branch tunnels. The remaining authored-room probabilities stay reserved for later room content. `LARGE_NATURAL_CHAMBER` is different: Layer 7 derives it only from real observed cave geometry, never from a synthetic room-planner chance.
 
 A room is not executable until its tunnel attachment slice is physically open. At most two rooms may be active at once. Room excavation proceeds in 1-2-block-depth work units, then the room enters prefab construction. See `docs/mine-room-layer6-implementation.md`.
 
@@ -258,7 +258,13 @@ A Layer-5 bridge is real miner work (`BUILD_BRIDGE`, priority 10), not an instan
 
 Water is less severe than lava. V1 does not make miners swim, pump, fill or redirect water: water below an accepted crossing may be bridged, while fluid occupying the actual navigation corridor makes the front unusable. Lava is always treated as a dangerous obstacle for this layer; no lava bridge is built.
 
-Safe already-open cave space with usable floor is simply traversed and the planned tunnel continues at the next solid face. V1 does not yet convert a large useful natural cave into its own semantic room/node; that richer cave integration remains later work.
+Safe already-open cave space with usable floor is simply traversed and the planned tunnel continues at the next solid face.
+
+Layer 7 now classifies additional connected empty world space adjacent to the planned tunnel envelope using only already-loaded chunks. Planned mine excavation blocks are excluded so Civ's own tunnel does not classify itself as a cave. The local V1 scan is bounded to 12 blocks horizontally, 8 vertically and at most 2048 observed empty blocks. A large useful cave requires at least 160 observed empty blocks, 24 usable-floor positions, 8 blocks horizontal span and 4 blocks vertical span. These are initial tuning thresholds, not world-generation constants.
+
+A proven large useful cave becomes one persistent `LARGE_NATURAL_CHAMBER` with terminal state `NATURAL_INTEGRATED`; it creates neither excavation nor prefab-build work. Nearby observations within 18 blocks are deduplicated as the same natural chamber. An incomplete observation caused by unloaded/bounded world data is not prematurely classified as a small cave.
+
+The opposite side of a bridgeable cave is still searched only along the planned tunnel route. The landing must now provide several fluid-free walk-level navigation columns with solid floor, plus planned continuation beyond the landing. Civ does not introduce arbitrary cave routing or a second pathfinder. See `docs/mine-layer7-implementation.md`.
 
 ## 14. Navigation anchors
 

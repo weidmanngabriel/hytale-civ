@@ -83,8 +83,6 @@ final class MineRoomPlannerTest {
             && MineRoomPlanner.TOOL_WORKSHOP_CHANCE <= 0.15);
         assertTrue(MineRoomPlanner.ORE_COLLECTION_CHANCE >= 0.15
             && MineRoomPlanner.ORE_COLLECTION_CHANCE <= 0.25);
-        assertTrue(MineRoomPlanner.LARGE_NATURAL_CHAMBER_CHANCE >= 0.05
-            && MineRoomPlanner.LARGE_NATURAL_CHAMBER_CHANCE <= 0.10);
         assertTrue(MineRoomPlanner.SMALL_NICHE_CHANCE >= 0.20
             && MineRoomPlanner.SMALL_NICHE_CHANCE <= 0.30);
         assertTrue(MineRoomPlanner.SUPPORT_SUPPLY_CHANCE >= 0.10

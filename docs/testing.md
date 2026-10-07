@@ -201,6 +201,14 @@ After selecting a Farm through `/civbuild`, confirm it with left click. The stat
 
 Die tatsächliche Hytale-Prefab-Ladung, sichtbare Raumrotation und NPC-Navigation in einen gebauten Raum sind Engine-/Client-Verhalten. Ein Hytale-Local-Lauf ist für diesen Change kein Merge-Gate und wurde ohne ausdrückliche Freigabe in diesem Chat nicht ausgeführt.
 
+## Minenhöhlen-/Gefahren-Abdeckung
+
+`MineCavePolicyTest` prüft kleine, große und unvollständige Höhlenbeobachtungen sowie die Deduplizierung natürlicher Kammern. `MineNaturalChamberTest` schützt den terminalen `NATURAL_INTEGRATED`-Zustand. `MineCaveScannerContractTest` prüft die Adaptergrenze: nur `getChunkIfLoaded`, Ausschluss geplanter Minengeometrie, native Fluid-/Lava-Auswertung und keine neue Navigation.
+
+Die bereits vorhandenen Hindernis-/Infrastrukturtests schützen weiterhin `BLOCKED` versus `ABANDONED`, 16-/10-Slice-Brückengrenzen, Wasser/Lava und Pflicht-Infrastruktur. Layer 7 ersetzt diese Logik nicht, sondern ergänzt die Höhlenklassifikation und die strengere Gegenseitenprüfung.
+
+Ein echter Runtime-Check ist nur für Engine-Fragen sinnvoll, etwa wie natürliche Worldgen-Hohlräume in geladenen Chunks erscheinen. Zufälliges Worldgen soll nicht als deterministische Merge-Assertion verwendet werden.
+
 ## Browser-Replay-Vertrag
 
 `SimulationRecordingExporterTest` prüft die Minengeometrie weiterhin in allen vier Ausrichtungen, veröffentlicht im Browser aber nur eine feste `NORTH`-Referenz. Für die Mine existieren drei bewusst getrennte Browser-Szenarien: `Mine · Geometry` isoliert Layer 2/3 ohne Infrastruktur, `Mine · Straight Full` zeigt einen einzelnen Hauptstollen mit allen vom produktiven `MineInfrastructurePlanner` geplanten Infrastrukturaufgaben, und `Mine · Full Scenario` kombiniert mehrere Miner, Branches, vollständige Core-Infrastrukturplanung sowie kontrollierte Layer-6-Hindernisse. Die normalen Java-Tests bleiben eigenständige Assertions; ein exportierter Lauf mit Status `completed` bedeutet allein, dass der aufgezeichnete Ablauf beendet wurde.

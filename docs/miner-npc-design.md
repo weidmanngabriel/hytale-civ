@@ -404,7 +404,7 @@ A known unsafe/unusable geometry result produces `ABANDONED`, including:
 - mandatory bridge/step work that cannot be resolved safely;
 - another explicitly classified unsafe geometry result.
 
-Natural open cave space with safe floor is not an error: already-empty tunnel slices may be crossed and excavation continues at the next solid face. Large-cave integration as a dedicated room/node is deferred.
+Natural open cave space with safe floor is not an error: already-empty tunnel slices may be crossed and excavation continues at the next solid face. Layer 7 classifies additional loaded-world cave space outside the planned tunnel envelope. A proven large useful cave is persisted as a terminal `LARGE_NATURAL_CHAMBER` / `NATURAL_INTEGRATED` room and creates no miner excavation/build task. Incomplete cave observations are not treated as proof that the opening is small.
 
 The miner releases the task and selects again rather than waiting indefinitely.
 
@@ -420,9 +420,11 @@ The implemented semantic room lifecycle is:
 
 `PLANNED -> EXCAVATING -> READY_TO_BUILD -> BUILT`
 
+Natural chambers use the separate terminal state `NATURAL_INTEGRATED` because they already exist in Hytale world geometry and are neither excavated nor built by miners.
+
 A room becomes executable only after its attachment tunnel slice is physically open. Layer-6 V1 persists lifecycle and work progress, but not transient worker/block/build-section claims. Up to three miners may share room excavation; current room-prefab construction allows up to two miners on distinct build sections. After each completed excavation work unit or build section, the affected miners reselect normally.
 
-Only accommodation, material storage and small niches have authored Layer-6 V1 prefabs. Other room types remain unavailable until their content or later-layer world semantics exist.
+Only accommodation, material storage and small niches have authored Layer-6 V1 prefabs. Layer 7 additionally creates world-derived `LARGE_NATURAL_CHAMBER` records without prefabs. Other authored room types remain unavailable until their content exists.
 
 ## 14. Infrastructure
 

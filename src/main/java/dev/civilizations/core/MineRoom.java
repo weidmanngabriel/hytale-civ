@@ -61,7 +61,7 @@ public record MineRoom(
     }
 
     public boolean terminal() {
-        return state == State.BUILT;
+        return state == State.BUILT || state == State.NATURAL_INTEGRATED;
     }
 
     public static boolean cardinal(MineHeading heading) {
@@ -73,7 +73,8 @@ public record MineRoom(
         PLANNED,
         EXCAVATING,
         READY_TO_BUILD,
-        BUILT
+        BUILT,
+        NATURAL_INTEGRATED
     }
 
     public enum Type {
