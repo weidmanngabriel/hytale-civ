@@ -4,6 +4,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFile, writeFile, mkdir, cp, rm, lstat, realpath, readdir } from 'node:fs/promises';
 import { resolve, join, dirname, isAbsolute, basename } from 'node:path';
 import { createInterface } from 'node:readline';
+import { homedir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const exec = promisify(execFile);
@@ -68,7 +69,7 @@ export async function ownedDirectory(path, root) {
 export class LocalRuntime {
   constructor(config) {
     this.config = config; this.logs = new LogBuffer(); this.jobs = new Map(); this.child = null;
-    this.token = randomBytes(32).toString('hex'); this.session = randomUUID(); this.deployed = null; this.busy = false;
+    this.token = randomBytes(32).toString('hex'); this.session = randomUUID(); this.deployed = null; this.busy = false; this.attached = null;
   }
   async exclusive(operation) {
     if (this.busy) throw new Error('A lifecycle operation is already running');
@@ -83,8 +84,9 @@ export class LocalRuntime {
   async status() {
     return { repository: await this.revision(), configured: Boolean(this.config.serverJar && this.config.assetsPath),
       running: Boolean(this.child), pid: this.child?.pid ?? null, deployed: this.deployed,
-      gameEndpoint: `127.0.0.1:${this.config.gamePort}`, sessionId: this.session,
-      bridge: this.child ? await this.bridge('status').catch(error => ({ ready: false, reason: error.message })) : null,
+      mode: this.attached ? 'live' : 'owned', attached: Boolean(this.attached),
+      gameEndpoint: this.attached ? null : `127.0.0.1:${this.config.gamePort}`, sessionId: this.attached?.sessionId ?? this.session,
+      bridge: this.child || this.attached ? await this.bridge('status').catch(error => ({ ready: false, reason: error.message })) : null,
       jobs: [...this.jobs.values()].map(({ process, logs, ...job }) => job) };
   }
   async build() {
@@ -110,6 +112,7 @@ export class LocalRuntime {
   }
   async deploy(jobId) {
     return this.exclusive(async () => {
+      if (this.attached) throw new Error('Disconnect the live session before isolated deployment');
       if (this.child) throw new Error('Stop the development server before deploying');
       const job = this.jobs.get(jobId);
       if (job?.state !== 'succeeded') throw new Error('Deployment requires a successful build job from this MCP session');
@@ -135,6 +138,7 @@ export class LocalRuntime {
   }
   async start() {
     return this.exclusive(async () => {
+      if (this.attached) throw new Error('Disconnect the live session before starting an isolated server');
       if (this.child) throw new Error('Development server is already running');
       if (!this.deployed) throw new Error('Build and deploy in this MCP session first');
       if (!this.config.serverJar || !this.config.assetsPath) throw new Error('Configure HYTALE_SERVER_JAR and HYTALE_ASSETS_PATH or .hytale-dev.json');
@@ -152,18 +156,51 @@ export class LocalRuntime {
       return { pid: child.pid, state: 'starting', instruction: 'Poll hytale_status until bridge.ready is true. No client is launched.' };
     });
   }
-  async bridge(action, args = {}, timeoutMs = 15000) {
-    if (!this.child) throw new Error('Development server is not running');
-    const response = await fetch(`http://127.0.0.1:${this.config.bridgePort}/dev`, { method: 'POST', redirect: 'error',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.token}`, 'X-Civ-Session': this.session },
-      body: JSON.stringify({ action, ...args }), signal: AbortSignal.timeout(timeoutMs) });
+  async connect(connectionFile = join(homedir(), '.hytale-civ', 'bridge.json')) {
+    return this.exclusive(async () => {
+      if (this.child || this.attached) throw new Error('Stop the owned server or disconnect the current live session first');
+      const bytes = await readFile(resolve(connectionFile));
+      if (bytes.length > 4096) throw new Error('Invalid connection file');
+      const connection = JSON.parse(bytes.toString('utf8'));
+      if (connection.version !== 1 || connection.mode !== 'live'
+          || !Number.isInteger(connection.port) || connection.port < 1024 || connection.port > 65535
+          || typeof connection.token !== 'string' || !/^[A-Za-z0-9-]{32,128}$/.test(connection.token)
+          || typeof connection.sessionId !== 'string' || !/^[A-Za-z0-9-]{1,128}$/.test(connection.sessionId))
+        throw new Error('Invalid live connection file; run /civmcp on in Hytale');
+      const status = await this.request(connection, 'status');
+      if (!status.ready || status.mode !== 'live' || status.bridgeVersion !== 2)
+        throw new Error('The live bridge is not ready or has an incompatible version');
+      this.attached = connection;
+      return { connected: true, mode: 'live', world: status.world, worldUuid: status.worldUuid,
+        instruction: 'Use hytale_context to inspect the player and nearby NPCs. This MCP does not own the game process.' };
+    });
+  }
+  async disconnect() {
+    return this.exclusive(async () => {
+      this.attached = null;
+      return { connected: false, note: 'Game, world and NPCs continue running. Use /civmcp off in Hytale to disable the bridge.' };
+    });
+  }
+  async request(connection, action, args = {}, timeoutMs = 15000) {
+    const response = await fetch(`http://127.0.0.1:${connection.port}/dev`, { method: 'POST', redirect: 'error',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${connection.token}`, 'X-Civ-Session': connection.sessionId },
+      body: JSON.stringify({ ...args, action }), signal: AbortSignal.timeout(timeoutMs) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error ?? `Bridge HTTP ${response.status}`);
-    if (result.sessionId !== this.session) throw new Error('Bridge session mismatch');
+    if (result.sessionId !== connection.sessionId) throw new Error('Bridge session mismatch');
     return result;
+  }
+  async bridge(action, args = {}, timeoutMs = 15000) {
+    if (!this.child && !this.attached) throw new Error('Connect to a live session or start the development server first');
+    return this.request(this.attached ?? { port: this.config.bridgePort, token: this.token, sessionId: this.session }, action, args, timeoutMs);
+  }
+  serverLogs(after, limit, contains) {
+    if (this.attached) throw new Error('Live game stdout is not owned by MCP. Read the Hytale server log locally; hytale_entities/context/observe provide live diagnostics.');
+    return this.logs.read(after, limit, contains);
   }
   async stop() {
     return this.exclusive(async () => {
+      if (this.attached) throw new Error('MCP cannot stop your live game; use hytale_disconnect');
       const child = this.child;
       if (!child) return { state: 'stopped' };
       // Native console shutdown also works before the bridge has finished starting.
@@ -175,13 +212,18 @@ export class LocalRuntime {
   }
   async observe(seconds = 3, intervalMs = 500) {
     const samples = [];
+    const connection = this.attached;
+    const child = this.child;
     const until = Date.now() + seconds * 1000;
-    do { samples.push({ observedAt: new Date().toISOString(), ...(await this.bridge('entities')) });
+    do {
+      if (connection !== this.attached || child !== this.child) throw new Error('Session changed during observation');
+      samples.push({ observedAt: new Date().toISOString(), ...(await this.bridge('entities')) });
       if (Date.now() < until) await delay(intervalMs);
     } while (Date.now() < until);
     return { samples, note: 'Native server snapshots; no client rendering or simulated damage.' };
   }
   async close() {
+    this.attached = null; // Never send shutdown to an externally owned game.
     for (const job of this.jobs.values()) {
       if (job.process) {
         if (process.platform === 'win32') await exec('taskkill.exe', ['/PID', String(job.process.pid), '/T', '/F']).catch(() => {});

@@ -23,7 +23,7 @@ test('MCP lifecycle and invalid mutations never reach runtime', async () => {
   await ready(handle);
   const toolCall = arguments_ => handle({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'hytale_move', arguments: arguments_ } });
   assert.equal((await toolCall({ handle: 'test', x: 0, y: 1, z: 0, command: 'arbitrary' })).error.code, -32602);
-  assert.equal((await toolCall({ handle: 'test', x: 999, y: 1, z: 0 })).error.code, -32602);
+  assert.equal((await toolCall({ handle: 'test', x: 30000001, y: 1, z: 0 })).error.code, -32602);
   assert.equal(calls.length, 0);
   assert.equal((await toolCall({ handle: 'test', x: 0, y: 1, z: 0 })).result.isError, undefined);
   assert.equal(calls.length, 1);

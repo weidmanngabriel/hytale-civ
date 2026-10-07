@@ -224,3 +224,7 @@ Das öffentliche Browser-Lab dient der Prüfung aufgezeichneter Core-Szenarien. 
 
 Das Lab verändert kein Gameplay und führt keine neuen Befehle während eines Replays aus. Seine vereinfachte Grafik und Fake-Bewegung sind Entwicklungshilfen; Hytales Navigation, Grafik und Physik bleiben Engine-Verträge.
 
+
+## Entwicklungszugriff auf die normale Spielwelt
+
+Der lokale Einzelspieler-Besitzer kann mit `/civmcp on` eine lokale Entwicklungsverbindung freigeben und mit `/civmcp off` schließen. Ein verbundener Agent kann nahe NPCs beobachten, Civ-Bewohner gezielt auswählen und normale Bewegungs-/Berufsaufträge erteilen oder Test-NPCs erzeugen. Reset löscht ausschließlich selbst erzeugte geladene NPCs. Diese Aktionen wirken auf den echten Spielstand; der Agent besitzt oder stoppt den Spielprozess nicht. Einrichtung und noch offene praktische Client-Abnahme: [local-mcp.md](local-mcp.md).
