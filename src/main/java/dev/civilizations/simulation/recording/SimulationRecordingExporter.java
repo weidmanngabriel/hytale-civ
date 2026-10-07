@@ -339,8 +339,9 @@ public final class SimulationRecordingExporter {
             MineNetworkGrowthPlanner.Plan plan = MineNetworkGrowthPlanner.plan(
                 mineId, MINE_ORIGIN, orientation.rotate(MineHeading.NORTH), mainLength, tunnelBudget, seed
             );
-            Map<BlockPosition, Integer> world = rockEnvelope(plan.tunnels());
-            recorder = new Recorder(world);
+            int[] rockBounds = rockBounds(plan.tunnels());
+            Map<BlockPosition, Integer> world = Map.of();
+            recorder = new Recorder(world, rockBounds);
             markers = plan.tunnels().stream().map(SimulationRecordingExporter::tunnelMarker).toList();
 
             var main = plan.mainTunnel();
