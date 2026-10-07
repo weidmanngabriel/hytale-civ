@@ -197,7 +197,7 @@ After selecting a Farm through `/civbuild`, confirm it with left click. The stat
 
 ## Browser-Replay-Vertrag
 
-`SimulationRecordingExporterTest` prüft alle vier Minenausrichtungen und sämtliche gemeinsamen Runtime-Szenarien: Die exportierten Deltas müssen den gleichen Endzustand und Arbeiterzustand wie eine direkte Java-Ausführung erzeugen. Fehler bei der Szenarioinitialisierung liefern einen lesbaren Fehler-Replay. Die normalen Java-Tests bleiben eigenständige Assertions; ein exportierter Lauf mit Status `completed` bedeutet allein, dass der aufgezeichnete Ablauf beendet wurde.
+`SimulationRecordingExporterTest` prüft die Minengeometrie weiterhin in allen vier Ausrichtungen, veröffentlicht im Browser aber nur eine `NORTH`-Referenz statt vier nahezu identischer Szenarien. Zusätzlich prüft der Test `Mine · Full Scenario`: drei Miner, geteilte Arbeitsfront, mindestens eine Infrastrukturaktion, Bridge/Water-Marker, Lava-Abbruch sowie die Phasen `LEAVING_MINE`, `OUTSIDE` und `REENTERING_MINE`. Sämtliche gemeinsamen Runtime-Szenarien werden weiterhin gegen ihre direkte Java-Ausführung geprüft. Fehler bei der Szenarioinitialisierung liefern einen lesbaren Fehler-Replay. Die normalen Java-Tests bleiben eigenständige Assertions; ein exportierter Lauf mit Status `completed` bedeutet allein, dass der aufgezeichnete Ablauf beendet wurde.
 
 `npm test --prefix web-viewer` prüft Vor-/Rückwärtssprünge, inkompatible Daten, gerichtete Grenzflächen, den Blick von außen/im Fels/im Tunnel, einen realen Three.js-Raycast sowie Publisher-Provenienz und Kataloggrenzen. Der Pages-Publisher führt diese Tests vor jeder Veröffentlichung aus.
 
@@ -212,8 +212,8 @@ Manueller Viewer-Check:
 
 Mobilgeräte-FPS und tatsächliche Hytale-Navigation sind durch die headless Checks nicht belegt.
 
-### Minen-Kombinationslauf mit Rückweg
+### Mine · Full Scenario
 
-`MineBranchingScenarioTest` prüft sieben verbundene Abschnitte mit Längen 8/12/4/5/8/9/4 in allen vier Gebäudeausrichtungen. Gerade Fortsetzungen, Links-/Rechtsäste und Stützen werden gemeinsam in einer Voxelwelt ausgeführt. Der Miner unterbricht den 12er-Abschnitt nach 73 Blöcken, läuft zellenweise zum `workplace_access` zurück, geht über den Connector wieder hinein, bearbeitet zwei andere Äste und setzt denselben gespeicherten Abschnitt fort. Nach allen Arbeiten läuft er erneut zum Ausgang. Tests prüfen offene Rückwege ohne Teleport-Sprünge, unveränderte Voxels während der Rückkehr, erhaltenen Fortschritt/Stützen, keine Segment-/Prefab-Überschneidungen, stützenfreie Junctions sowie den vollständigen erwarteten Weltzustand (1248 Abbaublöcke, 12 Stützen).
+Der veröffentlichte Browser enthält genau einen großen Minen-Referenzlauf in `NORTH`-Ausrichtung. Er verwendet das aktuelle `MineNetwork` und die vorhandenen Core-Planer statt des entfernten Legacy-`MineSegment`-Fixtures. Sichtbar sind drei Miner, gemeinsam genutzte Fronten, variable Haupt-/Seitenstollen, geplante Supports/Licht/Steps, ein expliziter Bridge-Task über einen kontrollierten Wasser-Gap, ein Lava-bedingt aufgegebener Branch sowie ein Miner, der die Mine verlässt und später wieder einsteigt.
 
-Der Browser bietet `Mine · Kombinationen · NORTH/EAST/SOUTH/WEST`. Der Inspector zeigt aktuelle Phase, Abschnitt, Länge und gespeicherten Fortschritt. `SimulationRecordingExporterTest` vergleicht diese Replays mit direkter Ausführung und prüft das 32-MB-Veröffentlichungsbudget. Arbeitswahl und Navigation sind geskriptete/geometrische Fixtures; echte NPC-Wegfindung, Player-Teleport-Verhalten und die geplante Mehrminer-Koordination sind damit nicht belegt.
+Das Szenario ist absichtlich kein zweites Gameplay-System: Tunnel und Infrastrukturtermine stammen aus den produktiven Core-Planern; Layer-6-Zustände verwenden `MineObstaclePolicy`. Weltabhängige Details wie echte Hytale-Navigation, Fluidphysik, Assetauflösung und konkrete Blockplatzierung bleiben kontrollierte Headless-Fixtures und müssen separat im Hytale-Runtime-Pfad verifiziert werden. Rotationskorrektheit wird automatisiert getestet, erzeugt aber keine vier Browser-Szenarien mehr.
