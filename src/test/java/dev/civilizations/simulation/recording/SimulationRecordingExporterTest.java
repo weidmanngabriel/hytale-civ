@@ -63,6 +63,8 @@ final class SimulationRecordingExporterTest {
         assertEquals("completed", recording.status(), recording.error());
         assertEquals("semantic-step", recording.timeUnit());
         assertEquals("mine-full", recording.id());
+        assertTrue(recording.initialVoxels().size() <= 100_000,
+            "Fits the publisher's initial voxel limit");
         assertTrue(recording.frames().stream().anyMatch(frame ->
             "LEAVING_MINE".equals(frame.metrics().get("phase"))));
         assertTrue(recording.frames().stream().anyMatch(frame ->
