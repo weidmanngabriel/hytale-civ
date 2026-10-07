@@ -238,7 +238,7 @@ Mobilgeräte-FPS und tatsächliche Hytale-Navigation sind durch die headless Che
 
 ## Live-MCP-Grenzen
 
-`DevEntityTrackerTest` schützt Reset gegen Löschen ausgewählter bestehender Bewohner und behält nicht entfernte eigene NPCs für einen späteren Versuch. Die Node-Live-Tests verbinden einen externen HTTP-Testserver und prüfen Zugangsdaten, Session-Mismatch, Attach/Detach sowie gesperrtes Start/Stop/Deployment ohne Prozessbesitz. Ein echter Client-/Einzelspieler-Durchlauf bleibt offen; die manuelle Schrittfolge steht in [local-mcp.md](local-mcp.md).
+`DevEntityTrackerTest` schützt Reset gegen Löschen ausgewählter bestehender Bewohner und behält nicht entfernte eigene NPCs für einen späteren Versuch. Mine-Auflistung und Miner-Zuweisung über `civdev mines`/`civdev assign-mine` nutzen die vorhandene Command-Bridge und den gemeinsam genutzten Zuweisungspfad; Hytale-Command-Signaturen werden durch den normalen Build abgesichert. Die Node-Live-Tests verbinden einen externen HTTP-Testserver und prüfen Zugangsdaten, Session-Mismatch, Attach/Detach sowie gesperrtes Start/Stop/Deployment ohne Prozessbesitz. Ein echter Client-/Einzelspieler-Durchlauf bleibt offen; die manuelle Schrittfolge steht in [local-mcp.md](local-mcp.md).
 
 
 ## Civdev/MCP-Diagnostik
