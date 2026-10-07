@@ -243,7 +243,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
         commandBridge = new CivCommandBridge(getLogger());
         getCommandRegistry().registerCommand(
             new CivDevCommand(
-                unitRegistry, activityRegistry, minerAssignments, buildingRegistry,
+                unitRegistry, activityRegistry, minerAssignments, buildingRegistry, mineDebugService,
                 devScenarioService, devEventHistory
             )
         );
