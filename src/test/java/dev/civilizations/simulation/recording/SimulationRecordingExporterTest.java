@@ -22,6 +22,7 @@ final class SimulationRecordingExporterTest {
             SimulationRecording recording = SimulationRecordingExporter.recordMine(orientation);
             assertEquals("completed", recording.status(), recording.error());
             assertEquals("semantic-slice", recording.timeUnit());
+            assertEquals("Mine · Geometry", recording.title());
             assertFalse(recording.markers().isEmpty());
             assertTrue(recording.markers().stream().allMatch(marker -> marker.type().equals("main_tunnel")));
             assertTrue(recording.frames().getFirst().changes().isEmpty());
@@ -63,6 +64,30 @@ final class SimulationRecordingExporterTest {
     }
 
     @Test
+    void straightFullScenarioExecutesAllPlannedCoreInfrastructure() throws Exception {
+        SimulationRecording recording = SimulationRecordingExporter.recordStraightFull();
+        assertEquals("completed", recording.status(), recording.error());
+        assertEquals("mine-straight-full", recording.id());
+        assertEquals("Mine · Straight Full", recording.title());
+        assertEquals("semantic-step", recording.timeUnit());
+
+        int planned = ((Number) recording.frames().getFirst().metrics().get("plannedInfrastructure")).intValue();
+        int completed = ((Number) recording.frames().getLast().metrics().get("infrastructureCompleted")).intValue();
+        long supports = recording.frames().stream()
+            .filter(frame -> "BUILD_SUPPORT".equals(frame.metrics().get("phase"))).count();
+        long lights = recording.frames().stream()
+            .filter(frame -> "PLACE_LIGHT".equals(frame.metrics().get("phase"))).count();
+
+        assertTrue(planned > 5, "Straight Full should contain repeated infrastructure work");
+        assertEquals(planned, completed, "Every Core-planned infrastructure task should be replayed");
+        assertTrue(supports > 1, "Straight Full should visibly build repeated supports");
+        assertTrue(lights > 1, "Straight Full should visibly place repeated lights");
+        assertTrue(recording.frames().stream().flatMap(frame -> frame.changes().stream())
+            .anyMatch(cell -> cell[3] == SimulationRecording.SUPPORT));
+        assertEquals("COMPLETE", recording.frames().getLast().metrics().get("phase"));
+    }
+
+    @Test
     void fullMineScenarioShowsCurrentNetworkInfrastructureObstaclesAndReentry() throws Exception {
         SimulationRecording recording = SimulationRecordingExporter.recordFullMine();
         assertEquals("completed", recording.status(), recording.error());
@@ -79,10 +104,12 @@ final class SimulationRecordingExporterTest {
             "REENTERING_MINE".equals(frame.metrics().get("phase"))));
         assertTrue(recording.frames().stream().anyMatch(frame ->
             "BUILD_BRIDGE".equals(frame.metrics().get("phase"))));
-        assertTrue(recording.frames().stream().anyMatch(frame ->
-            "BUILD_SUPPORT".equals(frame.metrics().get("phase"))
-                || "PLACE_LIGHT".equals(frame.metrics().get("phase"))
-                || "BUILD_STEP".equals(frame.metrics().get("phase"))));
+        long supports = recording.frames().stream()
+            .filter(frame -> "BUILD_SUPPORT".equals(frame.metrics().get("phase"))).count();
+        long lights = recording.frames().stream()
+            .filter(frame -> "PLACE_LIGHT".equals(frame.metrics().get("phase"))).count();
+        assertTrue(supports > 1, "Full scenario should execute repeated support work, not one sample");
+        assertTrue(lights > 1, "Full scenario should execute repeated lighting work, not one sample");
         assertTrue(recording.markers().stream().anyMatch(marker ->
             marker.type().equals("water_obstacle")));
         assertTrue(recording.markers().stream().anyMatch(marker ->
