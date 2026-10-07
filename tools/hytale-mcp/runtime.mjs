@@ -35,7 +35,7 @@ export async function configuration(root, configPath = join(root, '.hytale-dev.j
   let settings = {};
   try { settings = JSON.parse(await readFile(configPath, 'utf8')); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
-  for (const key of Object.keys(settings)) if (!['serverJar', 'assetsPath', 'javaExecutable', 'gamePort', 'bridgePort', 'maxHeapMb'].includes(key)) throw new Error(`Unknown setting ${key}`);
+  for (const key of Object.keys(settings)) if (!['serverJar', 'assetsPath', 'javaExecutable', 'gamePort', 'bridgePort', 'commandBridgePort', 'maxHeapMb'].includes(key)) throw new Error(`Unknown setting ${key}`);
   const optionalPath = value => value ? resolve(root, value) : null;
   const maxHeapMb = settings.maxHeapMb ?? 2048;
   if (!Number.isInteger(maxHeapMb) || maxHeapMb < 512 || maxHeapMb > 16384) throw new Error('maxHeapMb must be between 512 and 16384');
@@ -46,7 +46,7 @@ export async function configuration(root, configPath = join(root, '.hytale-dev.j
     assetsPath: optionalPath(settings.assetsPath ?? env.HYTALE_ASSETS_PATH),
     javaExecutable,
     javaHome: isAbsolute(javaExecutable) && /^java(?:\.exe)?$/i.test(basename(javaExecutable)) ? dirname(dirname(javaExecutable)) : env.JAVA_HOME,
-    gamePort: port(settings.gamePort, 5521), bridgePort: port(settings.bridgePort, 5522), maxHeapMb };
+    gamePort: port(settings.gamePort, 5521), bridgePort: port(settings.bridgePort, 5522), commandBridgePort: port(settings.commandBridgePort, 5523), maxHeapMb };
 }
 export async function ownedDirectory(path, root) {
   // Never follow a user-created link into the normal game installation.
@@ -85,7 +85,7 @@ export class LocalRuntime {
     return { repository: await this.revision(), configured: Boolean(this.config.serverJar && this.config.assetsPath),
       running: Boolean(this.child), pid: this.child?.pid ?? null, deployed: this.deployed,
       mode: this.attached ? 'live' : 'owned', attached: Boolean(this.attached),
-      gameEndpoint: this.attached ? null : `127.0.0.1:${this.config.gamePort}`, sessionId: this.attached?.sessionId ?? this.session,
+      gameEndpoint: this.attached ? null : `127.0.0.1:${this.config.gamePort}`, commandBridgeEndpoint: `127.0.0.1:${this.config.commandBridgePort}`, sessionId: this.attached?.sessionId ?? this.session,
       bridge: this.child || this.attached ? await this.bridge('status').catch(error => ({ ready: false, reason: error.message })) : null,
       jobs: [...this.jobs.values()].map(({ process, logs, ...job }) => job) };
   }
@@ -156,6 +156,27 @@ export class LocalRuntime {
       return { pid: child.pid, state: 'starting', instruction: 'Poll hytale_status until bridge.ready is true. No client is launched.' };
     });
   }
+  async command(command, timeoutMs = 12000) {
+    if (typeof command !== 'string' || !command.trim() || command.length > 4096) throw new Error('command must be a non-empty bounded string');
+    let response;
+    try {
+      response = await fetch(`http://127.0.0.1:${this.config.commandBridgePort}/command`, {
+        method: 'POST',
+        redirect: 'error',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command }),
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+    } catch (error) {
+      throw new Error(`Hytale command bridge unavailable on 127.0.0.1:${this.config.commandBridgePort}: ${error.message}`);
+    }
+    let result;
+    try { result = await response.json(); }
+    catch { throw new Error(`Hytale command bridge returned invalid JSON (HTTP ${response.status})`); }
+    if (!response.ok) throw new Error(result.error ?? `Command bridge HTTP ${response.status}`);
+    return result;
+  }
+
   async connect(connectionFile = join(homedir(), '.hytale-civ', 'bridge.json')) {
     return this.exclusive(async () => {
       if (this.child || this.attached) throw new Error('Stop the owned server or disconnect the current live session first');
