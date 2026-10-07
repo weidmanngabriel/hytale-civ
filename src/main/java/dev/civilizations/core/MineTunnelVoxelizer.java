@@ -1,6 +1,8 @@
 package dev.civilizations.core;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -56,6 +58,7 @@ public final class MineTunnelVoxelizer {
 
         connectNavigationCore(mutableSlices);
         addOrganicClusters(path, mutableSlices);
+        removeDisconnectedExcavation(mutableSlices);
 
         List<MineTunnelGeometry.Slice> slices = new ArrayList<>(mutableSlices.size());
         Set<BlockPosition> excavation = new LinkedHashSet<>();
@@ -233,6 +236,49 @@ public final class MineTunnelVoxelizer {
                 slice.excavation.add(new BlockPosition(x, y, z));
             }
         }
+    }
+
+    /**
+     * Organic wall/ceiling rounding may occasionally create a detached voxel island. Such a pocket
+     * would be invisible gameplay-wise but produces implausible floating cavities in replay and in
+     * the real excavation plan. Keep only excavation that is six-neighbor-connected to the trusted
+     * navigation corridor.
+     */
+    private static void removeDisconnectedExcavation(List<MutableSlice> slices) {
+        Set<BlockPosition> all = new HashSet<>();
+        Set<BlockPosition> reachable = new HashSet<>();
+        ArrayDeque<BlockPosition> queue = new ArrayDeque<>();
+
+        for (MutableSlice slice : slices) {
+            all.addAll(slice.excavation);
+            all.addAll(slice.navigationCore);
+            for (BlockPosition block : slice.navigationCore) {
+                if (reachable.add(block)) queue.addLast(block);
+            }
+        }
+
+        while (!queue.isEmpty()) {
+            BlockPosition current = queue.removeFirst();
+            for (BlockPosition neighbor : neighbors(current)) {
+                if (all.contains(neighbor) && reachable.add(neighbor)) queue.addLast(neighbor);
+            }
+        }
+
+        for (MutableSlice slice : slices) {
+            slice.excavation.retainAll(reachable);
+            slice.excavation.addAll(slice.navigationCore);
+        }
+    }
+
+    private static List<BlockPosition> neighbors(BlockPosition position) {
+        return List.of(
+            new BlockPosition(position.x() + 1, position.y(), position.z()),
+            new BlockPosition(position.x() - 1, position.y(), position.z()),
+            new BlockPosition(position.x(), position.y() + 1, position.z()),
+            new BlockPosition(position.x(), position.y() - 1, position.z()),
+            new BlockPosition(position.x(), position.y(), position.z() + 1),
+            new BlockPosition(position.x(), position.y(), position.z() - 1)
+        );
     }
 
     private static final class MutableSlice {
