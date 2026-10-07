@@ -5,7 +5,7 @@ export const MATERIALS = ['Luft', 'Fels', 'Prefab', 'Stütze', 'Holz', 'Feld', '
 export function validateRecording(data) {
   if (data?.schemaVersion !== SCHEMA_VERSION) throw new Error('Unbekannte Aufzeichnungsversion.');
   if (typeof data.id !== 'string' || typeof data.title !== 'string' || typeof data.description !== 'string'
-    || !['completed','failed'].includes(data.status) || !['seconds','semantic-step'].includes(data.timeUnit))
+    || !['completed','failed'].includes(data.status) || !['seconds','semantic-step','semantic-slice'].includes(data.timeUnit))
     throw new Error('Ungültige Szenario-Metadaten.');
   if (!Array.isArray(data.markers) || !data.markers.every(m => typeof m.type === 'string'
     && Array.isArray(m.bounds) && m.bounds.length === 6 && m.bounds.every(Number.isFinite)

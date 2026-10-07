@@ -12,10 +12,10 @@ on:
       - '.github/workflows/simulation-pages.yml'
   workflow_dispatch:
 
-# Serialize complete-site rebuilds; never let one branch overwrite another branch's catalog.
+# Only the newest complete-site rebuild matters; superseded deploys must not block publishing.
 concurrency:
   group: simulation-pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
