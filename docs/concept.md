@@ -268,3 +268,7 @@ Minenarbeiter bauen optionale Stützen, Lampen und Dekoration erst, wenn im Umkr
 
 
 **Temporär deaktiviert:** Minentreppen und -stufen durch `ENABLE_MINE_STEPS=false`. Haupt- und Seitenstollen behalten Höhenunterschiede, aber es gibt keine `BUILD_STEP`-Arbeit, Ghost-Arbeitsmarker oder Stufen-Pflichtsperren. Bestehende Treppen und `ABANDONED`-Fronten bleiben unverändert. Natürliche Kanten können NPCs weiterhin behindern.
+
+## Miner task continuity
+
+Mine priorities apply when a miner selects the next assignment. A newly available priority-10 infrastructure task does not interrupt ongoing front excavation, room work or a partially built support. A task is released on its normal completion, safety failure or explicit recovery; player-directed interventions remain separate.
