@@ -812,12 +812,23 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         stopMiningAnimation(ref, store, runtime);
 
         if (runtime.resolvedInfrastructure == null) {
-            runtime.resolvedInfrastructure = MineInfrastructurePlacementResolver.resolve(
-                world,
-                infrastructure.task,
-                infrastructure.tunnelKind,
-                infrastructure.geometry
-            );
+            MineInfrastructurePlacementResolver.DecorationResolution decorationResolution = null;
+            if (infrastructure.task.decoration()) {
+                decorationResolution = MineInfrastructurePlacementResolver.resolveDecorationDetailed(
+                    world,
+                    infrastructure.task,
+                    infrastructure.tunnelKind,
+                    infrastructure.geometry
+                );
+                runtime.resolvedInfrastructure = decorationResolution.resolvedTask();
+            } else {
+                runtime.resolvedInfrastructure = MineInfrastructurePlacementResolver.resolve(
+                    world,
+                    infrastructure.task,
+                    infrastructure.tunnelKind,
+                    infrastructure.geometry
+                );
+            }
             runtime.infrastructurePlacementIndex = 0;
             runtime.workElapsed = 0.0;
 
@@ -836,6 +847,18 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             }
 
             if (runtime.resolvedInfrastructure == null) {
+                if (decorationResolution != null) {
+                    decisionSink.record(
+                        mine.id(), infrastructure.task.id(), MineDecisionCategory.ADAPTER,
+                        "DECORATION_SKIPPED_RUNTIME",
+                        "npc", workerLabel(ref, workerKey),
+                        "kind", infrastructure.task.decorationKind(),
+                        "plannedSlice", infrastructure.task.startSliceIndex(),
+                        "triedSlices", decorationResolution.triedSlices(),
+                        "reasons", decorationResolution.reasons(),
+                        "minerPosition", formatTarget(workerPosition)
+                    );
+                }
                 decisionSink.record(
                     mine.id(), infrastructure.task.id(), MineDecisionCategory.ADAPTER,
                     "INFRASTRUCTURE_RESOLVE_FAILED",
@@ -1093,6 +1116,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         int totalRooms = minePlan.rooms.size();
         int totalInfrastructure = minePlan.infrastructureTasks.size();
         Map<String, Integer> supportSkipReasons = new LinkedHashMap<>();
+        Map<String, Integer> decorationSkipReasons = new LinkedHashMap<>();
+        List<UUID> availableDecorations = new ArrayList<>();
         List<MineNormalTaskSelector.Candidate> candidates = new ArrayList<>();
         for (RuntimeFrontPlan candidate : minePlan.fronts.values()) {
             if (candidate.complete) continue;
@@ -1127,30 +1152,40 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         for (RuntimeInfrastructureTask infrastructure : minePlan.infrastructureTasks.values()) {
             boolean support = infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_SUPPORT;
+            boolean decoration = infrastructure.task.decoration();
             if (infrastructure.completed) {
                 if (support) supportSkipReasons.merge("COMPLETED", 1, Integer::sum);
+                if (decoration) decorationSkipReasons.merge("COMPLETED", 1, Integer::sum);
                 continue;
             }
             if (infrastructure.task.mandatory()) {
                 if (support) supportSkipReasons.merge("MANDATORY_PATH", 1, Integer::sum);
+                if (decoration) decorationSkipReasons.merge("MANDATORY_PATH", 1, Integer::sum);
                 continue;
             }
             RuntimeFrontPlan front = frontForTunnel(minePlan, infrastructure.task.tunnelId());
             if (front == null) {
                 if (support) supportSkipReasons.merge("FRONT_MISSING", 1, Integer::sum);
+                if (decoration) decorationSkipReasons.merge("FRONT_MISSING", 1, Integer::sum);
                 continue;
             }
             if (front.unavailable) {
                 if (support) supportSkipReasons.merge("FRONT_UNAVAILABLE", 1, Integer::sum);
+                if (decoration) decorationSkipReasons.merge("FRONT_UNAVAILABLE", 1, Integer::sum);
                 continue;
             }
             if (!infrastructureAvailable(infrastructure.task, front)) {
                 if (support) supportSkipReasons.merge("NOT_YET_AVAILABLE", 1, Integer::sum);
+                if (decoration) decorationSkipReasons.merge("NOT_YET_AVAILABLE", 1, Integer::sum);
                 continue;
             }
             int workers = infrastructureReservations.containsKey(infrastructure.task.id()) ? 1 : 0;
             if (support && workers >= 1) {
                 supportSkipReasons.merge("RESERVED", 1, Integer::sum);
+            }
+            if (decoration) {
+                if (workers >= 1) decorationSkipReasons.merge("RESERVED", 1, Integer::sum);
+                else availableDecorations.add(infrastructure.task.id());
             }
             candidates.add(new MineNormalTaskSelector.Candidate(
                 infrastructure.task.id(),
@@ -1207,6 +1242,42 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 );
             }
         }
+        boolean selectedDecoration = selectedInfrastructure != null
+            && selectedInfrastructure.task.decoration();
+        if (selectedDecoration) {
+            runtime.lastDecorationDecisionFingerprint = null;
+            decisionSink.record(
+                mine.id(), selected.id(), MineDecisionCategory.WORKER, "DECORATION_TASK_SELECTED",
+                "npc", workerLabel(null, workerKey),
+                "kind", selectedInfrastructure.task.decorationKind(),
+                "priority", selected.priority(),
+                "effectivePriority", MineNormalTaskSelector.effectivePriority(
+                    selected, network.normalTaskPriorityBonuses()
+                ),
+                "anchor", selected.position()
+            );
+        } else {
+            if (!availableDecorations.isEmpty()) {
+                decorationSkipReasons.merge(
+                    "AVAILABLE_NOT_SELECTED", availableDecorations.size(), Integer::sum
+                );
+            }
+            if (!decorationSkipReasons.isEmpty()) {
+                String decorationFingerprint = decorationSkipReasons.toString()
+                    + "|selected=" + (selected == null ? "-" : selected.kind() + ":" + selected.id());
+                if (!decorationFingerprint.equals(runtime.lastDecorationDecisionFingerprint)) {
+                    runtime.lastDecorationDecisionFingerprint = decorationFingerprint;
+                    decisionSink.record(
+                        mine.id(), null, MineDecisionCategory.WORKER, "DECORATION_TASK_SKIPPED",
+                        "npc", workerLabel(null, workerKey),
+                        "reasons", decorationSkipReasons,
+                        "selectedInstead",
+                        selected == null ? "-" : selected.kind() + ":" + selected.id()
+                    );
+                }
+            }
+        }
+
         runtime.waitingForCapacity = selected == null
             && MineNormalTaskSelector.allWorkAtCapacity(candidates);
         if (selected == null) {
@@ -2840,6 +2911,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private String startedTaskKey;
         private String lastNoTaskFingerprint;
         private String lastSupportDecisionFingerprint;
+        private String lastDecorationDecisionFingerprint;
 
         private void clearIdle() {
             waitingForCapacity = false;
@@ -2909,6 +2981,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             startedTaskKey = null;
             lastNoTaskFingerprint = null;
             lastSupportDecisionFingerprint = null;
+            lastDecorationDecisionFingerprint = null;
             clearAssignment();
         }
     }
