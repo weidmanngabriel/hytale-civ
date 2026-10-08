@@ -699,7 +699,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 "type", task.type(),
                 "tunnel", task.tunnelId(),
                 "startSlice", task.startSliceIndex(),
-                "endSlice", task.endSliceIndex()
+                "endSlice", task.endSliceIndex(),
+                "floorCenter", front.slices.get(front.sliceIndex).floorCenter(),
+                "floorBlock", new BlockPosition(
+                    task.anchor().x(), task.anchor().y() - 1, task.anchor().z()
+                ),
+                "floorBlockType", String.valueOf(loadedBlockType(world, new BlockPosition(
+                    task.anchor().x(), task.anchor().y() - 1, task.anchor().z()
+                )))
             );
         }
     }
