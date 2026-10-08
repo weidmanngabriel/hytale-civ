@@ -250,3 +250,8 @@ Sind alle aktuell ausführbaren Minenaufgaben vollständig mit Arbeitern belegt,
 
 
 Für Stützen, Beleuchtung und Dekoration nutzt die Mine die gemeinsame native Hytale-Blockplatzierung mit der zur Zielblockposition gehörenden Chunk-Sektionsreferenz. Der Baufortschritt erfolgt nur bei erfolgreicher Platzierung; unpassende oder fehlende Zielsektionen gelten nicht als abgeschlossene Arbeit.
+
+
+Aktuelle Minen-Balance: Pro aktivem Miner dauert der Aushub eines Tunnel- oder Raumblocks `30/128` Sekunden (doppelte Abbaugeschwindigkeit). Der Hauptstollen bietet drei gleichzeitige Abbauplätze, Seitenstollen zwei. Normale Hauptstollen-Beleuchtung verwendet explizit `Deco_Lantern`. Dekorations-Truhen (`Furniture_Crude_Chest_Small`) sind auf 5 % der Hauptstollen-Dekowürfe und 10 % der Seitenstollen-Dekowürfe reduziert; andere dekorative Objekte behalten ihre regulären Platzierungsregeln. Bereits platzierte Objekte werden nicht entfernt.
+
+Für Testwelten mit einem alten, wegen verfrühtem `BUILD_STEP` aufgegebenen Hauptstollen existiert `/civdev mine-retry-stair <mine-id>`: Der Befehl kann ausschließlich die passende `ABANDONED`-Hauptfront an einem noch offenen Treppenübergang gezielt wieder freigeben. Andere gefährliche oder gesperrte Fronten bleiben unberührt.
