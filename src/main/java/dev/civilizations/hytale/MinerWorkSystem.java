@@ -788,6 +788,19 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         return required > 0 && safeColumns.size() >= required;
     }
 
+    private static boolean bridgeDeckComplete(
+        World world, RuntimeInfrastructureTask infrastructure
+    ) {
+        List<MineTunnelGeometry.Slice> slices = infrastructure.geometry.slices();
+        int start = infrastructure.task.startSliceIndex();
+        int end = infrastructure.task.endSliceIndex();
+        if (start < 0 || end < start || end >= slices.size()) return false;
+        for (int index = start; index <= end; index++) {
+            if (floorMissing(world, slices.get(index))) return false;
+        }
+        return true;
+    }
+
     private static boolean floorMissing(World world, MineTunnelGeometry.Slice slice) {
         BlockPosition center = slice.floorCenter();
         BlockPosition floor = new BlockPosition(center.x(), center.y() - 1, center.z());
@@ -987,6 +1000,17 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             }
 
             if (runtime.resolvedInfrastructure == null) {
+                // A pending bridge can become unnecessary after another worker
+                // fills its deck. No remaining placements is success only if
+                // the entire planned walking floor is now present.
+                if (infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE
+                    && bridgeDeckComplete(world, infrastructure)) {
+                    completeInfrastructureTask(
+                        world, mine, infrastructure, workerKey, runtime, ref, store,
+                        "BRIDGE_DECK_ALREADY_COMPLETE"
+                    );
+                    return;
+                }
                 if (decorationResolution != null) {
                     decisionSink.record(
                         mine.id(), infrastructure.task.id(), MineDecisionCategory.ADAPTER,
