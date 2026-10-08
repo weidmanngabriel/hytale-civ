@@ -2216,7 +2216,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         for (RuntimeFrontPlan front : runtime.fronts.values()) {
             if (front.tunnelKind != MineTunnel.Kind.MAIN || front.complete) continue;
             MineGenerationProgress progress = network.progressFor(front.tunnelId);
-            if (progress == null || now < progress.nextRefreshAtMillis()) continue;
+            if (progress == null || !MineGenerationPolicy.shouldRefresh(
+                front.sliceIndex, progress.unlockedSlices(), front.slices.size(),
+                now, progress.nextRefreshAtMillis()
+            )) continue;
             int next = Math.min(front.slices.size(),
                 progress.unlockedSlices() + MAIN_PLANNING_BATCH_SLICES);
             MineGenerationProgress updated = progress.advance(
@@ -2227,6 +2230,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             decisionSink.record(
                 mine.id(), front.tunnelId, MineDecisionCategory.PLANNING, "MAIN_PLAN_REFRESHED",
                 "unlockedSlices", next,
+                "trigger", now >= progress.nextRefreshAtMillis() ? "PERIODIC" : "LOW_REMAINING",
                 "totalSlices", front.slices.size(),
                 "nextRefreshAtMillis", updated.nextRefreshAtMillis()
             );
