@@ -9,6 +9,7 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
 import dev.civilizations.core.MineNetwork;
+import dev.civilizations.core.MineNavigationAnchor;
 import dev.civilizations.core.MineTunnel;
 import dev.civilizations.core.MineTunnelGeometry;
 import dev.civilizations.core.MineWorkFront;
@@ -35,6 +36,7 @@ public final class CivMineDebugService {
     private static final Vector3f OPEN_COLOR = new Vector3f(1.0f, 0.50f, 0.12f);
     private static final Vector3f MAIN_COLOR = new Vector3f(0.20f, 0.95f, 0.95f);
     private static final Vector3f BOUNDS_COLOR = new Vector3f(0.70f, 0.70f, 0.70f);
+    private static final Vector3f SAFETY_ANCHOR_COLOR = new Vector3f(0.1f, 0.95f, 0.25f);
     private static final Vector3f NAVIGATION_COLOR = new Vector3f(0.25f, 1.0f, 0.35f);
     private static final Vector3f ROOM_COLOR = new Vector3f(0.80f, 0.30f, 1.0f);
     private static final Vector3f INFRASTRUCTURE_COLOR = new Vector3f(0.95f, 0.95f, 0.95f);
@@ -168,6 +170,45 @@ public final class CivMineDebugService {
 
         displayedIdsByPlayer.put(playerRef.getUuid(), ids);
         return new ShowResult(ids.size(), includeBounds, includeAnchors);
+    }
+
+    /** Only visited and persisted safety anchors; never planned work markers. */
+    public ShowResult showSafetyAnchors(
+        PlayerRef playerRef, MineDebugSnapshot snapshot
+    ) {
+        if (playerRef == null || snapshot == null || playerRef.getPacketHandler() == null) {
+            return new ShowResult(0, false, true);
+        }
+        hide(playerRef);
+        Set<String> ids = new HashSet<>();
+        MineNetwork network = tunnelRegistry.networkForMine(
+            playerRef.getWorldUuid(), snapshot.mine().id()
+        );
+        Vector3dc playerPosition = playerRef.getTransform() == null
+            ? null : playerRef.getTransform().getPosition();
+        if (network != null && playerPosition != null) {
+            for (MineNavigationAnchor anchor : network.navigationAnchors()) {
+                BlockPosition p = anchor.position();
+                if (!withinPlayerRange(playerPosition, p.x(), p.y(), p.z())) continue;
+                String displayId = id(playerRef, "safety:" + anchor.id());
+                String label = "SAFETY ANCHOR " + anchor.id()
+                    + " | xyz=" + p.x() + "," + p.y() + "," + p.z()
+                    + " | tunnel=" + anchor.tunnelId()
+                    + " | links=" + anchor.connectedAnchorIds().size();
+                TriggerVolumeDisplayEntry entry = box(
+                    displayId,
+                    p.x() + 0.5f - ANCHOR_HALF_SIZE, p.y() - ANCHOR_HALF_SIZE,
+                    p.z() + 0.5f - ANCHOR_HALF_SIZE,
+                    p.x() + 0.5f + ANCHOR_HALF_SIZE, p.y() + ANCHOR_HALF_SIZE,
+                    p.z() + 0.5f + ANCHOR_HALF_SIZE,
+                    SAFETY_ANCHOR_COLOR, 0.85f, label
+                );
+                playerRef.getPacketHandler().write(new AddOrUpdateTriggerVolumeDisplay(displayId, entry));
+                ids.add(displayId);
+            }
+        }
+        displayedIdsByPlayer.put(playerRef.getUuid(), ids);
+        return new ShowResult(ids.size(), false, true);
     }
 
     public int hide(PlayerRef playerRef) {
