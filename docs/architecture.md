@@ -335,3 +335,7 @@ Der Core-Schalter `MineInfrastructurePlanner.ENABLE_MINE_STEPS=false` verhindert
 ## Mine task continuity
 
 `MinerWorkSystem` preserves an existing front, room, or unfinished infrastructure reservation before selecting newly available priority-10 infrastructure. This prevents preemption churn. Prioritization through `MineNormalTaskSelector` still applies to unassigned workers; navigation and world safety failures still terminate assignments through the existing lifecycle.
+
+## Diagonal mine cross-section rasterization
+
+Layer-3 voxelization joins neighboring lateral width samples with edge-adjacent, full-height columns. For 45-degree cuts, independently rounding width samples could leave diagonal-only ceiling voxels and untouched stone teeth above the narrower navigation core. The path and deterministic seed remain unchanged; no individual voxel map is persisted.
