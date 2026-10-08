@@ -29,6 +29,44 @@ final class MineNormalTaskSelectorTest {
     }
 
     @Test
+    void nearbyEqualPriorityWorkBeatsDistantActiveWork() {
+        UUID distant = UUID.randomUUID();
+        UUID nearby = UUID.randomUUID();
+        var chosen = MineNormalTaskSelector.select(
+            List.of(
+                new MineNormalTaskSelector.Candidate(
+                    distant, MineNormalTaskSelector.Kind.TUNNEL_FRONT, 6, 1, 2,
+                    new BlockPosition(40, 20, 0)
+                ),
+                new MineNormalTaskSelector.Candidate(
+                    nearby, MineNormalTaskSelector.Kind.TUNNEL_FRONT, 6, 0, 2,
+                    new BlockPosition(3, 20, 0)
+                )
+            ), new BlockPosition(0, 20, 0)
+        );
+        assertEquals(nearby, chosen.id());
+    }
+
+    @Test
+    void nearbyLowerPriorityDoesNotPreemptDistantActiveWork() {
+        UUID distant = UUID.randomUUID();
+        UUID nearby = UUID.randomUUID();
+        var chosen = MineNormalTaskSelector.select(
+            List.of(
+                new MineNormalTaskSelector.Candidate(
+                    distant, MineNormalTaskSelector.Kind.TUNNEL_FRONT, 7, 1, 2,
+                    new BlockPosition(40, 20, 0)
+                ),
+                new MineNormalTaskSelector.Candidate(
+                    nearby, MineNormalTaskSelector.Kind.TUNNEL_FRONT, 6, 0, 2,
+                    new BlockPosition(3, 20, 0)
+                )
+            ), new BlockPosition(0, 20, 0)
+        );
+        assertEquals(distant, chosen.id());
+    }
+
+    @Test
     void activeFrontBeatsHigherPriorityWaitingRoom() {
         UUID front = UUID.randomUUID();
         UUID room = UUID.randomUUID();
