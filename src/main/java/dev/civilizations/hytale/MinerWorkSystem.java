@@ -662,8 +662,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 .anyMatch(existing -> !existing.completed
                     && existing.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE
                     && existing.task.tunnelId().equals(front.tunnelId)
-                    && existing.task.startSliceIndex() <= front.sliceIndex
-                    && existing.task.endSliceIndex() >= front.sliceIndex);
+                    // A single tunnel has one advancing excavation front. Multiple
+                    // concurrent bridge spans can overlap spatially even when their
+                    // slice indexes do not, due to diagonal cross beams.
+                );
             if (bridgeInProgress) continue;
 
             BridgeAssessment assessment = assessBridge(world, front);
