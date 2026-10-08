@@ -116,18 +116,11 @@ public record MineNetwork(
     }
 
     public MineNetwork withNavigationAnchors(List<MineNavigationAnchor> anchors) {
-        ArrayList<MineNavigationAnchor> next = new ArrayList<>(navigationAnchors);
-        for (MineNavigationAnchor anchor : anchors) {
-            boolean replaced = false;
-            for (int i = 0; i < next.size(); i++) {
-                if (next.get(i).id().equals(anchor.id())) {
-                    next.set(i, anchor);
-                    replaced = true;
-                    break;
-                }
-            }
-            if (!replaced) next.add(anchor);
-        }
+        // Insertion order remains stable for existing anchors; repeated IDs replace in place.
+        Map<UUID, MineNavigationAnchor> merged = new java.util.LinkedHashMap<>();
+        for (MineNavigationAnchor anchor : navigationAnchors) merged.put(anchor.id(), anchor);
+        for (MineNavigationAnchor anchor : anchors) merged.put(anchor.id(), anchor);
+        ArrayList<MineNavigationAnchor> next = new ArrayList<>(merged.values());
         return new MineNetwork(mineId, mainTunnelId, tunnels, rooms, workFronts, next,
             completedInfrastructureTaskIds, normalTaskPriorityBonuses);
     }
