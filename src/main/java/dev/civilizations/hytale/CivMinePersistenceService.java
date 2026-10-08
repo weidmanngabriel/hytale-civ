@@ -20,9 +20,10 @@ import java.util.UUID;
 /** Persists Civ-owned semantic mine-network state in the world entity store. */
 public final class CivMinePersistenceService {
 
-    private static final String FORMAT_HEADER = "N4";
-    private static final String PREVIOUS_FORMAT_HEADER = "N3";
-    private static final String LEGACY_FORMAT_HEADER = "N2";
+    private static final String FORMAT_HEADER = "N5";
+    private static final String PREVIOUS_FORMAT_HEADER = "N4";
+    private static final String LEGACY_FORMAT_HEADER = "N3";
+    private static final String OLDEST_SUPPORTED_FORMAT_HEADER = "N2";
 
     private final ResourceType<EntityStore, CivMineDataResource> resourceType;
 
@@ -93,6 +94,9 @@ public final class CivMinePersistenceService {
         for (UUID taskId : network.completedInfrastructureTaskIds()) {
             lines.add(String.join("|", "I", taskId.toString()));
         }
+        for (var entry : network.normalTaskPriorityBonuses().entrySet()) {
+            lines.add(String.join("|", "P", entry.getKey().toString(), Integer.toString(entry.getValue())));
+        }
         return String.join("\n", lines);
     }
 
@@ -103,12 +107,17 @@ public final class CivMinePersistenceService {
         if (header.length != 3
             || (!FORMAT_HEADER.equals(header[0])
                 && !PREVIOUS_FORMAT_HEADER.equals(header[0])
-                && !LEGACY_FORMAT_HEADER.equals(header[0]))) {
+                && !LEGACY_FORMAT_HEADER.equals(header[0])
+                && !OLDEST_SUPPORTED_FORMAT_HEADER.equals(header[0]))) {
             throw new IllegalArgumentException("unsupported mine persistence format");
         }
         boolean supportsInfrastructure =
+            FORMAT_HEADER.equals(header[0])
+                || PREVIOUS_FORMAT_HEADER.equals(header[0])
+                || LEGACY_FORMAT_HEADER.equals(header[0]);
+        boolean supportsRoomProgress =
             FORMAT_HEADER.equals(header[0]) || PREVIOUS_FORMAT_HEADER.equals(header[0]);
-        boolean supportsRoomProgress = FORMAT_HEADER.equals(header[0]);
+        boolean supportsPriorityAging = FORMAT_HEADER.equals(header[0]);
 
         UUID mineId = UUID.fromString(header[1]);
         UUID mainTunnelId = UUID.fromString(header[2]);
@@ -117,6 +126,7 @@ public final class CivMinePersistenceService {
         List<MineWorkFront> fronts = new ArrayList<>();
         List<MineNavigationAnchor> anchors = new ArrayList<>();
         Set<UUID> completedInfrastructureTaskIds = new LinkedHashSet<>();
+        java.util.Map<UUID, Integer> normalTaskPriorityBonuses = new java.util.LinkedHashMap<>();
 
         for (int i = 1; i < lines.length; i++) {
             String[] parts = lines[i].split("\\|", -1);
@@ -168,11 +178,22 @@ public final class CivMinePersistenceService {
                     requireFieldCount(parts, 2);
                     completedInfrastructureTaskIds.add(UUID.fromString(parts[1]));
                 }
+                case "P" -> {
+                    if (!supportsPriorityAging) {
+                        throw new IllegalArgumentException("priority aging record in legacy format");
+                    }
+                    requireFieldCount(parts, 3);
+                    normalTaskPriorityBonuses.put(
+                        UUID.fromString(parts[1]),
+                        Integer.parseInt(parts[2])
+                    );
+                }
                 default -> throw new IllegalArgumentException("unknown network record: " + parts[0]);
             }
         }
         return new MineNetwork(
-            mineId, mainTunnelId, tunnels, rooms, fronts, anchors, completedInfrastructureTaskIds
+            mineId, mainTunnelId, tunnels, rooms, fronts, anchors,
+            completedInfrastructureTaskIds, normalTaskPriorityBonuses
         );
     }
 
