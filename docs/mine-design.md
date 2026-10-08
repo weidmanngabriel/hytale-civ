@@ -604,7 +604,7 @@ These should be decided only when their implementation layer needs them.
 
 Live miner excavation is connected to the Layer-2/3/4 mine plan. The active work unit is one `MineTunnelGeometry.Slice`; its variable width/height and voxel set come directly from the planned tunnel geometry. A persistent `MineWorkFront` tracks the current semantic front for every planned main or branch tunnel, while already excavated blocks remain world truth.
 
-Up to two miners may share a normal tunnel front. Their per-block claims are transient execution coordination and are not stored as permanent worker slots. After each completed slice, miners select again from currently executable fronts; active fronts with free capacity are filled first, otherwise Branch priority 6 precedes Main priority 4, followed by distance and stable tie-breaking. Rooms, supports, steps, bridges, lighting, decoration and rails remain separate later integrations. Supports are not placed automatically by the excavation loop; they remain dedicated mine work according to `docs/miner-npc-design.md`.
+Up to two miners may share a normal tunnel front. Their per-block claims are transient execution coordination and are not stored as permanent worker slots. After each completed slice, miners select again. Layer 8 now runs tunnel fronts together with rooms, recurring supports/lights and decoration through the shared normal-task selector: active work with spare capacity first, otherwise effective priority, distance and stable tie-breaking. Steps/bridges at priority 10 remain the separate acute passability path. Rails remain a later integration.
 
 ## Current implementation checkpoint - NPC layer 6 obstacles and failures
 
@@ -617,7 +617,7 @@ NPC layer 6 now gives live miner work explicit safe failure outcomes:
 - water may be bridged only under the existing conservative span rule; miners do not swim through flooded navigation space;
 - lava and non-bridgeable gaps abandon the front;
 - mandatory bridge/step resolution failure abandons the front;
-- recurring support/light placement searches up to ±3 slices for a safe nearby position before being skipped;
+- recurring support/light/decoration placement searches up to ±3 slices for a safe nearby position before being skipped;
 - terminal Hytale navigation failure uses one native recompute first, then blocks the affected front/mandatory task or skips normal infrastructure.
 
-The richer natural-cave-as-room/node behavior and any explicit unblock/recovery mechanic remain deferred.
+Large useful natural caves are now integrated as semantic natural chambers by Layer 7. Explicit unblock/recovery gameplay remains deferred.
