@@ -339,3 +339,7 @@ Der Core-Schalter `MineInfrastructurePlanner.ENABLE_MINE_STEPS=false` verhindert
 ## Diagonal mine cross-section rasterization
 
 Layer-3 voxelization joins neighboring lateral width samples with edge-adjacent, full-height columns. For 45-degree cuts, independently rounding width samples could leave diagonal-only ceiling voxels and untouched stone teeth above the narrower navigation core. The path and deterministic seed remain unchanged; no individual voxel map is persisted.
+
+## Non-destructive mine-network reconciliation
+
+On initial plan construction and restart, the miner runtime now adds missing planned tunnel/front/room records to a stored mine network instead of replacing it when the persisted tunnel set differs. This allows future additional deterministic tunnel generations to coexist in the semantic save without losing completed fronts and infrastructure IDs. A changed root main-tunnel ID is rejected with a planning diagnostic rather than silently erasing saved state. Generation scheduling and runtime reconstruction of additional tunnels are **not yet implemented** by this guard alone.
