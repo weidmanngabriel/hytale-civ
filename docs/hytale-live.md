@@ -12,8 +12,9 @@ The normal Hytale game with the current Civ plugin must be running, its localhos
 
 1. Use the connected GitHub tools to add a comment to **locked Issue [#266](https://github.com/weidmanngabriel/hytale-civ/issues/266)** in `weidmanngabriel/hytale-civ`, formatted exactly as one command below.
 2. The trusted `.github/workflows/hytale-live.yml` workflow verifies issue number, locked state, event actor, comment author, sender and a strict allowlist in a GitHub-hosted job. Only authorized commands reach `[self-hosted, Windows, X64, hytale-local]`.
-3. Find the workflow run corresponding to **that request**; read its `Query running Hytale instance` job log. Parse the `HCIV_LIVE_RESULT` JSON line (`success`, `command`, `output`), checking both job conclusion and command result.
-4. If queued, check runner availability. If the health request fails, check that the **running game plugin** is exposing port 5523. This channel never installs, builds, launches or stops the game.
+3. Open the GitHub Actions workflow **[Hytale Live Diagnostics](https://github.com/weidmanngabriel/hytale-civ/actions/workflows/hytale-live.yml)** and identify the **new run triggered by this exact Issue #266 comment** (not merely the most recent successful run). If the GitHub connector has no general workflow-run listing action, use this Actions page to obtain the run ID; this is not a reason to conclude the logs are inaccessible.
+4. With that run ID, call the GitHub connector's `fetch_workflow_run_jobs` and select the job named `Query running Hytale instance`. Use its numeric job ID with `fetch_workflow_job_logs` (not the run ID) to retrieve the raw job log. Parse the `HCIV_LIVE_RESULT` JSON line (`success`, `command`, `output`); verify the command matches the request, the command succeeded, and the job conclusion is successful. `output` is the response from the running game.
+5. If queued, check runner availability. If the health request fails, check that the **running game plugin** is exposing port 5523. This channel never installs, builds, launches or stops the game.
 
 Do not mistake an old run for current game state. The Windows job independently validates all commands and never checks out submitted code. Keep arbitrary native console commands out of the GitHub bridge.
 
