@@ -318,8 +318,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             return;
         }
 
-        RuntimeInfrastructureTask mandatoryInfrastructure =
-            selectMandatoryInfrastructureTask(world, mine, minePlan, position, workerKey, runtime);
+        // Priority controls selection of the NEXT job, not interruption of an assigned job.
+        // Otherwise miners abandon excavation or half-built supports whenever priority-10
+        // infrastructure appears, causing repeated back-and-forth movement.
+        boolean busyWithCurrentJob = runtime.frontId != null
+            || runtime.roomId != null
+            || (currentInfrastructure != null && !currentInfrastructure.completed);
+        RuntimeInfrastructureTask mandatoryInfrastructure = busyWithCurrentJob ? null
+            : selectMandatoryInfrastructureTask(world, mine, minePlan, position, workerKey, runtime);
         if (mandatoryInfrastructure != null) {
             if (runtime.frontId != null) frontCoordinator.releaseWorker(workerKey);
             if (runtime.roomId != null) roomCoordinator.releaseWorker(workerKey);
