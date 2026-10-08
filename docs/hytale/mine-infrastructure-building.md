@@ -73,3 +73,8 @@ This is not a general cave/liquid simulation: V1 does not pump, fill, redirect o
 Recurring supports, lighting and optional decoration are allowed to re-resolve against nearby tunnel slices when their preferred slice is unsuitable. The ordered fallback is preferred slice, then nearest slices before/after it up to ±3. Mandatory passability work does not use this fallback because its location is tied to the obstacle being solved.
 
 A failed block placement keeps already placed world blocks. The next work tick re-resolves from current loaded-world state. If normal infrastructure or decoration has no valid preferred or fallback placement it is skipped; optional atmosphere never blocks a front. If mandatory bridge/step work remains unresolvable, the associated front is abandoned.
+
+
+## Native section reference for placement (2026-10-08)
+
+The pinned HytaleServer.jar `BlockOperations.setBlock(ChunkStore, Ref<ChunkStore>, int, int, int, ...)` resolves `ChunkSection`, `BlockSection` and `BlockComponentSection` on its reference argument. This is a **section** reference; `WorldChunk.getReference()` is the **column** reference and causes `setBlock` to return `false` when the required `ChunkSection` is absent. `MineBlockPlacement` must use `ChunkStore.getChunkSectionReferenceAtBlock(x,y,z)` for placement, connected-block notifications and `BlockPhysics.markDeco/isDeco`, while `WorldChunk` remains useful for loaded-world inspection. This contract is bytecode-verified against the pinned JAR; gameplay success should still be confirmed in a live three-miner session.
