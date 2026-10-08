@@ -1165,7 +1165,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 );
                 return;
             }
+            BlockType occupiedBridgeVoxel = loadedBlockType(world, placement.position());
             if (infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE
+                && occupiedBridgeVoxel != null
+                && !placement.blockId().equals(occupiedBridgeVoxel.getId())
                 && MineBlockPlacement.isDeco(world, placement.position())) {
                 // Native Deco metadata identifies player-like placements, not only
                 // Civ ownership. Never remove a non-Deco natural voxel.
