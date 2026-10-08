@@ -22,12 +22,13 @@ public record MineNetwork(
     List<MineWorkFront> workFronts,
     List<MineNavigationAnchor> navigationAnchors,
     Set<UUID> completedInfrastructureTaskIds,
-    Map<UUID, Integer> normalTaskPriorityBonuses
+    Map<UUID, Integer> normalTaskPriorityBonuses,
+    Map<UUID, MineGenerationProgress> generationProgress
 ) {
     public MineNetwork {
         if (mineId == null || mainTunnelId == null || tunnels == null || rooms == null
             || workFronts == null || navigationAnchors == null || completedInfrastructureTaskIds == null
-            || normalTaskPriorityBonuses == null) {
+            || normalTaskPriorityBonuses == null || generationProgress == null) {
             throw new IllegalArgumentException("Mine network fields must not be null.");
         }
         tunnels = List.copyOf(tunnels);
@@ -36,6 +37,7 @@ public record MineNetwork(
         navigationAnchors = List.copyOf(navigationAnchors);
         completedInfrastructureTaskIds = Set.copyOf(completedInfrastructureTaskIds);
         normalTaskPriorityBonuses = Map.copyOf(normalTaskPriorityBonuses);
+        generationProgress = Map.copyOf(generationProgress);
         for (Map.Entry<UUID, Integer> entry : normalTaskPriorityBonuses.entrySet()) {
             if (entry.getKey() == null || entry.getValue() == null
                 || entry.getValue() <= 0 || entry.getValue() > 8) {
@@ -43,6 +45,26 @@ public record MineNetwork(
             }
         }
         validate(mainTunnelId, tunnels, rooms, workFronts, navigationAnchors);
+        for (UUID tunnelId : generationProgress.keySet()) {
+            MineTunnel tunnel = tunnels.stream().filter(t -> t.id().equals(tunnelId)).findFirst().orElse(null);
+            if (tunnel == null || tunnel.kind() != MineTunnel.Kind.MAIN) {
+                throw new IllegalArgumentException("Generation progress references an invalid main tunnel.");
+            }
+        }
+    }
+
+    public MineNetwork(
+        UUID mineId,
+        UUID mainTunnelId,
+        List<MineTunnel> tunnels,
+        List<MineRoom> rooms,
+        List<MineWorkFront> workFronts,
+        List<MineNavigationAnchor> navigationAnchors,
+        Set<UUID> completedInfrastructureTaskIds,
+        Map<UUID, Integer> normalTaskPriorityBonuses
+    ) {
+        this(mineId, mainTunnelId, tunnels, rooms, workFronts, navigationAnchors,
+            completedInfrastructureTaskIds, normalTaskPriorityBonuses, Map.of());
     }
 
     public MineNetwork(
@@ -97,18 +119,18 @@ public record MineNetwork(
         int index = indexOfTunnel(tunnel.id());
         if (index >= 0) next.set(index, tunnel); else next.add(tunnel);
         return new MineNetwork(mineId, mainTunnelId, next, rooms, workFronts, navigationAnchors,
-            completedInfrastructureTaskIds, normalTaskPriorityBonuses);
+            completedInfrastructureTaskIds, normalTaskPriorityBonuses, generationProgress);
     }
 
     public MineNetwork withRoom(MineRoom room) {
         return new MineNetwork(mineId, mainTunnelId, tunnels, replaceById(rooms, room, MineRoom::id),
-            workFronts, navigationAnchors, completedInfrastructureTaskIds, normalTaskPriorityBonuses);
+            workFronts, navigationAnchors, completedInfrastructureTaskIds, normalTaskPriorityBonuses, generationProgress);
     }
 
     public MineNetwork withWorkFront(MineWorkFront workFront) {
         return new MineNetwork(mineId, mainTunnelId, tunnels, rooms,
             replaceById(workFronts, workFront, MineWorkFront::id), navigationAnchors,
-            completedInfrastructureTaskIds, normalTaskPriorityBonuses);
+            completedInfrastructureTaskIds, normalTaskPriorityBonuses, generationProgress);
     }
 
     public MineNetwork withNavigationAnchor(MineNavigationAnchor anchor) {
@@ -122,7 +144,7 @@ public record MineNetwork(
         for (MineNavigationAnchor anchor : anchors) merged.put(anchor.id(), anchor);
         ArrayList<MineNavigationAnchor> next = new ArrayList<>(merged.values());
         return new MineNetwork(mineId, mainTunnelId, tunnels, rooms, workFronts, next,
-            completedInfrastructureTaskIds, normalTaskPriorityBonuses);
+            completedInfrastructureTaskIds, normalTaskPriorityBonuses, generationProgress);
     }
 
     public MineNetwork withInfrastructureTaskCompleted(UUID taskId) {
@@ -130,14 +152,28 @@ public record MineNetwork(
         Set<UUID> completed = new HashSet<>(completedInfrastructureTaskIds);
         completed.add(taskId);
         return new MineNetwork(mineId, mainTunnelId, tunnels, rooms, workFronts, navigationAnchors,
-            completed, withoutPriorityBonus(normalTaskPriorityBonuses, taskId));
+            completed, withoutPriorityBonus(normalTaskPriorityBonuses, taskId), generationProgress);
     }
 
     public MineNetwork withNormalTaskPriorityBonuses(Map<UUID, Integer> bonuses) {
         return new MineNetwork(
             mineId, mainTunnelId, tunnels, rooms, workFronts, navigationAnchors,
-            completedInfrastructureTaskIds, bonuses
+            completedInfrastructureTaskIds, bonuses, generationProgress
         );
+    }
+
+    public MineGenerationProgress progressFor(UUID tunnelId) {
+        return generationProgress.get(tunnelId);
+    }
+
+    public MineNetwork withGenerationProgress(UUID tunnelId, MineGenerationProgress progress) {
+        if (tunnel(tunnelId) == null || tunnel(tunnelId).kind() != MineTunnel.Kind.MAIN) {
+            throw new IllegalArgumentException("Only existing main tunnels have planning progress.");
+        }
+        Map<UUID, MineGenerationProgress> next = new HashMap<>(generationProgress);
+        next.put(tunnelId, progress);
+        return new MineNetwork(mineId, mainTunnelId, tunnels, rooms, workFronts,
+            navigationAnchors, completedInfrastructureTaskIds, normalTaskPriorityBonuses, next);
     }
 
     public MineNetwork withoutNormalTaskPriorityBonus(UUID taskId) {
