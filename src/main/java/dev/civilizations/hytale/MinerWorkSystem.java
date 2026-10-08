@@ -1789,7 +1789,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         MineWorkFront failed = new MineWorkFront(
             front.id(), front.tunnelId(), front.position(), state
         );
-        tunnelRegistry.putNetwork(world, network.withWorkFront(failed));
+        tunnelRegistry.putNetwork(
+            world,
+            network.withoutNormalTaskPriorityBonus(front.id()).withWorkFront(failed)
+        );
         frontCoordinator.releaseFront(plan.frontId);
         plan.unavailable = true;
         decisionSink.record(
@@ -1812,8 +1815,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         WorkerRuntime runtime
     ) {
         if (runtime.roomId != null) {
-            RuntimeRoomPlan room = minePlan.rooms.get(runtime.roomId);
+            UUID failedRoomId = runtime.roomId;
+            RuntimeRoomPlan room = minePlan.rooms.get(failedRoomId);
             if (room != null) room.unavailable = true;
+            clearNormalTaskAge(world, mine, failedRoomId);
             roomCoordinator.releaseWorker(workerKey);
             unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
