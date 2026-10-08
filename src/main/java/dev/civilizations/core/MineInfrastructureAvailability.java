@@ -18,7 +18,8 @@ public final class MineInfrastructureAvailability {
     ) {
         if (type == null) throw new IllegalArgumentException("Infrastructure type is required.");
         if (type == MineInfrastructureTask.Type.BUILD_BRIDGE) {
-            return !frontComplete && startSliceIndex == currentSliceIndex;
+            return !frontComplete && startSliceIndex <= currentSliceIndex
+                && currentSliceIndex <= endSliceIndex;
         }
         if (type == MineInfrastructureTask.Type.BUILD_STEP) {
             return frontComplete || endSliceIndex < currentSliceIndex;
