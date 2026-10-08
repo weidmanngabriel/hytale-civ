@@ -258,6 +258,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (navigationFailures.consumeIfMatches(workerKey, runtime.navigationTarget)) {
             if (runtime.idleDestination != null) {
                 if (runtime.idleRoomId != null) runtime.failedIdleRooms.add(runtime.idleRoomId);
+                else runtime.idleEntranceFailed = true;
                 runtime.idleRoomId = null;
                 runtime.idleDestination = null;
                 runtime.navigationArrived();
@@ -2066,6 +2067,11 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         // Return through the same connector as ordinary mine travel, then walk to the entrance.
         runtime.idleRoomId = null;
+        if (runtime.idleEntranceFailed) {
+            unitRegistry.clearMoveTarget(ref);
+            runtime.navigationArrived();
+            return;
+        }
         Vector3d tunnelExit = center(connector.bounds(), connector.bounds().minY());
         PrefabPlacementService.PlacedMarker access = marker(world, mine, WORKPLACE_ACCESS);
         if (access == null || access.bounds() == null) {
@@ -2327,12 +2333,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private UUID idleRoomId;
         private Vector3d idleDestination;
         private boolean idleReachedConnector;
+        private boolean idleEntranceFailed;
         private final Set<UUID> failedIdleRooms = new HashSet<>();
 
         private void clearIdle() {
             idleRoomId = null;
             idleDestination = null;
             idleReachedConnector = false;
+            idleEntranceFailed = false;
             failedIdleRooms.clear();
         }
 
