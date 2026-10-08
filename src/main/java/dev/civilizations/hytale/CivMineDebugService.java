@@ -33,17 +33,31 @@ public final class CivMineDebugService {
     private static final Vector3f OPEN_COLOR = new Vector3f(1.0f, 0.50f, 0.12f);
     private static final Vector3f MAIN_COLOR = new Vector3f(0.20f, 0.95f, 0.95f);
     private static final Vector3f BOUNDS_COLOR = new Vector3f(0.70f, 0.70f, 0.70f);
+    private static final Vector3f NAVIGATION_COLOR = new Vector3f(0.25f, 1.0f, 0.35f);
+    private static final Vector3f ROOM_COLOR = new Vector3f(0.80f, 0.30f, 1.0f);
+    private static final Vector3f INFRASTRUCTURE_COLOR = new Vector3f(0.95f, 0.95f, 0.95f);
+    private static final float ANCHOR_HALF_SIZE = 0.35f;
 
     private final BuildingPlacementRegistry buildingRegistry;
     private final MineTunnelRegistry tunnelRegistry;
+    private final MinerWorkSystem minerWorkSystem;
     private final Map<UUID, Set<String>> displayedIdsByPlayer = new ConcurrentHashMap<>();
 
     public CivMineDebugService(
         BuildingPlacementRegistry buildingRegistry,
         MineTunnelRegistry tunnelRegistry
     ) {
+        this(buildingRegistry, tunnelRegistry, null);
+    }
+
+    public CivMineDebugService(
+        BuildingPlacementRegistry buildingRegistry,
+        MineTunnelRegistry tunnelRegistry,
+        MinerWorkSystem minerWorkSystem
+    ) {
         this.buildingRegistry = buildingRegistry;
         this.tunnelRegistry = tunnelRegistry;
+        this.minerWorkSystem = minerWorkSystem;
     }
 
     public MineDebugSnapshot snapshot(UUID worldId, Vector3dc playerPosition) {
@@ -85,12 +99,24 @@ public final class CivMineDebugService {
         }
 
         double distance = horizontalDistance(referencePosition, mine.bounds());
-        return new MineDebugSnapshot(mine, distance, tunnels);
+        List<MinerWorkSystem.MineDebugAnchor> anchors = minerWorkSystem == null
+            ? List.of()
+            : minerWorkSystem.debugAnchors(worldId, mine.id());
+        return new MineDebugSnapshot(mine, distance, tunnels, anchors);
     }
 
     public ShowResult show(PlayerRef playerRef, MineDebugSnapshot snapshot, boolean includeBounds) {
+        return show(playerRef, snapshot, includeBounds, false);
+    }
+
+    public ShowResult show(
+        PlayerRef playerRef,
+        MineDebugSnapshot snapshot,
+        boolean includeBounds,
+        boolean includeAnchors
+    ) {
         if (playerRef == null || snapshot == null || playerRef.getPacketHandler() == null) {
-            return new ShowResult(0, includeBounds);
+            return new ShowResult(0, includeBounds, includeAnchors);
         }
         hide(playerRef);
 
@@ -104,6 +130,15 @@ public final class CivMineDebugService {
             ids.add(id);
         }
 
+        if (includeAnchors) {
+            for (MinerWorkSystem.MineDebugAnchor anchor : snapshot.anchors()) {
+                String id = id(playerRef, "anchor:" + anchor.id());
+                TriggerVolumeDisplayEntry entry = anchorEntry(id, anchor);
+                playerRef.getPacketHandler().write(new AddOrUpdateTriggerVolumeDisplay(id, entry));
+                ids.add(id);
+            }
+        }
+
         if (includeBounds) {
             String id = id(playerRef, "bounds:" + snapshot.mine().id());
             TriggerVolumeDisplayEntry entry = mineBoundsEntry(id, snapshot.mine().bounds());
@@ -112,7 +147,7 @@ public final class CivMineDebugService {
         }
 
         displayedIdsByPlayer.put(playerRef.getUuid(), ids);
-        return new ShowResult(ids.size(), includeBounds);
+        return new ShowResult(ids.size(), includeBounds, includeAnchors);
     }
 
     public int hide(PlayerRef playerRef) {
@@ -210,6 +245,30 @@ public final class CivMineDebugService {
         );
     }
 
+    private static TriggerVolumeDisplayEntry anchorEntry(
+        String id,
+        MinerWorkSystem.MineDebugAnchor anchor
+    ) {
+        Vector3f color = switch (anchor.kind()) {
+            case FRONT -> ACTIVE_COLOR;
+            case NAVIGATION -> NAVIGATION_COLOR;
+            case ROOM -> ROOM_COLOR;
+            case INFRASTRUCTURE -> INFRASTRUCTURE_COLOR;
+        };
+        return box(
+            id,
+            (float) anchor.x() - ANCHOR_HALF_SIZE,
+            (float) anchor.y() - ANCHOR_HALF_SIZE,
+            (float) anchor.z() - ANCHOR_HALF_SIZE,
+            (float) anchor.x() + ANCHOR_HALF_SIZE,
+            (float) anchor.y() + ANCHOR_HALF_SIZE,
+            (float) anchor.z() + ANCHOR_HALF_SIZE,
+            color,
+            0.75f,
+            anchor.label()
+        );
+    }
+
     private static TriggerVolumeDisplayEntry box(
         String id,
         float minX,
@@ -255,10 +314,12 @@ public final class CivMineDebugService {
     public record MineDebugSnapshot(
         BuildingPlacementRegistry.BuildingInstance mine,
         double distanceBlocks,
-        List<TunnelDebugSnapshot> tunnels
+        List<TunnelDebugSnapshot> tunnels,
+        List<MinerWorkSystem.MineDebugAnchor> anchors
     ) {
         public MineDebugSnapshot {
             tunnels = List.copyOf(tunnels == null ? new ArrayList<>() : tunnels);
+            anchors = List.copyOf(anchors == null ? List.of() : anchors);
         }
 
         public long activeFrontCount() {
@@ -284,6 +345,10 @@ public final class CivMineDebugService {
         }
     }
 
-    public record ShowResult(int displayedEntryCount, boolean boundsIncluded) {
+    public record ShowResult(
+        int displayedEntryCount,
+        boolean boundsIncluded,
+        boolean anchorsIncluded
+    ) {
     }
 }
