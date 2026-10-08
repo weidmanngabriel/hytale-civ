@@ -108,6 +108,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private final Map<UUID, CivUnitRegistry.UnitKey> infrastructureReservations =
         new ConcurrentHashMap<>();
     private final Map<WorldMineKey, RuntimeMinePlan> runtimePlans = new ConcurrentHashMap<>();
+    private final Set<CivUnitRegistry.UnitKey> pendingRecovery = ConcurrentHashMap.newKeySet();
 
     public MinerWorkSystem(
         CivUnitRegistry unitRegistry,
@@ -215,6 +216,21 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             releaseInfrastructureReservation(workerKey, runtime);
             runtime.clearAssignment();
             return;
+        }
+        if (pendingRecovery.remove(workerKey)) {
+            workerTaskEnded(mine.id(), ref, workerKey, runtime, "DEBUG_RECOVERY");
+            stopMiningAnimation(ref, store, runtime);
+            stopBuildingAnimation(ref, store, runtime);
+            frontCoordinator.releaseWorker(workerKey);
+            roomCoordinator.releaseWorker(workerKey);
+            releaseInfrastructureReservation(workerKey, runtime);
+            navigationFailures.forget(workerKey);
+            unitRegistry.clearMoveTarget(ref);
+            runtime.reset(mine.id(), mine.phase());
+            decisionSink.record(
+                mine.id(), null, MineDecisionCategory.WORKER, "MINER_RECOVERED",
+                "npc", workerLabel(ref, workerKey), "reason", "DEBUG_RECOVERY"
+            );
         }
         if (!mine.id().equals(runtime.mineId) || mine.phase() != runtime.minePhase) {
             navigationFailures.forget(workerKey);
@@ -493,6 +509,93 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             }
         }
     }
+
+    /**
+     * Debug-only recovery of the current mine. It intentionally preserves NPC identity,
+     * profession, workplace, excavated blocks and completed infrastructure.
+     * Worker resets are applied on their next ECS tick, where the entity Store is available.
+     */
+    public RecoveryResult recover(World world, UUID mineId, boolean workersRequested, boolean frontsRequested) {
+        UUID worldId = world.getWorldConfig().getUuid();
+        MineNetwork network = tunnelRegistry.networkForMine(worldId, mineId);
+        if (network == null) return new RecoveryResult(0, 0, 0, false);
+        int reopened = 0;
+        int finished = 0;
+        if (frontsRequested) {
+            MineNetwork next = network;
+            for (MineWorkFront front : network.workFronts()) {
+                if (front.state() == MineWorkFront.State.COMPLETE) {
+                    finished++;
+                    continue;
+                }
+                if (front.state() != MineWorkFront.State.ABANDONED
+                    && front.state() != MineWorkFront.State.BLOCKED) continue;
+                next = next.withWorkFront(new MineWorkFront(
+                    front.id(), front.tunnelId(), front.position(), MineWorkFront.State.OPEN
+                ));
+                reopened++;
+            }
+            if (reopened > 0) tunnelRegistry.putNetwork(world, next);
+            RuntimeMinePlan plan = runtimePlans.get(new WorldMineKey(worldId, mineId));
+            if (plan != null) {
+                for (RuntimeFrontPlan front : plan.fronts.values()) {
+                    MineWorkFront persisted = workFrontById(next, front.frontId);
+                    if (persisted != null && persisted.state() == MineWorkFront.State.OPEN) {
+                        front.unavailable = false;
+                    }
+                }
+            }
+        }
+        int scheduledWorkers = 0;
+        if (workersRequested) {
+            for (Map.Entry<CivUnitRegistry.UnitKey, WorkerRuntime> entry : workers.entrySet()) {
+                if (!mineId.equals(entry.getValue().mineId)) continue;
+                pendingRecovery.add(entry.getKey());
+                scheduledWorkers++;
+            }
+            // A failed room is only a runtime limitation, not a persisted room result.
+            RuntimeMinePlan plan = runtimePlans.get(new WorldMineKey(worldId, mineId));
+            if (plan != null) {
+                for (RuntimeRoomPlan room : plan.rooms.values()) room.unavailable = false;
+                for (RuntimeInfrastructureTask infrastructure : plan.infrastructureTasks.values()) {
+                    infrastructure.lastPlacementFailureKey = null;
+                    infrastructure.repeatedPlacementFailures = 0;
+                    infrastructure.deferredAtSlice = -1;
+                    infrastructure.deferredByFrontId = null;
+                }
+            }
+        }
+        decisionSink.record(
+            mineId, null, MineDecisionCategory.WORKER, "MINE_RECOVERY_REQUESTED",
+            "workersScheduled", scheduledWorkers, "frontsReopened", reopened,
+            "completedFrontsPreserved", finished
+        );
+        return new RecoveryResult(scheduledWorkers, reopened, finished, true);
+    }
+
+    public RecoveryResult recoveryStatus(UUID worldId, UUID mineId) {
+        MineNetwork network = tunnelRegistry.networkForMine(worldId, mineId);
+        if (network == null) return new RecoveryResult(0, 0, 0, false);
+        int affectedWorkers = 0;
+        for (WorkerRuntime runtime : workers.values()) {
+            if (mineId.equals(runtime.mineId)) affectedWorkers++;
+        }
+        int recoverable = 0;
+        int completed = 0;
+        for (MineWorkFront front : network.workFronts()) {
+            if (front.state() == MineWorkFront.State.ABANDONED
+                || front.state() == MineWorkFront.State.BLOCKED) recoverable++;
+            if (front.state() == MineWorkFront.State.COMPLETE) completed++;
+        }
+        return new RecoveryResult(affectedWorkers, recoverable, completed, true);
+    }
+
+    public record RecoveryResult(
+        int workers,
+        int fronts,
+        int completedFrontsPreserved,
+        boolean mineFound
+    ) {}
 
     public void forgetRuntime(Ref<EntityStore> ref) {
         if (ref == null) return;
