@@ -2109,6 +2109,54 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         ).getBytes(StandardCharsets.UTF_8));
     }
 
+    /**
+     * Explicit development-only recovery for old premature BUILD_STEP abandonment.
+     * Never reopen arbitrary ABANDONED or BLOCKED fronts: only the main front stopped
+     * at the lower slice of an unfinished authored step can be retried.
+     */
+    public StairRetryResult retryAbandonedMainStair(World world, UUID mineId) {
+        if (world == null || mineId == null) return StairRetryResult.MINE_NOT_READY;
+        UUID worldId = world.getWorldConfig().getUuid();
+        WorldMineKey key = new WorldMineKey(worldId, mineId);
+        RuntimeMinePlan plan = runtimePlans.get(key);
+        MineNetwork network = tunnelRegistry.networkForMine(worldId, mineId);
+        if (plan == null || network == null) return StairRetryResult.MINE_NOT_READY;
+
+        for (RuntimeFrontPlan frontPlan : plan.fronts.values()) {
+            if (frontPlan.tunnelKind != MineTunnel.Kind.MAIN) continue;
+            MineWorkFront front = workFrontById(network, frontPlan.frontId);
+            if (front == null || front.state() != MineWorkFront.State.ABANDONED) continue;
+
+            boolean unresolvedStepAtLowerSlice = plan.infrastructureTasks.values().stream()
+                .anyMatch(infrastructure -> !infrastructure.completed
+                    && infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_STEP
+                    && infrastructure.task.tunnelId().equals(frontPlan.tunnelId)
+                    && infrastructure.task.endSliceIndex() == frontPlan.sliceIndex);
+            if (!unresolvedStepAtLowerSlice) return StairRetryResult.NOT_ELIGIBLE;
+
+            MineWorkFront reopened = new MineWorkFront(
+                front.id(), front.tunnelId(), front.position(), MineWorkFront.State.OPEN
+            );
+            tunnelRegistry.putNetwork(world, network.withWorkFront(reopened));
+            frontCoordinator.releaseFront(frontPlan.frontId);
+            // Recreate the regenerated runtime plan from the amended persisted front next tick.
+            runtimePlans.remove(key);
+            decisionSink.record(
+                mineId, front.id(), MineDecisionCategory.ENVIRONMENT, "FRONT_REOPENED_DEV",
+                "reason", "OLD_PREMATURE_BUILD_STEP",
+                "slice", frontPlan.sliceIndex
+            );
+            return StairRetryResult.REOPENED;
+        }
+        return StairRetryResult.NOT_ELIGIBLE;
+    }
+
+    public enum StairRetryResult {
+        REOPENED,
+        MINE_NOT_READY,
+        NOT_ELIGIBLE
+    }
+
     private void failFront(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
