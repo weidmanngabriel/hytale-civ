@@ -716,6 +716,15 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (start <= 0 || start >= front.slices.size() - 2) {
             return BridgeAssessment.none();
         }
+        // A missing support voxel inside still-solid rock is not yet an
+        // actionable bridge. Clear the authored walking cell through normal
+        // excavation first; otherwise bridge beams can be placed in stone.
+        BlockType currentWalkCell = loadedBlockType(
+            world, front.slices.get(start).floorCenter()
+        );
+        if (currentWalkCell == null || !isEmpty(currentWalkCell)) {
+            return BridgeAssessment.none();
+        }
         if (!floorMissing(world, front.slices.get(start))) return BridgeAssessment.none();
         if (floorMissing(world, front.slices.get(start - 1))) {
             return BridgeAssessment.abandon("UNSAFE_GAP_WITHOUT_APPROACH", false);
