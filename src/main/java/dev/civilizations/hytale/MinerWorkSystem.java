@@ -38,6 +38,11 @@ import dev.civilizations.core.MineInfrastructureTask;
 import dev.civilizations.core.MineInfrastructureAvailability;
 import dev.civilizations.core.MinePlacementExcavationGuard;
 import dev.civilizations.core.MineNetwork;
+import dev.civilizations.core.MineGenerationPolicy;
+import dev.civilizations.core.MineGenerationProgress;
+import dev.civilizations.core.MineTunnelPath;
+import dev.civilizations.core.MineTunnelVoxelizer;
+import dev.civilizations.core.MinePathPoint;
 import dev.civilizations.core.MineNetworkGrowthPlanner;
 import dev.civilizations.core.MineNormalTaskSelector;
 import dev.civilizations.core.MineObstaclePolicy;
@@ -96,6 +101,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private static final double ARRIVAL_VERTICAL_TOLERANCE = 1.0;
     private static final int MAIN_PLAN_LENGTH_BLOCKS = MinePathPlanner.FOOTPRINT_SIZE_BLOCKS;
     private static final int RUNTIME_PLANNING_TUNNEL_BUDGET = 64;
+    private static final int MAIN_PLANNING_BATCH_SLICES = 24;
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
@@ -260,6 +266,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         // room. Rehydrate the deterministic plan before forcing the normal surface entry.
         RuntimeMinePlan minePlan = ensureRuntimePlan(world, mine, connector);
         if (minePlan == null) return;
+        refreshMainPlanning(world, mine, minePlan);
         if (!runtime.reachedConnector && restoredInsideMine(world, minePlan, position)) {
             runtime.enteredMine = true;
             runtime.reachedConnector = true;
@@ -424,7 +431,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             }
         }
 
-        if (plan == null || plan.complete || !available(front)) {
+        if (plan == null || plan.complete || !available(front)
+            || (plan.tunnelKind == MineTunnel.Kind.MAIN && plan.sliceIndex >= plan.unlockedSlices)) {
             if (runtime.frontId != null) frontCoordinator.releaseWorker(workerKey);
             runtime.clearFrontAssignment();
             stopMiningAnimation(ref, store, runtime);
@@ -2106,6 +2114,101 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         return true;
     }
 
+    /** Debug-only immediate horizon refresh, no NPC restart or plan reset. */
+    public int refreshMainPlans(World world, UUID mineId) {
+        if (world == null || mineId == null) return 0;
+        UUID worldId = world.getWorldConfig().getUuid();
+        MineNetwork network = tunnelRegistry.networkForMine(worldId, mineId);
+        if (network == null) return 0;
+        RuntimeMinePlan runtime = runtimePlans.get(new WorldMineKey(worldId, mineId));
+        if (runtime == null) return 0;
+        long now = System.currentTimeMillis();
+        int count = 0;
+        for (RuntimeFrontPlan front : runtime.fronts.values()) {
+            if (front.tunnelKind != MineTunnel.Kind.MAIN || front.complete) continue;
+            MineGenerationProgress progress = network.progressFor(front.tunnelId);
+            if (progress == null || progress.unlockedSlices() >= front.slices.size()) continue;
+            int next = Math.min(front.slices.size(),
+                progress.unlockedSlices() + MAIN_PLANNING_BATCH_SLICES);
+            network = network.withGenerationProgress(front.tunnelId,
+                progress.advance(next, now + MineGenerationPolicy.REFRESH_INTERVAL_MILLIS));
+            front.unlockedSlices = next;
+            count++;
+        }
+        if (count > 0) tunnelRegistry.putNetwork(world, network);
+        return count;
+    }
+
+    private void refreshMainPlanning(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan runtime
+    ) {
+        MineNetwork network = tunnelRegistry.networkForMine(
+            world.getWorldConfig().getUuid(), mine.id()
+        );
+        if (network == null) return;
+        long now = System.currentTimeMillis();
+        for (RuntimeFrontPlan front : runtime.fronts.values()) {
+            if (front.tunnelKind != MineTunnel.Kind.MAIN || front.complete) continue;
+            MineGenerationProgress progress = network.progressFor(front.tunnelId);
+            if (progress == null || now < progress.nextRefreshAtMillis()) continue;
+            int next = Math.min(front.slices.size(),
+                progress.unlockedSlices() + MAIN_PLANNING_BATCH_SLICES);
+            MineGenerationProgress updated = progress.advance(
+                next, now + MineGenerationPolicy.REFRESH_INTERVAL_MILLIS
+            );
+            network = network.withGenerationProgress(front.tunnelId, updated);
+            front.unlockedSlices = next;
+            decisionSink.record(
+                mine.id(), front.tunnelId, MineDecisionCategory.PLANNING, "MAIN_PLAN_REFRESHED",
+                "unlockedSlices", next,
+                "totalSlices", front.slices.size(),
+                "nextRefreshAtMillis", updated.nextRefreshAtMillis()
+            );
+        }
+        if (!network.equals(tunnelRegistry.networkForMine(
+                world.getWorldConfig().getUuid(), mine.id()))) {
+            tunnelRegistry.putNetwork(world, network);
+        }
+    }
+
+    private static MineNetworkGrowthPlanner.Plan clippedInitialPlan(
+        MineNetworkGrowthPlanner.Plan original
+    ) {
+        List<MineNetworkGrowthPlanner.PlannedTunnel> accepted = new ArrayList<>();
+        Map<UUID, MineNetworkGrowthPlanner.PlannedTunnel> byId = new LinkedHashMap<>();
+        MineNetwork network = null;
+        for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : original.tunnels()) {
+            MineNetworkGrowthPlanner.PlannedTunnel chosen = tunnel;
+            if (tunnel.tunnel().kind() == MineTunnel.Kind.MAIN) {
+                MineTunnelPath path = MineGenerationPolicy.capAtMinimumY(tunnel.path());
+                chosen = new MineNetworkGrowthPlanner.PlannedTunnel(
+                    tunnel.tunnel(), path, MineTunnelVoxelizer.voxelize(path), false
+                );
+                network = MineNetwork.create(original.network().mineId(),
+                    tunnel.tunnel().id(), tunnel.tunnel().origin());
+            } else {
+                MineNetworkGrowthPlanner.PlannedTunnel parent = byId.get(tunnel.tunnel().parentTunnelId());
+                if (parent == null) continue;
+                BlockPosition start = tunnel.tunnel().origin();
+                boolean attached = parent.geometry().slices().stream().anyMatch(slice -> {
+                    BlockPosition at = slice.floorCenter();
+                    return Math.abs(at.x() - start.x()) <= 1
+                        && Math.abs(at.y() - start.y()) <= 1
+                        && Math.abs(at.z() - start.z()) <= 1;
+                });
+                if (!attached) continue;
+                network = network.withTunnel(tunnel.tunnel());
+            }
+            accepted.add(chosen);
+            byId.put(chosen.tunnel().id(), chosen);
+        }
+        return new MineNetworkGrowthPlanner.Plan(
+            network, accepted, original.seed(), original.planningBudget()
+        );
+    }
+
     private RuntimeMinePlan ensureRuntimePlan(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
@@ -2127,16 +2230,40 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             seed,
             decisionSink
         );
+        planned = clippedInitialPlan(planned);
         List<MineRoom> plannedRooms = MineRoomPlanner.plan(planned, decisionSink);
+
+        MineNetwork persisted = tunnelRegistry.networkForMine(key.worldId, mine.id());
+        boolean newMine = persisted == null;
+        List<MineNetworkGrowthPlanner.PlannedTunnel> allTunnels = new ArrayList<>(planned.tunnels());
+        if (persisted != null) {
+            for (MineTunnel additional : persisted.tunnels()) {
+                if (additional.kind() != MineTunnel.Kind.MAIN
+                    || additional.id().equals(planned.network().mainTunnelId())) continue;
+                MineGenerationProgress progress = persisted.progressFor(additional.id());
+                if (progress == null) {
+                    decisionSink.record(mine.id(), additional.id(),
+                        MineDecisionCategory.PLANNING, "MINE_PLAN_INCOMPATIBLE",
+                        "reason", "MISSING_GENERATION_PROGRESS");
+                    return null;
+                }
+                MineTunnelPath path = MineGenerationPolicy.capAtMinimumY(MinePathPlanner.plan(
+                    MineTunnel.Kind.MAIN, additional.origin(), origin,
+                    progress.heading(), MAIN_PLAN_LENGTH_BLOCKS, progress.seed()
+                ));
+                allTunnels.add(new MineNetworkGrowthPlanner.PlannedTunnel(
+                    additional, path, MineTunnelVoxelizer.voxelize(path), false
+                ));
+            }
+        }
 
         Map<UUID, UUID> frontIds = new LinkedHashMap<>();
         Map<UUID, MineTunnelGeometry> geometries = new LinkedHashMap<>();
-        for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : planned.tunnels()) {
+        for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : allTunnels) {
             frontIds.put(tunnel.tunnel().id(), frontId(mine.id(), tunnel.tunnel().id()));
             geometries.put(tunnel.tunnel().id(), tunnel.geometry());
         }
 
-        MineNetwork persisted = tunnelRegistry.networkForMine(key.worldId, mine.id());
         if (persisted == null) {
             persisted = planned.network();
         } else if (!persisted.mainTunnelId().equals(planned.network().mainTunnelId())) {
@@ -2153,7 +2280,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         // Merge only missing semantic tasks. Future generations may add extra tunnels,
         // rooms and fronts; they are not a reason to replace the persisted network.
         MineNetwork merged = persisted;
-        for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : planned.tunnels()) {
+        for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : allTunnels) {
             if (merged.tunnel(tunnel.tunnel().id()) == null) {
                 merged = merged.withTunnel(tunnel.tunnel());
             }
@@ -2176,6 +2303,17 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         for (MineRoom room : plannedRooms) {
             if (roomById(merged, room.id()) == null) merged = merged.withRoom(room);
         }
+        UUID initialMainId = planned.network().mainTunnelId();
+        if (merged.progressFor(initialMainId) == null) {
+            int initialUnlocked = newMine
+                ? Math.min(MAIN_PLANNING_BATCH_SLICES, geometries.get(initialMainId).slices().size())
+                : geometries.get(initialMainId).slices().size();
+            merged = merged.withGenerationProgress(initialMainId, new MineGenerationProgress(
+                initialUnlocked,
+                System.currentTimeMillis() + MineGenerationPolicy.REFRESH_INTERVAL_MILLIS,
+                heading, seed
+            ));
+        }
         if (!merged.equals(persisted)) {
             tunnelRegistry.putNetwork(world, merged);
         }
@@ -2184,7 +2322,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         tunnelRegistry.putRuntimeGeometries(key.worldId, mine.id(), geometries);
 
         Map<UUID, RuntimeFrontPlan> fronts = new LinkedHashMap<>();
-        for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : planned.tunnels()) {
+        for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : allTunnels) {
             UUID id = frontIds.get(tunnel.tunnel().id());
             MineWorkFront persistedFront = workFrontById(persisted, id);
             int sliceIndex = sliceIndexForPosition(tunnel.geometry().slices(), persistedFront.position());
@@ -2197,6 +2335,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 tunnel.geometry().slices(),
                 orderedBlocks(tunnel.geometry().slices()),
                 sliceIndex,
+                tunnel.tunnel().kind() == MineTunnel.Kind.MAIN
+                    ? Math.min(tunnel.geometry().slices().size(),
+                        Math.max(sliceIndex + 1, persisted.progressFor(tunnel.tunnel().id()).unlockedSlices()))
+                    : tunnel.geometry().slices().size(),
                 persistedFront.state() == MineWorkFront.State.COMPLETE,
                 persistedFront.state() == MineWorkFront.State.BLOCKED
                     || persistedFront.state() == MineWorkFront.State.ABANDONED
@@ -2220,7 +2362,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         Map<UUID, RuntimeInfrastructureTask> infrastructureTasks = new LinkedHashMap<>();
-        for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : planned.tunnels()) {
+        for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : allTunnels) {
             for (MineInfrastructureTask task :
                 MineInfrastructurePlanner.plan(
                     mine.id(),
@@ -2279,6 +2421,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             while (!plan.complete
                 && !plan.unavailable
                 && !hasPendingMandatoryInfrastructure(minePlan, plan)
+                && (plan.tunnelKind != MineTunnel.Kind.MAIN || plan.sliceIndex < plan.unlockedSlices)
                 && sliceComplete(world, plan.slices.get(plan.sliceIndex))) {
                 completeCurrentSlice(world, mine, minePlan, plan);
                 // A newly reached slice can expose a due stair/bridge on the next outer tick.
@@ -2328,6 +2471,163 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             "slice", completedIndex,
             "nextSlice", plan.complete ? "COMPLETE" : plan.sliceIndex
         );
+        if (plan.complete && plan.tunnelKind == MineTunnel.Kind.MAIN) {
+            appendNextMainTunnel(world, mine, minePlan, plan);
+        }
+    }
+
+    private void appendNextMainTunnel(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan plan,
+        RuntimeFrontPlan completed
+    ) {
+        UUID worldId = world.getWorldConfig().getUuid();
+        MineNetwork current = tunnelRegistry.networkForMine(worldId, mine.id());
+        if (current == null) return;
+        RuntimeFrontPlan root = plan.fronts.values().stream()
+            .filter(candidate -> candidate.tunnelId.equals(plan.mainTunnelId))
+            .findFirst().orElse(null);
+        if (root == null) return;
+        MineGenerationProgress rootProgress = current.progressFor(root.tunnelId);
+        if (rootProgress == null) return;
+        BlockPosition entrance = root.slices.getFirst().floorCenter();
+        BlockPosition end = completed.slices.getLast().floorCenter();
+        if (entrance.y() <= MineGenerationPolicy.MIN_FLOOR_Y) {
+            decisionSink.record(mine.id(), completed.tunnelId,
+                MineDecisionCategory.PLANNING, "MAIN_EXTENSION_BLOCKED",
+                "reason", "ENTRANCE_ALREADY_AT_MINIMUM_Y");
+            return;
+        }
+        boolean depthReached = end.y() <= MineGenerationPolicy.MIN_FLOOR_Y;
+        BlockPosition nextOrigin = depthReached ? entrance : end;
+        int sequence = (int) current.tunnels().stream()
+            .filter(tunnel -> tunnel.kind() == MineTunnel.Kind.MAIN).count();
+        if (sequence > 64) return;
+        UUID newId = MineGenerationPolicy.tunnelId(mine.id(), sequence);
+        if (current.tunnel(newId) != null) return;
+        long seed = planningSeed(mine.id()) ^ Long.rotateLeft(
+            0x9E3779B97F4A7C15L * sequence, 11
+        );
+        MineHeading firstHeading = depthReached
+            ? MineGenerationPolicy.heading(rootProgress.heading(), sequence)
+            : headingOfLastTwoSlices(completed.slices, rootProgress.heading());
+
+        MineTunnelPath chosen = null;
+        MineHeading heading = null;
+        int attempts = depthReached ? MineHeading.values().length : 1;
+        for (int attempt = 0; attempt < attempts; attempt++) {
+            MineHeading candidateHeading = MineHeading.values()[
+                (firstHeading.ordinal() + attempt) % MineHeading.values().length
+            ];
+            MineTunnelPath proposed = MineGenerationPolicy.capAtMinimumY(MinePathPlanner.plan(
+                MineTunnel.Kind.MAIN, nextOrigin, entrance,
+                candidateHeading, MAIN_PLAN_LENGTH_BLOCKS, seed
+            ));
+            if (!pathAvoidsExistingMine(proposed, mine, plan.fronts.values())) continue;
+            chosen = proposed;
+            heading = candidateHeading;
+            break;
+        }
+        if (chosen == null) {
+            decisionSink.record(mine.id(), completed.tunnelId,
+                MineDecisionCategory.PLANNING, "MAIN_EXTENSION_BLOCKED",
+                "reason", "NO_CLEAR_TUNNEL_DIRECTION",
+                "atY", end.y());
+            return;
+        }
+
+        MineTunnel additional = new MineTunnel(
+            newId, MineTunnel.Kind.MAIN, null, 0, nextOrigin
+        );
+        MineNetwork updated = current.withTunnel(additional).withWorkFront(
+            new MineWorkFront(frontId(mine.id(), newId), newId,
+                new BlockPosition(
+                    (int) Math.round(chosen.points().getFirst().x()),
+                    (int) Math.round(chosen.points().getFirst().y()),
+                    (int) Math.round(chosen.points().getFirst().z())),
+                MineWorkFront.State.OPEN)
+        ).withGenerationProgress(
+            newId, new MineGenerationProgress(
+                Math.min(MAIN_PLANNING_BATCH_SLICES, chosen.points().size()),
+                System.currentTimeMillis() + MineGenerationPolicy.REFRESH_INTERVAL_MILLIS,
+                heading, seed
+            )
+        );
+        tunnelRegistry.putNetwork(world, updated);
+        runtimePlans.remove(new WorldMineKey(worldId, mine.id()));
+        decisionSink.record(
+            mine.id(), newId, MineDecisionCategory.PLANNING, "MAIN_GENERATION_CREATED",
+            "generation", sequence,
+            "origin", nextOrigin,
+            "heading", heading,
+            "completedY", end.y()
+        );
+        if (depthReached) {
+            world.sendMessage(com.hypixel.hytale.server.core.Message.raw(
+                "Mine: Endtiefe Y=10 erreicht. Neuer Stollen wird am Eingang geplant."
+            ));
+        }
+    }
+
+    private static MineHeading headingOfLastTwoSlices(
+        List<MineTunnelGeometry.Slice> slices,
+        MineHeading fallback
+    ) {
+        BlockPosition last = slices.getLast().floorCenter();
+        for (int i = slices.size() - 2; i >= 0; i--) {
+            BlockPosition before = slices.get(i).floorCenter();
+            int dx = last.x() - before.x();
+            int dz = last.z() - before.z();
+            if (dx == 0 && dz == 0) continue;
+            double angle = Math.toDegrees(Math.atan2(dz, dx));
+            MineHeading result = fallback;
+            double smallest = Double.MAX_VALUE;
+            for (MineHeading candidate : MineHeading.values()) {
+                // Compare unit vectors to avoid angle wrapping errors.
+                double error = Math.pow(candidate.unitX() - Math.cos(Math.toRadians(angle)), 2)
+                    + Math.pow(candidate.unitZ() - Math.sin(Math.toRadians(angle)), 2);
+                if (error < smallest) {
+                    smallest = error;
+                    result = candidate;
+                }
+            }
+            return result;
+        }
+        return fallback;
+    }
+
+    private static boolean pathAvoidsExistingMine(
+        MineTunnelPath candidate,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        java.util.Collection<RuntimeFrontPlan> existing
+    ) {
+        java.util.Set<BlockPosition> centerlines = new HashSet<>();
+        for (RuntimeFrontPlan front : existing) {
+            for (MineTunnelGeometry.Slice slice : front.slices) {
+                centerlines.add(slice.floorCenter());
+            }
+        }
+        int index = 0;
+        for (MinePathPoint point : candidate.points()) {
+            BlockPosition block = new BlockPosition(
+                (int) Math.round(point.x()), (int) Math.round(point.y()),
+                (int) Math.round(point.z())
+            );
+            if (index < 16 && mine.bounds().containsBlock(block)) return false;
+            if (index++ < 20) continue; // intentional attachment at the entrance or previous end
+            for (int dx = -5; dx <= 5; dx++) {
+                for (int dz = -5; dz <= 5; dz++) {
+                    if (dx * dx + dz * dz > 25) continue;
+                    for (int dy = -3; dy <= 3; dy++) {
+                        if (centerlines.contains(new BlockPosition(
+                            block.x() + dx, block.y() + dy, block.z() + dz
+                        ))) return false;
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     private MineNetwork integrateNaturalCaveIfPresent(
@@ -2577,6 +2877,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
     private boolean frontExecutable(World world, RuntimeMinePlan minePlan, RuntimeFrontPlan plan) {
         if (plan.complete || plan.unavailable || hasPendingMandatoryInfrastructure(minePlan, plan)) return false;
+        if (plan.tunnelKind == MineTunnel.Kind.MAIN && plan.sliceIndex >= plan.unlockedSlices) return false;
         if (plan.tunnelKind == MineTunnel.Kind.MAIN || plan.sliceIndex > 0) return true;
         BlockType start = loadedBlockType(world, plan.slices.getFirst().floorCenter());
         return start != null && isEmpty(start);
@@ -3062,6 +3363,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
             for (RuntimeInfrastructureTask infrastructure : plan.infrastructureTasks.values()) {
                 if (infrastructure.completed) continue;
+                RuntimeFrontPlan owner = frontForTunnel(plan, infrastructure.task.tunnelId());
+                if (owner != null && owner.tunnelKind == MineTunnel.Kind.MAIN
+                    && infrastructure.task.startSliceIndex() >= owner.unlockedSlices) continue;
                 result.add(MineDebugAnchor.atBlock(
                     "infrastructure:" + infrastructure.task.id(),
                     MineDebugAnchor.Kind.INFRASTRUCTURE,
@@ -3192,6 +3496,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private final List<MineTunnelGeometry.Slice> slices;
         private final List<List<BlockPosition>> orderedBlocks;
         private int sliceIndex;
+        private int unlockedSlices;
         private boolean complete;
         private boolean unavailable;
 
@@ -3203,6 +3508,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             List<MineTunnelGeometry.Slice> slices,
             List<List<BlockPosition>> orderedBlocks,
             int sliceIndex,
+            int unlockedSlices,
             boolean complete,
             boolean unavailable
         ) {
@@ -3213,6 +3519,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             this.slices = List.copyOf(slices);
             this.orderedBlocks = List.copyOf(orderedBlocks);
             this.sliceIndex = sliceIndex;
+            this.unlockedSlices = unlockedSlices;
             this.complete = complete;
             this.unavailable = unavailable;
         }
