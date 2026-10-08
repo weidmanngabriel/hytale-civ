@@ -620,3 +620,11 @@ NPC layer 6 now gives live miner work explicit safe failure outcomes:
 - terminal Hytale navigation failure uses one native recompute first, then blocks the affected front/mandatory task or skips normal infrastructure.
 
 Large useful natural caves are now integrated as semantic natural chambers by Layer 7. Explicit unblock/recovery gameplay remains deferred.
+
+## NPC Ebene 7 – Verhalten abseits der Arbeitsfront (V1)
+
+Fertige Unterkünfte (`REST_ACCOMMODATION`, Zustand `BUILT`) sind Aufenthaltsziele für Miner ohne ausführbare Arbeit. Ein Miner wählt die nächstgelegene nutzbare Unterkunft; eine bereits gewählte nutzbare Unterkunft bleibt sein Ziel und wird nicht allein wegen eines neu gebauten näheren Raums gewechselt. Mehrere Miner dürfen denselben Raum nutzen, ohne reservierte Schlaf- oder Belegungsplätze. Sie warten dort mit dem nativen Idle-Verhalten ohne separate Bedürfnisse, Pausentimer oder Produktionsbonus.
+
+Wenn keine Unterkunft nutzbar ist, kehrt der Miner über `mine_tunnel_connector` zum `workplace_access` am Mineneingang zurück. Die bestehende Hytale-Navigation und die sichere Anker-Teleportregel für Strecken über 50 Blöcke bleiben zuständig; kein eigener Pfadfinder und kein direkter Teleport zum Aufenthaltsziel. Neue Arbeit und manuelle Spielerbefehle haben Vorrang. Nach einer manuellen Bewegung läuft die normale autonome Zielwahl erneut. Unbrauchbare oder entfernte Unterkünfte werden bei der Zielwahl übersprungen; nach terminalem nativen Navigationsfehler kann der Miner ein anderes Ziel wählen.
+
+Materiallager und kleine Nischen bleiben in V1 rein räumlich/dekorativ. Natürliche Kammern erhalten kein eigenes Aufenthaltsverhalten. Werkstatt, Erz-Sammelraum, Versorgungs-/Entwässerungsräume und Arbeitshalle bleiben bis zu passenden Assets und Produktregeln deaktiviert. Erztransport, Lagerinventar, Schlaf/Hunger, Raumbelegung, Sozialaktivitäten und besondere Animationen sind bewusst späteren Ebenen vorbehalten.

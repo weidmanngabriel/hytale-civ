@@ -232,3 +232,7 @@ Der lokale Einzelspieler-Besitzer kann mit `/civmcp on` eine lokale Entwicklungs
 ## Mine persistence and performance (Layer 10)
 
 Mines persist their semantic tunnel network, work fronts, rooms, trusted navigation anchors, completed infrastructure task IDs and normal-task priority bonuses in a native Hytale world resource. Excavated voxels are stored by the Hytale world, not duplicated as Civ mine saves; planned geometry is deterministically regenerated. Layer 10 avoids rewriting unchanged network snapshots and improves large anchor batch updates without altering gameplay or requiring an additional database. Native autosave and world shutdown remain responsible for durable resource writes. Rails remain deferred.
+
+## Minenabbauer: Aufenthaltsräume (NPC-Ebene 7)
+
+Ohne ausführbare Minenarbeit gehen Miner selbstständig in die nächstgelegene nutzbare, fertiggestellte Unterkunft. Dort warten sie ohne Pausen- oder Schlafsimulation; mehrere Miner können denselben Raum nutzen. Gibt es keinen passenden Raum, gehen sie über den Tunnelanschluss zum Mineneingang. Neue Arbeit oder ein manueller Spielerbefehl unterbrechen den Leerlauf sofort. Die normale Bewegung und sichere Langstrecken-Anker-Teleports bleiben Hytale-basiert. Materiallager, Nischen und natürliche Kammern haben noch kein eigenständiges NPC-Verhalten. Warenlogistik und komplexe Unterkunftsaktivitäten sind spätere Features.

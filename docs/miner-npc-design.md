@@ -705,3 +705,11 @@ Room work, large-natural-cave integration, optional decoration and the general n
 ## Layer 10 – persistence/performance hardening
 
 Miner claims and reservations remain runtime-only. Insertion-ordered anchor-batch updates avoid repeated per-anchor searches. Identical semantic network updates no longer trigger serialization through `MineTunnelRegistry.putNetwork`. This is not a change to the Hytale autosave contract: the last staged resource remains authoritative. Completed deterministic infrastructure task IDs and aging bonuses remain durable, since dropping them without an equivalent compact representation could replay work after restart. Large-scale runtime latency remains an explicit measurement task.
+
+## NPC Ebene 7 – Leerlauf abseits der Arbeitsfront
+
+Wenn kein ausführbarer `EXCAVATE_FRONT`-, Raum- oder Infrastrukturauftrag vorhanden ist, wählt der Miner eine fertige, begehbare `REST_ACCOMMODATION` als Aufenthaltsziel. Bei mehreren nutzbaren Unterkünften gewinnt die nächstgelegene. Eine bereits gewählte nutzbare Unterkunft bleibt gebunden, bis eine neue Arbeitsepisode oder eine Ungültigkeit/Navigationstörung die Wahl beendet. Keine feste Raumzuweisung und keine Belegungsplätze.
+
+Fehlt ein nutzbarer Ruheraum, führt die Rückkehr über den Tunnel-Connector zum oberirdischen `workplace_access`. Native Navigation und die bestehende sichere Anker-Teleportpolitik bleiben maßgeblich. Neue Arbeit unterbricht Aufenthaltswege und Idle sofort; manuelle Befehle übersteuern sie ebenfalls. Nach manueller Bewegung wird neu gewählt. Ein unbrauchbares Aufenthaltsziel wird übersprungen und der nächste Raum oder der Eingang verwendet. Idle erzeugt keine Wartetasks und altert nicht im normalen Prioritätsscheduler.
+
+Materiallager, Nischen und natürliche Kammern besitzen in V1 keine zusätzliche autonome Aktivität. Logistik, Schlaf/Erholung, zeitgesteuerte Pausen, zusätzliche Raumausstattung und Werkstätten bleiben ausdrücklich offen.
