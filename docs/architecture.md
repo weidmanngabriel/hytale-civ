@@ -331,3 +331,7 @@ Die passierbarkeitsrelevante Freigabe normaler Infrastruktur und `BUILD_STEP` ge
 
 
 Der Core-Schalter `MineInfrastructurePlanner.ENABLE_MINE_STEPS=false` verhindert die Generierung von `BUILD_STEP`-Tasks, ohne die Layer-3-Höhengeometrie oder den erhaltenen Treppen-Code zu verändern. Runtime-Tasklisten und Debug-Arbeitsanker enthalten dadurch keine Treppenaufträge mehr.
+
+## Mine task continuity
+
+`MinerWorkSystem` preserves an existing front, room, or unfinished infrastructure reservation before selecting newly available priority-10 infrastructure. This prevents preemption churn. Prioritization through `MineNormalTaskSelector` still applies to unassigned workers; navigation and world safety failures still terminate assignments through the existing lifecycle.
