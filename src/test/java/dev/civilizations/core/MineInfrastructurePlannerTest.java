@@ -101,6 +101,10 @@ class MineInfrastructurePlannerTest {
         assertTrue(branchDecor.stream().noneMatch(task ->
             task.decorationKind() == MineInfrastructureTask.DecorationKind.HANGING_CHAIN
                 || task.decorationKind() == MineInfrastructureTask.DecorationKind.HANGING_LANTERN));
+        assertTrue(mainDecor.stream().noneMatch(task ->
+            task.decorationKind() == MineInfrastructureTask.DecorationKind.TIMBER_PILE));
+        assertTrue(branchDecor.stream().noneMatch(task ->
+            task.decorationKind() == MineInfrastructureTask.DecorationKind.TIMBER_PILE));
     }
 
     @Test
