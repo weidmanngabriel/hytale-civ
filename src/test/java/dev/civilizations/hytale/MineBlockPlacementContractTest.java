@@ -26,6 +26,30 @@ class MineBlockPlacementContractTest {
     }
 
     @Test
+    void placementReportsConcreteFailureReasonsForDiagnostics() throws Exception {
+        String placement = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MineBlockPlacement.java")
+        );
+        String miner = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
+        );
+
+        assertTrue(placement.contains("PlacementResult placeDetailed("));
+        assertTrue(placement.contains("BLOCK_ASSET_NOT_FOUND"));
+        assertTrue(placement.contains("CHUNK_NOT_LOADED"));
+        assertTrue(placement.contains("TARGET_OCCUPIED"));
+        assertTrue(placement.contains("BLOCK_SECTION_UNAVAILABLE"));
+        assertTrue(placement.contains("SET_BLOCK_REJECTED"));
+
+        assertTrue(miner.contains("\"BLOCK_PLACEMENT_FAILED\""));
+        assertTrue(miner.contains("\"BLOCK_PLACEMENT_FAILURE_REPEATED\""));
+        assertTrue(miner.contains("\"PLACEMENT_RETRY_LOOP_DETECTED\""));
+        assertTrue(miner.contains("\"workTarget\", formatTarget("));
+        assertTrue(miner.contains("\"minerPosition\", formatTarget(workerPosition)"));
+        assertTrue(miner.contains("repeatedPlacementFailures == 3"));
+    }
+
+    @Test
     void woodcutterRejectsDecorativeBuiltWood() throws Exception {
         String source = Files.readString(
             Path.of("src/main/java/dev/civilizations/hytale/WoodcutterWorkSystem.java")
