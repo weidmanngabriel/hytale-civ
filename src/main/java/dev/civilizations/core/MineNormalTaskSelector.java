@@ -46,7 +46,19 @@ public final class MineNormalTaskSelector {
             .toList();
         if (!active.isEmpty()) {
             Candidate selected = choose(active, workerPosition, priorityBonuses);
-            return new Selection(selected, Map.copyOf(priorityBonuses), false);
+            // Prefer local follow-up work only when it does not sacrifice priority.
+            // An existing active task far away should not pull a miner across the
+            // mine when equally urgent waiting work is immediately available.
+            Candidate waiting = choose(available.stream()
+                .filter(candidate -> candidate.workerCount() == 0)
+                .filter(candidate -> effectivePriority(candidate, priorityBonuses)
+                    >= effectivePriority(selected, priorityBonuses))
+                .toList(), workerPosition, priorityBonuses);
+            if (waiting == null || distanceSquared(workerPosition, waiting.position()) > 64
+                || distanceSquared(workerPosition, selected.position()) <= 576) {
+                return new Selection(selected, Map.copyOf(priorityBonuses), false);
+            }
+            return new Selection(waiting, Map.copyOf(priorityBonuses), false);
         }
 
         Candidate selected = choose(available, workerPosition, priorityBonuses);
