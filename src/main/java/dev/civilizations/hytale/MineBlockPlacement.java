@@ -94,11 +94,18 @@ public final class MineBlockPlacement {
 
         ChunkStore chunkStore = world.getChunkStore();
         Store<ChunkStore> chunkComponents = chunkStore.getStore();
-        Ref<ChunkStore> chunkRef = chunk.getReference();
+        // BlockOperations, BlockPhysics and connected-block updates require the SECTION
+        // reference, not WorldChunk#getReference() (the column reference).
+        Ref<ChunkStore> sectionRef = chunkStore.getChunkSectionReferenceAtBlock(
+            position.x(), position.y(), position.z()
+        );
+        if (sectionRef == null || !sectionRef.isValid()) {
+            return PlacementResult.failed(FailureReason.BLOCK_SECTION_UNAVAILABLE);
+        }
 
         boolean placed = BlockOperations.setBlock(
             chunkStore,
-            chunkRef,
+            sectionRef,
             position.x(),
             position.y(),
             position.z(),
@@ -115,7 +122,7 @@ public final class MineBlockPlacement {
         if (markDeco && blockType.canBePlacedAsDeco()) {
             BlockPhysics.markDeco(
                 chunkComponents,
-                chunkRef,
+                sectionRef,
                 position.x(),
                 position.y(),
                 position.z()
@@ -131,7 +138,7 @@ public final class MineBlockPlacement {
             rotation,
             new Vector3i(support.x(), support.y(), support.z()),
             new Vector3i(position.x(), position.y(), position.z()),
-            chunkRef,
+            sectionRef,
             blockSection
         );
         return PlacementResult.success(Outcome.PLACED);
@@ -173,8 +180,12 @@ public final class MineBlockPlacement {
             ChunkUtil.indexChunkFromBlock(position.x(), position.z())
         );
         if (chunk == null || chunk.getReference() == null) return false;
+        Ref<ChunkStore> sectionRef = world.getChunkStore().getChunkSectionReferenceAtBlock(
+            position.x(), position.y(), position.z()
+        );
+        if (sectionRef == null || !sectionRef.isValid()) return false;
         BlockPhysics physics = world.getChunkStore().getStore().getComponent(
-            chunk.getReference(),
+            sectionRef,
             BlockPhysics.getComponentType()
         );
         return physics != null && physics.isDeco(position.x(), position.y(), position.z());
@@ -185,9 +196,13 @@ public final class MineBlockPlacement {
             ChunkUtil.indexChunkFromBlock(position.x(), position.z())
         );
         if (chunk == null || chunk.getReference() == null) return;
+        Ref<ChunkStore> sectionRef = world.getChunkStore().getChunkSectionReferenceAtBlock(
+            position.x(), position.y(), position.z()
+        );
+        if (sectionRef == null || !sectionRef.isValid()) return;
         BlockPhysics.markDeco(
             world.getChunkStore().getStore(),
-            chunk.getReference(),
+            sectionRef,
             position.x(),
             position.y(),
             position.z()
