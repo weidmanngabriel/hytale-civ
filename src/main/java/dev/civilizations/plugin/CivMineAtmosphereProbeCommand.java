@@ -106,7 +106,7 @@ final class CivMineAtmosphereProbeCommand extends CommandBase {
             UUID tunnelId = UUID.fromString("00000000-0000-0000-0000-000000000808");
             MineInfrastructureTask.DecorationKind[] kinds =
                 MineInfrastructureTask.DecorationKind.values();
-            int[] slices = new int[]{3, 6, 9, 12, 15, 18, 21};
+            int[] slices = new int[]{3, 6, 9, 12, 15, 18};
 
             for (int i = 0; i < kinds.length; i++) {
                 MineInfrastructureTask task = new MineInfrastructureTask(
