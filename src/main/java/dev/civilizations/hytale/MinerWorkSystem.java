@@ -2905,17 +2905,21 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         if (affected != null) {
-            MineWorkFront front = currentFront(
-                world.getWorldConfig().getUuid(), mine.id(), affected.frontId
-            );
-            failFront(
-                world,
-                mine,
-                affected,
-                front,
-                MineObstaclePolicy.FailureKind.NAVIGATION_UNREACHABLE,
-                "NATIVE_NAVIGATION_UNREACHABLE"
-            );
+            boolean repairPlanned = runtime.frontId != null
+                && scheduleNearbyRecoveryStep(world, mine, minePlan, affected);
+            if (!repairPlanned) {
+                MineWorkFront front = currentFront(
+                    world.getWorldConfig().getUuid(), mine.id(), affected.frontId
+                );
+                failFront(
+                    world,
+                    mine,
+                    affected,
+                    front,
+                    MineObstaclePolicy.FailureKind.NAVIGATION_UNREACHABLE,
+                    "NATIVE_NAVIGATION_UNREACHABLE"
+                );
+            }
         } else if (infrastructure != null) {
             completeInfrastructureTask(
                 world,
@@ -2937,6 +2941,47 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         stopBuildingAnimation(ref, store, runtime);
         runtime.clearWorkAssignment();
         runtime.navigationArrived();
+    }
+
+    /**
+     * Only a previously excavated authored elevation transition can become an
+     * automatic repair. The normal mine steps feature stays disabled; this is
+     * a bounded response to a native navigation failure, not eager stair work.
+     */
+    private boolean scheduleNearbyRecoveryStep(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan minePlan,
+        RuntimeFrontPlan front
+    ) {
+        int destinationSlice = front.sliceIndex - 1;
+        if (destinationSlice < 1) return false;
+        for (MineTunnelGeometry.StepTransition transition : front.geometry.stepTransitions()) {
+            if (transition.toSliceIndex() != destinationSlice) continue;
+            if (!sliceComplete(world, front.slices.get(transition.fromSliceIndex()))
+                || !sliceComplete(world, front.slices.get(transition.toSliceIndex()))) {
+                continue;
+            }
+            MineInfrastructureTask task = MineInfrastructurePlanner.recoveryStepTask(
+                front.tunnelId, transition
+            );
+            if (minePlan.infrastructureTasks.containsKey(task.id())) continue;
+            minePlan.infrastructureTasks.put(
+                task.id(),
+                new RuntimeInfrastructureTask(
+                    task, front.tunnelKind, geometryFor(front), false
+                )
+            );
+            decisionSink.record(
+                mine.id(), task.id(), MineDecisionCategory.NAVIGATION,
+                "NAVIGATION_STEP_REPAIR_CREATED",
+                "tunnel", front.tunnelId,
+                "fromSlice", transition.fromSliceIndex(),
+                "toSlice", transition.toSliceIndex()
+            );
+            return true;
+        }
+        return false;
     }
 
     private boolean frontExecutable(World world, RuntimeMinePlan minePlan, RuntimeFrontPlan plan) {
