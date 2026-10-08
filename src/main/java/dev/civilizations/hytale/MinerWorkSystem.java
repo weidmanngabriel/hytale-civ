@@ -2046,7 +2046,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         MineRoom selected = MineIdleDestinationSelector.select(
             network.rooms(), position.x, position.y, position.z,
             runtime.idleRoomId, runtime.failedIdleRooms,
-            room -> loadedBlockType(world, room.position()) == BlockType.EMPTY
+            room -> { // Unloaded distant rooms are not automatically unsafe.
+                BlockType observed = loadedBlockType(world, room.position());
+                return observed == null || observed == BlockType.EMPTY;
+            }
         );
         if (selected != null) {
             runtime.idleReachedConnector = false;
