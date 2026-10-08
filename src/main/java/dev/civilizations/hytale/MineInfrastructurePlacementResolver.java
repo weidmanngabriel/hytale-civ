@@ -693,18 +693,20 @@ public final class MineInfrastructurePlacementResolver {
         java.util.Set<BlockPosition> core = geometry.navigationCoreBlocks();
         for (PlacementStep placement : resolved.placements()) {
             BlockPosition at = placement.position();
-            // Supports above the core ceiling remain valid; only the occupied
-            // standing-height rows need lateral clearance.
-            boolean nearWalkway = false;
-            for (int dx = -1; dx <= 1 && !nearWalkway; dx++) {
-                for (int dz = -1; dz <= 1; dz++) {
-                    if (core.contains(new BlockPosition(at.x() + dx, at.y(), at.z() + dz))) {
-                        nearWalkway = true;
-                        break;
+            if (core.contains(at)) return false;
+            boolean edge = core.contains(new BlockPosition(at.x() - 1, at.y(), at.z()))
+                || core.contains(new BlockPosition(at.x() + 1, at.y(), at.z()))
+                || core.contains(new BlockPosition(at.x(), at.y(), at.z() - 1))
+                || core.contains(new BlockPosition(at.x(), at.y(), at.z() + 1));
+            if (!edge) {
+                for (int dx = -1; dx <= 1; dx += 2) {
+                    for (int dz = -1; dz <= 1; dz += 2) {
+                        if (core.contains(new BlockPosition(at.x() + dx, at.y(), at.z() + dz))) {
+                            return false;
+                        }
                     }
                 }
             }
-            if (nearWalkway) return false;
         }
         return true;
     }
