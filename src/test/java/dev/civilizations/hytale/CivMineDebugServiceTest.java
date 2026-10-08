@@ -58,6 +58,15 @@ class CivMineDebugServiceTest {
         assertTrue(open.open());
     }
 
+
+    @Test
+    void debugAnchorRadiusIsMeasuredFromPlayerInThreeDimensions() {
+        org.joml.Vector3d player = new org.joml.Vector3d(500, 40, 600);
+        assertTrue(CivMineDebugService.withinPlayerRange(player, 620, 40, 600));
+        assertFalse(CivMineDebugService.withinPlayerRange(player, 629, 40, 600));
+        assertFalse(CivMineDebugService.withinPlayerRange(player, 500, 180, 600));
+    }
+
     private static BuildingPlacementRegistry.BuildingInstance mine(UUID id, UUID worldId, double x) {
         return new BuildingPlacementRegistry.BuildingInstance(
             id,
