@@ -13,6 +13,7 @@ import org.joml.Vector3d;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /** Resolves semantic infrastructure work into concrete Hytale block placements. */
 public final class MineInfrastructurePlacementResolver {
@@ -264,27 +265,23 @@ public final class MineInfrastructurePlacementResolver {
                 world, slice, forward, cross, minOffset, maxOffset
             );
             case MATERIAL_PILE -> materialPile(
-                world, slice, cross, minOffset, maxOffset
+                world, task.id(), slice, cross, minOffset, maxOffset
             );
             case BARREL -> singleFloorDecoration(
                 world, slice, cross, minOffset, maxOffset,
-                MineBlockPlacement.resolveAsset(
-                    new String[]{"Furniture_Barrel", "Barrel"}, "barrel"
-                )
+                barrelAsset(task.id())
             );
             case CRATE -> singleFloorDecoration(
                 world, slice, cross, minOffset, maxOffset,
-                MineBlockPlacement.resolveAsset(
-                    new String[]{"Furniture_Crate", "Crate"}, "crate"
-                )
-            );
-            case TOOLS -> wallDecoration(
-                world, slice, cross, minOffset, maxOffset,
-                MineBlockPlacement.resolveAsset(
-                    new String[]{"Tool_Rack", "Tools_Rack", "Furniture_Tool_Rack"}, "tool"
-                )
+                "Furniture_Crude_Chest_Small"
             );
         };
+    }
+
+    private static String barrelAsset(UUID taskId) {
+        return (taskId.hashCode() & 3) == 0
+            ? "Furniture_Ancient_Barrel"
+            : "Furniture_Tavern_Barrel";
     }
 
     private static ResolvedTask singleFloorDecoration(
@@ -382,15 +379,21 @@ public final class MineInfrastructurePlacementResolver {
 
     private static ResolvedTask materialPile(
         World world,
+        UUID taskId,
         MineTunnelGeometry.Slice slice,
         Cardinal cross,
         int minOffset,
         int maxOffset
     ) {
-        String material = MineBlockPlacement.resolveAsset(
-            new String[]{"Rock_Stone_Rubble", "Stone_Rubble", "Rock_Stone"}, "stone"
-        );
-        if (material == null) return null;
+        String[] oreBlocks = new String[]{
+            "Ore_Iron_Stone",
+            "Ore_Copper_Stone",
+            "Ore_Gold_Stone"
+        };
+        String material = oreBlocks[Math.floorMod(taskId.hashCode(), oreBlocks.length)];
+        if (MineBlockPlacement.resolveAsset(new String[]{material}, material.toLowerCase()) == null) {
+            return null;
+        }
         for (int lateral : sideOffsets(minOffset, maxOffset)) {
             if (Math.abs(lateral) <= 1) continue;
             BlockPosition first = at(slice.floorCenter(), cross, lateral, 0);
@@ -417,11 +420,11 @@ public final class MineInfrastructurePlacementResolver {
         boolean withLantern
     ) {
         String chain = MineBlockPlacement.resolveAsset(
-            new String[]{"Chain", "Metal_Chain", "Furniture_Chain"}, "chain"
+            new String[]{"Deco_Iron_Chain_Small"}, "deco", "iron", "chain", "small"
         );
         String lantern = withLantern
             ? MineBlockPlacement.resolveAsset(
-                new String[]{"Lantern", "Furniture_Lantern"}, "lantern"
+                new String[]{"Deco_Lantern"}, "deco", "lantern"
             )
             : null;
         if (chain == null || (withLantern && lantern == null)) return null;
