@@ -56,7 +56,7 @@ The repository contains the pinned server JAR but not the complete Hytale `Asset
 1. try explicit expected IDs;
 2. otherwise scan loaded `BlockType` IDs for required fragments such as `stone + brick + pillar + base`, `lantern`, or `stone + stair`.
 
-This keeps the implementation tied to actual loaded native blocks instead of inventing a Civ replacement. Which exact asset wins, its visual orientation and NPC stair traversal still need one focused Hytale-Local/in-game verification.
+This keeps the implementation tied to actual loaded native blocks instead of inventing a Civ replacement. Layer 8 reuses the same native placement path for its verified barrel, chest, chain, lantern, ore and timber decoration assets; see `mine-atmosphere-building.md`. Runtime placement and collision behavior are verified through focused Hytale-Local diagnostics rather than inferred from names.
 
 ## Fluid/gap checks
 
@@ -70,6 +70,6 @@ This is not a general cave/liquid simulation: V1 does not pump, fill, redirect o
 
 ## Nearby fallback for normal infrastructure
 
-Recurring supports and lighting are allowed to re-resolve against nearby tunnel slices when their preferred slice is unsuitable. The ordered fallback is preferred slice, then nearest slices before/after it up to ±3. Mandatory passability work does not use this fallback because its location is tied to the obstacle being solved.
+Recurring supports, lighting and optional decoration are allowed to re-resolve against nearby tunnel slices when their preferred slice is unsuitable. The ordered fallback is preferred slice, then nearest slices before/after it up to ±3. Mandatory passability work does not use this fallback because its location is tied to the obstacle being solved.
 
-A failed block placement keeps already placed world blocks. The next work tick re-resolves from current loaded-world state. If normal infrastructure has no valid preferred or fallback placement it is skipped; if mandatory bridge/step work remains unresolvable, the associated front is abandoned.
+A failed block placement keeps already placed world blocks. The next work tick re-resolves from current loaded-world state. If normal infrastructure or decoration has no valid preferred or fallback placement it is skipped; optional atmosphere never blocks a front. If mandatory bridge/step work remains unresolvable, the associated front is abandoned.

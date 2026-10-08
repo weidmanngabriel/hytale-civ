@@ -29,14 +29,16 @@ final class MinerWorkFrontExecutionTest {
     }
 
     @Test
-    void runtimePlansMultipleTunnelFrontsAndDelegatesSelectionToCoreScheduler() throws Exception {
+    void runtimePlansMultipleTunnelFrontsAndDelegatesSelectionToUnifiedCoreScheduler() throws Exception {
         String source = Files.readString(
             Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
         );
 
         assertTrue(source.contains("RUNTIME_PLANNING_TUNNEL_BUDGET"));
         assertTrue(source.contains("planned.tunnels()"));
-        assertTrue(source.contains("MineFrontTaskScheduler.select"));
+        assertTrue(source.contains("MineNormalTaskSelector.selectWithAging"));
+        assertTrue(source.contains("MineNormalTaskSelector.Kind.TUNNEL_FRONT"));
+        assertTrue(source.contains("MineNormalTaskSelector.Kind.INFRASTRUCTURE"));
         assertTrue(source.contains("putRuntimeGeometries"));
         assertFalse(source.contains("V1_PLANNING_TUNNEL_BUDGET = 1"));
         assertFalse(source.contains("planned.mainTunnel().geometry()"));

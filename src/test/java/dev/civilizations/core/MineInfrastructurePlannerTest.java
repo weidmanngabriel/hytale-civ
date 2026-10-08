@@ -36,11 +36,72 @@ class MineInfrastructurePlannerTest {
     }
 
     @Test
-    void skipsSupportsWhenTunnelCannotLeaveFourByThreeOpening() {
-        MineTunnelGeometry geometry = straightGeometry(MineTunnel.Kind.BRANCH, 32, 5, 4, 55L);
+    void branchSupportsAllowSimplerThreeWideClearOpening() {
+        MineTunnelGeometry geometry = straightGeometry(MineTunnel.Kind.BRANCH, 48, 5, 4, 55L);
 
-        assertTrue(MineInfrastructurePlanner.plan(UUID.randomUUID(), geometry).stream()
-            .noneMatch(task -> task.type() == MineInfrastructureTask.Type.BUILD_SUPPORT));
+        List<MineInfrastructureTask> supports = MineInfrastructurePlanner.plan(
+            UUID.randomUUID(), geometry
+        ).stream()
+            .filter(task -> task.type() == MineInfrastructureTask.Type.BUILD_SUPPORT)
+            .toList();
+
+        assertFalse(supports.isEmpty());
+    }
+
+    @Test
+    void plansDenserRicherDecorationOnMainThanBranches() {
+        UUID mainId = UUID.randomUUID();
+        UUID branchId = UUID.randomUUID();
+        MineTunnelGeometry main = straightGeometry(MineTunnel.Kind.MAIN, 180, 7, 7, 777L);
+        MineTunnelGeometry branch = straightGeometry(MineTunnel.Kind.BRANCH, 180, 5, 4, 777L);
+
+        List<MineInfrastructureTask> mainDecor = MineInfrastructurePlanner.plan(mainId, main).stream()
+            .filter(task -> task.type() == MineInfrastructureTask.Type.PLACE_DECORATION)
+            .toList();
+        List<MineInfrastructureTask> branchDecor = MineInfrastructurePlanner.plan(branchId, branch).stream()
+            .filter(task -> task.type() == MineInfrastructureTask.Type.PLACE_DECORATION)
+            .toList();
+
+        assertFalse(mainDecor.isEmpty());
+        assertFalse(branchDecor.isEmpty());
+        assertTrue(mainDecor.size() > branchDecor.size());
+        assertTrue(mainDecor.stream().allMatch(task -> task.priority() == 2));
+        assertTrue(branchDecor.stream().noneMatch(task ->
+            task.decorationKind() == MineInfrastructureTask.DecorationKind.HANGING_CHAIN
+                || task.decorationKind() == MineInfrastructureTask.DecorationKind.HANGING_LANTERN));
+    }
+
+    @Test
+    void decorationKeepsDistanceFromPlannedInfrastructureSlices() {
+        MineTunnelGeometry geometry = straightGeometry(MineTunnel.Kind.MAIN, 180, 7, 7, 12345L);
+        List<MineInfrastructureTask> tasks = MineInfrastructurePlanner.plan(UUID.randomUUID(), geometry);
+        List<MineInfrastructureTask> decoration = tasks.stream()
+            .filter(MineInfrastructureTask::decoration)
+            .toList();
+        List<MineInfrastructureTask> infrastructure = tasks.stream()
+            .filter(task -> !task.decoration())
+            .toList();
+
+        for (MineInfrastructureTask decor : decoration) {
+            assertTrue(infrastructure.stream().allMatch(other ->
+                Math.abs(other.startSliceIndex() - decor.startSliceIndex()) > 1
+                    || other.type() == MineInfrastructureTask.Type.BUILD_BRIDGE));
+        }
+    }
+
+    @Test
+    void decorationPlanIsDeterministicForSameTunnelAndGeometry() {
+        UUID tunnelId = UUID.randomUUID();
+        MineTunnelGeometry geometry = straightGeometry(MineTunnel.Kind.MAIN, 140, 7, 7, 991L);
+
+        List<MineInfrastructureTask> first = MineInfrastructurePlanner.plan(tunnelId, geometry).stream()
+            .filter(MineInfrastructureTask::decoration)
+            .toList();
+        List<MineInfrastructureTask> second = MineInfrastructurePlanner.plan(tunnelId, geometry).stream()
+            .filter(MineInfrastructureTask::decoration)
+            .toList();
+
+        assertEquals(first, second);
     }
 
     @Test

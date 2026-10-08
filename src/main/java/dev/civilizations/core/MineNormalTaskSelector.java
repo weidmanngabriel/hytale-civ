@@ -1,30 +1,76 @@
 package dev.civilizations.core;
 
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
-/** Shared selection rule for normal mine work that currently includes tunnel fronts and rooms. */
+/** Shared selection and aging rule for all normal mine work. */
 public final class MineNormalTaskSelector {
+
+    public static final int MAX_NORMAL_PRIORITY = 9;
 
     private MineNormalTaskSelector() {
     }
 
     public static Candidate select(List<Candidate> candidates, BlockPosition workerPosition) {
-        if (candidates == null || workerPosition == null) {
+        return selectWithAging(candidates, workerPosition, Map.of()).selected();
+    }
+
+    public static Selection selectWithAging(
+        List<Candidate> candidates,
+        BlockPosition workerPosition,
+        Map<UUID, Integer> priorityBonuses
+    ) {
+        if (candidates == null || workerPosition == null || priorityBonuses == null) {
             throw new IllegalArgumentException("Mine normal task selection inputs must not be null.");
         }
+
         List<Candidate> available = candidates.stream()
             .filter(candidate -> candidate.workerCount() < candidate.capacity())
             .toList();
-        if (available.isEmpty()) return null;
+        if (available.isEmpty()) {
+            return new Selection(null, Map.copyOf(priorityBonuses), false);
+        }
 
-        List<Candidate> active = available.stream().filter(candidate -> candidate.workerCount() > 0).toList();
-        List<Candidate> pool = active.isEmpty() ? available : active;
+        List<Candidate> active = available.stream()
+            .filter(candidate -> candidate.workerCount() > 0)
+            .toList();
+        if (!active.isEmpty()) {
+            Candidate selected = choose(active, workerPosition, priorityBonuses);
+            return new Selection(selected, Map.copyOf(priorityBonuses), false);
+        }
 
-        return pool.stream()
+        Candidate selected = choose(available, workerPosition, priorityBonuses);
+        LinkedHashMap<UUID, Integer> updated = new LinkedHashMap<>(priorityBonuses);
+        for (Candidate candidate : available) {
+            if (selected != null && candidate.id().equals(selected.id())) continue;
+            int currentBonus = updated.getOrDefault(candidate.id(), 0);
+            int maxBonus = Math.max(0, MAX_NORMAL_PRIORITY - candidate.priority());
+            if (currentBonus < maxBonus) updated.put(candidate.id(), currentBonus + 1);
+        }
+        return new Selection(selected, Map.copyOf(updated), true);
+    }
+
+    public static int effectivePriority(Candidate candidate, Map<UUID, Integer> priorityBonuses) {
+        if (candidate == null || priorityBonuses == null) {
+            throw new IllegalArgumentException("Mine priority inputs must not be null.");
+        }
+        return Math.min(
+            MAX_NORMAL_PRIORITY,
+            candidate.priority() + Math.max(0, priorityBonuses.getOrDefault(candidate.id(), 0))
+        );
+    }
+
+    private static Candidate choose(
+        List<Candidate> candidates,
+        BlockPosition workerPosition,
+        Map<UUID, Integer> priorityBonuses
+    ) {
+        return candidates.stream()
             .min(Comparator
-                .comparingInt((Candidate candidate) -> -candidate.priority())
+                .comparingInt((Candidate candidate) -> -effectivePriority(candidate, priorityBonuses))
                 .thenComparingDouble(candidate -> distanceSquared(workerPosition, candidate.position()))
                 .thenComparing(candidate -> candidate.id().toString()))
             .orElse(null);
@@ -53,8 +99,22 @@ public final class MineNormalTaskSelector {
         }
     }
 
+    public record Selection(
+        Candidate selected,
+        Map<UUID, Integer> updatedPriorityBonuses,
+        boolean openedWaitingWork
+    ) {
+        public Selection {
+            if (updatedPriorityBonuses == null) {
+                throw new IllegalArgumentException("Mine aging state must not be null.");
+            }
+            updatedPriorityBonuses = Map.copyOf(updatedPriorityBonuses);
+        }
+    }
+
     public enum Kind {
         TUNNEL_FRONT,
-        ROOM
+        ROOM,
+        INFRASTRUCTURE
     }
 }

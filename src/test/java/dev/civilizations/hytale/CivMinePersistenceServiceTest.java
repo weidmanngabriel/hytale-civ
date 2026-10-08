@@ -10,6 +10,7 @@ import dev.civilizations.core.MineWorkFront;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -54,11 +55,14 @@ class CivMinePersistenceServiceTest {
                 new BlockPosition(10, 2, 3), MineNavigationAnchor.Type.REGULAR, Set.of(anchorAId))
         ));
         UUID completedInfrastructure = UUID.randomUUID();
-        network = network.withInfrastructureTaskCompleted(completedInfrastructure);
+        UUID agedTask = UUID.randomUUID();
+        network = network.withInfrastructureTaskCompleted(completedInfrastructure)
+            .withNormalTaskPriorityBonuses(Map.of(agedTask, 3));
 
         MineNetwork decoded = service.decodeNetwork(service.encodeNetwork(network));
         assertEquals(network, decoded);
         assertEquals(Set.of(completedInfrastructure), decoded.completedInfrastructureTaskIds());
+        assertEquals(3, decoded.normalTaskPriorityBonus(agedTask));
     }
 
 
@@ -83,6 +87,23 @@ class CivMinePersistenceServiceTest {
         MineNetwork decoded = service.decodeNetwork(service.encodeNetwork(network));
 
         assertEquals(chamber, decoded.rooms().getFirst());
+    }
+
+
+    @Test
+    void readsPreviousN4FormatWithNoAgingState() {
+        UUID mineId = UUID.randomUUID();
+        UUID mainId = UUID.randomUUID();
+        UUID roomId = UUID.randomUUID();
+        String previous = "N4|" + mineId + "|" + mainId + "\n"
+            + "T|" + mainId + "|MAIN||0|1,2,3\n"
+            + "R|" + roomId + "|" + mainId
+            + "|SMALL_NICHE|12,2,4|NORTH|7|EXCAVATING|2|0,2";
+
+        MineNetwork decoded = service.decodeNetwork(previous);
+
+        assertEquals(MineRoom.State.EXCAVATING, decoded.rooms().getFirst().state());
+        assertEquals(Map.of(), decoded.normalTaskPriorityBonuses());
     }
 
     @Test

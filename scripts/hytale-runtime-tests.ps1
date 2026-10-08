@@ -318,6 +318,47 @@ function Run-WarmRuntimeScenario {
     Write-Host 'Warm Hytale gameplay suite passed in one server process.'
 }
 
+function Run-MineAtmosphereScenario {
+    param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
+
+    $result = Start-HytaleProbe `
+        -RuntimeDir $RuntimeDir `
+        -LogPrefix 'mineatmosphere' `
+        -BootCommand 'civmineatmosphereprobe' `
+        -TimeoutSeconds 60
+    $combined = $result.Combined
+    Write-Host '----- Hytale mine atmosphere output -----'
+    Write-Host $combined
+    Write-Host '----- end Hytale mine atmosphere output -----'
+
+    Assert-CommonRuntimeHealth -Combined $combined
+    if ($combined.Contains('CIV_MINE_ATMOSPHERE_RUNTIME_FAIL')) {
+        throw 'The Civ mine atmosphere runtime scenario reported failure.'
+    }
+    Assert-Evidence -Combined $combined -RequiredEvidence @(
+        'Loaded pack: Hytale:Hytale from Assets.zip',
+        'Loaded pack: Civilizations:HytaleCivAssets from hytale-civ-assets',
+        'Enabled plugin Civilizations:HytaleCiv',
+        'Hytale Server Booted!',
+        'Console executed command: civmineatmosphereprobe',
+        'CIV_MINE_ATMOSPHERE_RUNTIME_STARTED',
+        'CIV_MINE_ATMOSPHERE_DECORATION kind=BARREL assets=',
+        'CIV_MINE_ATMOSPHERE_DECORATION kind=CRATE assets=',
+        'CIV_MINE_ATMOSPHERE_DECORATION kind=TIMBER_PILE assets=',
+        'CIV_MINE_ATMOSPHERE_DECORATION kind=MATERIAL_PILE assets=',
+        'CIV_MINE_ATMOSPHERE_DECORATION kind=HANGING_CHAIN assets=',
+        'CIV_MINE_ATMOSPHERE_DECORATION kind=HANGING_LANTERN assets=',
+        'CIV_MINE_ATMOSPHERE_FIXTURE_READY',
+        'CIV_MINE_ATMOSPHERE_NAVIGATION_PASS',
+        'CIV_MINE_ATMOSPHERE_RUNTIME_PASS',
+        'Shutdown completed!'
+    )
+    if ($result.Process.ExitCode -ne 0) {
+        Write-Warning "Mine atmosphere server exited with code $($result.Process.ExitCode) after complete PASS and clean shutdown evidence; treating runtime evidence as authoritative."
+    }
+    Write-Host 'Real Hytale mine atmosphere scenario passed.'
+}
+
 function Run-PersistenceScenario {
     param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
 
@@ -439,6 +480,7 @@ foreach ($scenario in $Scenarios) {
             'persistence' { Run-PersistenceScenario -RuntimeDir $runtimeDir }
             'minesupport' { Run-MineSupportScenario -RuntimeDir $runtimeDir }
             'soldier' { Run-SoldierScenario -RuntimeDir $runtimeDir }
+            'mineatmosphere' { Run-MineAtmosphereScenario -RuntimeDir $runtimeDir }
             default { throw "No runtime implementation exists for registered scenario: $scenario" }
         }
     } finally {

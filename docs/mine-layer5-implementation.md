@@ -1,6 +1,6 @@
 # Mine Layer 5 - Miner-built infrastructure
 
-Status: implemented V1 for supports, stairs, bridges and lighting. Rails, rooms and optional decoration remain later work.
+Status: implemented V1 for supports, stairs, bridges and lighting. This document describes the Layer-5 checkpoint; rooms were added in Layer 6 and optional decoration plus general aging in Layer 8. Rails remain later work.
 
 This document records the concrete implementation of the infrastructure decisions from `docs/mine-design.md` and `docs/miner-npc-design.md`. Product rules remain canonical in those documents.
 
@@ -17,7 +17,7 @@ Layer 5 adds four semantic miner tasks:
 
 One infrastructure task has capacity one. A miner reserves it, walks to its work area and places the resolved construction one block at a time. Each block takes 0.5 seconds. Infrastructure completion IDs are persisted in `MineNetwork`; temporary worker reservations and partial in-memory placement cursors are not.
 
-The existing `MineFrontTaskScheduler` remains deliberately limited to excavation fronts. Layer 5 integrates infrastructure selection around that scheduler in `MinerWorkSystem`: available priority-10 passability work can interrupt a normal excavation assignment, while ordinary infrastructure is chosen at normal task-selection boundaries. The full canonical aging/general multi-category scheduler is still deferred.
+At the Layer-5 checkpoint, `MineFrontTaskScheduler` was still the live excavation scheduler and infrastructure was integrated around it. Layer 8 supersedes that runtime arrangement: `MineNormalTaskSelector` now owns the shared normal candidate pool and persistent aging, while priority-10 passability remains the separate acute path. The Layer-5 task/placement mechanisms themselves are still reused.
 
 ## Supports
 
@@ -116,13 +116,4 @@ Actual placed blocks remain Hytale-world state. Completion IDs prevent determini
 
 ## Deferred / limitations
 
-Still deferred:
-
-- rails and native minecart integration;
-- room excavation/construction;
-- optional decoration;
-- material consumption;
-- full task aging and a unified general task scheduler;
-- richer cave classification and lava-specific bridge decisions;
-- bridge railings/pillars;
-- Hytale-Local validation of the runtime-selected stair, pillar, lantern and torch assets.
+Deferred from the Layer-5 checkpoint were rails, rooms, decoration, material consumption, unified aging, richer cave handling and richer bridge art. Since then rooms are implemented in Layer 6, cave/hazard integration in Layer 7, and optional decoration plus unified normal-task aging in Layer 8. Still open here are rails/native minecarts, material consumption, richer bridge railings/pillars and further visual/asset tuning.

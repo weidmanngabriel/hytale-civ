@@ -263,6 +263,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
             getCommandRegistry().registerCommand(
                 new CivSoldierFixtureProbeCommand(unitRegistry, activityRegistry, soldierWorkSystem)
             );
+            getCommandRegistry().registerCommand(
+                new CivMineAtmosphereProbeCommand(unitRegistry, activityRegistry)
+            );
         }
         getCommandRegistry().registerCommand(
             new CivRtsTestCommand(rtsInteractionController, selectedNpcHudController)
