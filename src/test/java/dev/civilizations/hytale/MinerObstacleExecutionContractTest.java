@@ -86,6 +86,18 @@ final class MinerObstacleExecutionContractTest {
     }
 
     @Test
+    void nativeNavigationFailureCanGenerateOneBoundedStairRepair() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
+        );
+        assertTrue(source.contains("scheduleNearbyRecoveryStep(world, mine, minePlan, affected)"));
+        assertTrue(source.contains("transition.toSliceIndex() != destinationSlice"));
+        assertTrue(source.contains("!sliceComplete(world, front.slices.get(transition.fromSliceIndex()))"));
+        assertTrue(source.contains("minePlan.infrastructureTasks.containsKey(task.id())"));
+        assertTrue(source.contains("NAVIGATION_STEP_REPAIR_CREATED"));
+    }
+
+    @Test
     void mandatoryInfrastructureResolutionFailureAbandonsItsFront() throws Exception {
         String source = Files.readString(
             Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
