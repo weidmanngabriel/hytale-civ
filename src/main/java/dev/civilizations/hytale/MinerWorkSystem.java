@@ -92,7 +92,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         {0, -2}, {2, -2}, {2, 0}, {2, 2}, {0, 2}, {-2, 2}, {-2, 0}, {-2, -2}
     };
     private static final int MAX_FLUID_BRIDGE_SPAN = 10;
-    private static final double ARRIVAL_DISTANCE = 1.1;
+    private static final double ARRIVAL_HORIZONTAL_DISTANCE = 1.6;
+    private static final double ARRIVAL_VERTICAL_TOLERANCE = 1.0;
     private static final int MAIN_PLAN_LENGTH_BLOCKS = MinePathPlanner.FOOTPRINT_SIZE_BLOCKS;
     private static final int RUNTIME_PLANNING_TUNNEL_BUDGET = 64;
 
@@ -2958,7 +2959,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     }
 
     private static boolean arrived(Vector3d position, Vector3d target) {
-        return position.distanceSquared(target) <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
+        return CivArrivalPolicy.reached(
+            position, target, ARRIVAL_HORIZONTAL_DISTANCE, ARRIVAL_VERTICAL_TOLERANCE
+        );
     }
 
     private void releaseWorker(
