@@ -59,7 +59,7 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
     }
 
     private static void noMine(CommandContext context) {
-        context.sendMessage(Message.raw("Keine Civ-Mine im Umkreis von 128 Blöcken gefunden."));
+        context.sendMessage(Message.raw("Keine Civ-Mine im Umkreis von 128 Blöcken um Spieler oder Tunnel gefunden."));
     }
 
     private static final class InfoCommand extends AbstractPlayerCommand {
