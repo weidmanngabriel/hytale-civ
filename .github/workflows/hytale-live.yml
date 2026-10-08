@@ -42,8 +42,16 @@ jobs:
             const coords = coord + ' ' + coord + ' ' + coord;
             const read = '(?:status|npcs|mines|npc ' + uuid + '|events ' + uuid + '|mine-info ' + uuid + ')';
             const write = '(?:spawn Civ_Inhabitant ' + coords + '|move ' + uuid + ' ' + coords + '|profession ' + uuid + ' (?:MINER|CONSTRUCTION_WORKER|SOLDIER|WOODCUTTER|FARMER)|assign-mine ' + uuid + ' ' + uuid + ')';
-            const rule = new RegExp('^(' + read + '|' + write + ')$');
-            const translate = s => s === 'status' ? 'version' : 'civdev ' + s;
+            const integer = '-?[0-9]{1,5}';
+            const blockPos = integer + ' ' + integer + ' ' + integer;
+            const blockId = '[A-Za-z][A-Za-z0-9_./-]{0,99}';
+            const agentRead = '(?:agent (?:capabilities|players|buildings|sites|block ' + blockPos + '))';
+            const agentWrite = '(?:agent (?:set-block ' + blockPos + ' ' + blockId +
+              '|create-site ' + uuid + ' (?:mine|farm|wheat_field) ' + blockPos +
+              '|mine-recover ' + uuid + ' (?:status|workers|fronts|all)))';
+            const rule = new RegExp('^(' + read + '|' + write + '|' + agentRead + '|' + agentWrite + ')$');
+            const translate = s => s === 'status' ? 'version' :
+              s.startsWith('agent ') ? 'civagent ' + s.slice(6) : 'civdev ' + s;
             const batch = /^\/hytale-live-batch runner (gabe|thommy)\r?\n([\s\S]+)$/.exec(input);
             if (batch) {
               if (input.length > 16000) { core.setFailed('Batch too long'); return; }
@@ -90,7 +98,7 @@ jobs:
               core.setOutput('allowed','true');
               return;
             }
-            const match = new RegExp('^/hytale-live (?:runner (gabe|thommy) )?(' + read + '|reset|' + write + ')$').exec(input);
+            const match = new RegExp('^/hytale-live (?:runner (gabe|thommy) )?(' + read + '|reset|' + write + '|' + agentRead + '|' + agentWrite + ')$').exec(input);
             if (!match || input.length > 256) return;
             core.setOutput('command',translate(match[2]));
             core.setOutput('requester',actor);
@@ -151,6 +159,11 @@ jobs:
             $coords = "$coord $coord $coord"
             $read = "version|civdev (npcs|mines|(npc|events|mine-info) $uuid)"
             $write = "civdev (spawn Civ_Inhabitant $coords|move $uuid $coords|profession $uuid (MINER|CONSTRUCTION_WORKER|SOLDIER|WOODCUTTER|FARMER)|assign-mine $uuid $uuid)"
+            $integer = '-?[0-9]{1,5}'
+            $blockPos = "$integer $integer $integer"
+            $blockId = '[A-Za-z][A-Za-z0-9_./-]{0,99}'
+            $agentRead = "civagent (capabilities|players|buildings|sites|block $blockPos)"
+            $agentWrite = "civagent (set-block $blockPos $blockId|create-site $uuid (mine|farm|wheat_field) $blockPos|mine-recover $uuid (status|workers|fronts|all))"
             $seen = @{}
             $results = [Collections.Generic.List[object]]::new()
             $status = 'success'
@@ -162,14 +175,14 @@ jobs:
                 if ($step.id -notmatch '^[A-Za-z][A-Za-z0-9_-]{0,39}$' -or $seen.ContainsKey($step.id)) { throw 'Invalid step ID' }
                 if ($step.action -eq 'command') {
                   $cmd = [string]$step.command
-                  if ($cmd.Length -gt 256 -or $cmd -notmatch "^($read|$write)$") { throw 'Disallowed command' }
+                  if ($cmd.Length -gt 256 -or $cmd -notmatch "^($read|$write|$agentRead|$agentWrite)$") { throw 'Disallowed command' }
                   $health = Invoke-RestMethod -Uri 'http://127.0.0.1:5523/health' -TimeoutSec 3
                   if ($health.ready -ne $true) { throw 'Hytale bridge not ready' }
                   $payload = @{command=$cmd} | ConvertTo-Json -Compress
                   $response = Invoke-RestMethod -Uri 'http://127.0.0.1:5523/command' -Method Post -ContentType 'application/json' -Body $payload -TimeoutSec 15
                   $item.command = $cmd
                   $item.output = @($response.output)
-                  if (-not $response.success) { throw 'Game command failed' }
+                  if (-not $response.success -or @($response.output | Where-Object { $_ -match '^(CIVDEV_ERROR|CIVAGENT_ERROR)' }).Count -gt 0) { throw 'Game command failed' }
                 } elseif ($step.action -eq 'wait') {
                   $seconds = [int]$step.seconds
                   $totalWait += $seconds
@@ -212,7 +225,12 @@ jobs:
           $coords = "$coord $coord $coord"
           $read = "version|civdev (npcs|mines|(npc|events|mine-info) $uuid)"
           $write = "civdev (reset|spawn Civ_Inhabitant $coords|move $uuid $coords|profession $uuid (MINER|CONSTRUCTION_WORKER|SOLDIER|WOODCUTTER|FARMER)|assign-mine $uuid $uuid)"
-          if ($command.Length -gt 256 -or $command -notmatch "^($read|$write)$") {
+            $integer = '-?[0-9]{1,5}'
+            $blockPos = "$integer $integer $integer"
+            $blockId = '[A-Za-z][A-Za-z0-9_./-]{0,99}'
+            $agentRead = "civagent (capabilities|players|buildings|sites|block $blockPos)"
+            $agentWrite = "civagent (set-block $blockPos $blockId|create-site $uuid (mine|farm|wheat_field) $blockPos|mine-recover $uuid (status|workers|fronts|all))"
+          if ($command.Length -gt 256 -or $command -notmatch "^($read|$write|$agentRead|$agentWrite)$") {
             throw 'Command failed local allowlist validation'
           }
           $uri = 'http://127.0.0.1:5523'
@@ -223,7 +241,7 @@ jobs:
           $json = $result | ConvertTo-Json -Depth 10 -Compress
           if ($json.Length -gt 30000) { $json = $json.Substring(0,30000) + '...[truncated]' }
           Write-Host "HCIV_LIVE_RESULT $json"
-          if (-not $result.success) { throw 'Hytale command failed; see HCIV_LIVE_RESULT' }
+          if (-not $result.success -or @($result.output | Where-Object { $_ -match '^(CIVDEV_ERROR|CIVAGENT_ERROR)' }).Count -gt 0) { throw 'Hytale command failed; see HCIV_LIVE_RESULT' }
 
       - name: Upload structured batch result
         if: always()

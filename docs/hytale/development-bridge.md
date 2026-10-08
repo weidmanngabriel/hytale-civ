@@ -51,3 +51,9 @@ Der reale Launcher-/Singleplayer-Durchlauf muss noch bestätigen:
 2. `hytale_status` erkennt den Endpoint.
 3. `hytale_command version` liefert eine native Command-Antwort.
 4. Ein geeigneter console-fähiger Civ-Command kann sichtbaren Spielzustand verändern.
+
+## Agent-Integration in 0.6.8
+
+Der neuen `civagent`-Facade liegen verifizierte native APIs zugrunde: `Universe.getPlayers/getPlayer(UUID)`, `World.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(...))`, `WorldChunk.getBlockType`, `ChunkStore.getChunkSectionReferenceAtBlock(x,y,z)` und `BlockOperations.setBlock(ChunkStore,sectionRef,x,y,z,index,BlockType,rotation,filler,flags)`. Für Blockänderungen wird die **Section-Referenz** benötigt, nicht die Column-Referenz. Der vorhandene `MineBlockPlacement`-Pfad und die gepinnte JAR bestätigen die Signaturen. Der native Effekt von Blockwrites, insbesondere Connected-Blocks- und Physics-Folgeaktionen, ist noch separat im laufenden Spiel zu verifizieren; die Agent-API meldet erst nach dem Rücklesen des gesetzten Blocktyps Erfolg.
+
+`civagent create-site` ruft `PrefabPlacementService.validatePlacement` und `createConstructionSiteAtClick` mit einem tatsächlich verbundenen `PlayerRef` auf und folgt danach denselben `BuildingPlacementRegistry.reserve`, `ConstructionSiteRegistry.register` und `CivConstructionPersistenceService.saveSites`-Schritten wie der RTS-Controller. Es handelt sich um eine Baustelle; die native spätere Prefab-Finalisierung verbleibt unverändert im `ConstructionWorkSystem`. Der Runtime-Dispatch dieser Konsolenvariante muss im installierten Plugin bestätigt werden.
