@@ -54,3 +54,6 @@ JAR signatures prove API availability, not the actual contents or collision shap
 The focused Hytale-Local scenario `mineatmosphere` is therefore the reusable runtime diagnostic for this layer. It reports the actual resolved asset IDs, places each main decoration type with the production placement path and verifies that a real Civ NPC can traverse the reserved central corridor afterward.
 
 The ore material blocks are normal native ore blocks, including their normal gathering/drop behaviour. Likewise, the crude chest is a native container block. Civ does not add separate Layer-8 storage or ore-economy semantics on top of those native behaviours.
+
+
+Native placement reference: `MineBlockPlacement` passes a `ChunkStore.getChunkSectionReferenceAtBlock(...)` **section** reference to `BlockOperations.setBlock`, native connected-block notification and Deco physics. A chunk-column reference is not valid for these operations. See `mine-infrastructure-building.md`.
