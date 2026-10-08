@@ -6,6 +6,8 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.MineNavigationAnchor;
+import dev.civilizations.core.MineGenerationProgress;
+import dev.civilizations.core.MineHeading;
 import dev.civilizations.core.MineNetwork;
 import dev.civilizations.core.MineRoom;
 import dev.civilizations.core.MineTunnel;
@@ -20,7 +22,8 @@ import java.util.UUID;
 /** Persists Civ-owned semantic mine-network state in the world entity store. */
 public final class CivMinePersistenceService {
 
-    private static final String FORMAT_HEADER = "N5";
+    private static final String FORMAT_HEADER = "N6";
+    private static final String FORMAT_N5_HEADER = "N5";
     private static final String PREVIOUS_FORMAT_HEADER = "N4";
     private static final String LEGACY_FORMAT_HEADER = "N3";
     private static final String OLDEST_SUPPORTED_FORMAT_HEADER = "N2";
@@ -94,6 +97,13 @@ public final class CivMinePersistenceService {
         for (UUID taskId : network.completedInfrastructureTaskIds()) {
             lines.add(String.join("|", "I", taskId.toString()));
         }
+        for (var entry : network.generationProgress().entrySet()) {
+            MineGenerationProgress progress = entry.getValue();
+            lines.add(String.join("|", "G", entry.getKey().toString(),
+                Integer.toString(progress.unlockedSlices()),
+                Long.toString(progress.nextRefreshAtMillis()),
+                progress.heading().name(), Long.toString(progress.seed())));
+        }
         for (var entry : network.normalTaskPriorityBonuses().entrySet()) {
             lines.add(String.join("|", "P", entry.getKey().toString(), Integer.toString(entry.getValue())));
         }
@@ -106,6 +116,7 @@ public final class CivMinePersistenceService {
         String[] header = lines[0].split("\\|", -1);
         if (header.length != 3
             || (!FORMAT_HEADER.equals(header[0])
+                && !FORMAT_N5_HEADER.equals(header[0])
                 && !PREVIOUS_FORMAT_HEADER.equals(header[0])
                 && !LEGACY_FORMAT_HEADER.equals(header[0])
                 && !OLDEST_SUPPORTED_FORMAT_HEADER.equals(header[0]))) {
@@ -113,11 +124,14 @@ public final class CivMinePersistenceService {
         }
         boolean supportsInfrastructure =
             FORMAT_HEADER.equals(header[0])
+                || FORMAT_N5_HEADER.equals(header[0])
                 || PREVIOUS_FORMAT_HEADER.equals(header[0])
                 || LEGACY_FORMAT_HEADER.equals(header[0]);
         boolean supportsRoomProgress =
-            FORMAT_HEADER.equals(header[0]) || PREVIOUS_FORMAT_HEADER.equals(header[0]);
-        boolean supportsPriorityAging = FORMAT_HEADER.equals(header[0]);
+            FORMAT_HEADER.equals(header[0]) || FORMAT_N5_HEADER.equals(header[0])
+                || PREVIOUS_FORMAT_HEADER.equals(header[0]);
+        boolean supportsPriorityAging = FORMAT_HEADER.equals(header[0])
+            || FORMAT_N5_HEADER.equals(header[0]);
 
         UUID mineId = UUID.fromString(header[1]);
         UUID mainTunnelId = UUID.fromString(header[2]);
@@ -127,6 +141,7 @@ public final class CivMinePersistenceService {
         List<MineNavigationAnchor> anchors = new ArrayList<>();
         Set<UUID> completedInfrastructureTaskIds = new LinkedHashSet<>();
         java.util.Map<UUID, Integer> normalTaskPriorityBonuses = new java.util.LinkedHashMap<>();
+        java.util.Map<UUID, MineGenerationProgress> generationProgress = new java.util.LinkedHashMap<>();
 
         for (int i = 1; i < lines.length; i++) {
             String[] parts = lines[i].split("\\|", -1);
@@ -178,6 +193,13 @@ public final class CivMinePersistenceService {
                     requireFieldCount(parts, 2);
                     completedInfrastructureTaskIds.add(UUID.fromString(parts[1]));
                 }
+                case "G" -> {
+                    if (!FORMAT_HEADER.equals(header[0])) throw new IllegalArgumentException("generation record in legacy format");
+                    requireFieldCount(parts, 6);
+                    generationProgress.put(UUID.fromString(parts[1]), new MineGenerationProgress(
+                        Integer.parseInt(parts[2]), Long.parseLong(parts[3]),
+                        MineHeading.valueOf(parts[4]), Long.parseLong(parts[5])));
+                }
                 case "P" -> {
                     if (!supportsPriorityAging) {
                         throw new IllegalArgumentException("priority aging record in legacy format");
@@ -193,7 +215,7 @@ public final class CivMinePersistenceService {
         }
         return new MineNetwork(
             mineId, mainTunnelId, tunnels, rooms, fronts, anchors,
-            completedInfrastructureTaskIds, normalTaskPriorityBonuses
+            completedInfrastructureTaskIds, normalTaskPriorityBonuses, generationProgress
         );
     }
 
