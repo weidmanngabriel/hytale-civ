@@ -74,6 +74,19 @@ final class MinerObstacleExecutionContractTest {
     }
 
     @Test
+    void bridgeDeckAndCrossbeamsDeduplicateVoxelTargets() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MineInfrastructurePlacementResolver.java")
+        );
+        int begin = source.indexOf("private static ResolvedTask resolveBridge(");
+        int end = source.indexOf("private static List<Integer> candidateSliceOrder(", begin);
+        String bridgeResolver = source.substring(begin, end);
+        assertTrue(bridgeResolver.contains("java.util.LinkedHashMap<>"));
+        assertTrue(bridgeResolver.contains("placements.putIfAbsent(position, new PlacementStep("));
+        assertTrue(bridgeResolver.contains("List.copyOf(placements.values())"));
+    }
+
+    @Test
     void alreadyRestoredBridgeFloorCompletesInsteadOfAbandoning() throws Exception {
         String source = Files.readString(
             Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
