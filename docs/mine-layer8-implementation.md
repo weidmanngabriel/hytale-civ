@@ -59,7 +59,7 @@ Mine persistence format is `N5`; `N4`, `N3` and `N2` remain readable.
 Main tunnel:
 
 - decoration spacing: 10-18 slices;
-- variants: barrel, crate, timber pile, tools, material pile, hanging chain, hanging lantern;
+- variants: barrel, crate, timber pile, material pile, hanging chain, hanging lantern;
 - main supports keep the existing stronger trunk-beam appearance.
 
 Branch tunnels:
@@ -84,7 +84,7 @@ The Hytale adapter uses the existing native `MineBlockPlacement` path rather tha
 3. apply `BlockPhysics.markDeco(...)` where needed for built Fir;
 4. notify connected blocks through `ConnectedBlocksUtil`.
 
-Known Fir timber blocks are used for timber piles. Barrel, crate, tool, chain, lantern and material objects are resolved against the actually loaded Hytale block asset map. Missing or unsuitable optional decoration is skipped.
+Verified native assets are used directly: `Furniture_Tavern_Barrel` for ordinary barrels, occasional `Furniture_Ancient_Barrel` damaged variants, `Furniture_Crude_Chest_Small` for crates/chests, `Deco_Iron_Chain_Small` for chains and `Deco_Lantern` for hanging lanterns. Timber piles use Fir trunks. Material piles deterministically use `Ore_Iron_Stone`, `Ore_Copper_Stone` or `Ore_Gold_Stone`. No tool-rack variant exists in V1.
 
 Every candidate preserves the guaranteed navigation core. Floor/wall/ceiling variants are placed only at side positions outside the central +/-1 lane. That same lane remains free for the later main-tunnel rail layer. Hanging objects also reject any cell that belongs to the navigation core.
 
@@ -92,7 +92,7 @@ Optional decoration uses the existing nearby +/-3 slice fallback. If no safe pla
 
 ## Runtime verification
 
-The focused `mineatmosphere` Hytale-Local scenario creates a deterministic artificial main-tunnel shell, resolves and places all seven main decoration kinds through production code, then sends a real Civ NPC through the central corridor using Hytale-native navigation.
+The focused `mineatmosphere` Hytale-Local scenario creates a deterministic artificial main-tunnel shell, resolves and places all six main decoration kinds through production code, then sends a real Civ NPC through the central corridor using Hytale-native navigation.
 
 The scenario exists to verify loaded asset IDs, placement support/orientation contracts and central-corridor passability. It is diagnostic evidence rather than a merge gate.
 
@@ -100,7 +100,8 @@ The scenario exists to verify loaded asset IDs, placement support/orientation co
 
 - exact final visual composition and asset variants remain art/tuning work;
 - decoration is currently block-asset based rather than using authored multi-block decoration prefabs;
-- barrels/crates/tools/material piles are visual only and have no inventory or production semantics;
+- crates are real native container blocks and ore material piles are normal mineable ore blocks; Layer 8 does not add Civ-specific inventory/logistics semantics, but native block interactions/drops remain available;
+- decorative ore blocks therefore create a small real resource source; this is intentional for the current design;
 - rooms are not given a separate decoration pass in Layer 8;
 - rails/minecarts remain the next independent layer;
 - material consumption remains deferred.
