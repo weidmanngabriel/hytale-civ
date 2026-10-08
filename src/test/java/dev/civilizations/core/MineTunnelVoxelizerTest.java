@@ -182,6 +182,35 @@ final class MineTunnelVoxelizerTest {
         }
     }
 
+
+    @Test
+    void diagonalSixHighRoofHasNoDisconnectedStalactiteGaps() {
+        List<MinePathPoint> points = java.util.stream.IntStream.range(0, 3)
+            .mapToObj(i -> new MinePathPoint(
+                i, i, 80.0, i, 6.0, 6.0,
+                MineHeading.NORTH_EAST, 45.0, 0
+            ))
+            .toList();
+        MineTunnelPath path = new MineTunnelPath(
+            MineTunnel.Kind.MAIN, 9876L, points,
+            List.of(new MineFormPhase(
+                0, 0, 2, MineHeading.NORTH_EAST, MineHeading.NORTH_EAST,
+                6.0, 6.0, 6.0, 6.0, 45.0, 45.0, 0
+            ))
+        );
+        MineTunnelGeometry geometry = MineTunnelVoxelizer.voxelize(path);
+
+        for (MineTunnelGeometry.Slice slice : geometry.slices()) {
+            int roofY = slice.floorCenter().y() + slice.heightBlocks() - 1;
+            Set<BlockPosition> roof = new HashSet<>();
+            for (BlockPosition block : slice.excavationBlocks()) {
+                if (block.y() == roofY) roof.add(block);
+            }
+            assertTrue(roof.size() >= slice.widthBlocks());
+            assertConnected(roof);
+        }
+    }
+
     private static void assertConnected(Set<BlockPosition> blocks) {
         assertFalse(blocks.isEmpty());
         Set<BlockPosition> remaining = new HashSet<>(blocks);
