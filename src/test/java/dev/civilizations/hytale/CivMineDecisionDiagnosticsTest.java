@@ -13,10 +13,14 @@ class CivMineDecisionDiagnosticsTest {
     @Test
     void parsesCommaSeparatedCategoriesCaseInsensitively() {
         Set<MineDecisionCategory> categories =
-            CivMineDecisionDiagnostics.parseCategories("planning, ROOM");
+            CivMineDecisionDiagnostics.parseCategories("planning, ROOM, worker");
 
         assertEquals(
-            Set.of(MineDecisionCategory.PLANNING, MineDecisionCategory.ROOM),
+            Set.of(
+                MineDecisionCategory.PLANNING,
+                MineDecisionCategory.ROOM,
+                MineDecisionCategory.WORKER
+            ),
             categories
         );
     }
