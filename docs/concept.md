@@ -272,3 +272,7 @@ Minenarbeiter bauen optionale Stützen, Lampen und Dekoration erst, wenn im Umkr
 ## Miner task continuity
 
 Mine priorities apply when a miner selects the next assignment. A newly available priority-10 infrastructure task does not interrupt ongoing front excavation, room work or a partially built support. A task is released on its normal completion, safety failure or explicit recovery; player-directed interventions remain separate.
+
+## Timber decoration placement
+
+New mine planning does not schedule `TIMBER_PILE` floor decorations. These two-block wood piles occupied the same narrow corridor space needed for walking and work, and should not be confused with structural support posts. Existing wood decorations already placed in saved worlds are not automatically deleted.
