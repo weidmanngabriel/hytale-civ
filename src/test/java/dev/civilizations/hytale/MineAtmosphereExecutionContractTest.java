@@ -31,8 +31,11 @@ final class MineAtmosphereExecutionContractTest {
             mandatorySelection
         );
         assertTrue(mandatorySelection >= 0);
-        assertTrue(normalInfrastructureExecution > mandatorySelection,
-            "priority-10 selection must run before continuing normal infrastructure/decor work");
+        assertTrue(normalInfrastructureExecution > mandatorySelection);
+        assertTrue(work.contains("boolean busyWithCurrentJob = runtime.frontId != null"));
+        assertTrue(work.contains("runtime.roomId != null"));
+        assertTrue(work.contains("busyWithCurrentJob ? null"),
+            "priority-10 work must wait until the current work assignment has ended");
 
         assertTrue(resolver.contains("case PLACE_DECORATION"));
         assertTrue(resolver.contains("slice.navigationCoreBlocks().contains"));
