@@ -41,50 +41,7 @@ jobs:
             const coords = `${coord} ${coord} ${coord}`;
             const read = `(?:status|npcs|mines|npc ${uuid}|events ${uuid}|mine-info ${uuid})`;
             const write = `(?:reset|spawn Civ_Inhabitant ${coords}|move ${uuid} ${coords}|profession ${uuid} (?:MINER|CONSTRUCTION_WORKER|SOLDIER|WOODCUTTER|FARMER)|assign-mine ${uuid} ${uuid})`;
-            const commandPattern = new RegExp(`^/hytale-live runner (pc1|pc2) (${read}|${write})name: Hytale Live Diagnostics
-
-on:
-  issue_comment:
-    types: [created]
-
-permissions:
-  contents: read
-
-jobs:
-  authorize:
-    if: github.event.issue.number == 266
-    runs-on: ubuntu-latest
-    outputs:
-      allowed: ${{ steps.gate.outputs.allowed }}
-      command: ${{ steps.gate.outputs.command }}
-      requester: ${{ steps.gate.outputs.requester }}
-      runner: ${{ steps.gate.outputs.runner }}
-    steps:
-      - id: gate
-        name: Authorize locked-issue command
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.setOutput('allowed', 'false');
-            const issue = context.payload.issue;
-            const actor = context.actor;
-            const author = context.payload.comment?.user?.login;
-            const sender = context.payload.sender?.login;
-            if (issue?.number !== 266 || !issue.locked) {
-              core.setFailed('Only the locked Hytale Live request issue is authorized.');
-              return;
-            }
-            if ([actor, author, sender].some(value => value !== 'weidmanngabriel')) {
-              core.setFailed('Hytale Live requests require the authorized owner account.');
-              return;
-            }
-            const input = (context.payload.comment?.body ?? '').trim();
-            const uuid = '[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}';
-            const coord = '-?[0-9]{1,5}(?:\\.[0-9]{1,2})?';
-            const coords = `${coord} ${coord} ${coord}`;
-            const read = `(?:status|npcs|mines|npc ${uuid}|events ${uuid}|mine-info ${uuid})`;
-            const write = `(?:reset|spawn Civ_Inhabitant ${coords}|move ${uuid} ${coords}|profession ${uuid} (?:MINER|CONSTRUCTION_WORKER|SOLDIER|WOODCUTTER|FARMER)|assign-mine ${uuid} ${uuid})`;
-);
+            const commandPattern = new RegExp(`^/hytale-live runner (pc1|pc2) (${read}|${write})$`);
             const match = commandPattern.exec(input);
             if (!match || input.length > 256) {
               console.log('Ignoring comment without an allowlisted live command.');
