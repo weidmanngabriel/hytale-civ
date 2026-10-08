@@ -2132,7 +2132,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                     && infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_STEP
                     && infrastructure.task.tunnelId().equals(frontPlan.tunnelId)
                     && infrastructure.task.endSliceIndex() == frontPlan.sliceIndex);
-            if (!unresolvedStepAtLowerSlice) return StairRetryResult.NOT_ELIGIBLE;
+            if (!MineObstaclePolicy.mayRetryAbandonedStair(front.state(), unresolvedStepAtLowerSlice)) {
+                return StairRetryResult.NOT_ELIGIBLE;
+            }
 
             MineWorkFront reopened = new MineWorkFront(
                 front.id(), front.tunnelId(), front.position(), MineWorkFront.State.OPEN
