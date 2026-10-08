@@ -64,6 +64,16 @@ final class MinerObstacleExecutionContractTest {
     }
 
     @Test
+    void bridgeIsNotCreatedInsideUnexcavatedStone() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
+        );
+        assertTrue(source.contains("BlockType currentWalkCell = loadedBlockType("));
+        assertTrue(source.contains("currentWalkCell == null || !isEmpty(currentWalkCell)"));
+        assertTrue(source.contains("if (!floorMissing(world, front.slices.get(start)))"));
+    }
+
+    @Test
     void alreadyRestoredBridgeFloorCompletesInsteadOfAbandoning() throws Exception {
         String source = Files.readString(
             Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
