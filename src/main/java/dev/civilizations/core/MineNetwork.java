@@ -181,7 +181,7 @@ public record MineNetwork(
             throw new IllegalArgumentException("Mine network requires the declared main tunnel.");
         }
         long mainCount = tunnels.stream().filter(t -> t.kind() == MineTunnel.Kind.MAIN).count();
-        if (mainCount != 1) throw new IllegalArgumentException("Mine network requires exactly one main tunnel.");
+        if (mainCount < 1) throw new IllegalArgumentException("Mine network requires at least one main tunnel.");
 
         for (MineTunnel tunnel : tunnels) {
             if (tunnel.kind() == MineTunnel.Kind.BRANCH) {
