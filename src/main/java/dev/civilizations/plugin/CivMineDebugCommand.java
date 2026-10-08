@@ -116,6 +116,7 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
             this.service = service;
             addSubCommand(new BoundsCommand(service));
             addSubCommand(new AnchorsCommand(service));
+            addSubCommand(new MarkersCommand(service));
             addSubCommand(new AllCommand(service));
             requireNoPermission();
         }
@@ -183,6 +184,38 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
 
             private AnchorsCommand(CivMineDebugService service) {
                 super("anchors", "Shows mine work-front and navigation/task anchors.");
+                this.service = service;
+                requireNoPermission();
+            }
+
+            @Override
+            protected void execute(
+                CommandContext context,
+                Store<EntityStore> store,
+                Ref<EntityStore> ref,
+                PlayerRef playerRef,
+                World world
+            ) {
+                CivMineDebugService.MineDebugSnapshot selected = snapshot(service, playerRef, world);
+                if (selected == null) {
+                    noMine(context);
+                    return;
+                }
+                CivMineDebugService.ShowResult result = service.showSafetyAnchors(
+                    playerRef, selected, world.getWorldConfig().getUuid()
+                );
+                context.sendMessage(Message.raw(
+                    "Gespeicherte Sicherheitsanker: " + result.displayedEntryCount()
+                        + " | gruen=von NPC durchlaufener Anker | Umkreis=128 Bloecke"
+                ));
+            }
+        }
+
+        private static final class MarkersCommand extends AbstractPlayerCommand {
+            private final CivMineDebugService service;
+
+            private MarkersCommand(CivMineDebugService service) {
+                super("markers", "Shows existing mine work, infrastructure, room and navigation markers.");
                 this.service = service;
                 requireNoPermission();
             }

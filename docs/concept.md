@@ -294,3 +294,7 @@ The target is Y=10 with an interval of ten minutes for progress checks. Successi
 ## Successive main tunnel planning
 
 Persisted mine networks now support multiple independent MAIN tunnels under one building. The N6 `G` record saves, per main, only an unlocked slice count, next refresh timestamp, heading and deterministic seed. The initial plan is capped to Y=10 and branch candidates disconnected by that clipping are omitted. Completed main fronts extending above the floor limit continue from their endpoint; after reaching Y=10, a new route begins at the original connector. The new path is checked against already planned centerlines using an in-memory spatial set, ignoring only its necessary entrance connection. This does not store world voxel volumes.
+
+## Mine debug marker separation
+
+`/civdebug mine show anchors` visualizes only already persisted navigation safety anchors confirmed through miner traversal, within 128 blocks (3D) of the player. Labels include anchor ID, XYZ coordinates, tunnel ID and number of anchor links. `/civdebug mine show markers` retains the original front, room, infrastructure and NPC target markers. Both commands replace the previous overlay; `/civdebug mine hide` removes it. This is read-only and does not alter anchor creation or teleport policy.
