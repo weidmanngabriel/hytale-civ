@@ -45,6 +45,21 @@ public final class MineNetworkGrowthPlanner {
         int maxTunnels,
         long seed
     ) {
+        return plan(
+            mineId, origin, initialHeading, mainLengthBlocks, maxTunnels, seed, MineDecisionSink.NONE
+        );
+    }
+
+    public static Plan plan(
+        UUID mineId,
+        BlockPosition origin,
+        MineHeading initialHeading,
+        int mainLengthBlocks,
+        int maxTunnels,
+        long seed,
+        MineDecisionSink decisionSink
+    ) {
+        decisionSink = decisionSink == null ? MineDecisionSink.NONE : decisionSink;
         if (mineId == null || origin == null || initialHeading == null) {
             throw new IllegalArgumentException("Mine growth inputs must not be null.");
         }
@@ -59,7 +74,10 @@ public final class MineNetworkGrowthPlanner {
             origin,
             initialHeading,
             mainLengthBlocks,
-            seed ^ PATH_SEED_SALT
+            seed ^ PATH_SEED_SALT,
+            mineId,
+            mainTunnelId,
+            decisionSink
         );
         MineTunnelGeometry mainGeometry = MineTunnelVoxelizer.voxelize(mainPath);
 
@@ -84,14 +102,45 @@ public final class MineNetworkGrowthPlanner {
                  i += BRANCH_OPPORTUNITY_SPACING) {
                 MinePathPoint point = points.get(i);
                 BlockPosition start = rounded(point);
-                if (!farEnoughFromBranchStarts(start, branchStarts)) continue;
-                if (random.nextDouble() >= branchChance) continue;
+                if (!farEnoughFromBranchStarts(start, branchStarts)) {
+                    decisionSink.record(
+                        mineId, parentId, MineDecisionCategory.PLANNING, "BRANCH_REJECTED",
+                        "reason", "MIN_START_SPACING",
+                        "parentDepth", parent.tunnel().branchDepth(),
+                        "slice", i
+                    );
+                    continue;
+                }
+
+                double branchRoll = random.nextDouble();
+                if (branchRoll >= branchChance) {
+                    decisionSink.record(
+                        mineId, parentId, MineDecisionCategory.PLANNING, "BRANCH_OPPORTUNITY",
+                        "decision", "SKIP",
+                        "parentDepth", parent.tunnel().branchDepth(),
+                        "slice", i,
+                        "roll", branchRoll,
+                        "chance", branchChance
+                    );
+                    continue;
+                }
 
                 MineHeading parentHeading = nearestHeading(point.tangentAngleDegrees());
                 MineHeading branchHeading = random.nextBoolean() ? parentHeading.left45() : parentHeading.right45();
-                int branchLength = sampleBranchLength(random);
-                long pathSeed = random.nextLong();
                 UUID childId = deterministicUuid(seed ^ CHILD_ID_SALT, childSequence++);
+                int branchLength = sampleBranchLength(random, decisionSink, mineId, childId);
+                long pathSeed = random.nextLong();
+                decisionSink.record(
+                    mineId, childId, MineDecisionCategory.PLANNING, "BRANCH_OPPORTUNITY",
+                    "decision", "CREATE_CANDIDATE",
+                    "parent", parentId,
+                    "parentDepth", parent.tunnel().branchDepth(),
+                    "slice", i,
+                    "roll", branchRoll,
+                    "chance", branchChance,
+                    "heading", branchHeading,
+                    "length", branchLength
+                );
 
                 MineTunnelPath candidatePath = MinePathPlanner.plan(
                     MineTunnel.Kind.BRANCH,
@@ -99,15 +148,33 @@ public final class MineNetworkGrowthPlanner {
                     origin,
                     branchHeading,
                     branchLength,
-                    pathSeed
+                    pathSeed,
+                    mineId,
+                    childId,
+                    decisionSink
                 );
                 MineTunnelGeometry candidateGeometry = MineTunnelVoxelizer.voxelize(candidatePath);
                 CollisionResult collision = collisionResult(parentId, candidatePath, planned);
                 boolean intentionalCrossing = false;
                 if (collision.collides()) {
-                    if (!collision.onlyParentConnection() && random.nextDouble() < INTENTIONAL_CROSSING_CHANCE) {
+                    Double crossingRoll = collision.onlyParentConnection() ? null : random.nextDouble();
+                    if (crossingRoll != null && crossingRoll < INTENTIONAL_CROSSING_CHANCE) {
                         intentionalCrossing = true;
+                        decisionSink.record(
+                            mineId, childId, MineDecisionCategory.PLANNING, "BRANCH_COLLISION",
+                            "decision", "INTENTIONAL_CROSSING",
+                            "roll", crossingRoll,
+                            "chance", INTENTIONAL_CROSSING_CHANCE
+                        );
                     } else {
+                        decisionSink.record(
+                            mineId, childId, MineDecisionCategory.PLANNING, "BRANCH_REJECTED",
+                            "reason", collision.onlyParentConnection()
+                                ? "PARENT_TUNNEL_COLLISION"
+                                : "TUNNEL_COLLISION",
+                            "roll", crossingRoll == null ? "-" : crossingRoll,
+                            "chance", collision.onlyParentConnection() ? "-" : INTENTIONAL_CROSSING_CHANCE
+                        );
                         continue;
                     }
                 }
@@ -136,9 +203,30 @@ public final class MineNetworkGrowthPlanner {
     }
 
     static int sampleBranchLength(SplittableRandom random) {
+        return sampleBranchLength(random, MineDecisionSink.NONE, null, null);
+    }
+
+    private static int sampleBranchLength(
+        SplittableRandom random,
+        MineDecisionSink decisionSink,
+        UUID mineId,
+        UUID tunnelId
+    ) {
         int length = BRANCH_MIN_LENGTH;
         double continuation = INITIAL_CONTINUATION_CHANCE;
-        while (random.nextDouble() < continuation) {
+        while (true) {
+            double roll = random.nextDouble();
+            boolean continues = roll < continuation;
+            if (mineId != null) {
+                decisionSink.record(
+                    mineId, tunnelId, MineDecisionCategory.PLANNING, "BRANCH_CONTINUATION",
+                    "decision", continues ? "CONTINUE" : "STOP",
+                    "roll", roll,
+                    "chance", continuation,
+                    "lengthBefore", length
+                );
+            }
+            if (!continues) break;
             length += BRANCH_LENGTH_INCREMENT;
             continuation = Math.max(MIN_CONTINUATION_CHANCE, continuation - CONTINUATION_CHANCE_DROP);
             if (length >= MinePathPlanner.FOOTPRINT_SIZE_BLOCKS) break;

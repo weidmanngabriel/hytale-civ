@@ -48,6 +48,7 @@ Vor neuer Hytale-spezifischer Arbeit zuerst diese Übersicht und die relevante T
 - [Lifecycle und Runtime-Zustand](lifecycle-runtime-state.md)
 - [Performance und Worker-Scheduling](performance-scheduling.md)
 - [Logging](logging.md)
+- [Player-lokale Debug-Volumes](debug-volumes.md)
 - [UI und Interaktion](ui-interaction.md)
 - [NPCs und Navigation](npc-navigation.md)
 - [NPC-Combat](npc-combat.md)

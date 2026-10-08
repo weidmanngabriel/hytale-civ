@@ -3,6 +3,7 @@ package dev.civilizations.core;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.SplittableRandom;
+import java.util.UUID;
 
 /** Hytale-independent Layer-2 planner for mine tunnel centerlines and form phases. */
 public final class MinePathPlanner {
@@ -41,6 +42,24 @@ public final class MinePathPlanner {
         int forwardBlocks,
         long seed
     ) {
+        return plan(
+            tunnelKind, origin, footprintCenter, initialHeading, forwardBlocks, seed,
+            null, null, MineDecisionSink.NONE
+        );
+    }
+
+    public static MineTunnelPath plan(
+        MineTunnel.Kind tunnelKind,
+        BlockPosition origin,
+        BlockPosition footprintCenter,
+        MineHeading initialHeading,
+        int forwardBlocks,
+        long seed,
+        UUID mineId,
+        UUID tunnelId,
+        MineDecisionSink decisionSink
+    ) {
+        decisionSink = decisionSink == null ? MineDecisionSink.NONE : decisionSink;
         if (tunnelKind == null || origin == null || footprintCenter == null || initialHeading == null) {
             throw new IllegalArgumentException("Mine path planning inputs must not be null.");
         }
@@ -87,8 +106,8 @@ public final class MinePathPlanner {
             );
 
             boolean truncatedFinalPhase = phaseLength < minimumPhaseLength(tunnelKind);
-            MineHeading targetHeading = truncatedFinalPhase
-                ? currentHeading
+            HeadingDecision headingDecision = truncatedFinalPhase
+                ? HeadingDecision.truncated(currentHeading)
                 : chooseHeading(
                     tunnelKind,
                     currentHeading,
@@ -98,6 +117,21 @@ public final class MinePathPlanner {
                     footprintCenter.z(),
                     random
                 );
+            MineHeading targetHeading = headingDecision.heading();
+            if (!truncatedFinalPhase && mineId != null) {
+                decisionSink.record(
+                    mineId, tunnelId, MineDecisionCategory.PLANNING, "HEADING_SELECTED",
+                    "kind", tunnelKind,
+                    "from", currentHeading,
+                    "to", targetHeading,
+                    "reason", headingDecision.boundaryPressure() ? "BOUNDARY_PRESSURE" : "BASE_WEIGHTS",
+                    "leftWeight", headingDecision.leftWeight(),
+                    "straightWeight", headingDecision.straightWeight(),
+                    "rightWeight", headingDecision.rightWeight(),
+                    "roll", headingDecision.roll(),
+                    "totalWeight", headingDecision.totalWeight()
+                );
+            }
             int targetWidth = truncatedFinalPhase
                 ? currentWidth
                 : nextSize(currentWidth, minSize, maxSize, random);
@@ -124,6 +158,21 @@ public final class MinePathPlanner {
                 verticalDelta
             );
             phases.add(phase);
+            if (mineId != null) {
+                decisionSink.record(
+                    mineId, tunnelId, MineDecisionCategory.GEOMETRY, "FORM_PHASE",
+                    "kind", tunnelKind,
+                    "phase", phaseIndex,
+                    "startBlock", generatedBlocks,
+                    "length", phaseLength,
+                    "headingFrom", currentHeading,
+                    "headingTo", targetHeading,
+                    "width", currentWidth + "->" + targetWidth,
+                    "height", currentHeight + "->" + targetHeight,
+                    "lateralOffset", currentLateralOffset + "->" + targetLateralOffset,
+                    "verticalDelta", verticalDelta
+                );
+            }
 
             double startAngle = currentAngle;
             double headingDelta = MineHeading.shortestSignedAngleDegrees(currentHeading, targetHeading);
@@ -224,7 +273,7 @@ public final class MinePathPlanner {
         return baseWeight;
     }
 
-    private static MineHeading chooseHeading(
+    private static HeadingDecision chooseHeading(
         MineTunnel.Kind tunnelKind,
         MineHeading currentHeading,
         double x,
@@ -246,11 +295,40 @@ public final class MinePathPlanner {
         }
 
         double roll = random.nextDouble(total);
+        double remaining = roll;
+        MineHeading selected = currentHeading;
         for (int i = 0; i < candidates.length; i++) {
-            roll -= weights[i];
-            if (roll <= 0.0) return candidates[i];
+            remaining -= weights[i];
+            if (remaining <= 0.0) {
+                selected = candidates[i];
+                break;
+            }
         }
-        return currentHeading;
+        double squareDistance = Math.max(Math.abs(x - centerX), Math.abs(z - centerZ));
+        boolean boundaryPressure = squareDistance / FOOTPRINT_HALF_EXTENT_BLOCKS > 0.70;
+        return new HeadingDecision(
+            selected,
+            weights[0],
+            weights[1],
+            weights[2],
+            total,
+            roll,
+            boundaryPressure
+        );
+    }
+
+    private record HeadingDecision(
+        MineHeading heading,
+        double leftWeight,
+        double straightWeight,
+        double rightWeight,
+        double totalWeight,
+        double roll,
+        boolean boundaryPressure
+    ) {
+        private static HeadingDecision truncated(MineHeading heading) {
+            return new HeadingDecision(heading, 0.0, 0.0, 0.0, 0.0, 0.0, false);
+        }
     }
 
     private static int minimumPhaseLength(MineTunnel.Kind tunnelKind) {

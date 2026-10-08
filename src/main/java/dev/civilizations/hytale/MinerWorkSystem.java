@@ -540,7 +540,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 )
             );
             decisionSink.record(
-                mine.id(), task.id(), MineDecisionCategory.PLANNING, "INFRASTRUCTURE_CREATED",
+                mine.id(), task.id(), MineDecisionCategory.ENVIRONMENT, "INFRASTRUCTURE_CREATED",
                 "type", task.type(),
                 "tunnel", task.tunnelId(),
                 "startSlice", task.startSliceIndex(),
@@ -1075,7 +1075,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         runtime.roomBuildSection = null;
         runtime.navigationArrived();
         decisionSink.record(
-            mine.id(), roomId, MineDecisionCategory.PLANNING, "TASK_SELECTED",
+            mine.id(), roomId, MineDecisionCategory.ROOM, "TASK_SELECTED",
             "type", room.state() == MineRoom.State.READY_TO_BUILD ? "BUILD_ROOM" : "EXCAVATE_ROOM",
             "roomType", room.type(),
             "tunnel", room.tunnelId()
@@ -1163,7 +1163,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             roomCoordinator.releaseRoom(room.id());
             runtime.clearRoomAssignment();
             decisionSink.record(
-                mine.id(), room.id(), MineDecisionCategory.PLANNING, "ROOM_BUILT",
+                mine.id(), room.id(), MineDecisionCategory.ROOM, "ROOM_BUILT",
                 "roomType", room.type()
             );
             return;
@@ -1233,7 +1233,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         stopBuildingAnimation(ref, store, runtime);
         runtime.clearRoomAssignment();
         decisionSink.record(
-            mine.id(), room.id(), MineDecisionCategory.PLANNING, "WORK_UNIT_COMPLETED",
+            mine.id(), room.id(), MineDecisionCategory.ROOM, "WORK_UNIT_COMPLETED",
             "type", "BUILD_ROOM",
             "section", section,
             "state", nextState
@@ -1375,7 +1375,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         stopMiningAnimation(ref, store, runtime);
         runtime.clearRoomAssignment();
         decisionSink.record(
-            mine.id(), room.id(), MineDecisionCategory.PLANNING, "WORK_UNIT_COMPLETED",
+            mine.id(), room.id(), MineDecisionCategory.ROOM, "WORK_UNIT_COMPLETED",
             "type", "EXCAVATE_ROOM",
             "unit", completedUnit,
             "state", nextState
@@ -1528,9 +1528,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             heading,
             MAIN_PLAN_LENGTH_BLOCKS,
             RUNTIME_PLANNING_TUNNEL_BUDGET,
-            seed
+            seed,
+            decisionSink
         );
-        List<MineRoom> plannedRooms = MineRoomPlanner.plan(planned);
+        List<MineRoom> plannedRooms = MineRoomPlanner.plan(planned, decisionSink);
 
         Map<UUID, UUID> frontIds = new LinkedHashMap<>();
         Map<UUID, MineTunnelGeometry> geometries = new LinkedHashMap<>();
@@ -1737,7 +1738,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         if (observation.status() == MineCaveObservation.Status.INCOMPLETE) {
             decisionSink.record(
-                mine.id(), front.frontId, MineDecisionCategory.PLANNING, "CAVE_SCAN_INCOMPLETE",
+                mine.id(), front.frontId, MineDecisionCategory.ENVIRONMENT, "CAVE_SCAN_INCOMPLETE",
                 "slice", sliceIndex
             );
             return network;
@@ -1767,7 +1768,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             Set.of()
         );
         decisionSink.record(
-            mine.id(), roomId, MineDecisionCategory.PLANNING, "NATURAL_CHAMBER_INTEGRATED",
+            mine.id(), roomId, MineDecisionCategory.ENVIRONMENT, "NATURAL_CHAMBER_INTEGRATED",
             "tunnel", front.tunnelId,
             "slice", sliceIndex,
             "emptyBlocks", observation.emptyBlocks(),
@@ -1830,9 +1831,12 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         decisionSink.record(
             mine.id(),
             front.id(),
-            MineDecisionCategory.PLANNING,
+            failure == MineObstaclePolicy.FailureKind.NAVIGATION_UNREACHABLE
+                ? MineDecisionCategory.NAVIGATION
+                : MineDecisionCategory.ENVIRONMENT,
             state == MineWorkFront.State.BLOCKED ? "FRONT_BLOCKED" : "FRONT_ABANDONED",
             "reason", reason,
+            "failureKind", failure,
             "slice", plan.sliceIndex
         );
     }
@@ -1850,6 +1854,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             UUID failedRoomId = runtime.roomId;
             RuntimeRoomPlan room = minePlan.rooms.get(failedRoomId);
             if (room != null) room.unavailable = true;
+            decisionSink.record(
+                mine.id(), failedRoomId, MineDecisionCategory.NAVIGATION, "ROOM_UNREACHABLE",
+                "reason", "NATIVE_NAVIGATION_UNREACHABLE"
+            );
             clearNormalTaskAge(world, mine, failedRoomId);
             roomCoordinator.releaseWorker(workerKey);
             unitRegistry.clearMoveTarget(ref);
@@ -2225,6 +2233,103 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (runtime == null || !runtime.buildingAnimationStarted) return;
         if (ref != null && ref.isValid()) AnimationUtils.stopAnimation(ref, AnimationSlot.Action, store);
         runtime.buildingAnimationStarted = false;
+    }
+
+    /**
+     * Read-only runtime debug anchors for the current mine. This exposes already-existing worker
+     * targets and semantic work anchors only; it does not create navigation or gameplay state.
+     */
+    public List<MineDebugAnchor> debugAnchors(UUID worldId, UUID mineId) {
+        if (worldId == null || mineId == null) return List.of();
+        List<MineDebugAnchor> result = new ArrayList<>();
+        RuntimeMinePlan plan = runtimePlans.get(new WorldMineKey(worldId, mineId));
+        MineNetwork network = tunnelRegistry.networkForMine(worldId, mineId);
+
+        if (plan != null) {
+            for (RuntimeFrontPlan front : plan.fronts.values()) {
+                if (front.slices.isEmpty() || front.complete || front.unavailable) continue;
+                int index = Math.max(0, Math.min(front.sliceIndex, front.slices.size() - 1));
+                BlockPosition position = front.slices.get(index).floorCenter();
+                MineWorkFront persisted = network == null ? null : workFrontById(network, front.frontId);
+                result.add(MineDebugAnchor.atBlock(
+                    "front:" + front.frontId,
+                    MineDebugAnchor.Kind.FRONT,
+                    position,
+                    front.tunnelKind + " front · slice=" + index
+                        + (persisted == null ? "" : " · " + persisted.state())
+                ));
+            }
+
+            for (RuntimeInfrastructureTask infrastructure : plan.infrastructureTasks.values()) {
+                if (infrastructure.completed) continue;
+                result.add(MineDebugAnchor.atBlock(
+                    "infrastructure:" + infrastructure.task.id(),
+                    MineDebugAnchor.Kind.INFRASTRUCTURE,
+                    infrastructure.task.anchor(),
+                    "Infrastructure · " + infrastructure.task.type()
+                ));
+            }
+        }
+
+        if (network != null) {
+            for (MineRoom room : network.rooms()) {
+                if (room.terminal()) continue;
+                result.add(MineDebugAnchor.atBlock(
+                    "room:" + room.id(),
+                    MineDebugAnchor.Kind.ROOM,
+                    room.position(),
+                    "Room · " + room.type() + " · " + room.state()
+                ));
+            }
+        }
+
+        for (Map.Entry<CivUnitRegistry.UnitKey, WorkerRuntime> entry : workers.entrySet()) {
+            WorkerRuntime runtime = entry.getValue();
+            if (!mineId.equals(runtime.mineId) || runtime.navigationTarget == null) continue;
+            Vector3d target = runtime.navigationTarget;
+            result.add(new MineDebugAnchor(
+                "navigation:" + entry.getKey().entityIndex(),
+                MineDebugAnchor.Kind.NAVIGATION,
+                target.x,
+                target.y,
+                target.z,
+                "Miner " + entry.getKey().entityIndex() + " navigation target"
+            ));
+        }
+        return List.copyOf(result);
+    }
+
+    public record MineDebugAnchor(
+        String id,
+        Kind kind,
+        double x,
+        double y,
+        double z,
+        String label
+    ) {
+        public MineDebugAnchor {
+            if (id == null || id.isBlank() || kind == null || label == null || label.isBlank()) {
+                throw new IllegalArgumentException("Mine debug anchor fields must not be blank.");
+            }
+        }
+
+        private static MineDebugAnchor atBlock(
+            String id,
+            Kind kind,
+            BlockPosition position,
+            String label
+        ) {
+            return new MineDebugAnchor(
+                id, kind, position.x() + 0.5, position.y() + 0.5, position.z() + 0.5, label
+            );
+        }
+
+        public enum Kind {
+            FRONT,
+            NAVIGATION,
+            ROOM,
+            INFRASTRUCTURE
+        }
     }
 
     private record WorldMineKey(UUID worldId, UUID mineId) {

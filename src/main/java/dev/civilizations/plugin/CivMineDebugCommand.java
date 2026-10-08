@@ -113,6 +113,8 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
             super("show", "Shows player-local mine work-front volumes for the nearest mine.");
             this.service = service;
             addSubCommand(new BoundsCommand(service));
+            addSubCommand(new AnchorsCommand(service));
+            addSubCommand(new AllCommand(service));
             requireNoPermission();
         }
 
@@ -124,28 +126,32 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
             PlayerRef playerRef,
             World world
         ) {
-            show(context, playerRef, world, false);
+            show(context, playerRef, world, false, false);
         }
 
         private void show(
             CommandContext context,
             PlayerRef playerRef,
             World world,
-            boolean includeBounds
+            boolean includeBounds,
+            boolean includeAnchors
         ) {
             CivMineDebugService.MineDebugSnapshot snapshot = snapshot(service, playerRef, world);
             if (snapshot == null) {
                 noMine(context);
                 return;
             }
-            CivMineDebugService.ShowResult result = service.show(playerRef, snapshot, includeBounds);
+            CivMineDebugService.ShowResult result =
+                service.show(playerRef, snapshot, includeBounds, includeAnchors);
             context.sendMessage(Message.raw(
                 "Mine debug angezeigt | mine=" + snapshot.mine().id()
                     + " | entries=" + result.displayedEntryCount()
+                    + " | anchors=" + (result.anchorsIncluded() ? "on" : "off")
                     + " | 500x500=" + (result.boundsIncluded() ? "on" : "off")
             ));
             context.sendMessage(Message.raw(
-                "Farben: gelb=ACTIVE, orange=OPEN, cyan=MAIN abgeschlossen, blau=BRANCH abgeschlossen."
+                "Farben: gelb=Front, orange=OPEN, cyan=MAIN abgeschlossen, blau=BRANCH abgeschlossen, "
+                    + "gruen=Navigation, violett=Raum, weiss=Infrastruktur."
             ));
         }
 
@@ -166,7 +172,49 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
                 PlayerRef playerRef,
                 World world
             ) {
-                new ShowCommand(service).show(context, playerRef, world, true);
+                new ShowCommand(service).show(context, playerRef, world, true, false);
+            }
+        }
+
+        private static final class AnchorsCommand extends AbstractPlayerCommand {
+            private final CivMineDebugService service;
+
+            private AnchorsCommand(CivMineDebugService service) {
+                super("anchors", "Shows mine work-front and navigation/task anchors.");
+                this.service = service;
+                requireNoPermission();
+            }
+
+            @Override
+            protected void execute(
+                CommandContext context,
+                Store<EntityStore> store,
+                Ref<EntityStore> ref,
+                PlayerRef playerRef,
+                World world
+            ) {
+                new ShowCommand(service).show(context, playerRef, world, false, true);
+            }
+        }
+
+        private static final class AllCommand extends AbstractPlayerCommand {
+            private final CivMineDebugService service;
+
+            private AllCommand(CivMineDebugService service) {
+                super("all", "Shows mine fronts, runtime anchors and the 500x500 design area.");
+                this.service = service;
+                requireNoPermission();
+            }
+
+            @Override
+            protected void execute(
+                CommandContext context,
+                Store<EntityStore> store,
+                Ref<EntityStore> ref,
+                PlayerRef playerRef,
+                World world
+            ) {
+                new ShowCommand(service).show(context, playerRef, world, true, true);
             }
         }
     }

@@ -124,8 +124,6 @@ public final class CivilizationsPlugin extends JavaPlugin {
         CivMinerAssignmentService minerAssignments = new CivMinerAssignmentService(
             unitRegistry, activityRegistry, farmRegistry, buildingRegistry
         );
-        CivMineDebugService mineDebugService =
-            new CivMineDebugService(buildingRegistry, mineTunnelRegistry);
         PrefabPlacementService prefabPlacementService = new PrefabPlacementService();
         ConstructionSiteRegistry constructionRegistry = new ConstructionSiteRegistry();
         CivSelectedBuildingHudController selectedBuildingHudController =
@@ -182,6 +180,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
             mineDecisionDiagnostics,
             minerNavigationFailures
         );
+        CivMineDebugService mineDebugService =
+            new CivMineDebugService(buildingRegistry, mineTunnelRegistry, minerWorkSystem);
         ConstructionWorkSystem constructionWorkSystem = new ConstructionWorkSystem(
             unitRegistry,
             activityRegistry,
