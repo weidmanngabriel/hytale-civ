@@ -24,6 +24,8 @@ Core-Simulation
 
 Die Grenze ist verhaltensorientiert: UI und Hytale-Code übersetzen Eingaben und führen Engine-Arbeit aus, besitzen aber keine Civ-Spielregeln. Der Core entscheidet über Zustandswechsel, Prioritäten und Unterbrechungen. Ein Core-Intent beschreibt nur das gewünschte Ergebnis, zum Beispiel „Bewohner soll zu Ziel X laufen“; der Adapter setzt das mit Hytales nativer Navigation um und meldet Ankunft beziehungsweise Fehlschlag zurück.
 
+Die Hytale-Adapter verwenden für die geometrische Ankunftskontrolle gemeinsam `CivArrivalPolicy`. Je Task bleiben horizontale Arbeitsreichweite und Höhenabweichung getrennt konfigurierbar. Die Regel löst weder Pfadfindung noch NavState aus.
+
 Bewegung ist deshalb zweigeteilt. **Wer wann wohin und warum läuft** gehört zur Civ-Simulation. **Wie der NPC den Weg findet und physisch zurücklegt** bleibt Hytale überlassen. Civ baut keinen parallelen Wegfindungsalgorithmus, solange Hytales Navigation die Produktanforderung erfüllt.
 
 ### core
