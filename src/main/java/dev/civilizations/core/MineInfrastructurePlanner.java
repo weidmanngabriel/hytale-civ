@@ -453,11 +453,9 @@ public final class MineInfrastructurePlanner {
         MineInfrastructureTask.DecorationKind kind;
         if (tunnelKind == MineTunnel.Kind.BRANCH) {
             if (roll < 10) kind = MineInfrastructureTask.DecorationKind.CRATE;
-            else if (roll < 50) kind = MineInfrastructureTask.DecorationKind.TIMBER_PILE;
             else kind = MineInfrastructureTask.DecorationKind.MATERIAL_PILE;
         } else if (roll < 20) kind = MineInfrastructureTask.DecorationKind.BARREL;
         else if (roll < 25) kind = MineInfrastructureTask.DecorationKind.CRATE;
-        else if (roll < 60) kind = MineInfrastructureTask.DecorationKind.TIMBER_PILE;
         else if (roll < 75) kind = MineInfrastructureTask.DecorationKind.MATERIAL_PILE;
         else if (roll < 88) kind = MineInfrastructureTask.DecorationKind.HANGING_CHAIN;
         else kind = MineInfrastructureTask.DecorationKind.HANGING_LANTERN;
