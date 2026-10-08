@@ -904,9 +904,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         // Defer optional placements when the target overlaps the 1-block safety envelope
         // of still-solid authored excavation. Mandatory steps/bridges use their own policy.
-        if (placementConflictsWithPendingExcavation(world, minePlan, infrastructure, runtime)) {
+        RuntimeFrontPlan blockingFront = blockingExcavationFront(world, minePlan, infrastructure, runtime);
+        if (blockingFront != null) {
             deferInfrastructureNearExcavation(
-                mine, minePlan, infrastructure, ref, store, workerKey, runtime
+                mine, infrastructure, blockingFront, ref, store, workerKey, runtime
             );
             return;
         }
@@ -951,9 +952,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 );
             // Recheck immediately before each native block placement: the world may
             // have changed while the miner was navigating or animating.
-            if (placementConflictsWithPendingExcavation(world, minePlan, infrastructure, runtime)) {
+            blockingFront = blockingExcavationFront(world, minePlan, infrastructure, runtime);
+            if (blockingFront != null) {
                 deferInfrastructureNearExcavation(
-                    mine, minePlan, infrastructure, ref, store, workerKey, runtime
+                    mine, infrastructure, blockingFront, ref, store, workerKey, runtime
                 );
                 return;
             }
@@ -1032,13 +1034,13 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
     }
 
-    private boolean placementConflictsWithPendingExcavation(
+    private RuntimeFrontPlan blockingExcavationFront(
         World world,
         RuntimeMinePlan minePlan,
         RuntimeInfrastructureTask infrastructure,
         WorkerRuntime runtime
     ) {
-        if (infrastructure.task.mandatory() || runtime.resolvedInfrastructure == null) return false;
+        if (infrastructure.task.mandatory() || runtime.resolvedInfrastructure == null) return null;
         for (MineInfrastructurePlacementResolver.PlacementStep placement
             : runtime.resolvedInfrastructure.placements()) {
             for (RuntimeFrontPlan front : minePlan.fronts.values()) {
@@ -1053,30 +1055,31 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                             BlockType type = loadedBlockType(world, block);
                             return type != null && !isEmpty(type);
                         }
-                    )) return true;
+                    )) return front;
                 }
             }
         }
-        return false;
+        return null;
     }
 
     private void deferInfrastructureNearExcavation(
         BuildingPlacementRegistry.BuildingInstance mine,
-        RuntimeMinePlan minePlan,
         RuntimeInfrastructureTask infrastructure,
+        RuntimeFrontPlan blockingFront,
         Ref<EntityStore> ref,
         Store<EntityStore> store,
         CivUnitRegistry.UnitKey workerKey,
         WorkerRuntime runtime
     ) {
-        RuntimeFrontPlan parent = frontForTunnel(minePlan, infrastructure.task.tunnelId());
-        infrastructure.deferredAtSlice = parent == null ? -1 : parent.sliceIndex;
+        infrastructure.deferredByFrontId = blockingFront.frontId;
+        infrastructure.deferredAtSlice = blockingFront.sliceIndex;
         decisionSink.record(
             mine.id(), infrastructure.task.id(), MineDecisionCategory.PLANNING,
             "INFRASTRUCTURE_DELAYED",
             "npc", workerLabel(ref, workerKey),
             "taskType", infrastructure.task.type(),
             "reason", "NEAR_PENDING_EXCAVATION",
+            "blockingFront", blockingFront.frontId,
             "untilSliceChanges", infrastructure.deferredAtSlice
         );
         workerTaskEnded(mine.id(), ref, workerKey, runtime, "DELAYED_NEAR_EXCAVATION");
@@ -1255,7 +1258,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 if (decoration) decorationSkipReasons.merge("NOT_YET_AVAILABLE", 1, Integer::sum);
                 continue;
             }
-            if (!front.complete && infrastructure.deferredAtSlice >= front.sliceIndex) {
+            RuntimeFrontPlan blockingFront = minePlan.fronts.get(infrastructure.deferredByFrontId);
+            if (blockingFront != null && !blockingFront.complete && !blockingFront.unavailable
+                && infrastructure.deferredAtSlice >= blockingFront.sliceIndex) {
                 if (support) supportSkipReasons.merge("NEAR_PENDING_EXCAVATION", 1, Integer::sum);
                 if (decoration) decorationSkipReasons.merge("NEAR_PENDING_EXCAVATION", 1, Integer::sum);
                 continue;
@@ -2990,6 +2995,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private final MineTunnelGeometry geometry;
         private boolean completed;
         private int deferredAtSlice = -1;
+        private UUID deferredByFrontId;
         private String lastPlacementFailureKey;
         private int repeatedPlacementFailures;
 
