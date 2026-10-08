@@ -64,6 +64,16 @@ final class MinerObstacleExecutionContractTest {
     }
 
     @Test
+    void alreadyRestoredBridgeFloorCompletesInsteadOfAbandoning() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
+        );
+        assertTrue(source.contains("bridgeDeckComplete(world, infrastructure)"));
+        assertTrue(source.contains("BRIDGE_DECK_ALREADY_COMPLETE"));
+        assertTrue(source.contains("if (floor == null || isEmpty(floor)) return false;"));
+    }
+
+    @Test
     void mandatoryInfrastructureResolutionFailureAbandonsItsFront() throws Exception {
         String source = Files.readString(
             Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
