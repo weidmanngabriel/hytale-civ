@@ -2095,6 +2095,31 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         return true;
     }
 
+    /** Debug-only immediate horizon refresh, no NPC restart or plan reset. */
+    public int refreshMainPlans(World world, UUID mineId) {
+        if (world == null || mineId == null) return 0;
+        UUID worldId = world.getWorldConfig().getUuid();
+        MineNetwork network = tunnelRegistry.networkForMine(worldId, mineId);
+        if (network == null) return 0;
+        RuntimeMinePlan runtime = runtimePlans.get(new WorldMineKey(worldId, mineId));
+        if (runtime == null) return 0;
+        long now = System.currentTimeMillis();
+        int count = 0;
+        for (RuntimeFrontPlan front : runtime.fronts.values()) {
+            if (front.tunnelKind != MineTunnel.Kind.MAIN || front.complete) continue;
+            MineGenerationProgress progress = network.progressFor(front.tunnelId);
+            if (progress == null || progress.unlockedSlices() >= front.slices.size()) continue;
+            int next = Math.min(front.slices.size(),
+                progress.unlockedSlices() + MAIN_PLANNING_BATCH_SLICES);
+            network = network.withGenerationProgress(front.tunnelId,
+                progress.advance(next, now + MineGenerationPolicy.REFRESH_INTERVAL_MILLIS));
+            front.unlockedSlices = next;
+            count++;
+        }
+        if (count > 0) tunnelRegistry.putNetwork(world, network);
+        return count;
+    }
+
     private void refreshMainPlanning(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
