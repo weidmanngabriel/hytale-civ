@@ -72,7 +72,7 @@ This is not a general cave/liquid simulation: V1 does not pump, fill, redirect o
 
 Recurring supports, lighting and optional decoration are allowed to re-resolve against nearby tunnel slices when their preferred slice is unsuitable. The ordered fallback is preferred slice, then nearest slices before/after it up to ±3. Mandatory passability work does not use this fallback because its location is tied to the obstacle being solved.
 
-A failed block placement keeps already placed world blocks. The next work tick re-resolves from current loaded-world state. If normal infrastructure or decoration has no valid preferred or fallback placement it is skipped; optional atmosphere never blocks a front. If mandatory bridge/step work remains unresolvable, the associated front is abandoned.
+A failed block placement keeps already placed world blocks. The next work tick re-resolves from current loaded-world state. If normal infrastructure or decoration has no valid preferred or fallback placement it is skipped; optional atmosphere never blocks a front. A mandatory step becomes executable only after its lower adjacent excavation slice is finished; attempting to place a stair into as-yet-unexcavated natural stone must not abandon a front. If mandatory bridge/step work remains truly unresolvable AFTER its prerequisite work is completed, the associated front is abandoned.
 
 
 ## Native section reference for placement (2026-10-08)
