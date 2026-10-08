@@ -65,7 +65,6 @@ public record MineInfrastructureTask(
         BARREL,
         CRATE,
         TIMBER_PILE,
-        TOOLS,
         MATERIAL_PILE,
         HANGING_CHAIN,
         HANGING_LANTERN
