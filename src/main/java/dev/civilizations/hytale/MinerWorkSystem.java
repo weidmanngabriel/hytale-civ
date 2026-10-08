@@ -2273,8 +2273,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         if (network != null) {
             for (MineRoom room : network.rooms()) {
-                if (room.state() == MineRoom.State.COMPLETE
-                    || room.state() == MineRoom.State.NATURAL_INTEGRATED) continue;
+                if (room.terminal()) continue;
                 result.add(MineDebugAnchor.atBlock(
                     "room:" + room.id(),
                     MineDebugAnchor.Kind.ROOM,
