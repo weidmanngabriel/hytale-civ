@@ -65,7 +65,7 @@ jobs:
       contents: read
     steps:
       - name: Execute allowlisted diagnostic via loopback
-        shell: powershell
+        shell: 'powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"'
         env:
           AUTHORIZED_COMMAND: ${{ needs.authorize.outputs.command }}
           REQUESTED_BY: ${{ needs.authorize.outputs.requester }}
