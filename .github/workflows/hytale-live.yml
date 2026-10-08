@@ -35,25 +35,24 @@ jobs:
               return;
             }
             const input = (context.payload.comment?.body ?? '').trim();
-            const match = /^\/hytale-live (status|npcs|mines|npc [0-9a-fA-F-]{36}|events [0-9a-fA-F-]{36}|mine-info [0-9a-fA-F-]{36})$/.exec(input);
-            if (!match) {
-              console.log('Ignoring comment without an allowlisted live diagnostic command.');
+            const uuid = '[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}';
+            const coord = '-?[0-9]{1,5}(?:\\.[0-9]{1,2})?';
+            const coords = `${coord} ${coord} ${coord}`;
+            const read = `(?:status|npcs|mines|npc ${uuid}|events ${uuid}|mine-info ${uuid})`;
+            const write = `(?:reset|spawn Civ_Inhabitant ${coords}|move ${uuid} ${coords}|profession ${uuid} (?:MINER|CONSTRUCTION_WORKER|SOLDIER|WOODCUTTER|FARMER)|assign-mine ${uuid} ${uuid})`;
+            const commandPattern = new RegExp(`^/hytale-live (${read}|${write})$`);
+            const match = commandPattern.exec(input);
+            if (!match || input.length > 256) {
+              console.log('Ignoring comment without an allowlisted live command.');
               return;
             }
             let command = match[1];
-            if (/^(npc|events|mine-info) /.test(command)) {
-              const uuid = command.split(' ')[1];
-              if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(uuid)) {
-                core.setFailed('Invalid UUID.');
-                return;
-              }
-            }
             if (command === 'status') command = 'version';
             else command = 'civdev ' + command;
             core.setOutput('command', command);
             core.setOutput('requester', actor);
             core.setOutput('allowed', 'true');
-            console.log('Authorized read-only Hytale diagnostic request.');
+            console.log('Authorized allowlisted Hytale live request.');
 
   live:
     name: Query running Hytale instance
@@ -73,7 +72,12 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $command = $env:AUTHORIZED_COMMAND
           if ($env:REQUESTED_BY -ne 'weidmanngabriel') { throw 'Unexpected requester' }
-          if ($command -notmatch '^(version|civdev (npcs|mines|(?:npc|events|mine-info) [0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}))$') {
+          $uuid = '[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}'
+          $coord = '-?[0-9]{1,5}(\\.[0-9]{1,2})?'
+          $coords = "$coord $coord $coord"
+          $read = "version|civdev (npcs|mines|(npc|events|mine-info) $uuid)"
+          $write = "civdev (reset|spawn Civ_Inhabitant $coords|move $uuid $coords|profession $uuid (MINER|CONSTRUCTION_WORKER|SOLDIER|WOODCUTTER|FARMER)|assign-mine $uuid $uuid)"
+          if ($command.Length -gt 256 -or $command -notmatch "^($read|$write)$") {
             throw 'Command failed local allowlist validation'
           }
           $uri = 'http://127.0.0.1:5523'
