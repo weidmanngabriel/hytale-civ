@@ -372,7 +372,6 @@ Main tunnel V1:
 - barrels;
 - crates;
 - timber piles;
-- tools;
 - small material piles;
 - hanging chains;
 - occasional hanging lanterns.
@@ -388,7 +387,7 @@ Branch tunnel V1:
 
 Decoration planning avoids already-planned support/light/step positions and their immediate neighboring slices. Runtime placement must remain outside the guaranteed navigation core and keeps the central +/-1 lane free for current NPC movement and later main-tunnel rails. Floor, wall and hanging variants require suitable support geometry. If a decoration candidate conflicts with navigation, infrastructure, occupied world blocks or cannot resolve a suitable Hytale asset, skip it rather than blocking or abandoning the tunnel.
 
-Layer-8 V1 uses Hytale's loaded native block assets through the existing placement path. Timber piles use known Fir blocks; other visual objects are resolved from the loaded block asset map. Multi-block authored decoration prefabs may replace individual variants later without changing the semantic decoration task.
+Layer-8 V1 uses verified native Hytale block assets through the existing placement path. Timber piles use Fir trunks. Normal barrels use `Furniture_Tavern_Barrel` with occasional damaged `Furniture_Ancient_Barrel` variants, crates use `Furniture_Crude_Chest_Small`, chains use `Deco_Iron_Chain_Small`, and hanging lanterns use `Deco_Lantern`. Material piles use normal `Ore_Iron_Stone`, `Ore_Copper_Stone` or `Ore_Gold_Stone` blocks. These ore blocks retain their normal mining/drop behaviour, so the decorative material pile is also a small real resource source. There is no tool-rack decoration because no suitable native asset exists. Multi-block authored decoration prefabs may replace individual variants later without changing the semantic decoration task.
 
 ## 19. Main-tunnel rail line
 
