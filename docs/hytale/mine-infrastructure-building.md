@@ -56,7 +56,7 @@ The repository contains the pinned server JAR but not the complete Hytale `Asset
 1. try explicit expected IDs;
 2. otherwise scan loaded `BlockType` IDs for required fragments such as `stone + brick + pillar + base`, `lantern`, or `stone + stair`.
 
-This keeps the implementation tied to actual loaded native blocks instead of inventing a Civ replacement. Layer 8 applies the same loaded-asset rule to barrels, crates, tools, chains and lantern decoration; see `mine-atmosphere-building.md`. Exact runtime winners and collision behavior are verified through focused Hytale-Local diagnostics rather than inferred from names.
+This keeps the implementation tied to actual loaded native blocks instead of inventing a Civ replacement. Layer 8 reuses the same native placement path for its verified barrel, chest, chain, lantern, ore and timber decoration assets; see `mine-atmosphere-building.md`. Runtime placement and collision behavior are verified through focused Hytale-Local diagnostics rather than inferred from names.
 
 ## Fluid/gap checks
 
