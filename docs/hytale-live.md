@@ -12,8 +12,8 @@ The normal Hytale game with the current Civ plugin must be running, its localhos
 
 1. Use the connected GitHub tools to add a comment to **locked Issue [#266](https://github.com/weidmanngabriel/hytale-civ/issues/266)** in `weidmanngabriel/hytale-civ`, formatted exactly as one command below.
 2. The trusted `.github/workflows/hytale-live.yml` workflow verifies issue number, locked state, event actor, comment author, sender and a strict allowlist in a GitHub-hosted job. Only authorized commands reach `[self-hosted, Windows, X64, hytale-local]`.
-3. Open the GitHub Actions workflow **[Hytale Live Diagnostics](https://github.com/weidmanngabriel/hytale-civ/actions/workflows/hytale-live.yml)** and identify the **new run triggered by this exact Issue #266 comment** (not merely the most recent successful run). If the GitHub connector has no general workflow-run listing action, use this Actions page to obtain the run ID; this is not a reason to conclude the logs are inaccessible.
-4. With that run ID, call the GitHub connector's `fetch_workflow_run_jobs` and select the job named `Query running Hytale instance`. Use its numeric job ID with `fetch_workflow_job_logs` (not the run ID) to retrieve the raw job log. Parse the `HCIV_LIVE_RESULT` JSON line (`success`, `command`, `output`); verify the command matches the request, the command succeeded, and the job conclusion is successful. `output` is the response from the running game.
+3. Call `fetch_issue_comments` on Issue #266 and find the workflow-generated `HCIV_LIVE_RUN request_comment_id=<original-comment-id> run_id=<run-id> url=<run-url>` response. Match `request_comment_id` to the ID returned when posting the command. Do not use an unrelated or older result. The GitHub-hosted `Publish live run reference` job posts this response after authorization; it can appear before the self-hosted game query starts. If the announcement is missing, inspect [Hytale Live Diagnostics](https://github.com/weidmanngabriel/hytale-civ/actions/workflows/hytale-live.yml) for an authorization or comment-posting error. Never treat a missing announcement as confirmation of game availability.
+4. With the correlated run ID, call the GitHub connector's `fetch_workflow_run_jobs` and select the job named `Query running Hytale instance`. Use its numeric job ID with `fetch_workflow_job_logs` (not the run ID) to retrieve the raw job log. Parse the `HCIV_LIVE_RESULT` JSON line (`success`, `command`, `output`); verify the command matches the request, the command succeeded, and the job conclusion is successful. `output` is the response from the running game.
 5. If queued, check runner availability. If the health request fails, check that the **running game plugin** is exposing port 5523. This channel never installs, builds, launches or stops the game.
 
 Do not mistake an old run for current game state. The Windows job independently validates all commands and never checks out submitted code. Keep arbitrary native console commands out of the GitHub bridge.
@@ -45,6 +45,8 @@ UUIDs must use canonical hyphenated hexadecimal syntax. Coordinates are signed d
 See [development.md](development.md) for the overall development workflow and [runner-debugging.md](runner-debugging.md) for log-first failure investigation.
 
 ## Verified behavior (2026-10-08)
+
+- [Correlated run 37752886758](https://github.com/weidmanngabriel/hytale-civ/actions/runs/37752886758): GitHub-hosted announcement job successfully posted `HCIV_LIVE_RUN` for request comment `6056316411`. This verifies run discovery through Issue #266 independently of the local runner's availability.
 
 - [Status run 37742025770](https://github.com/weidmanngabriel/hytale-civ/actions/runs/37742025770): `version` returned `HytaleServer v0.6.8 (release)`.
 - [NPC listing run 37742779964](https://github.com/weidmanngabriel/hytale-civ/actions/runs/37742779964): six loaded NPCs, including five miners and one construction worker.
