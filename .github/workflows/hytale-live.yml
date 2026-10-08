@@ -41,7 +41,7 @@ jobs:
             const coords = `${coord} ${coord} ${coord}`;
             const read = `(?:status|npcs|mines|npc ${uuid}|events ${uuid}|mine-info ${uuid})`;
             const write = `(?:reset|spawn Civ_Inhabitant ${coords}|move ${uuid} ${coords}|profession ${uuid} (?:MINER|CONSTRUCTION_WORKER|SOLDIER|WOODCUTTER|FARMER)|assign-mine ${uuid} ${uuid})`;
-            const commandPattern = new RegExp(`^/hytale-live (?:runner (pc1|pc2) )?(${read}|${write})$`);
+            const commandPattern = new RegExp(`^/hytale-live (?:runner (gabe|thommy) )?(${read}|${write})$`);
             const match = commandPattern.exec(input);
             if (!match || input.length > 256) {
               console.log('Ignoring comment without an allowlisted live command.');
@@ -85,7 +85,7 @@ jobs:
     name: Query running Hytale instance
     needs: authorize
     if: needs.authorize.outputs.allowed == 'true'
-    runs-on: ${{ fromJSON(needs.authorize.outputs.runner == 'auto' && '["self-hosted","Windows","X64","hytale-local"]' || format('["self-hosted","Windows","X64","hytale-local","hytale-{0}"]', needs.authorize.outputs.runner)) }}
+    runs-on: ${{ fromJSON(needs.authorize.outputs.runner == 'auto' && '["self-hosted","Windows","X64","hytale-local"]' || format('["self-hosted","Windows","X64","hytale-local","hytale-pc-{0}"]', needs.authorize.outputs.runner)) }}
     timeout-minutes: 2
     permissions:
       contents: read
@@ -100,7 +100,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $command = $env:AUTHORIZED_COMMAND
           if ($env:REQUESTED_BY -ne 'weidmanngabriel') { throw 'Unexpected requester' }
-          if ($env:TARGET_RUNNER -notin @('auto', 'pc1', 'pc2')) { throw 'Unexpected runner selection' }
+          if ($env:TARGET_RUNNER -notin @('auto', 'gabe', 'thommy')) { throw 'Unexpected runner selection' }
           $uuid = '[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}'
           $coord = '-?[0-9]{1,5}(\\.[0-9]{1,2})?'
           $coords = "$coord $coord $coord"
