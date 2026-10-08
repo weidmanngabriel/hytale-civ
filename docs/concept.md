@@ -247,3 +247,6 @@ Nach einem Serverneustart oder dem erneuten Laden eines entfernten NPCs bleiben 
 ### Warten bei ausgelasteter Mine
 
 Sind alle aktuell ausführbaren Minenaufgaben vollständig mit Arbeitern belegt, bleiben weitere bereits unter Tage befindliche Miner vor Ort und warten auf freie Kapazität. Erst wenn keine ausführbare Arbeit vorhanden ist, gelten die bisherigen Aufenthaltsraum- oder Eingangsrouten. Die Kapazität von zwei Minern pro Abbaufront bleibt unverändert.
+
+
+Für Stützen, Beleuchtung und Dekoration nutzt die Mine die gemeinsame native Hytale-Blockplatzierung mit der zur Zielblockposition gehörenden Chunk-Sektionsreferenz. Der Baufortschritt erfolgt nur bei erfolgreicher Platzierung; unpassende oder fehlende Zielsektionen gelten nicht als abgeschlossene Arbeit.
