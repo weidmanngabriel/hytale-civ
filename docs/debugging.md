@@ -79,10 +79,32 @@ Die Kategorien sind:
 - `GEOMETRY`: Formphasen mit Länge, Breite, Höhe, lateralem Offset und vertikalem Schritt.
 - `ROOM`: Raumchancen, Erzeugung, konkrete Seiten-/Platzablehnungen und Raumarbeit.
 - `ENVIRONMENT`: Höhlen, Fluids, Brücken-/Gap-Entscheidungen und umweltbedingte Frontabbrüche.
-- `NAVIGATION`: endgültig unerreichbare Fronten/Räume und andere native Navigationsfehler.
+- `NAVIGATION`: natives `NavState`, einmaliger Repath, terminale Navigationsfehler und Recovery.
+- `WORKER`: NPC-Task-Lifecycle, Zustandswechsel, Bewegungszielwechsel und Leerlaufgründe.
 - `ADAPTER`: Hytale-spezifische Ausführungsfehler.
 
 Die Planner protokollieren die **bereits für die Gameplayentscheidung verwendeten** Zufallswerte. Es werden keine zusätzlichen RNG-Aufrufe für Diagnosezwecke ausgeführt. Ein Regressionstest vergleicht deshalb denselben Seed mit und ohne aktiven `MineDecisionSink` und verlangt identische Tunnel- und Raumpläne.
+
+
+### Miner-Worker-Lifecycle
+
+Für die Frage „Warum hat dieser Miner seine Arbeit verlassen?“ ist die Kategorie `WORKER` gedacht. Sie protokolliert nur Übergänge und keine unveränderten 0,5-s-Ticks.
+
+Beispiel:
+
+```text
+[Civ Mine][mine=...][front=...][WORKER][TASK_SELECTED] npc=... taskType=EXCAVATE_FRONT reservation=JOINED workers=1 capacity=2 priority=...
+[Civ Mine][mine=...][front=...][WORKER][STATE_CHANGED] npc=... from=MOVING_TO_TASK to=WORKING reason=WORK_TARGET_REACHED task=EXCAVATE_FRONT taskId=...
+[Civ Mine][mine=...][front=...][WORKER][TASK_ENDED] npc=... task=EXCAVATE_FRONT:... started=true reason=NATIVE_NAVIGATION_UNREACHABLE
+[Civ Mine][mine=...][WORKER][NO_AVAILABLE_TASK] npc=... fronts=... rooms=... infrastructure=... executableCandidates=0
+[Civ Mine][mine=...][WORKER][MOVE_TARGET_CHANGED] npc=... from=(...) to=(...) reason=NO_REST_ROOM
+```
+
+Die beobachteten Diagnosezustände sind `IDLE`, `MOVING_TO_MINE`, `MOVING_TO_TASK`, `WORKING`, `BUILDING`, `MOVING_TO_IDLE_DESTINATION` und `MANUAL_CONTROL`. Sie sind **kein neuer Gameplay-State**; sie werden nur aus dem vorhandenen `WorkerRuntime` abgeleitet.
+
+`NO_AVAILABLE_TASK` wird entprellt: solange sich die zusammengefasste Task-Situation nicht ändert, wird die Meldung nicht bei jedem Tick erneut geschrieben. Task-Start und Zustandswechsel werden ebenfalls nur beim tatsächlichen Übergang ausgegeben.
+
+Die Kategorie `NAVIGATION` ergänzt dazu Hytales echten nativen Zustand: bei `BLOCKED` oder `ABORTED` erscheint zuerst `REPATH_REQUESTED`; bleibt dasselbe Ziel danach terminal fehlerhaft, folgt `NAVIGATION_FAILED`. Wenn im Main-Tunnel ein letzter sicherer Anchor als Recovery benutzt wird, erscheint zusätzlich `NAVIGATION_RECOVERY`.
 
 ### Ingame-Visualisierung
 

@@ -204,7 +204,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 activityRegistry,
                 buildingRegistry,
                 mineTunnelRegistry,
-                minerNavigationFailures
+                minerNavigationFailures,
+                mineDecisionDiagnostics
             )
         );
         getEntityStoreRegistry().registerSystem(
