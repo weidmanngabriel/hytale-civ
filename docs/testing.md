@@ -257,3 +257,6 @@ Die lokale `civdev`-Diagnostik ist kein Ersatz für Gameplay-Tests. Reine Zustan
 
 
 Minen-Regressionstests: `MineInfrastructureAvailabilityTest` prüft, dass ein `BUILD_STEP` erst nach Aushub des tieferen Übergangsabschnitts freigegeben wird (auf- und abwärts), ohne den früheren Brücken-Vorlauf zu verändern. `MineFrontCoordinatorTest` prüft drei gleichzeitig beanspruchte MAIN-Arbeiter mit unterschiedlichen Block-Claims und weiterhin nur zwei BRANCH-Arbeitern. `MineTuningTest` validiert den verdoppelten Ausgrabungsdurchsatz; `MineObstaclePolicyTest` lässt die explizite Altfall-Wiederaufnahme nur für `ABANDONED` mit passender offener Treppe zu. Native Treppenplatzierung, Block-Asset-Darstellung und die Wiederaufnahme einer gespeicherten Welt erfordern weiterhin einen fokussierten In-Game-Test.
+
+
+`MinePlacementExcavationGuardTest` verifies optional infrastructure clearance at adjacent still-solid planned excavation positions, including diagonal/vertical neighbors; completed excavation and positions beyond the one-block buffer are allowed. An in-game check with overlapping tunnel fronts is still needed to verify that the worker releases the conflicting placement task, continues excavation, and later resumes the deferred support/light/decor without obstructing the new front.
