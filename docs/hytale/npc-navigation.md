@@ -78,3 +78,7 @@ Die semantische Tunnelzugehörigkeit für Miner ist inzwischen an das persistent
 Infrastruktur aus Layer 5 verändert diesen Vertrag nicht. Supports, Licht, Treppen und Brücken liefern lediglich neue Arbeitsziele; die physische Bewegung zwischen diesen Zielen bleibt bei Hytales `ReadPosition`/`Seek`. Eine unfertige verpflichtende Brücke oder Treppe sperrt den semantischen Weiterbau, statt einen Civ-eigenen Pathfinder einzuführen.
 
 NPC-Ebene 6 ergänzt keine eigene Wegfindung. Nach dem einmaligen nativen Recompute wird ein terminaler Ziel-Fehler nur als Adapter-Ergebnis an den Work-Lifecycle übergeben. Ein optionaler Safe-Anchor-Teleport im Hauptkorridor bleibt Positions-Recovery; die fehlgeschlagene Arbeitsfront wird dadurch nicht automatisch erneut geöffnet.
+
+## NPC-Ebene 7: Ruhestellen
+
+Leerlaufziel ist entweder die Position eines fertiggebauten, im geladenen Weltzustand leeren Unterkunftsankers oder der vorhandene Tunnel-Connector mit anschließendem `workplace_access`. Die Civ-Auswahl entscheidet nur, welches semantische Ziel gilt; Bewegung wird weiterhin über `CivMinerMoveTarget` / natives `ReadPosition` / `Seek` ausgeführt. `NavState`-Fehler eines Aufenthaltsziels führen zum Verwerfen dieses Ziels statt zum Blockieren einer Abbaufront. Die vorhandene Long-Distance-Ankerlogik bleibt unverändert; Laufzeit-Erreichbarkeit von Raumankern ist im echten Client separat zu prüfen.
