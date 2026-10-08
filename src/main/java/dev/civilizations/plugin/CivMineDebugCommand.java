@@ -11,6 +11,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.MineDecisionCategory;
 import dev.civilizations.hytale.CivMineDebugService;
 import dev.civilizations.hytale.CivMineDecisionDiagnostics;
+import dev.civilizations.hytale.MinerWorkSystem;
 
 import java.util.Comparator;
 import java.util.Locale;
@@ -30,6 +31,7 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
         addSubCommand(new ShowCommand(service));
         addSubCommand(new HideCommand(service));
         addSubCommand(new LogsCommand(decisionDiagnostics));
+        addSubCommand(new RecoverCommand(service));
         requireNoPermission();
     }
 
@@ -41,7 +43,7 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
         PlayerRef playerRef,
         World world
     ) {
-        context.sendMessage(Message.raw("Mine debug: use /civdebug mine info|show|hide|logs"));
+        context.sendMessage(Message.raw("Mine debug: use /civdebug mine info|show|hide|logs|recover"));
     }
 
     private static CivMineDebugService.MineDebugSnapshot snapshot(
@@ -238,6 +240,70 @@ final class CivMineDebugCommand extends AbstractPlayerCommand {
         ) {
             int removed = service.hide(playerRef);
             context.sendMessage(Message.raw("Mine debug ausgeblendet | removed=" + removed));
+        }
+    }
+
+    private static final class RecoverCommand extends AbstractPlayerCommand {
+        private final CivMineDebugService service;
+
+        private RecoverCommand(CivMineDebugService service) {
+            super("recover", "Recover miner tasks or blocked mine fronts without changing NPC identity.");
+            this.service = service;
+            addSubCommand(new RecoveryAction(service, "status", false, false));
+            addSubCommand(new RecoveryAction(service, "workers", true, false));
+            addSubCommand(new RecoveryAction(service, "fronts", false, true));
+            addSubCommand(new RecoveryAction(service, "all", true, true));
+            requireNoPermission();
+        }
+
+        @Override
+        protected void execute(
+            CommandContext context, Store<EntityStore> store, Ref<EntityStore> ref,
+            PlayerRef playerRef, World world
+        ) {
+            context.sendMessage(Message.raw(
+                "Use /civdebug mine recover status|workers|fronts|all"
+            ));
+        }
+    }
+
+    private static final class RecoveryAction extends AbstractPlayerCommand {
+        private final CivMineDebugService service;
+        private final boolean workers;
+        private final boolean fronts;
+
+        private RecoveryAction(
+            CivMineDebugService service, String name, boolean workers, boolean fronts
+        ) {
+            super(name, "Inspect or recover the nearest mine.");
+            this.service = service;
+            this.workers = workers;
+            this.fronts = fronts;
+            requireNoPermission();
+        }
+
+        @Override
+        protected void execute(
+            CommandContext context, Store<EntityStore> store, Ref<EntityStore> ref,
+            PlayerRef playerRef, World world
+        ) {
+            CivMineDebugService.MineDebugSnapshot mine = snapshot(service, playerRef, world);
+            if (mine == null) {
+                noMine(context);
+                return;
+            }
+            MinerWorkSystem.RecoveryResult result = workers || fronts
+                ? service.recover(world, mine.mine().id(), workers, fronts)
+                : service.recoveryStatus(world.getWorldConfig().getUuid(), mine.mine().id());
+            context.sendMessage(Message.raw(
+                "Mine recovery | mine=" + mine.mine().id()
+                    + " | mode=" + (workers && fronts ? "all" : workers ? "workers"
+                        : fronts ? "fronts" : "status")
+                    + " | workers=" + result.workers()
+                    + (workers ? " (queued for next NPC tick)" : "")
+                    + " | recoverable/reopened fronts=" + result.fronts()
+                    + " | completed fronts preserved=" + result.completedFrontsPreserved()
+            ));
         }
     }
 
