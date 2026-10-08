@@ -2080,6 +2080,25 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             entityStore,
             chunkStore
         );
+        if (!isEmpty(loadedBlockType(world, target))) {
+            // The player-like break path does not clear every decoration or future
+            // infrastructure asset (some have no Gathering.Breaking definition).
+            // Use Hytale's native chunk break as a bounded fallback, but only for
+            // this already-authorized voxel in the authored tunnel excavation.
+            WorldChunk chunk = world.getChunkIfLoaded(
+                ChunkUtil.indexChunkFromBlock(target.x(), target.z())
+            );
+            if (chunk == null || !safeBlock(world, mine, target)
+                || !chunk.breakBlock(target.x(), target.y(), target.z(), 0, 0)) {
+                return false;
+            }
+            decisionSink.record(
+                mine.id(), plan.frontId, MineDecisionCategory.ADAPTER,
+                "TUNNEL_NONSTANDARD_BLOCK_REMOVED",
+                "block", target,
+                "blockId", type.getId()
+            );
+        }
         if (!isEmpty(loadedBlockType(world, target))) return false;
 
         frontCoordinator.completeClaim(plan.frontId, workerKey, target);
