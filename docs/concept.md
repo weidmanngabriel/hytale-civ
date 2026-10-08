@@ -284,3 +284,7 @@ Existing mine excavation progress and completed infrastructure are preserved if 
 ## Stuck recovery for miners
 
 An autonomously working miner with an active Civ movement destination who makes no significant movement for ten seconds may be repositioned once to a verified, closer navigation anchor on the target route. The job remains assigned. This does not apply to any other profession or player-directed movement.
+
+## Mine depth generation policy
+
+The target is Y=10 with an interval of ten minutes for progress checks. Successive tunnel plans must retain existing excavations and use independent deterministic identifiers. Only the headless policy is available today; the automatic in-game expansion and completion notification are not yet enabled.
