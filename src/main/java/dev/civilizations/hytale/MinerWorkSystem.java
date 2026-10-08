@@ -2048,6 +2048,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             room -> loadedBlockType(world, room.position()) == BlockType.EMPTY
         );
         if (selected != null) {
+            runtime.idleReachedConnector = false;
             runtime.idleRoomId = selected.id();
             Vector3d destination = new Vector3d(
                 selected.position().x() + 0.5, selected.position().y(),
