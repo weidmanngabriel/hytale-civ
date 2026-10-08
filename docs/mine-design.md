@@ -636,3 +636,8 @@ NPC-Ebene 8 übernimmt den bestehenden N5-MineNetwork-Speichervertrag und Hytale
 Nach Serverneustart oder Chunk-Reload behalten Miner ihre native Position; ein bereits im tatsächlich ausgehobenen Tunnel oder Raum stehender Miner überspringt den übertägigen Eintrittsumweg. Hytale-native Bewegung, Validierung bekannter Anker und Core-Scheduler bleiben zuständig. Erst wenn NPC, Mine und benötigte Runtimegeometrie vorliegen, wird Arbeit ausgewählt. Unbekannte oder nicht mehr vorhandene Arbeitsplätze lösen keinen automatischen Berufswechsel aus. Ungeladene Miner arbeiten nicht im Hintergrund.
 
 Der reale Weltzustand bleibt Wahrheit für entfernte Blöcke; der persistente semantische Fortschritt bleibt erforderlich, um bereits fertiggestellte Bauabschnitte und deterministische Infrastruktur nicht neu auszuführen. Bei gestaffelten Welt- und Ressourcen-Saves, vor allem nach Abstürzen, ist vollständige atomare Konsistenz nicht garantiert. Es gibt keine SaveAllResources-Auslösung pro Block, keine separate Datenbank und keinen automatischen Reset dauerhaft blockierter Fronten. Weitergehende automatische Konsistenzreparaturen bleiben offen.
+
+
+### Waiting when work capacity is exhausted
+
+When all currently executable tasks have reached worker capacity, unassigned miners already inside the mine wait in place instead of immediately routing to the mine entrance. They re-evaluate normal work selection regularly. If there is genuinely no executable work, the normal accommodation / entrance idle flow remains unchanged. This does not alter task priorities, reservations, or the two-miner tunnel-front capacity.
