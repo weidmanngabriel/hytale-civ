@@ -13,6 +13,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class MineNormalTaskSelectorTest {
 
     @Test
+    void capacityBlockedTaskIsDifferentFromNoExecutableWork() {
+        BlockPosition pos = new BlockPosition(1, 20, 0);
+        var saturated = List.of(new MineNormalTaskSelector.Candidate(
+            UUID.randomUUID(), MineNormalTaskSelector.Kind.TUNNEL_FRONT, 4, 2, 2, pos
+        ));
+        assertTrue(MineNormalTaskSelector.allWorkAtCapacity(saturated));
+        assertEquals(null, MineNormalTaskSelector.select(saturated, pos));
+        assertFalse(MineNormalTaskSelector.allWorkAtCapacity(List.of()));
+        assertFalse(MineNormalTaskSelector.allWorkAtCapacity(List.of(
+            new MineNormalTaskSelector.Candidate(
+                UUID.randomUUID(), MineNormalTaskSelector.Kind.TUNNEL_FRONT, 4, 1, 2, pos
+            )
+        )));
+    }
+
+    @Test
     void activeFrontBeatsHigherPriorityWaitingRoom() {
         UUID front = UUID.randomUUID();
         UUID room = UUID.randomUUID();
