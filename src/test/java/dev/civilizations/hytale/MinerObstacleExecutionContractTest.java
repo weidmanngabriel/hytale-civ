@@ -51,6 +51,19 @@ final class MinerObstacleExecutionContractTest {
     }
 
     @Test
+    void overlappingBridgeWorkIsNotCreatedWhileExistingSpanIsBeingBuilt() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
+        );
+
+        assertTrue(source.contains("boolean bridgeInProgress"));
+        assertTrue(source.contains("existing.task.tunnelId().equals(front.tunnelId)"));
+        assertTrue(source.contains("existing.task.startSliceIndex() <= front.sliceIndex"));
+        assertTrue(source.contains("existing.task.endSliceIndex() >= front.sliceIndex"));
+        assertTrue(source.contains("if (bridgeInProgress) continue;"));
+    }
+
+    @Test
     void mandatoryInfrastructureResolutionFailureAbandonsItsFront() throws Exception {
         String source = Files.readString(
             Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
