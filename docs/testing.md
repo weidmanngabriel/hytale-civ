@@ -213,7 +213,7 @@ Ein echter Runtime-Check ist nur für Engine-Fragen sinnvoll, etwa wie natürlic
 
 `MineInfrastructurePlannerTest` prüft deterministische Atmosphäre, dichtere Main- als Branch-Dekoration, Branch-Ausschluss von Ketten/Hängelaternen, einfachere Branch-Supports und Abstand zu bereits geplanter Infrastruktur. `MineAtmosphereExecutionContractTest` schützt den produktiven Adaptervertrag: ein gemeinsamer normaler Aging-Scheduler, nur Priority 10 separat, native Assetauflösung sowie Schutz von Navigation und zentralem Rail-Korridor.
 
-Der fokussierte Hytale-Local-Test `mineatmosphere` baut eine künstliche Hauptstollen-Fixture, löst alle sieben Main-Dekorationsarten über Produktionscode auf, platziert sie nativ und lässt anschließend einen echten Civ-NPC durch den Mittelgang navigieren. Das ist Runtime-Evidenz für Asset-/Hitbox-/Navigationsverhalten, kein Merge-Gate.
+Der fokussierte Hytale-Local-Test `mineatmosphere` baut eine künstliche Hauptstollen-Fixture, löst alle sechs Main-Dekorationsarten über Produktionscode auf, platziert sie nativ und lässt anschließend einen echten Civ-NPC durch den Mittelgang navigieren. Das ist Runtime-Evidenz für Asset-/Hitbox-/Navigationsverhalten, kein Merge-Gate.
 
 ## Browser-Replay-Vertrag
 
