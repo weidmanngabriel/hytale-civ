@@ -2095,6 +2095,40 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         return true;
     }
 
+    private void refreshMainPlanning(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan runtime
+    ) {
+        MineNetwork network = tunnelRegistry.networkForMine(
+            world.getWorldConfig().getUuid(), mine.id()
+        );
+        if (network == null) return;
+        long now = System.currentTimeMillis();
+        for (RuntimeFrontPlan front : runtime.fronts.values()) {
+            if (front.tunnelKind != MineTunnel.Kind.MAIN || front.complete) continue;
+            MineGenerationProgress progress = network.progressFor(front.tunnelId);
+            if (progress == null || now < progress.nextRefreshAtMillis()) continue;
+            int next = Math.min(front.slices.size(),
+                progress.unlockedSlices() + MAIN_PLANNING_BATCH_SLICES);
+            MineGenerationProgress updated = progress.advance(
+                next, now + MineGenerationPolicy.REFRESH_INTERVAL_MILLIS
+            );
+            network = network.withGenerationProgress(front.tunnelId, updated);
+            front.unlockedSlices = next;
+            decisionSink.record(
+                mine.id(), front.tunnelId, MineDecisionCategory.PLANNING, "MAIN_PLAN_REFRESHED",
+                "unlockedSlices", next,
+                "totalSlices", front.slices.size(),
+                "nextRefreshAtMillis", updated.nextRefreshAtMillis()
+            );
+        }
+        if (!network.equals(tunnelRegistry.networkForMine(
+                world.getWorldConfig().getUuid(), mine.id()))) {
+            tunnelRegistry.putNetwork(world, network);
+        }
+    }
+
     private static MineNetworkGrowthPlanner.Plan clippedInitialPlan(
         MineNetworkGrowthPlanner.Plan original
     ) {
