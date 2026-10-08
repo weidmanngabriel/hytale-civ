@@ -739,3 +739,6 @@ When all currently executable tasks have reached worker capacity, unassigned min
 ### Main-front capacity, excavation timing and stair readiness
 
 A main-tunnel excavation front admits up to three miners with distinct transient block claims, while a branch-tunnel front remains at two. Room excavation capacity remains three and room building capacity two. Each active miner's tunnel/room excavation interval is now `30/128` seconds per block (twice the prior rate), without changing support/light/decor/bridge/step placement time. Mandatory `BUILD_STEP` work waits until the lower adjacent slice has been excavated; its own reservation and placement remain single-worker tasks. Existing abandoned fronts must not automatically be reopened: targeted dev retry is restricted to the legacy unfinished-stair case.
+
+
+Optional supports, lights and decoration now use a shared one-block clearance buffer against remaining solid blocks of any planned excavation front. A conflict causes `INFRASTRUCTURE_DELAYED`, releases that miner's assignment, and makes the optional task selectable again after the blocking front advances. This is neither task completion nor permanent abandonment. Already-finished excavation blocks do not cause delay; mandatory stairs and bridges use separate required-work rules.

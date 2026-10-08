@@ -323,3 +323,6 @@ Die Actions-/Pages-Grenze und die begrenzte Aufbewahrung sind in [ADR 0010](deci
 
 
 Die passierbarkeitsrelevante Freigabe normaler Infrastruktur und `BUILD_STEP` gehört zur Hytale-unabhängigen `MineInfrastructureAvailability`: Treppen warten auf beide ausgegrabenen Nachbarslices, Brücken behalten ihren vorgezogenen Pflichtbau. `MinerWorkSystem` übergibt den aktuellen Frontfortschritt an diese Core-Policy; der Hytale-Adapter validiert dann die reale Platzierung. `MineFrontCoordinator.capacityFor(kind)` unterscheidet MAIN (3) und BRANCH (2) und bleibt mit den per-Block-Claims synchron. Eine manuelle Altfall-Wiederaufnahme ist ausschließlich als eingeschränktes `/civdev mine-retry-stair` vorgesehen; allgemeine ABANDONED-Recovery bleibt verboten.
+
+
+`MinePlacementExcavationGuard` ist die Core-Prüfung für den ein Block breiten Sicherheitsabstand zwischen optionaler Infrastruktur und noch festen geplanten Abbaublöcken. `MinerWorkSystem` verwendet den bestehenden Hytale-Weltblock-Zugriff, um zu entscheiden, welche geplanten Blöcke tatsächlich noch abzubauen sind. Ein optionaler Bauauftrag wird nur bis zum Fortschritt der konkret blockierenden Front zurückgestellt und danach erneut geprüft; die bestehende Pflichtinfrastruktursteuerung bleibt unverändert.

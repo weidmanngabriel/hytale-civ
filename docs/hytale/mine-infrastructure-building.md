@@ -81,3 +81,6 @@ The pinned HytaleServer.jar `BlockOperations.setBlock(ChunkStore, Ref<ChunkStore
 
 
 For regular main-tunnel lantern pillars, the resolver now explicitly prefers the verified native asset ID `Deco_Lantern`, rather than selecting an arbitrary block containing `lantern` (such as a temple fixture). `BUILD_STEP` is only offered after the lower adjacent slice has been fully excavated, so valid natural stone in that not-yet-dug slice cannot be mistaken for terminal stair placement failure. This change is to Civ scheduling; Hytale still places stairs through the existing native BlockOperations path.
+
+
+Optional support/light/decor placement uses a headless `MinePlacementExcavationGuard` with native read-only `loadedBlockType` world inspection to detect still-solid authored excavation within one additional block on all three axes. The check occurs after resolution and just before each native block operation. On conflict, `MinerWorkSystem` releases the worker assignment, retains the optional task and delays reselection until the particular conflicting front advances; it never changes Hytale block placement semantics. Mandatory step and bridge work is excluded from this optional-work delay mechanism.
