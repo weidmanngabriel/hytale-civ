@@ -55,6 +55,7 @@ Vor neuer Hytale-spezifischer Arbeit zuerst diese Übersicht und die relevante T
 - [ECS und Persistenz](ecs-persistence.md)
 - [Prefabs und Bauen](prefabs-building.md)
 - [Minen-Infrastruktur und Blockplatzierung](mine-infrastructure-building.md)
+- [Minenatmosphäre und dekorative Blockplatzierung](mine-atmosphere-building.md)
 - [Minenhöhlen und Loaded-World-Beobachtung](mine-caves-world.md)
 - [Farming und Inventar](farming-inventory.md)
 
