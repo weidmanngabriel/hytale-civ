@@ -281,7 +281,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         RuntimeInfrastructureTask mandatoryInfrastructure =
-            selectInfrastructureTask(world, mine, minePlan, position, workerKey, runtime, true);
+            selectMandatoryInfrastructureTask(world, mine, minePlan, position, workerKey, runtime);
         if (mandatoryInfrastructure != null) {
             if (runtime.frontId != null) frontCoordinator.releaseWorker(workerKey);
             if (runtime.roomId != null) roomCoordinator.releaseWorker(workerKey);
@@ -653,39 +653,34 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         return fluid != null && fluid.hasEffect(ShaderType.Lava);
     }
 
-    private RuntimeInfrastructureTask selectInfrastructureTask(
+    private RuntimeInfrastructureTask selectMandatoryInfrastructureTask(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
         RuntimeMinePlan minePlan,
         Vector3d workerPosition,
         CivUnitRegistry.UnitKey workerKey,
-        WorkerRuntime runtime,
-        boolean mandatoryOnly
+        WorkerRuntime runtime
     ) {
         RuntimeInfrastructureTask best = null;
-        int bestPriority = Integer.MIN_VALUE;
         double bestDistance = Double.POSITIVE_INFINITY;
 
         for (RuntimeInfrastructureTask candidate : minePlan.infrastructureTasks.values()) {
-            if (candidate.completed) continue;
-            if (mandatoryOnly && !candidate.task.mandatory()) continue;
-            if (!mandatoryOnly && candidate.task.mandatory()) continue;
+            if (candidate.completed || !candidate.task.mandatory()) continue;
 
             RuntimeFrontPlan front = frontForTunnel(minePlan, candidate.task.tunnelId());
-            if (front == null || front.unavailable || !infrastructureAvailable(candidate.task, front)) continue;
+            if (front == null || front.unavailable || !infrastructureAvailable(candidate.task, front)) {
+                continue;
+            }
 
             CivUnitRegistry.UnitKey reserved = infrastructureReservations.get(candidate.task.id());
             if (reserved != null && !reserved.equals(workerKey)) continue;
 
             double distance = squaredDistance(workerPosition, candidate.task.anchor());
-            int priority = candidate.task.priority();
             if (best == null
-                || priority > bestPriority
-                || (priority == bestPriority && distance < bestDistance)
-                || (priority == bestPriority && distance == bestDistance
+                || distance < bestDistance
+                || (distance == bestDistance
                     && candidate.task.id().compareTo(best.task.id()) < 0)) {
                 best = candidate;
-                bestPriority = priority;
                 bestDistance = distance;
             }
         }
