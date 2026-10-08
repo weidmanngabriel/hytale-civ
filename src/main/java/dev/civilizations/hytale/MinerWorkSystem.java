@@ -655,6 +655,17 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 continue;
             }
 
+            // Several fronts may point into the same tunnel. A bridge already being
+            // built for the current slice must finish before another front inspects
+            // its intermediate floor state or creates a conflicting overlapping task.
+            boolean bridgeInProgress = minePlan.infrastructureTasks.values().stream()
+                .anyMatch(existing -> !existing.completed
+                    && existing.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE
+                    && existing.task.tunnelId().equals(front.tunnelId)
+                    && existing.task.startSliceIndex() <= front.sliceIndex
+                    && existing.task.endSliceIndex() >= front.sliceIndex);
+            if (bridgeInProgress) continue;
+
             BridgeAssessment assessment = assessBridge(world, front);
             if (assessment.abandonReason() != null) {
                 failFront(
