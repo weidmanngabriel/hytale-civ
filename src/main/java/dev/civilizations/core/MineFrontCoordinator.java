@@ -23,11 +23,20 @@ public final class MineFrontCoordinator<W> {
     private final Map<UUID, FrontState<W>> fronts = new HashMap<>();
 
     public synchronized boolean tryJoin(UUID frontId, W worker) {
+        return tryJoin(frontId, worker, NORMAL_TUNNEL_FRONT_CAPACITY);
+    }
+
+    public static int capacityFor(MineTunnel.Kind kind) {
+        return kind == MineTunnel.Kind.MAIN ? 3 : NORMAL_TUNNEL_FRONT_CAPACITY;
+    }
+
+    public synchronized boolean tryJoin(UUID frontId, W worker, int capacity) {
+        if (capacity < 1) throw new IllegalArgumentException("Front capacity must be positive.");
         Objects.requireNonNull(frontId, "frontId");
         Objects.requireNonNull(worker, "worker");
         FrontState<W> state = fronts.computeIfAbsent(frontId, ignored -> new FrontState<>());
         if (state.workers.contains(worker)) return true;
-        if (state.workers.size() >= NORMAL_TUNNEL_FRONT_CAPACITY) return false;
+        if (state.workers.size() >= capacity) return false;
         state.workers.add(worker);
         return true;
     }
@@ -38,13 +47,23 @@ public final class MineFrontCoordinator<W> {
         List<BlockPosition> candidates,
         Predicate<BlockPosition> available
     ) {
+        return claimNext(frontId, worker, NORMAL_TUNNEL_FRONT_CAPACITY, candidates, available);
+    }
+
+    public synchronized BlockPosition claimNext(
+        UUID frontId,
+        W worker,
+        int capacity,
+        List<BlockPosition> candidates,
+        Predicate<BlockPosition> available
+    ) {
         Objects.requireNonNull(frontId, "frontId");
         Objects.requireNonNull(worker, "worker");
         Objects.requireNonNull(candidates, "candidates");
         Objects.requireNonNull(available, "available");
 
         FrontState<W> state = fronts.computeIfAbsent(frontId, ignored -> new FrontState<>());
-        if (!state.workers.contains(worker) && !tryJoin(frontId, worker)) return null;
+        if (!state.workers.contains(worker) && !tryJoin(frontId, worker, capacity)) return null;
 
         BlockPosition existing = state.workerClaims.get(worker);
         if (existing != null) return existing;
