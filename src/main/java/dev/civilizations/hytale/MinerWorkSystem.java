@@ -821,7 +821,29 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             runtime.infrastructurePlacementIndex = 0;
             runtime.workElapsed = 0.0;
 
+            if (runtime.resolvedInfrastructure != null) {
+                Vector3d resolvedTarget = runtime.resolvedInfrastructure.workTarget();
+                decisionSink.record(
+                    mine.id(), infrastructure.task.id(), MineDecisionCategory.WORKER,
+                    "INFRASTRUCTURE_WORK_TARGET",
+                    "npc", workerLabel(ref, workerKey),
+                    "taskType", infrastructure.task.type(),
+                    "target", formatTarget(resolvedTarget),
+                    "minerPosition", formatTarget(workerPosition),
+                    "distance", Math.sqrt(workerPosition.distanceSquared(resolvedTarget)),
+                    "placements", runtime.resolvedInfrastructure.placements().size()
+                );
+            }
+
             if (runtime.resolvedInfrastructure == null) {
+                decisionSink.record(
+                    mine.id(), infrastructure.task.id(), MineDecisionCategory.ADAPTER,
+                    "INFRASTRUCTURE_RESOLVE_FAILED",
+                    "npc", workerLabel(ref, workerKey),
+                    "taskType", infrastructure.task.type(),
+                    "anchor", infrastructure.task.anchor(),
+                    "minerPosition", formatTarget(workerPosition)
+                );
                 unitRegistry.clearMoveTarget(ref);
                 stopBuildingAnimation(ref, store, runtime);
                 if (infrastructure.task.mandatory()) {
@@ -893,23 +915,70 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 runtime.resolvedInfrastructure.placements().get(
                     runtime.infrastructurePlacementIndex
                 );
-            boolean placed = MineBlockPlacement.place(
-                world,
-                placement.position(),
-                placement.blockId(),
-                placement.rotation(),
-                placement.placedAgainst(),
-                placement.markDeco()
-            );
-            if (!placed) {
-                // The world may have changed since shape resolution. Preserve already placed
-                // blocks, re-resolve on the next work tick and confirm them idempotently.
+            MineBlockPlacement.PlacementResult placementResult =
+                MineBlockPlacement.placeDetailed(
+                    world,
+                    placement.position(),
+                    placement.blockId(),
+                    placement.rotation(),
+                    placement.placedAgainst(),
+                    placement.markDeco()
+                );
+            if (!placementResult.success()) {
+                String failureKey = placement.blockId() + "@" + placement.position()
+                    + ":" + placementResult.failureReason()
+                    + ":" + placementResult.existingBlockId();
+                if (failureKey.equals(infrastructure.lastPlacementFailureKey)) {
+                    infrastructure.repeatedPlacementFailures++;
+                } else {
+                    infrastructure.lastPlacementFailureKey = failureKey;
+                    infrastructure.repeatedPlacementFailures = 1;
+                }
+
+                String event = infrastructure.repeatedPlacementFailures == 1
+                    ? "BLOCK_PLACEMENT_FAILED"
+                    : "BLOCK_PLACEMENT_FAILURE_REPEATED";
+                if (infrastructure.repeatedPlacementFailures == 1
+                    || infrastructure.repeatedPlacementFailures == 2
+                    || infrastructure.repeatedPlacementFailures == 3
+                    || infrastructure.repeatedPlacementFailures % 5 == 0) {
+                    decisionSink.record(
+                        mine.id(), infrastructure.task.id(), MineDecisionCategory.ADAPTER, event,
+                        "npc", workerLabel(ref, workerKey),
+                        "taskType", infrastructure.task.type(),
+                        "blockId", placement.blockId(),
+                        "position", placement.position(),
+                        "placedAgainst", placement.placedAgainst(),
+                        "reason", placementResult.failureReason(),
+                        "existingBlockId", placementResult.existingBlockId(),
+                        "repeatCount", infrastructure.repeatedPlacementFailures,
+                        "workTarget", formatTarget(runtime.resolvedInfrastructure.workTarget()),
+                        "minerPosition", formatTarget(workerPosition)
+                    );
+                }
+                if (infrastructure.repeatedPlacementFailures == 3) {
+                    decisionSink.record(
+                        mine.id(), infrastructure.task.id(), MineDecisionCategory.ADAPTER,
+                        "PLACEMENT_RETRY_LOOP_DETECTED",
+                        "npc", workerLabel(ref, workerKey),
+                        "taskType", infrastructure.task.type(),
+                        "blockId", placement.blockId(),
+                        "position", placement.position(),
+                        "reason", placementResult.failureReason(),
+                        "repeatCount", infrastructure.repeatedPlacementFailures
+                    );
+                }
+
+                // Preserve gameplay behavior for now. Re-resolve on the next work tick;
+                // diagnostics above make identical retry loops visible before a gameplay fix.
                 runtime.resolvedInfrastructure = null;
                 runtime.infrastructurePlacementIndex = 0;
                 runtime.workElapsed = 0.0;
                 stopBuildingAnimation(ref, store, runtime);
                 return;
             }
+            infrastructure.lastPlacementFailureKey = null;
+            infrastructure.repeatedPlacementFailures = 0;
             runtime.infrastructurePlacementIndex++;
         }
 
@@ -1023,6 +1092,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         int totalFronts = minePlan.fronts.size();
         int totalRooms = minePlan.rooms.size();
         int totalInfrastructure = minePlan.infrastructureTasks.size();
+        Map<String, Integer> supportSkipReasons = new LinkedHashMap<>();
         List<MineNormalTaskSelector.Candidate> candidates = new ArrayList<>();
         for (RuntimeFrontPlan candidate : minePlan.fronts.values()) {
             if (candidate.complete) continue;
@@ -1056,13 +1126,32 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         for (RuntimeInfrastructureTask infrastructure : minePlan.infrastructureTasks.values()) {
-            if (infrastructure.completed || infrastructure.task.mandatory()) continue;
+            boolean support = infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_SUPPORT;
+            if (infrastructure.completed) {
+                if (support) supportSkipReasons.merge("COMPLETED", 1, Integer::sum);
+                continue;
+            }
+            if (infrastructure.task.mandatory()) {
+                if (support) supportSkipReasons.merge("MANDATORY_PATH", 1, Integer::sum);
+                continue;
+            }
             RuntimeFrontPlan front = frontForTunnel(minePlan, infrastructure.task.tunnelId());
-            if (front == null || front.unavailable
-                || !infrastructureAvailable(infrastructure.task, front)) {
+            if (front == null) {
+                if (support) supportSkipReasons.merge("FRONT_MISSING", 1, Integer::sum);
+                continue;
+            }
+            if (front.unavailable) {
+                if (support) supportSkipReasons.merge("FRONT_UNAVAILABLE", 1, Integer::sum);
+                continue;
+            }
+            if (!infrastructureAvailable(infrastructure.task, front)) {
+                if (support) supportSkipReasons.merge("NOT_YET_AVAILABLE", 1, Integer::sum);
                 continue;
             }
             int workers = infrastructureReservations.containsKey(infrastructure.task.id()) ? 1 : 0;
+            if (support && workers >= 1) {
+                supportSkipReasons.merge("RESERVED", 1, Integer::sum);
+            }
             candidates.add(new MineNormalTaskSelector.Candidate(
                 infrastructure.task.id(),
                 MineNormalTaskSelector.Kind.INFRASTRUCTURE,
@@ -1087,6 +1176,37 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         MineNormalTaskSelector.Candidate selected = selection.selected();
+        RuntimeInfrastructureTask selectedInfrastructure = selected == null
+            || selected.kind() != MineNormalTaskSelector.Kind.INFRASTRUCTURE
+            ? null
+            : minePlan.infrastructureTasks.get(selected.id());
+        if (selectedInfrastructure != null
+            && selectedInfrastructure.task.type() == MineInfrastructureTask.Type.BUILD_SUPPORT) {
+            runtime.lastSupportDecisionFingerprint = null;
+            decisionSink.record(
+                mine.id(), selected.id(), MineDecisionCategory.WORKER, "BUILD_SUPPORT_TASK_SELECTED",
+                "npc", workerLabel(null, workerKey),
+                "priority", selected.priority(),
+                "effectivePriority", MineNormalTaskSelector.effectivePriority(
+                    selected, network.normalTaskPriorityBonuses()
+                ),
+                "workers", selected.workerCount(),
+                "capacity", selected.capacity(),
+                "anchor", selected.position()
+            );
+        } else if (!supportSkipReasons.isEmpty()) {
+            String supportFingerprint = supportSkipReasons.toString()
+                + "|selected=" + (selected == null ? "-" : selected.kind() + ":" + selected.id());
+            if (!supportFingerprint.equals(runtime.lastSupportDecisionFingerprint)) {
+                runtime.lastSupportDecisionFingerprint = supportFingerprint;
+                decisionSink.record(
+                    mine.id(), null, MineDecisionCategory.WORKER, "BUILD_SUPPORT_TASK_SKIPPED",
+                    "npc", workerLabel(null, workerKey),
+                    "reasons", supportSkipReasons,
+                    "selectedInstead", selected == null ? "-" : selected.kind() + ":" + selected.id()
+                );
+            }
+        }
         runtime.waitingForCapacity = selected == null
             && MineNormalTaskSelector.allWorkAtCapacity(candidates);
         if (selected == null) {
@@ -1720,7 +1840,12 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         Map<UUID, RuntimeInfrastructureTask> infrastructureTasks = new LinkedHashMap<>();
         for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : planned.tunnels()) {
             for (MineInfrastructureTask task :
-                MineInfrastructurePlanner.plan(tunnel.tunnel().id(), tunnel.geometry())) {
+                MineInfrastructurePlanner.plan(
+                    mine.id(),
+                    tunnel.tunnel().id(),
+                    tunnel.geometry(),
+                    decisionSink
+                )) {
                 infrastructureTasks.put(
                     task.id(),
                     new RuntimeInfrastructureTask(
@@ -2661,6 +2786,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private final MineTunnel.Kind tunnelKind;
         private final MineTunnelGeometry geometry;
         private boolean completed;
+        private String lastPlacementFailureKey;
+        private int repeatedPlacementFailures;
 
         private RuntimeInfrastructureTask(
             MineInfrastructureTask task,
@@ -2712,6 +2839,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private String selectedTaskKey;
         private String startedTaskKey;
         private String lastNoTaskFingerprint;
+        private String lastSupportDecisionFingerprint;
 
         private void clearIdle() {
             waitingForCapacity = false;
@@ -2780,6 +2908,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             selectedTaskKey = null;
             startedTaskKey = null;
             lastNoTaskFingerprint = null;
+            lastSupportDecisionFingerprint = null;
             clearAssignment();
         }
     }
