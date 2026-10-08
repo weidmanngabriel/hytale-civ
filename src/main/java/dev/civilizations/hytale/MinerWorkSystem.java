@@ -2227,6 +2227,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             );
             network = network.withGenerationProgress(front.tunnelId, updated);
             front.unlockedSlices = next;
+            world.sendMessage(com.hypixel.hytale.server.core.Message.raw(
+                "Mine: " + (next - progress.unlockedSlices())
+                    + " weitere Hauptstollenabschnitte freigegeben."
+            ));
             decisionSink.record(
                 mine.id(), front.tunnelId, MineDecisionCategory.PLANNING, "MAIN_PLAN_REFRESHED",
                 "unlockedSlices", next,
@@ -2565,6 +2569,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             decisionSink.record(mine.id(), completed.tunnelId,
                 MineDecisionCategory.PLANNING, "MAIN_EXTENSION_BLOCKED",
                 "reason", "ENTRANCE_ALREADY_AT_MINIMUM_Y");
+            world.sendMessage(com.hypixel.hytale.server.core.Message.raw(
+                "Mine: Kein neuer Hauptstollen möglich – Eingang liegt auf Endtiefe Y=10."
+            ));
             return;
         }
         boolean depthReached = end.y() <= MineGenerationPolicy.MIN_FLOOR_Y;
@@ -2602,6 +2609,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 MineDecisionCategory.PLANNING, "MAIN_EXTENSION_BLOCKED",
                 "reason", "NO_CLEAR_TUNNEL_DIRECTION",
                 "atY", end.y());
+            world.sendMessage(com.hypixel.hytale.server.core.Message.raw(
+                "Mine: Kein neuer Hauptstollen möglich – keine freie Richtung gefunden."
+            ));
             return;
         }
 
