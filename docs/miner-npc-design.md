@@ -231,9 +231,9 @@ After each completed build section, the miners assigned to it select again.
 
 A support, light, step or bridge task completes when its defined infrastructure work unit is successfully constructed and reported back to the mine system.
 
-Layer-5 V1 implements these four task types in live miner work. A single infrastructure task has capacity one. The miner navigates to its work area and places the resolved structure block-by-block at 0.5 seconds per block. Completion is persisted at mine level; temporary worker reservations are not.
+The live miner implements support, light, step, bridge and Layer-8 decoration work. An individual infrastructure/decor task has capacity one. The miner navigates to its work area and places the resolved blocks through the Hytale adapter. Completion is persisted at mine level; temporary worker reservations are not.
 
-The current implementation integrates infrastructure around the existing narrow excavation-front scheduler rather than pretending that the full general task scheduler already exists. Priority-10 steps/bridges can block and interrupt normal excavation on their tunnel. Normal support/light work is selected at normal task-selection boundaries. Full cross-category aging and room/decor scheduling remain future work.
+Layer 8 completes the shared normal-task scheduler. Tunnel fronts, room work, recurring supports/lights and decoration now enter one normal candidate pool. Priority-10 passability work remains the only separate acute scheduler path and may interrupt normal work.
 
 ## 7. Task priority
 
@@ -271,7 +271,9 @@ Rule:
 - normal task priority is capped at `9`;
 - priority `10` remains reserved for mandatory safety/passability work.
 
-Aging is per concrete task, not global per task type.
+Aging is per concrete task, not global per task type, and the current bonus is persistent mine state. A server restart therefore does not reset starvation protection.
+
+The bonus is cleared when that concrete work unit completes or becomes unavailable. A following work unit starts again from its base priority; for example, the next tunnel slice does not inherit the previous slice's accumulated bonus.
 
 This means, for example, a specific decoration or lighting task can eventually overtake normal excavation if it has repeatedly been skipped, but never becomes acute priority `10`.
 
