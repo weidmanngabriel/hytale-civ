@@ -197,7 +197,7 @@ After selecting a Farm through `/civbuild`, confirm it with left click. The stat
 
 ## Minenraum-Abdeckung
 
-`MineRoomPlannerTest` prüft deterministische Raumplanung, die kanonischen Wahrscheinlichkeitsbereiche sowie die V1-Verteilung der drei authored Typen. `MineRoomGeometryTest` prüft, dass der Raum-Aushub vollständig durch kleine semantische Work-Units abgedeckt wird. `MineNormalTaskSelectorTest` schützt die Regel „aktive normale Arbeit zuerst auffüllen“ auch zwischen Raum- und Tunnelarbeit sowie die Raumpriorität 8 beim Öffnen neuer Arbeit. `CivMinePersistenceServiceTest` prüft N4-Raumfortschritt und das rückwärtskompatible Lesen von N3/N2. `MineRoomPrefabAssetValidationTest` hält die drei ersten Test-Prefabs klein und auf bekannte einfache Blocktypen begrenzt.
+`MineRoomPlannerTest` prüft deterministische Raumplanung, die kanonischen Wahrscheinlichkeitsbereiche sowie die V1-Verteilung der drei authored Typen. `MineRoomGeometryTest` prüft, dass der Raum-Aushub vollständig durch kleine semantische Work-Units abgedeckt wird. `MineNormalTaskSelectorTest` schützt aktive-first-Auswahl, gemeinsame Prioritäten und das Layer-8-Aging bis maximal 9. `CivMinePersistenceServiceTest` prüft N5 einschließlich Aging sowie das rückwärtskompatible Lesen von N4/N3/N2. `MineRoomPrefabAssetValidationTest` hält die drei ersten Test-Prefabs klein und auf bekannte einfache Blocktypen begrenzt.
 
 Die tatsächliche Hytale-Prefab-Ladung, sichtbare Raumrotation und NPC-Navigation in einen gebauten Raum sind Engine-/Client-Verhalten. Ein Hytale-Local-Lauf ist für diesen Change kein Merge-Gate und wurde ohne ausdrückliche Freigabe in diesem Chat nicht ausgeführt.
 
@@ -208,6 +208,12 @@ Die tatsächliche Hytale-Prefab-Ladung, sichtbare Raumrotation und NPC-Navigatio
 Die bereits vorhandenen Hindernis-/Infrastrukturtests schützen weiterhin `BLOCKED` versus `ABANDONED`, 16-/10-Slice-Brückengrenzen, Wasser/Lava und Pflicht-Infrastruktur. Layer 7 ersetzt diese Logik nicht, sondern ergänzt die Höhlenklassifikation und die strengere Gegenseitenprüfung.
 
 Ein echter Runtime-Check ist nur für Engine-Fragen sinnvoll, etwa wie natürliche Worldgen-Hohlräume in geladenen Chunks erscheinen. Zufälliges Worldgen soll nicht als deterministische Merge-Assertion verwendet werden.
+
+## Minenatmosphäre-/Aging-Abdeckung
+
+`MineInfrastructurePlannerTest` prüft deterministische Atmosphäre, dichtere Main- als Branch-Dekoration, Branch-Ausschluss von Ketten/Hängelaternen, einfachere Branch-Supports und Abstand zu bereits geplanter Infrastruktur. `MineAtmosphereExecutionContractTest` schützt den produktiven Adaptervertrag: ein gemeinsamer normaler Aging-Scheduler, nur Priority 10 separat, native Assetauflösung sowie Schutz von Navigation und zentralem Rail-Korridor.
+
+Der fokussierte Hytale-Local-Test `mineatmosphere` baut eine künstliche Hauptstollen-Fixture, löst alle sieben Main-Dekorationsarten über Produktionscode auf, platziert sie nativ und lässt anschließend einen echten Civ-NPC durch den Mittelgang navigieren. Das ist Runtime-Evidenz für Asset-/Hitbox-/Navigationsverhalten, kein Merge-Gate.
 
 ## Browser-Replay-Vertrag
 
@@ -232,9 +238,9 @@ Mobilgeräte-FPS und tatsächliche Hytale-Navigation sind durch die headless Che
 
 `Mine · Geometry` ist der reine Geometrie-Test. Er verwendet die produktiven Layer-2/3-Planer, zeigt aber bewusst keine Supports, Lichter, Treppen, Bridges oder Hindernisse.
 
-`Mine · Straight Full` ist der verständliche Miner-Ablauf für einen einzelnen Hauptstollen. Alle vom produktiven `MineInfrastructurePlanner` gelieferten Supports, Lichter und Steps werden nach dem gleichen semantischen Fortschrittsrhythmus abgearbeitet, den der Hytale-Adapter verwendet. Die sichtbare Blockform dieser Infrastruktur ist eine richtungsbewusste Headless-Darstellung und behauptet nicht Hytales konkrete Assetauflösung.
+`Mine · Straight Full` ist der verständliche Miner-Ablauf für einen einzelnen Hauptstollen. Alle vom produktiven `MineInfrastructurePlanner` gelieferten Supports, Lichter, Steps und Dekorationsaufgaben werden nach dem gleichen semantischen Fortschrittsrhythmus abgearbeitet, den der Hytale-Adapter verwendet. Die sichtbare Blockform dieser Infrastruktur ist eine richtungsbewusste Headless-Darstellung und behauptet nicht Hytales konkrete Assetauflösung.
 
-`Mine · Full Scenario` verwendet das aktuelle `MineNetwork`, drei Miner und Haupt-/Seitenstollen. Die Miner starten auf einer kleinen Headless-Repräsentation des Mine-Prefabs, passieren `workplace_access` und `mine_tunnel_connector` und werden anschließend durch den produktiven `MineFrontTaskScheduler` verteilt. Bereits aktive ausführbare Fronten mit freier Kapazität werden zuerst aufgefüllt; erst wenn keine aktive Front mehr Kapazität hat, wird eine weitere freie Front geöffnet. Für jeden Tunnel werden sämtliche Core-geplanten Infrastrukturaufgaben sichtbar abgearbeitet. Das kontrollierte Lava-Ereignis liegt spät auf einem Leaf-Branch, damit keine abhängigen Unterstollen künstlich unerschlossen bleiben. Der Replay enthält getrennte Marker für geplante und tatsächlich erschlossene Tunnelbereiche; der Viewer stellt diese nach dem Merge unterschiedlich dar. Ein kontrollierter Bridge-Task läuft vor der blockierten Front; Wasser-/Lava-Marker, Abbruch sowie Rausgehen/Wiedereinstieg testen zusätzliche Ablaufzustände. Hytale-Navigation, Fluidphysik und konkrete Assetplatzierung bleiben außerhalb des Headless-Systems.
+`Mine · Full Scenario` verwendet das aktuelle `MineNetwork`, drei Miner und Haupt-/Seitenstollen. Die Miner starten auf einer kleinen Headless-Repräsentation des Mine-Prefabs, passieren `workplace_access` und `mine_tunnel_connector` und werden anschließend nach der produktiven normalen Task-Auswahl verteilt. Bereits aktive ausführbare Fronten mit freier Kapazität werden zuerst aufgefüllt; erst wenn keine aktive Front mehr Kapazität hat, wird eine weitere freie Front geöffnet. Für jeden Tunnel werden sämtliche Core-geplanten Infrastrukturaufgaben sichtbar abgearbeitet. Das kontrollierte Lava-Ereignis liegt spät auf einem Leaf-Branch, damit keine abhängigen Unterstollen künstlich unerschlossen bleiben. Der Replay enthält getrennte Marker für geplante und tatsächlich erschlossene Tunnelbereiche; der Viewer stellt diese nach dem Merge unterschiedlich dar. Ein kontrollierter Bridge-Task läuft vor der blockierten Front; Wasser-/Lava-Marker, Abbruch sowie Rausgehen/Wiedereinstieg testen zusätzliche Ablaufzustände. Hytale-Navigation, Fluidphysik und konkrete Assetplatzierung bleiben außerhalb des Headless-Systems.
 
 ## Live-MCP-Grenzen
 
