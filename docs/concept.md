@@ -287,4 +287,8 @@ An autonomously working miner with an active Civ movement destination who makes 
 
 ## Mine depth generation policy
 
-The target is Y=10 with an interval of ten minutes for progress checks. Successive tunnel plans must retain existing excavations and use independent deterministic identifiers. Only the headless policy is available today; the automatic in-game expansion and completion notification are not yet enabled.
+The target is Y=10 with an interval of ten minutes for progress checks. Successive tunnel plans must retain existing excavations and use independent deterministic identifiers. The implementation now refreshes the main excavation horizon every ten minutes and opens a new main tunnel at the mine entrance when a completed main reaches Y=10; the release still requires gameplay verification.
+
+## Successive main tunnel planning
+
+Persisted mine networks now support multiple independent MAIN tunnels under one building. The N6 `G` record saves, per main, only an unlocked slice count, next refresh timestamp, heading and deterministic seed. The initial plan is capped to Y=10 and branch candidates disconnected by that clipping are omitted. Completed main fronts extending above the floor limit continue from their endpoint; after reaching Y=10, a new route begins at the original connector. The new path is checked against already planned centerlines using an in-memory spatial set, ignoring only its necessary entrance connection. This does not store world voxel volumes.
