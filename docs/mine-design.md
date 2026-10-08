@@ -325,11 +325,11 @@ Initial support rules:
 - target spacing is 6-10 blocks/slices along a tunnel;
 - normal support placement may search up to three neighboring slices before/after the planned point when the preferred slice is unsuitable; nearest valid alternatives are preferred;
 - the selected frame may move up to roughly 3 blocks before or after that target to find a cleaner local cross-section, especially around curves;
-- the opening inside the frame must remain at least 4 blocks wide and 3 blocks high;
+- main-tunnel supports leave at least 4 blocks clear inside the frame; branch supports use a simpler frame that may use a 3-block clear opening;
 - otherwise the support is shifted or skipped rather than narrowing the guaranteed corridor;
-- the frame should be as high and wide as the actual open tunnel reasonably permits;
-- `Wood_Fir_Branch_Long` forms the two upright side posts;
-- `Wood_Fir_Trunk` forms the top crossbeam and is rotated along the local cross-axis;
+- main-tunnel frames may grow into nearby open side pockets by up to three cells to fit the developed tunnel, while branch supports stay tied to their smaller local cross-section;
+- `Wood_Fir_Branch_Long` forms all upright posts;
+- main-tunnel top beams use `Wood_Fir_Trunk`; branch top beams use the lighter `Wood_Fir_Branch_Long`;
 - left and right posts independently extend down to one block above the first solid floor/stone beneath that side, so uneven ground may produce asymmetric post lengths;
 - the solid floor block itself is never replaced.
 
@@ -352,7 +352,7 @@ Primary recurring light source:
 
 Target spacing is roughly 8-14 tunnel blocks/slices. The pillar should preferably sit about one block inward from the wall rather than directly touching it, but never at the cost of the guaranteed navigation corridor or the central lane reserved for later main-tunnel infrastructure such as rails.
 
-Additional occasional decoration may later include hanging chains and hanging lanterns.
+Layer-8 atmosphere additionally allows occasional hanging chains and hanging lanterns in the main tunnel. These are optional decoration, not part of the regular lighting cadence.
 
 ### Side tunnels
 
@@ -364,22 +364,31 @@ This visual distinction is intentional: the main tunnel should look developed an
 
 ## 18. Decoration
 
-Decoration is a separate generation pass after safe structure and infrastructure are established.
+Layer 8 implements decoration as optional miner work after safe structure/infrastructure has made the relevant tunnel slice available. Decoration has base priority 2 and participates in the same normal-task scheduler and aging rules as excavation, rooms, supports and lights.
 
-Potential decoration includes:
+Main tunnel V1:
 
-- hanging chains;
-- occasional hanging lanterns in the main tunnel;
+- deterministic target spacing roughly 10-18 slices;
 - barrels;
 - crates;
 - timber piles;
 - tools;
 - small material piles;
-- other mine-appropriate objects.
+- hanging chains;
+- occasional hanging lanterns.
 
-Decoration must never block the navigable corridor. If a decoration candidate conflicts with navigation or infrastructure, skip it.
+Branch tunnel V1:
 
-Prefer small weighted prefab variants over hard-coding every decorative object individually when Hytale's prefab system supports the intended runtime placement.
+- sparser target spacing roughly 18-30 slices;
+- crates;
+- timber piles;
+- small material piles;
+- no hanging chains or hanging lanterns;
+- regular lighting remains wall-torch-only.
+
+Decoration planning avoids already-planned support/light/step positions and their immediate neighboring slices. Runtime placement must remain outside the guaranteed navigation core and keeps the central +/-1 lane free for current NPC movement and later main-tunnel rails. Floor, wall and hanging variants require suitable support geometry. If a decoration candidate conflicts with navigation, infrastructure, occupied world blocks or cannot resolve a suitable Hytale asset, skip it rather than blocking or abandoning the tunnel.
+
+Layer-8 V1 uses Hytale's loaded native block assets through the existing placement path. Timber piles use known Fir blocks; other visual objects are resolved from the loaded block asset map. Multi-block authored decoration prefabs may replace individual variants later without changing the semantic decoration task.
 
 ## 19. Main-tunnel rail line
 
@@ -437,9 +446,9 @@ Persist only the state required to continue Civ's mine behaviour, for example:
 - navigation anchors;
 - important room/infrastructure metadata.
 
-Open work state, task priority and unfinished work progress belong to the mine/task state rather than to a particular miner. Temporary miner-to-task assignments and capacity reservations do not need to survive a server restart: after load, miners assigned to the mine select again from the persisted open work. Completed tasks are removed from the task system once their durable result is represented by the mine metadata and/or Hytale world state, so finished work cannot be selected again merely because historical task records remain.
+Open work state, current per-task aging bonus and unfinished work progress belong to the mine/task state rather than to a particular miner. Temporary miner-to-task assignments and capacity reservations do not need to survive a server restart: after load, miners assigned to the mine select again from the persisted open work. Completed tasks are removed from the task system once their durable result is represented by the mine metadata and/or Hytale world state, so finished work cannot be selected again merely because historical task records remain.
 
-`MineNetwork` is the semantic persistent mine state. It stores logical tunnels, their parent hierarchy, rooms, work fronts, navigation anchors and the IDs of completed deterministic infrastructure tasks. It does not persist excavated blocks, pathfinding routes or a second copy of placed infrastructure geometry already represented by Hytale. Completion IDs exist only so already-finished deterministic work is not scheduled again after restart; if a player later removes finished infrastructure, Civ does not automatically rebuild it.
+`MineNetwork` is the semantic persistent mine state. It stores logical tunnels, their parent hierarchy, rooms, work fronts, navigation anchors, IDs of completed deterministic infrastructure/decor tasks and current normal-task aging bonuses. It does not persist excavated blocks, pathfinding routes or a second copy of placed infrastructure geometry already represented by Hytale. Completion IDs exist only so already-finished deterministic work is not scheduled again after restart; if a player later removes finished infrastructure, Civ does not automatically rebuild it.
 
 Layer 4 supplies deterministic Core planning for a nested logical tunnel network, including branch probability, branch continuation, spacing/collision checks and growth-front fairness. The live miner consumes this Layer-2/3/4 plan directly through persistent work fronts. Concrete tunnel geometry is regenerated deterministically from the stable mine identity after restart, while Hytale world blocks remain authoritative for excavation progress.
 
