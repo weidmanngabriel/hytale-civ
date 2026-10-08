@@ -121,8 +121,8 @@ public final class MineInfrastructurePlacementResolver {
         }
 
         RotationTuple beamRotation = trunkRotation(cross);
-        String beamBlock = tunnelKind == MineTunnel.Kind.MAIN ? FIR_TRUNK : FIR_BRANCH;
-        // Main uses a heavy trunk beam; branches use the same simple branch timber as the posts.
+        // Both tunnel kinds use sturdy trunk beams; only the vertical side posts use branches.
+        String beamBlock = FIR_TRUNK;
         int left = minOffset;
         int right = maxOffset;
         while (left <= right) {

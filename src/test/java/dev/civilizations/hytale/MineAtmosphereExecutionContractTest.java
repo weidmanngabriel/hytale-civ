@@ -39,7 +39,7 @@ final class MineAtmosphereExecutionContractTest {
         assertTrue(resolver.contains("Math.abs(lateral) <= 1"));
         assertTrue(resolver.contains("HANGING_LANTERN"));
         assertTrue(resolver.contains("HANGING_CHAIN"));
-        assertTrue(resolver.contains("tunnelKind == MineTunnel.Kind.MAIN ? FIR_TRUNK : FIR_BRANCH"));
+        assertTrue(resolver.contains("String beamBlock = FIR_TRUNK;"));
         assertTrue(resolver.contains("Furniture_Tavern_Barrel"));
         assertTrue(resolver.contains("Furniture_Ancient_Barrel"));
         assertTrue(resolver.contains("Furniture_Crude_Chest_Small"));

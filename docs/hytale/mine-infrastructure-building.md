@@ -87,3 +87,7 @@ Optional support/light/decor placement uses a headless `MinePlacementExcavationG
 
 
 Temporary mine stair switch: `MineInfrastructurePlanner.ENABLE_MINE_STEPS=false`. No stair placement jobs or debug anchors are produced. The resolver implementation is retained, and vertical geometry is unchanged; raw height changes may remain untraversable in native NPC navigation.
+
+## Branch support timber selection
+
+Both main and branch tunnel support crossbeams use `Wood_Fir_Trunk`. The vertical side posts continue to use `Wood_Fir_Branch_Long`. The previous implementation selected `Wood_Fir_Branch_Long` as the branch crossbeam as well; this was a Civ resolver choice, not a Hytale placement limitation. The engine block-model footprint and clearance near rotated curves still require runtime verification.
