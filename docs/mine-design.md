@@ -451,7 +451,7 @@ Open work state, current per-task aging bonus and unfinished work progress belon
 
 Layer 4 supplies deterministic Core planning for a nested logical tunnel network, including branch probability, branch continuation, spacing/collision checks and growth-front fairness. The live miner consumes this Layer-2/3/4 plan directly through persistent work fronts. Concrete tunnel geometry is regenerated deterministically from the stable mine identity after restart, while Hytale world blocks remain authoritative for excavation progress.
 
-Mine persistence uses the current network-only format. Development saves from earlier mine formats are intentionally not migrated; incompatible records are ignored and the mine initializes fresh runtime state on next use.
+Mine persistence uses the current network-only `N5` format. The serializer still reads supported `N2`–`N4` network records with format-specific defaults; incompatible records are ignored. Earlier pre-network segment formats are not migrated.
 
 Use a deterministic seed only where it materially reduces persistence or improves reproducibility without making regeneration expensive.
 
@@ -565,7 +565,7 @@ Add the largely continuous rail route using native Hytale rail/minecart behaviou
 
 ### Layer 10 - persistence and performance hardening
 
-Minimize stored state, test save/load at scale and remove unnecessary long-term data growth.
+Minimize stored state, test save/load at scale and remove unnecessary long-term data growth. Layer 10 avoids redundant whole-world mine serialization for unchanged network updates and merges anchor batches by ID in insertion order instead of repeated linear scans. Excavated block sets remain Hytale-world state. Geometry is still regenerated at runtime, and existing completed-task IDs remain necessary to prevent replay. Large-network memory, serialization time and autosave/load latency require measured validation before introducing a new persistence representation.
 
 ### Layer 11 - integration and balancing
 
