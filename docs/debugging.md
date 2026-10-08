@@ -106,6 +106,36 @@ Die beobachteten Diagnosezustände sind `IDLE`, `MOVING_TO_MINE`, `MOVING_TO_TAS
 
 Die Kategorie `NAVIGATION` ergänzt dazu Hytales echten nativen Zustand: bei `BLOCKED` oder `ABORTED` erscheint zuerst `REPATH_REQUESTED`; bleibt dasselbe Ziel danach terminal fehlerhaft, folgt `NAVIGATION_FAILED`. Wenn im Main-Tunnel ein letzter sicherer Anchor als Recovery benutzt wird, erscheint zusätzlich `NAVIGATION_RECOVERY`.
 
+### Support- und Placement-Diagnostik
+
+Für Infrastrukturprobleme sind insbesondere `PLANNING`, `WORKER` und `ADAPTER` relevant:
+
+```text
+/civdebug mine logs on PLANNING,WORKER,ADAPTER
+```
+
+`BUILD_SUPPORT` wird auf zwei Ebenen erklärt:
+
+- `BUILD_SUPPORT_PLANNED`: der Core-Planer hat einen Support-Slice gewählt; das Event enthält gewünschten und gewählten Slice, Abstand, Tunneltyp, Breite/Höhe und Turn-Penalty.
+- `BUILD_SUPPORT_SKIPPED`: der Planer hat keinen Support erzeugt, z. B. wegen `TUNNEL_TOO_SHORT`, `NO_GEOMETRY_CANDIDATE`, `NOT_FORWARD_OF_PREVIOUS` oder weil der nächste Abstand bereits hinter dem Tunnelende liegt.
+- `BUILD_SUPPORT_TASK_SELECTED`: ein geplanter Support wurde vom Runtime-Task-Selector tatsächlich gewählt.
+- `BUILD_SUPPORT_TASK_SKIPPED`: Support-Arbeit war vorhanden, kam aber nicht zum Zug. Gründe werden aggregiert, z. B. `NOT_YET_AVAILABLE`, `RESERVED`, `FRONT_UNAVAILABLE` oder `COMPLETED`; außerdem wird die stattdessen gewählte Task angegeben.
+
+Sobald eine Infrastruktur-Task in konkrete Hytale-Platzierungen aufgelöst wurde, schreibt `INFRASTRUCTURE_WORK_TARGET` sowohl das Arbeitsziel als auch die tatsächliche Minerposition und Distanz.
+
+Fehlgeschlagene Blockplatzierungen liefern über `ADAPTER` den Block, die Position und einen konkreten Grund:
+
+- `BLOCK_ASSET_NOT_FOUND`
+- `INVALID_BLOCK_INDEX`
+- `CHUNK_NOT_LOADED`
+- `TARGET_OCCUPIED` (inklusive vorhandener Block-ID)
+- `BLOCK_SECTION_UNAVAILABLE`
+- `SET_BLOCK_REJECTED`
+
+Der erste Fehler erscheint als `BLOCK_PLACEMENT_FAILED`. Identische Wiederholungen werden als `BLOCK_PLACEMENT_FAILURE_REPEATED` mit `repeatCount` zusammengefasst; beim dritten identischen Fehler erscheint zusätzlich `PLACEMENT_RETRY_LOOP_DETECTED`. Danach werden nur ausgewählte Wiederholungszähler (2, 3, 5, 10, ...) ausgegeben, damit ein Loop sichtbar bleibt, ohne das Log pro Tick zu fluten.
+
+**Wichtig:** Diese Änderung beendet den Retry noch nicht. Der bestehende Gameplay-Pfad re-resolvt weiterhin idempotent beim nächsten Tick. Der Zweck dieser Diagnose ist, vor dem nächsten Fix exakt zu sehen, ob ein stabil wiederholbarer Placement-Fehler vorliegt und warum.
+
 ### Ingame-Visualisierung
 
 - `/civdebug mine info` zeigt den persistenten Zustand der nächstgelegenen Mine.
