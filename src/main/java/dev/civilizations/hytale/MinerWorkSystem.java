@@ -415,7 +415,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             return;
         }
 
-        if (!frontCoordinator.tryJoin(plan.frontId, workerKey)) {
+        if (!frontCoordinator.tryJoin(plan.frontId, workerKey, MineFrontCoordinator.capacityFor(plan.tunnelKind))) {
             workerTaskEnded(mine.id(), ref, workerKey, runtime, "CAPACITY_UNAVAILABLE");
             runtime.clearWorkAssignment();
             unitRegistry.clearMoveTarget(ref);
@@ -462,7 +462,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         workerTaskStarted(
             mine.id(), ref, workerKey, runtime, "EXCAVATE_FRONT",
             plan.frontId, frontCoordinator.workerCount(plan.frontId),
-            MineFrontCoordinator.NORMAL_TUNNEL_FRONT_CAPACITY
+            MineFrontCoordinator.capacityFor(plan.tunnelKind)
         );
         workerState(
             mine.id(), ref, workerKey, runtime, WorkerDebugState.WORKING, "WORK_TARGET_REACHED"
@@ -1068,6 +1068,11 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE) {
             return !front.complete && task.startSliceIndex() == front.sliceIndex;
         }
+        // Stairs occupy the LOWER slice's walkable cells. Excavate that slice first;
+        // otherwise the resolver sees solid natural stone and permanently abandons the front.
+        if (task.type() == MineInfrastructureTask.Type.BUILD_STEP) {
+            return front.complete || task.endSliceIndex() < front.sliceIndex;
+        }
         return front.complete || task.startSliceIndex() < front.sliceIndex;
     }
 
@@ -1131,7 +1136,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 MineNormalTaskSelector.Kind.TUNNEL_FRONT,
                 priority,
                 frontCoordinator.workerCount(front.id()),
-                MineFrontCoordinator.NORMAL_TUNNEL_FRONT_CAPACITY,
+                MineFrontCoordinator.capacityFor(candidate.tunnelKind),
                 front.position()
             ));
         }
@@ -1724,7 +1729,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             || selectedPlan.complete
             || !available(selected)
             || !frontExecutable(world, minePlan, selectedPlan)
-            || !frontCoordinator.tryJoin(frontId, workerKey)) {
+            || !frontCoordinator.tryJoin(frontId, workerKey, MineFrontCoordinator.capacityFor(selectedPlan.tunnelKind))) {
             return null;
         }
 
@@ -1738,7 +1743,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             "taskType", "EXCAVATE_FRONT",
             "reservation", "JOINED",
             "workers", frontCoordinator.workerCount(selected.id()),
-            "capacity", MineFrontCoordinator.NORMAL_TUNNEL_FRONT_CAPACITY,
+            "capacity", MineFrontCoordinator.capacityFor(selectedPlan.tunnelKind),
             "tunnel", selected.tunnelId(),
             "kind", selected.tunnelId().equals(minePlan.mainTunnelId) ? "MAIN" : "BRANCH",
             "slice", selectedPlan.sliceIndex,
@@ -1750,7 +1755,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                         ? MineFrontTaskScheduler.BRANCH_TUNNEL_PRIORITY
                         : MineFrontTaskScheduler.MAIN_TUNNEL_PRIORITY,
                     frontCoordinator.workerCount(selected.id()),
-                    MineFrontCoordinator.NORMAL_TUNNEL_FRONT_CAPACITY,
+                    MineFrontCoordinator.capacityFor(selectedPlan.tunnelKind),
                     selected.position()
                 ),
                 network.normalTaskPriorityBonuses()
@@ -1771,6 +1776,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         BlockPosition target = frontCoordinator.claimNext(
             plan.frontId,
             workerKey,
+            MineFrontCoordinator.capacityFor(plan.tunnelKind),
             plan.orderedBlocks.get(plan.sliceIndex),
             block -> isAvailableWorkBlock(world, mine, block)
         );
