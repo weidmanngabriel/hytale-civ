@@ -509,7 +509,7 @@ public final class ConstructionWorkSystem extends DelayedEntitySystem<EntityStor
     }
 
     private static boolean hasArrived(Vector3d position, Vector3d target) {
-        return horizontalDistanceSquared(position, target) <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
+        return CivArrivalPolicy.reached(position, target, ARRIVAL_DISTANCE, 1.25);
     }
 
     private static double horizontalDistanceSquared(Vector3d position, Vector3d target) {

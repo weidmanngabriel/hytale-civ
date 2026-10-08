@@ -185,11 +185,8 @@ public final class CivManualMovementSystem extends EntityTickingSystem<EntitySto
     }
 
     private static boolean hasArrived(Vector3d position, Vector3d target) {
-        double dx = position.x - target.x;
-        double dz = position.z - target.z;
-        double horizontalDistanceSquared = dx * dx + dz * dz;
-        return horizontalDistanceSquared
-            <= ARRIVAL_HORIZONTAL_DISTANCE * ARRIVAL_HORIZONTAL_DISTANCE
-            && Math.abs(position.y - target.y) <= ARRIVAL_VERTICAL_DISTANCE;
+        return CivArrivalPolicy.reached(
+            position, target, ARRIVAL_HORIZONTAL_DISTANCE, ARRIVAL_VERTICAL_DISTANCE
+        );
     }
 }
