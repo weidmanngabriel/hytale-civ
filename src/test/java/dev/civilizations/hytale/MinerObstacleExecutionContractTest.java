@@ -81,6 +81,8 @@ final class MinerObstacleExecutionContractTest {
         assertTrue(source.contains("bridgeDeckComplete(world, infrastructure)"));
         assertTrue(source.contains("BRIDGE_DECK_ALREADY_COMPLETE"));
         assertTrue(source.contains("if (floor == null || isEmpty(floor)) return false;"));
+        assertTrue(source.contains("slice.navigationCoreBlocks()"));
+        assertTrue(source.contains("if (!foundWalkColumn) return false;"));
     }
 
     @Test
