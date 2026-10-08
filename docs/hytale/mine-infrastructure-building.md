@@ -91,3 +91,7 @@ Temporary mine stair switch: `MineInfrastructurePlanner.ENABLE_MINE_STEPS=false`
 ## Branch support timber selection
 
 Both main and branch tunnel support crossbeams use `Wood_Fir_Trunk`. The vertical side posts continue to use `Wood_Fir_Branch_Long`. The previous implementation selected `Wood_Fir_Branch_Long` as the branch crossbeam as well; this was a Civ resolver choice, not a Hytale placement limitation. The engine block-model footprint and clearance near rotated curves still require runtime verification.
+
+## Conservative corridor clearance for supports
+
+Supports require a one-block horizontal safety buffer around every occupied navigation-core voxel at standing height. This also covers side posts whose physical model may extend beyond their grid cell at diagonal turns. Ground scanning for post foundations is bounded to three checked levels (nominal floor-minus-one through floor-minus-three); a missing foundation causes the optional support placement to skip instead of creating deep wood rods across open floor gaps. This is a conservative voxel-space proxy, not proof of actual Hytale rotated block hitbox clearance. Native block-model footprint and navigation should be validated in-game before narrowing this margin.
