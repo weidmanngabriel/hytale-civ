@@ -16,15 +16,17 @@ No separate Civ decoration renderer, collision system or pathfinder is introduce
 
 ## Asset resolution
 
-The repository pins the server JAR but does not contain the full licensed Vanilla `Assets.zip` catalog. The exact IDs for barrel, crate, tool, chain and lantern variants therefore must not be guessed as compile-time facts.
+Layer 8 now has verified native asset IDs for its authored decoration set:
 
-`MineBlockPlacement.resolveAsset(...)` resolves against the native loaded `BlockType` map:
+- normal barrel: `Furniture_Tavern_Barrel`;
+- damaged barrel variant: `Furniture_Ancient_Barrel`;
+- small crate/chest: `Furniture_Crude_Chest_Small`;
+- chain: `Deco_Iron_Chain_Small`;
+- lantern: `Deco_Lantern`;
+- ore material blocks: `Ore_Iron_Stone`, `Ore_Copper_Stone`, `Ore_Gold_Stone`;
+- timber: `Wood_Fir_Trunk`.
 
-1. try a short list of expected IDs;
-2. otherwise find a loaded ID containing the required semantic fragments;
-3. if no suitable block exists, return no placement and allow optional decoration to be skipped.
-
-Fir timber piles use the already-established `Wood_Fir_Trunk` asset and Deco metadata.
+The supplied Lantern asset explicitly accepts `Deco_Iron_Chain_Small` as support, so the hanging chain -> lantern combination follows native support metadata. No suitable tool/tool-rack decoration asset exists for this layer, so that planned variant was removed rather than guessed.
 
 ## Navigation contract
 
@@ -41,7 +43,7 @@ The central lane reservation protects both current NPC traversal and the later m
 
 ## Main versus branch presentation
 
-The main tunnel may resolve barrels, crates, timber piles, tools, material piles, hanging chains and hanging lanterns.
+The main tunnel may place barrels, small crates/chests, timber piles, ore-material blocks, hanging chains and hanging lanterns.
 
 Branch tunnels deliberately remain rougher: crates, timber piles and material piles only. Their regular lighting stays wall-torch-only. Branch supports use lighter Fir branch timber and do not expand outward into cave pockets.
 
@@ -51,4 +53,4 @@ JAR signatures prove API availability, not the actual contents or collision shap
 
 The focused Hytale-Local scenario `mineatmosphere` is therefore the reusable runtime diagnostic for this layer. It reports the actual resolved asset IDs, places each main decoration type with the production placement path and verifies that a real Civ NPC can traverse the reserved central corridor afterward.
 
-Keep any confirmed runtime asset IDs or newly discovered placement restrictions on this page when the scenario provides stable evidence.
+The ore material blocks are normal native ore blocks, including their normal gathering/drop behaviour. Likewise, the crude chest is a native container block. Civ does not add separate Layer-8 storage or ore-economy semantics on top of those native behaviours.
