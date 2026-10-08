@@ -53,25 +53,46 @@ Die Messung zählt ausschließlich den vorhandenen Gameplay-Suchpfad und startet
 
 Die Millisekundenwerte sind Runtime-Messwerte und hängen von Hardware, Serverlast, Weltzustand und JVM ab. Für CI-Budgets bleiben die deterministischen `SimulationMetrics` maßgeblich.
 
-## Mine-Entscheidungslogs
+## Mine-Debugging
 
-Die Mine besitzt opt-in strukturierte Entscheidungslogs. Standardmäßig sind sie deaktiviert; der normale Mining-Pfad schreibt deshalb keine Entscheidungsausgaben. Aktivierung und Filterung laufen über den bestehenden Debug-Befehl:
+Die aktuelle Mine besitzt zwei getrennte, opt-in Diagnosepfade: strukturierte Entscheidungslogs für das **Warum** und eine player-lokale Ingame-Visualisierung für das **Wo**. Beide beobachten nur bereits vorhandenen Generator-/Runtime-Zustand und dürfen Gameplay oder Zufallsfolgen nicht verändern.
+
+### Entscheidungslogs
 
 - `/civdebug mine logs on` aktiviert alle Kategorien.
-- `/civdebug mine logs on PLANNING,GEOMETRY` aktiviert nur die genannten Kategorien.
-- `/civdebug mine logs status` zeigt den aktuellen Filter und alle verfügbaren Kategorien.
-- `/civdebug mine logs off` deaktiviert die Ausgabe wieder.
+- `/civdebug mine logs on PLANNING,ROOM` aktiviert nur die genannten Kategorien.
+- `/civdebug mine logs status` zeigt Filter und verfügbare Kategorien.
+- `/civdebug mine logs off` deaktiviert die Ausgabe.
 
-Alternativ aktiviert die JVM-Property `-Dcivilizations.mineDebug=true` beim Pluginstart alle Kategorien. Die Ausgabe verwendet Hytales vorhandenen Plugin-Logger und hat das Format
+Alternativ aktiviert `-Dcivilizations.mineDebug=true` beim Pluginstart alle Kategorien. Die Ausgabe läuft über Hytales Plugin-Logger:
 
 ```text
-[Civ Mine][mine=<id>][front=<id>][PLANNING][DIRECTION_SELECTED] direction=NORTH weight=50 totalWeight=100 probability=0.500 roll=17
+[Civ Mine][mine=<id>][front=<id>][PLANNING][HEADING_SELECTED] kind=MAIN from=NORTH to=NORTHWEST reason=BOUNDARY_PRESSURE leftWeight=... straightWeight=... rightWeight=... roll=... totalWeight=...
+[Civ Mine][mine=<id>][front=<id>][PLANNING][BRANCH_CONTINUATION] decision=CONTINUE roll=0.43 chance=0.71 lengthBefore=...
+[Civ Mine][mine=<id>][front=<id>][ROOM][ROOM_REJECTED] type=MATERIAL_STORAGE slice=... reason=INSUFFICIENT_SPACE
+[Civ Mine][mine=<id>][front=<id>][ENVIRONMENT][FRONT_ABANDONED] reason=LAVA_GAP failureKind=HAZARDOUS_FLUID slice=...
 ```
 
-`front` wird nur ausgegeben, wenn das Ereignis bereits einer konkreten Arbeitsfront beziehungsweise einem Segment zugeordnet werden kann.
+Die Kategorien sind:
 
-Die groben Filterkategorien sind `PLANNING`, `GEOMETRY`, `ROOM`, `ENVIRONMENT`, `NAVIGATION` und `ADAPTER`. Nicht jede Kategorie erzeugt im aktuellen Legacy-Minenpfad bereits Events; die noch nicht implementierten Generator-Layer sollen später dieselben Kategorien verwenden.
+- `PLANNING`: Richtungswahl, Boundary Pressure, Branch-Chancen/-Fortsetzung, Task-/Frontauswahl.
+- `GEOMETRY`: Formphasen mit Länge, Breite, Höhe, lateralem Offset und vertikalem Schritt.
+- `ROOM`: Raumchancen, Erzeugung, konkrete Seiten-/Platzablehnungen und Raumarbeit.
+- `ENVIRONMENT`: Höhlen, Fluids, Brücken-/Gap-Entscheidungen und umweltbedingte Frontabbrüche.
+- `NAVIGATION`: endgültig unerreichbare Fronten/Räume und andere native Navigationsfehler.
+- `ADAPTER`: Hytale-spezifische Ausführungsfehler.
 
-Aktuell instrumentiert sind nur Entscheidungen und Fehler, die wirklich existieren: Auswahl beziehungsweise Wiederaufnahme einer Arbeitsfront, initiale Richtung, gewichtete Geradeaus-/Links-/Rechts-Auswahl, abgelehnte Segmentkandidaten, fehlende gültige Fortsetzung, blockierte Fronten sowie Fehler bei der Stützen-Prefab-Ausführung. Es gibt bewusst keine Ausgabe pro Mining-Tick oder abgebautem Block.
+Die Planner protokollieren die **bereits für die Gameplayentscheidung verwendeten** Zufallswerte. Es werden keine zusätzlichen RNG-Aufrufe für Diagnosezwecke ausgeführt. Ein Regressionstest vergleicht deshalb denselben Seed mit und ohne aktiven `MineDecisionSink` und verlangt identische Tunnel- und Raumpläne.
 
-`MineDecisionSink` liegt im Hytale-unabhängigen Core als optionale Beobachtergrenze. Der Hytale-Adapter `CivMineDecisionDiagnostics` filtert die Events und schreibt sie über `JavaPlugin.getLogger()` in das normale Serverlog. Der Sink darf keine Gameplay-Zustände verändern und darf insbesondere keine zusätzlichen Zufallswerte ziehen; Probability/Roll-Werte werden nur aus den ohnehin bereits ausgeführten Entscheidungen protokolliert.
+### Ingame-Visualisierung
+
+- `/civdebug mine info` zeigt den persistenten Zustand der nächstgelegenen Mine.
+- `/civdebug mine show` zeigt die aktuellen Arbeitsfronten.
+- `/civdebug mine show anchors` zeigt zusätzlich semantische Runtime-Anker: aktive Frontpunkte, Miner-Navigationsziele, offene Raumanker und noch nicht abgeschlossene Infrastrukturanker.
+- `/civdebug mine show bounds` zeigt Fronten plus den 500×500-Designbereich.
+- `/civdebug mine show all` zeigt Fronten, Runtime-Anker und 500×500-Designbereich zusammen.
+- `/civdebug mine hide` entfernt alle von Civ für diesen Spieler gesetzten Mine-Debuganzeigen.
+
+Die Darstellung ist nur für den anfragenden Spieler sichtbar und verändert keine Weltblöcke. Farben: gelb = Arbeitsfront, grün = Navigationsziel, violett = Raum, weiß = Infrastruktur; die bestehenden Main-/Branch- und Bounds-Farben bleiben erhalten.
+
+Die Marker sind bewusst Momentaufnahmen. Bei fortschreitender Arbeit den Befehl erneut ausführen, um den aktuellen Runtime-Zustand neu darzustellen.
