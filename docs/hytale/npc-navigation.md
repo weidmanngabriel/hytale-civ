@@ -16,6 +16,10 @@ Der normale `CivMoveTarget` verwendet Hytales Standardverhalten. Der Miner-Slot 
 
 `CivManualMovementSystem` sowie Berufsadapter prüfen nur, ob ein vom Core angefordertes Ziel erreicht wurde, und melden den Abschluss an den Core zurück.
 
+## Gemeinsame Ankunftsprüfung
+
+Die Berufe Miner, Holzfäller, Bauarbeiter und Bauer sowie manuelle Befehle verwenden `CivArrivalPolicy` als gemeinsame geometrische Ankunftsprüfung. Der horizontale Radius und die vertikale Toleranz sind weiter aufgabenabhängig. Der Miner akzeptiert nun innerhalb 1,6 horizontalen Blöcken und maximal 1,0 Block Höhenabweichung sein Arbeitsziel; Farmer verwenden 0,9 horizontal und 1,25 vertikal. Dies ist eine Civ-Adapter-Regel, **kein** Nachweis, dass Hytales nativer `Seek` denselben Zielbereich verwendet. Die Größe der grünen Debuganzeige hat keinerlei Einfluss auf Navigation oder Ankunft. Ein natives `AT_GOAL` allein ist kein sicherer Beweis für zulässige Arbeitsreichweite.
+
 ## Erreichbarkeit und Pfadneuberechnung
 
 Berufsadapter dürfen eine native Bewegung nicht dadurch ersetzen, dass sie selbst einen zweiten Pathfinder implementieren. Sie dürfen aber sicherstellen, dass Arbeit nur an einer tatsächlich erreichten Position ausgeführt wird.
