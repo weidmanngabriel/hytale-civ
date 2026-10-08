@@ -14,6 +14,13 @@ public final class MineNormalTaskSelector {
     private MineNormalTaskSelector() {
     }
 
+    /** True when executable mine work exists but every task is at worker capacity. */
+    public static boolean allWorkAtCapacity(List<Candidate> candidates) {
+        if (candidates == null) throw new IllegalArgumentException("Mine candidates must not be null.");
+        return !candidates.isEmpty() && candidates.stream()
+            .allMatch(candidate -> candidate.workerCount() >= candidate.capacity());
+    }
+
     public static Candidate select(List<Candidate> candidates, BlockPosition workerPosition) {
         return selectWithAging(candidates, workerPosition, Map.of()).selected();
     }
