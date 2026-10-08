@@ -280,9 +280,6 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         RuntimeInfrastructureTask mandatoryInfrastructure =
             selectMandatoryInfrastructureTask(world, mine, minePlan, position, workerKey, runtime);
         if (mandatoryInfrastructure != null) {
-            if (currentInfrastructure != null && !currentInfrastructure.completed) {
-                releaseInfrastructureReservation(workerKey, runtime);
-            }
             if (runtime.frontId != null) frontCoordinator.releaseWorker(workerKey);
             if (runtime.roomId != null) roomCoordinator.releaseWorker(workerKey);
             runtime.clearFrontAssignment();
@@ -703,6 +700,11 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         if (best == null) return null;
+        if (runtime.infrastructureTaskId != null
+            && !runtime.infrastructureTaskId.equals(best.task.id())) {
+            infrastructureReservations.remove(runtime.infrastructureTaskId, workerKey);
+            runtime.clearInfrastructureAssignment();
+        }
         CivUnitRegistry.UnitKey existing =
             infrastructureReservations.putIfAbsent(best.task.id(), workerKey);
         if (existing != null && !existing.equals(workerKey)) return null;
