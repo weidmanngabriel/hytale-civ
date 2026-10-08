@@ -150,7 +150,7 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
         Vector3d position = transform.getPosition();
         BlockPosition feet = blockPosition(position);
         UUID currentTunnelId = tunnelIdAt(network, worldId, feet, connector);
-        boolean atConnector = connector.bounds().containsBlock(feet);
+        boolean atConnector = MinerConnectorProximity.isWithinNavigationRange(connector.bounds(), feet);
         boolean undergroundOrConnector = currentTunnelId != null || atConnector;
         if (undergroundOrConnector) runtime.reachedConnector = true;
 
