@@ -2427,6 +2427,157 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             "slice", completedIndex,
             "nextSlice", plan.complete ? "COMPLETE" : plan.sliceIndex
         );
+        if (plan.complete && plan.tunnelKind == MineTunnel.Kind.MAIN) {
+            appendNextMainTunnel(world, mine, minePlan, plan);
+        }
+    }
+
+    private void appendNextMainTunnel(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan plan,
+        RuntimeFrontPlan completed
+    ) {
+        UUID worldId = world.getWorldConfig().getUuid();
+        MineNetwork current = tunnelRegistry.networkForMine(worldId, mine.id());
+        if (current == null) return;
+        RuntimeFrontPlan root = plan.fronts.values().stream()
+            .filter(candidate -> candidate.tunnelId.equals(plan.mainTunnelId))
+            .findFirst().orElse(null);
+        if (root == null) return;
+        MineGenerationProgress rootProgress = current.progressFor(root.tunnelId);
+        if (rootProgress == null) return;
+        BlockPosition entrance = root.slices.getFirst().floorCenter();
+        BlockPosition end = completed.slices.getLast().floorCenter();
+        boolean depthReached = end.y() <= MineGenerationPolicy.MIN_FLOOR_Y;
+        BlockPosition nextOrigin = depthReached ? entrance : end;
+        int sequence = (int) current.tunnels().stream()
+            .filter(tunnel -> tunnel.kind() == MineTunnel.Kind.MAIN).count();
+        if (sequence > 64) return;
+        UUID newId = MineGenerationPolicy.tunnelId(mine.id(), sequence);
+        if (current.tunnel(newId) != null) return;
+        long seed = planningSeed(mine.id()) ^ Long.rotateLeft(
+            0x9E3779B97F4A7C15L * sequence, 11
+        );
+        MineHeading firstHeading = depthReached
+            ? MineGenerationPolicy.heading(rootProgress.heading(), sequence)
+            : headingOfLastTwoSlices(completed.slices, rootProgress.heading());
+
+        MineTunnelPath chosen = null;
+        MineHeading heading = null;
+        int attempts = depthReached ? MineHeading.values().length : 1;
+        for (int attempt = 0; attempt < attempts; attempt++) {
+            MineHeading candidateHeading = MineHeading.values()[
+                (firstHeading.ordinal() + attempt) % MineHeading.values().length
+            ];
+            MineTunnelPath proposed = MineGenerationPolicy.capAtMinimumY(MinePathPlanner.plan(
+                MineTunnel.Kind.MAIN, nextOrigin, entrance,
+                candidateHeading, MAIN_PLAN_LENGTH_BLOCKS, seed
+            ));
+            if (!pathAvoidsExistingMine(proposed, mine, plan.fronts.values())) continue;
+            chosen = proposed;
+            heading = candidateHeading;
+            break;
+        }
+        if (chosen == null) {
+            decisionSink.record(mine.id(), completed.tunnelId,
+                MineDecisionCategory.PLANNING, "MAIN_EXTENSION_BLOCKED",
+                "reason", "NO_CLEAR_TUNNEL_DIRECTION",
+                "atY", end.y());
+            return;
+        }
+
+        MineTunnel additional = new MineTunnel(
+            newId, MineTunnel.Kind.MAIN, null, 0, nextOrigin
+        );
+        MineNetwork updated = current.withTunnel(additional).withWorkFront(
+            new MineWorkFront(frontId(mine.id(), newId), newId,
+                new BlockPosition(
+                    (int) Math.round(chosen.points().getFirst().x()),
+                    (int) Math.round(chosen.points().getFirst().y()),
+                    (int) Math.round(chosen.points().getFirst().z())),
+                MineWorkFront.State.OPEN)
+        ).withGenerationProgress(
+            newId, new MineGenerationProgress(
+                Math.min(MAIN_PLANNING_BATCH_SLICES, chosen.points().size()),
+                System.currentTimeMillis() + MineGenerationPolicy.REFRESH_INTERVAL_MILLIS,
+                heading, seed
+            )
+        );
+        tunnelRegistry.putNetwork(world, updated);
+        runtimePlans.remove(new WorldMineKey(worldId, mine.id()));
+        decisionSink.record(
+            mine.id(), newId, MineDecisionCategory.PLANNING, "MAIN_GENERATION_CREATED",
+            "generation", sequence,
+            "origin", nextOrigin,
+            "heading", heading,
+            "completedY", end.y()
+        );
+        if (depthReached) {
+            world.sendMessage(com.hypixel.hytale.server.core.Message.raw(
+                "Mine: Endtiefe Y=10 erreicht. Neuer Stollen wird am Eingang geplant."
+            ));
+        }
+    }
+
+    private static MineHeading headingOfLastTwoSlices(
+        List<MineTunnelGeometry.Slice> slices,
+        MineHeading fallback
+    ) {
+        BlockPosition last = slices.getLast().floorCenter();
+        for (int i = slices.size() - 2; i >= 0; i--) {
+            BlockPosition before = slices.get(i).floorCenter();
+            int dx = last.x() - before.x();
+            int dz = last.z() - before.z();
+            if (dx == 0 && dz == 0) continue;
+            double angle = Math.toDegrees(Math.atan2(dz, dx));
+            MineHeading result = fallback;
+            double smallest = Double.MAX_VALUE;
+            for (MineHeading candidate : MineHeading.values()) {
+                // Compare unit vectors to avoid angle wrapping errors.
+                double error = Math.pow(candidate.unitX() - Math.cos(Math.toRadians(angle)), 2)
+                    + Math.pow(candidate.unitZ() - Math.sin(Math.toRadians(angle)), 2);
+                if (error < smallest) {
+                    smallest = error;
+                    result = candidate;
+                }
+            }
+            return result;
+        }
+        return fallback;
+    }
+
+    private static boolean pathAvoidsExistingMine(
+        MineTunnelPath candidate,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        java.util.Collection<RuntimeFrontPlan> existing
+    ) {
+        java.util.Set<BlockPosition> centerlines = new HashSet<>();
+        for (RuntimeFrontPlan front : existing) {
+            for (MineTunnelGeometry.Slice slice : front.slices) {
+                centerlines.add(slice.floorCenter());
+            }
+        }
+        int index = 0;
+        for (MinePathPoint point : candidate.points()) {
+            BlockPosition block = new BlockPosition(
+                (int) Math.round(point.x()), (int) Math.round(point.y()),
+                (int) Math.round(point.z())
+            );
+            if (index < 16 && mine.bounds().containsBlock(block)) return false;
+            if (index++ < 20) continue; // intentional attachment at the entrance or previous end
+            for (int dx = -5; dx <= 5; dx++) {
+                for (int dz = -5; dz <= 5; dz++) {
+                    if (dx * dx + dz * dz > 25) continue;
+                    for (int dy = -3; dy <= 3; dy++) {
+                        if (centerlines.contains(new BlockPosition(
+                            block.x() + dx, block.y() + dy, block.z() + dz
+                        ))) return false;
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     private MineNetwork integrateNaturalCaveIfPresent(
