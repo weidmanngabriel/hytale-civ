@@ -701,3 +701,7 @@ Implemented obstacle/failure behavior:
 - partial infrastructure/decor placement is not rolled back; work is re-resolved against current Hytale world state.
 
 Room work, large-natural-cave integration, optional decoration and the general normal-task aging scheduler are now implemented. Explicit unblock/recovery gameplay, material consumption and rails remain later work.
+
+## Layer 10 – persistence/performance hardening
+
+Miner claims and reservations remain runtime-only. Insertion-ordered anchor-batch updates avoid repeated per-anchor searches. Identical semantic network updates no longer trigger serialization through `MineTunnelRegistry.putNetwork`. This is not a change to the Hytale autosave contract: the last staged resource remains authoritative. Completed deterministic infrastructure task IDs and aging bonuses remain durable, since dropping them without an equivalent compact representation could replay work after restart. Large-scale runtime latency remains an explicit measurement task.
