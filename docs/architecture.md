@@ -357,3 +357,7 @@ Hytale Live kann mehrere bereits zugelassene Bridge-Aktionen als versionierten J
 ## Hytale Agent API (erste Ausbaustufe)
 
 `CivAgentCommand` ist eine console-fähige Fassade über Hytales World-/Blockoperationen und bereits vorhandene Civ-Services. Sie erweitert die bestehende localhost-only `CivCommandBridge` statt eine parallele Netzwerk- oder Gameplay-Schicht aufzubauen. Native Blockoperationen und Civ-Bau-/Minen-Services laufen auf dem World-Executor. Spieleraktionen wie Bauplatzierung benutzen denselben `PrefabPlacementService`-, Bauplatzregistrierungs- und Persistenzpfad wie die RTS-Oberfläche; die Agent-Schnittstelle ändert keine Core-Regeln. GitHub Live autorisiert jede Aktion vor dem lokalen Runner und validiert deren native Konsolenform nochmals. Der Agent-Befehlskatalog ist explizit und erweiterbar, aber keine beliebige Serverkonsole. Aktuelle Aktionen und Grenzen: [Hytale Agent API](agent-api.md).
+
+## Miner connector proximity for navigation
+
+`MinerConnectorProximity` recognizes miners within the original connector's Y bounds and up to two blocks beyond its X/Z bounds. Only `MinerNavigationSystem` uses this to identify arrival at the connector/tunnel area and enable its existing navigation and stuck-recovery logic. Prefab geometry, trigger volumes, work targets and teleport safety checks remain unchanged. Block-center coordinates match `BuildingBounds.containsBlock` semantics.

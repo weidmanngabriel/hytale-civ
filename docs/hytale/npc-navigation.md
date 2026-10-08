@@ -104,3 +104,7 @@ The pinned project `HytaleServer.jar` exposes `World.sendMessage(Message)` and t
 ## Mine debug marker separation
 
 `/civdebug mine show anchors` visualizes only already persisted navigation safety anchors confirmed through miner traversal, within 128 blocks (3D) of the player. Labels include anchor ID, XYZ coordinates, tunnel ID and number of anchor links. `/civdebug mine show markers` retains the original front, room, infrastructure and NPC target markers. Both commands replace the previous overlay; `/civdebug mine hide` removes it. This is read-only and does not alter anchor creation or teleport policy.
+
+## Miner connector proximity for navigation
+
+`MinerConnectorProximity` recognizes miners within the original connector's Y bounds and up to two blocks beyond its X/Z bounds. Only `MinerNavigationSystem` uses this to identify arrival at the connector/tunnel area and enable its existing navigation and stuck-recovery logic. Prefab geometry, trigger volumes, work targets and teleport safety checks remain unchanged. Block-center coordinates match `BuildingBounds.containsBlock` semantics.
