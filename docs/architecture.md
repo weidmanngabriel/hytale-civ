@@ -320,3 +320,6 @@ Die Actions-/Pages-Grenze und die begrenzte Aufbewahrung sind in [ADR 0010](deci
 ### Mine persistence hotpaths (Layer 10)
 
 `MineTunnelRegistry.putNetwork` skips staging a resource when the semantic `MineNetwork` is equal to the currently held snapshot. `MineNetwork.withNavigationAnchors` uses an insertion-ordered map for batch replacement, retaining original ID position while avoiding repeated linear search. No second voxel-level save or new engine persistence layer was added. The `N5` format and native Hytale resource autosave semantics remain unchanged.
+
+
+Die passierbarkeitsrelevante Freigabe normaler Infrastruktur und `BUILD_STEP` gehört zur Hytale-unabhängigen `MineInfrastructureAvailability`: Treppen warten auf beide ausgegrabenen Nachbarslices, Brücken behalten ihren vorgezogenen Pflichtbau. `MinerWorkSystem` übergibt den aktuellen Frontfortschritt an diese Core-Policy; der Hytale-Adapter validiert dann die reale Platzierung. `MineFrontCoordinator.capacityFor(kind)` unterscheidet MAIN (3) und BRANCH (2) und bleibt mit den per-Block-Claims synchron. Eine manuelle Altfall-Wiederaufnahme ist ausschließlich als eingeschränktes `/civdev mine-retry-stair` vorgesehen; allgemeine ABANDONED-Recovery bleibt verboten.
