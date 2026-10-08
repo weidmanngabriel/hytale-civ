@@ -99,13 +99,39 @@ public final class MineTunnelVoxelizer {
         double sideZ = Math.cos(radians);
         double start = -(width - 1) / 2.0;
 
+        Integer previousX = null;
+        Integer previousZ = null;
         for (int w = 0; w < width; w++) {
             double offset = start + w;
             int x = (int) Math.round(point.x() + sideX * offset);
             int z = (int) Math.round(point.z() + sideZ * offset);
-            for (int y = 0; y < height; y++) {
-                result.add(new BlockPosition(x, floorY + y, z));
+            // Rasterizing each lateral sample independently leaves diagonal-only roof
+            // voxels at 45-degree headings. Connect the successive samples through
+            // edge-adjacent columns at FULL tunnel height, not merely the 3-high
+            // navigation core, to avoid hanging stone teeth above the walking lane.
+            if (previousX != null) {
+                int bridgeX = previousX;
+                int bridgeZ = previousZ;
+                while (bridgeX != x) {
+                    bridgeX += Integer.compare(x, bridgeX);
+                    addFullHeightColumn(result, bridgeX, bridgeZ, floorY, height);
+                }
+                while (bridgeZ != z) {
+                    bridgeZ += Integer.compare(z, bridgeZ);
+                    addFullHeightColumn(result, bridgeX, bridgeZ, floorY, height);
+                }
             }
+            addFullHeightColumn(result, x, z, floorY, height);
+            previousX = x;
+            previousZ = z;
+        }
+    }
+
+    private static void addFullHeightColumn(
+        Set<BlockPosition> blocks, int x, int z, int floorY, int height
+    ) {
+        for (int y = 0; y < height; y++) {
+            blocks.add(new BlockPosition(x, floorY + y, z));
         }
     }
 
