@@ -306,7 +306,8 @@ A miner reserves one capacity position when it selects the task.
 
 ### 10.1 Initial V1 capacities
 
-- normal tunnel front: maximum `2` miners;
+- main tunnel front: maximum `3` miners;
+- branch tunnel front: maximum `2` miners;
 - room excavation: up to `3` miners;
 - room construction: typically up to `2` miners;
 - individual infrastructure tasks: normally `1` miner;
@@ -438,7 +439,7 @@ The exact support shape, orientation and placement formula belong to the mine sy
 
 ### 14.2 Steps
 
-A step task is mandatory when a local elevation difference would otherwise make the intended route unsafe or unusable.
+A step task is mandatory when a local elevation difference would otherwise make the intended route unsafe or unusable. It is not released until the entire lower adjacent slice has been excavated, avoiding early placement attempts into natural stone.
 
 Do not automatically build elaborate stairs for every vertical change. The mine system determines the appropriate geometry.
 
