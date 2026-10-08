@@ -52,7 +52,7 @@ public final class MineNormalTaskSelector {
             Candidate waiting = choose(available.stream()
                 .filter(candidate -> candidate.workerCount() == 0)
                 .filter(candidate -> effectivePriority(candidate, priorityBonuses)
-                    >= effectivePriority(selected, priorityBonuses))
+                    == effectivePriority(selected, priorityBonuses))
                 .toList(), workerPosition, priorityBonuses);
             if (waiting == null || distanceSquared(workerPosition, waiting.position()) > 64
                 || distanceSquared(workerPosition, selected.position()) <= 576) {
