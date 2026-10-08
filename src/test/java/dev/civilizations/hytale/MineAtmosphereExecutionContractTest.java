@@ -23,6 +23,16 @@ final class MineAtmosphereExecutionContractTest {
         assertTrue(work.contains("MineNormalTaskSelector.Kind.INFRASTRUCTURE"));
         assertTrue(work.contains("selectMandatoryInfrastructureTask"));
         assertFalse(work.contains("selectInfrastructureTask(world, mine, minePlan, position, workerKey, runtime, false)"));
+        int mandatorySelection = work.indexOf(
+            "selectMandatoryInfrastructureTask(world, mine, minePlan, position, workerKey, runtime)"
+        );
+        int normalInfrastructureExecution = work.indexOf(
+            "if (currentInfrastructure != null)",
+            mandatorySelection
+        );
+        assertTrue(mandatorySelection >= 0);
+        assertTrue(normalInfrastructureExecution > mandatorySelection,
+            "priority-10 selection must run before continuing normal infrastructure/decor work");
 
         assertTrue(resolver.contains("case PLACE_DECORATION"));
         assertTrue(resolver.contains("slice.navigationCoreBlocks().contains"));
