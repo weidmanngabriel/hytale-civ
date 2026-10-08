@@ -697,7 +697,7 @@ Implemented obstacle/failure behavior:
 - fluid below a bridge span reduces the accepted V1 span to 10 slices; lava makes the crossing unsafe and abandons the front;
 - fluid occupying the navigation corridor is not swum through in V1 and abandons the front;
 - non-bridgeable gaps and unresolved mandatory bridge/step work become `ABANDONED`;
-- normal supports/lights try their preferred slice, then nearest alternatives up to ±3 slices before being skipped;
-- partial infrastructure placement is not rolled back; work is re-resolved against current Hytale world state.
+- normal supports/lights/decoration try their preferred slice, then nearest alternatives up to ±3 slices before being skipped;
+- partial infrastructure/decor placement is not rolled back; work is re-resolved against current Hytale world state.
 
-The full general cross-category aging scheduler, room work, large-natural-cave integration as semantic rooms/nodes, explicit unblock/recovery gameplay, materials, decoration and rails remain later work.
+Room work, large-natural-cave integration, optional decoration and the general normal-task aging scheduler are now implemented. Explicit unblock/recovery gameplay, material consumption and rails remain later work.
