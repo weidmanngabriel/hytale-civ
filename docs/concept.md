@@ -228,3 +228,7 @@ Das Lab verändert kein Gameplay und führt keine neuen Befehle während eines R
 ## Entwicklungszugriff auf die normale Spielwelt
 
 Der lokale Einzelspieler-Besitzer kann mit `/civmcp on` eine lokale Entwicklungsverbindung freigeben und mit `/civmcp off` schließen. Ein verbundener Agent kann nahe NPCs beobachten, Civ-Bewohner gezielt auswählen und normale Bewegungs-/Berufsaufträge erteilen oder Test-NPCs erzeugen. Reset löscht ausschließlich selbst erzeugte geladene NPCs. Diese Aktionen wirken auf den echten Spielstand; der Agent besitzt oder stoppt den Spielprozess nicht. Einrichtung und noch offene praktische Client-Abnahme: [local-mcp.md](local-mcp.md).
+
+## Mine persistence and performance (Layer 10)
+
+Mines persist their semantic tunnel network, work fronts, rooms, trusted navigation anchors, completed infrastructure task IDs and normal-task priority bonuses in a native Hytale world resource. Excavated voxels are stored by the Hytale world, not duplicated as Civ mine saves; planned geometry is deterministically regenerated. Layer 10 avoids rewriting unchanged network snapshots and improves large anchor batch updates without altering gameplay or requiring an additional database. Native autosave and world shutdown remain responsible for durable resource writes. Rails remain deferred.

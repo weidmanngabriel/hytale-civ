@@ -250,3 +250,7 @@ Mobilgeräte-FPS und tatsächliche Hytale-Navigation sind durch die headless Che
 ## Civdev/MCP-Diagnostik
 
 Die lokale `civdev`-Diagnostik ist kein Ersatz für Gameplay-Tests. Reine Zustandscontainer wie die begrenzte Event-Historie und das explizite Tracking von Dev-Spawns werden als normale JUnit-Tests geprüft. Hytale-spezifische Command-, Spawn- und Entity-Removal-Signaturen werden durch den normalen Java-Build gegen die gepinnte Server-Abhängigkeit abgesichert. Ein echter In-Game-Test des localhost-MCP bleibt eine optionale Runtime-Verifikation und kein Merge-Gate.
+
+## Layer-10 persistence/performance regression
+
+`MineNetworkTest.batchAnchorUpdatesReplaceExistingIdWithoutReordering` covers batched replacement, duplicate incoming IDs and stable existing order. Existing `CivMinePersistenceServiceTest` exercises `N5` round trips and `N2`–`N4` decoding. Normal `./gradlew test` and `./gradlew build` are required for the change. Large-network profiling, memory usage and save/load latency are not verified by this small regression and should not be reported as proven improvements without measurements.

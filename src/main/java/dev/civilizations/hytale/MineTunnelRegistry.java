@@ -70,7 +70,10 @@ public final class MineTunnelRegistry {
     /** Replaces persistent semantic mine-network state. */
     public synchronized void putNetwork(World world, MineNetwork network) {
         UUID worldId = world.getWorldConfig().getUuid();
-        networks.computeIfAbsent(worldId, ignored -> new ConcurrentHashMap<>()).put(network.mineId(), network);
+        Map<UUID, MineNetwork> worldNetworks =
+            networks.computeIfAbsent(worldId, ignored -> new ConcurrentHashMap<>());
+        if (network.equals(worldNetworks.get(network.mineId()))) return;
+        worldNetworks.put(network.mineId(), network);
         save(world);
     }
 
