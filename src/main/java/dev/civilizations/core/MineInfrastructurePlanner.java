@@ -51,13 +51,23 @@ public final class MineInfrastructurePlanner {
         UUID tunnelId,
         MineTunnelGeometry geometry
     ) {
+        return plan(null, tunnelId, geometry, MineDecisionSink.NONE);
+    }
+
+    public static List<MineInfrastructureTask> plan(
+        UUID mineId,
+        UUID tunnelId,
+        MineTunnelGeometry geometry,
+        MineDecisionSink decisionSink
+    ) {
         if (tunnelId == null || geometry == null) {
             throw new IllegalArgumentException("infrastructure planning inputs must not be null");
         }
+        decisionSink = decisionSink == null ? MineDecisionSink.NONE : decisionSink;
 
         List<MineInfrastructureTask> result = new ArrayList<>();
         result.addAll(planSteps(tunnelId, geometry));
-        result.addAll(planSupports(tunnelId, geometry));
+        result.addAll(planSupports(mineId, tunnelId, geometry, decisionSink));
         result.addAll(planLights(tunnelId, geometry));
         result.addAll(planDecorations(tunnelId, geometry, result));
         result.sort(Comparator
@@ -105,27 +115,67 @@ public final class MineInfrastructurePlanner {
     }
 
     private static List<MineInfrastructureTask> planSupports(
+        UUID mineId,
         UUID tunnelId,
-        MineTunnelGeometry geometry
+        MineTunnelGeometry geometry,
+        MineDecisionSink decisionSink
     ) {
         List<MineInfrastructureTask> result = new ArrayList<>();
         List<MineTunnelGeometry.Slice> slices = geometry.slices();
-        if (slices.size() < SUPPORT_MIN_SPACING + 1) return result;
+        if (slices.size() < SUPPORT_MIN_SPACING + 1) {
+            if (mineId != null) {
+                decisionSink.record(
+                    mineId, tunnelId, MineDecisionCategory.PLANNING, "BUILD_SUPPORT_SKIPPED",
+                    "reason", "TUNNEL_TOO_SHORT",
+                    "sliceCount", slices.size(),
+                    "minimum", SUPPORT_MIN_SPACING + 1
+                );
+            }
+            return result;
+        }
 
         SplittableRandom random = new SplittableRandom(geometry.seed() ^ SUPPORT_SEED_SALT);
         int previous = 0;
         while (true) {
-            int desired = previous + random.nextInt(SUPPORT_MIN_SPACING, SUPPORT_MAX_SPACING + 1);
-            if (desired >= slices.size() - 1) break;
+            int spacing = random.nextInt(SUPPORT_MIN_SPACING, SUPPORT_MAX_SPACING + 1);
+            int desired = previous + spacing;
+            if (desired >= slices.size() - 1) {
+                if (mineId != null) {
+                    decisionSink.record(
+                        mineId, tunnelId, MineDecisionCategory.PLANNING, "BUILD_SUPPORT_SKIPPED",
+                        "reason", "END_OF_TUNNEL",
+                        "previous", previous,
+                        "spacing", spacing,
+                        "desiredSlice", desired,
+                        "sliceCount", slices.size()
+                    );
+                }
+                break;
+            }
 
-            int chosen = chooseSupportSlice(slices, desired, geometry.tunnelKind());
+            SupportChoice choice = chooseSupportSliceDetailed(
+                slices, desired, geometry.tunnelKind()
+            );
+            int chosen = choice.chosenIndex();
             if (chosen < 0 || chosen <= previous) {
+                if (mineId != null) {
+                    decisionSink.record(
+                        mineId, tunnelId, MineDecisionCategory.PLANNING, "BUILD_SUPPORT_SKIPPED",
+                        "reason", chosen < 0 ? "NO_GEOMETRY_CANDIDATE" : "NOT_FORWARD_OF_PREVIOUS",
+                        "previous", previous,
+                        "spacing", spacing,
+                        "desiredSlice", desired,
+                        "searchFrom", choice.searchFrom(),
+                        "searchTo", choice.searchTo(),
+                        "rejectedTooSmall", choice.rejectedTooSmall()
+                    );
+                }
                 previous = desired;
                 continue;
             }
 
             MineTunnelGeometry.Slice slice = slices.get(chosen);
-            result.add(new MineInfrastructureTask(
+            MineInfrastructureTask task = new MineInfrastructureTask(
                 taskId(tunnelId, MineInfrastructureTask.Type.BUILD_SUPPORT, chosen, chosen),
                 tunnelId,
                 MineInfrastructureTask.Type.BUILD_SUPPORT,
@@ -133,7 +183,23 @@ public final class MineInfrastructurePlanner {
                 chosen,
                 chosen,
                 slice.floorCenter()
-            ));
+            );
+            result.add(task);
+            if (mineId != null) {
+                decisionSink.record(
+                    mineId, task.id(), MineDecisionCategory.PLANNING, "BUILD_SUPPORT_PLANNED",
+                    "tunnel", tunnelId,
+                    "tunnelKind", geometry.tunnelKind(),
+                    "previous", previous,
+                    "spacing", spacing,
+                    "desiredSlice", desired,
+                    "chosenSlice", chosen,
+                    "width", slice.widthBlocks(),
+                    "height", slice.heightBlocks(),
+                    "turnPenalty", choice.turnPenalty(),
+                    "distanceFromDesired", Math.abs(chosen - desired)
+                );
+            }
             previous = chosen;
         }
         return result;
@@ -144,12 +210,21 @@ public final class MineInfrastructurePlanner {
         int desired,
         MineTunnel.Kind tunnelKind
     ) {
+        return chooseSupportSliceDetailed(slices, desired, tunnelKind).chosenIndex();
+    }
+
+    private static SupportChoice chooseSupportSliceDetailed(
+        List<MineTunnelGeometry.Slice> slices,
+        int desired,
+        MineTunnel.Kind tunnelKind
+    ) {
         int from = Math.max(1, desired - SUPPORT_SEARCH_RADIUS);
         int to = Math.min(slices.size() - 2, desired + SUPPORT_SEARCH_RADIUS);
         int best = -1;
         int bestTurnPenalty = Integer.MAX_VALUE;
         int bestDistance = Integer.MAX_VALUE;
         int bestArea = -1;
+        int rejectedTooSmall = 0;
 
         for (int index = from; index <= to; index++) {
             MineTunnelGeometry.Slice slice = slices.get(index);
@@ -159,6 +234,7 @@ public final class MineInfrastructurePlanner {
             // Two side posts consume two cells. Main keeps four clear; branches keep three.
             if (slice.widthBlocks() < minimumOpenWidth + 2
                 || slice.heightBlocks() < SUPPORT_MIN_OPEN_HEIGHT + 1) {
+                rejectedTooSmall++;
                 continue;
             }
 
@@ -174,7 +250,22 @@ public final class MineInfrastructurePlanner {
                 bestArea = area;
             }
         }
-        return best;
+        return new SupportChoice(
+            best,
+            from,
+            to,
+            rejectedTooSmall,
+            best < 0 ? -1 : bestTurnPenalty
+        );
+    }
+
+    private record SupportChoice(
+        int chosenIndex,
+        int searchFrom,
+        int searchTo,
+        int rejectedTooSmall,
+        int turnPenalty
+    ) {
     }
 
     private static int localTurnPenalty(List<MineTunnelGeometry.Slice> slices, int index) {

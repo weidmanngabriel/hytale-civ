@@ -40,31 +40,57 @@ public final class MineBlockPlacement {
         BlockPosition placedAgainst,
         boolean markDeco
     ) {
-        if (world == null || position == null || blockId == null || rotation == null) return false;
+        return placeDetailed(world, position, blockId, rotation, placedAgainst, markDeco).success();
+    }
+
+    public static PlacementResult placeDetailed(
+        World world,
+        BlockPosition position,
+        String blockId,
+        RotationTuple rotation,
+        BlockPosition placedAgainst,
+        boolean markDeco
+    ) {
+        if (world == null || position == null || blockId == null || rotation == null) {
+            return PlacementResult.failed(FailureReason.INVALID_INPUT);
+        }
 
         BlockType blockType = BlockType.getAssetMap().getAsset(blockId);
-        if (blockType == null) return false;
+        if (blockType == null) {
+            return PlacementResult.failed(FailureReason.BLOCK_ASSET_NOT_FOUND);
+        }
         int blockIndex = BlockType.getAssetMap().getIndex(blockId);
-        if (blockIndex <= 0) return false;
+        if (blockIndex <= 0) {
+            return PlacementResult.failed(FailureReason.INVALID_BLOCK_INDEX);
+        }
 
         WorldChunk chunk = world.getChunkIfLoaded(
             ChunkUtil.indexChunkFromBlock(position.x(), position.z())
         );
-        if (chunk == null || chunk.getReference() == null) return false;
+        if (chunk == null || chunk.getReference() == null) {
+            return PlacementResult.failed(FailureReason.CHUNK_NOT_LOADED);
+        }
 
         BlockType existing = chunk.getBlockType(position.x(), position.y(), position.z());
         if (existing != null && existing != BlockType.EMPTY
             && existing.getId() != null && existing.getId().equals(blockId)) {
             if (markDeco && blockType.canBePlacedAsDeco()) markDeco(world, position);
-            return true;
+            return PlacementResult.success(Outcome.ALREADY_PRESENT);
         }
         if (existing != null && existing != BlockType.EMPTY
             && existing.getMaterial() != com.hypixel.hytale.protocol.BlockMaterial.Empty) {
-            return false;
+            return new PlacementResult(
+                false,
+                null,
+                FailureReason.TARGET_OCCUPIED,
+                existing.getId()
+            );
         }
 
         BlockSection blockSection = chunk.getBlockChunk().getSectionAtBlockY(position.y());
-        if (blockSection == null) return false;
+        if (blockSection == null) {
+            return PlacementResult.failed(FailureReason.BLOCK_SECTION_UNAVAILABLE);
+        }
 
         ChunkStore chunkStore = world.getChunkStore();
         Store<ChunkStore> chunkComponents = chunkStore.getStore();
@@ -82,7 +108,9 @@ public final class MineBlockPlacement {
             0,
             PLAYER_PLACE_FLAGS
         );
-        if (!placed) return false;
+        if (!placed) {
+            return PlacementResult.failed(FailureReason.SET_BLOCK_REJECTED);
+        }
 
         if (markDeco && blockType.canBePlacedAsDeco()) {
             BlockPhysics.markDeco(
@@ -106,7 +134,37 @@ public final class MineBlockPlacement {
             chunkRef,
             blockSection
         );
-        return true;
+        return PlacementResult.success(Outcome.PLACED);
+    }
+
+    public enum Outcome {
+        PLACED,
+        ALREADY_PRESENT
+    }
+
+    public enum FailureReason {
+        INVALID_INPUT,
+        BLOCK_ASSET_NOT_FOUND,
+        INVALID_BLOCK_INDEX,
+        CHUNK_NOT_LOADED,
+        TARGET_OCCUPIED,
+        BLOCK_SECTION_UNAVAILABLE,
+        SET_BLOCK_REJECTED
+    }
+
+    public record PlacementResult(
+        boolean success,
+        Outcome outcome,
+        FailureReason failureReason,
+        String existingBlockId
+    ) {
+        public static PlacementResult success(Outcome outcome) {
+            return new PlacementResult(true, outcome, null, null);
+        }
+
+        public static PlacementResult failed(FailureReason reason) {
+            return new PlacementResult(false, null, reason, null);
+        }
     }
 
     public static boolean isDeco(World world, BlockPosition position) {
