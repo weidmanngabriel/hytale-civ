@@ -104,6 +104,24 @@ final class MinerObstacleExecutionContractTest {
     }
 
     @Test
+    void bridgesExtendAcrossLandingsAndReplaceOnlyDecoCollisions() throws Exception {
+        String work = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
+        );
+        String resolver = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MineInfrastructurePlacementResolver.java")
+        );
+        assertTrue(work.contains("BRIDGE_LANDING_OVERLAP_SLICES = 3"));
+        assertTrue(work.contains("int buildStart = Math.max(1, start - BRIDGE_LANDING_OVERLAP_SLICES)"));
+        assertTrue(work.contains("landing + BRIDGE_LANDING_OVERLAP_SLICES"));
+        assertTrue(work.contains("MineBlockPlacement.isDeco(world, placement.position())"));
+        assertTrue(work.contains("BRIDGE_DECO_REPLACED"));
+        assertTrue(work.contains("hasPendingMandatoryInfrastructure(minePlan, plan)"));
+        assertTrue(work.contains("!bridgeDeckComplete(world, infrastructure)"));
+        assertTrue(resolver.contains("!MineBlockPlacement.isDeco(world, position)"));
+    }
+
+    @Test
     void alreadyRestoredBridgeFloorCompletesInsteadOfAbandoning() throws Exception {
         String source = Files.readString(
             Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
