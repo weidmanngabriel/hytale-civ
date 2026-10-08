@@ -2118,22 +2118,32 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         MineNetwork persisted = tunnelRegistry.networkForMine(key.worldId, mine.id());
-        if (!matchesPlan(persisted, planned.network(), frontIds)) {
-            if (persisted != null) {
-                tunnelRegistry.removeMine(world, mine.id());
-            }
+        if (persisted == null) {
             persisted = planned.network();
-            for (MineRoom room : plannedRooms) persisted = persisted.withRoom(room);
-            for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : planned.tunnels()) {
-                UUID id = frontIds.get(tunnel.tunnel().id());
+        } else if (!persisted.mainTunnelId().equals(planned.network().mainTunnelId())) {
+            // Never discard saved player-world work to satisfy a changed deterministic plan.
+            decisionSink.record(
+                mine.id(), null, MineDecisionCategory.PLANNING, "MINE_PLAN_INCOMPATIBLE",
+                "reason", "MAIN_TUNNEL_ID_CHANGED",
+                "persistedMain", persisted.mainTunnelId(),
+                "expectedMain", planned.network().mainTunnelId()
+            );
+            return null;
+        }
+
+        // Merge only missing semantic tasks. Future generations may add extra tunnels,
+        // rooms and fronts; they are not a reason to replace the persisted network.
+        MineNetwork merged = persisted;
+        for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : planned.tunnels()) {
+            if (merged.tunnel(tunnel.tunnel().id()) == null) {
+                merged = merged.withTunnel(tunnel.tunnel());
+            }
+            UUID id = frontIds.get(tunnel.tunnel().id());
+            if (workFrontById(merged, id) == null) {
                 MineTunnelGeometry.Slice firstSlice = tunnel.geometry().slices().getFirst();
-                MineWorkFront initialFront = new MineWorkFront(
-                    id,
-                    tunnel.tunnel().id(),
-                    firstSlice.floorCenter(),
-                    MineWorkFront.State.OPEN
-                );
-                persisted = persisted.withWorkFront(initialFront);
+                merged = merged.withWorkFront(new MineWorkFront(
+                    id, tunnel.tunnel().id(), firstSlice.floorCenter(), MineWorkFront.State.OPEN
+                ));
                 decisionSink.record(
                     mine.id(), id, MineDecisionCategory.PLANNING, "FRONT_CREATED",
                     "tunnel", tunnel.tunnel().id(),
@@ -2143,17 +2153,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                     "height", firstSlice.heightBlocks()
                 );
             }
-            tunnelRegistry.putNetwork(world, persisted);
-        } else {
-            boolean roomsChanged = false;
-            for (MineRoom room : plannedRooms) {
-                if (roomById(persisted, room.id()) == null) {
-                    persisted = persisted.withRoom(room);
-                    roomsChanged = true;
-                }
-            }
-            if (roomsChanged) tunnelRegistry.putNetwork(world, persisted);
         }
+        for (MineRoom room : plannedRooms) {
+            if (roomById(merged, room.id()) == null) merged = merged.withRoom(room);
+        }
+        if (!merged.equals(persisted)) {
+            tunnelRegistry.putNetwork(world, merged);
+        }
+        persisted = merged;
 
         tunnelRegistry.putRuntimeGeometries(key.worldId, mine.id(), geometries);
 
