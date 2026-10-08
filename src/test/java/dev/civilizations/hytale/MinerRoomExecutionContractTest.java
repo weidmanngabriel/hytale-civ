@@ -18,7 +18,7 @@ final class MinerRoomExecutionContractTest {
             Path.of("src/main/java/dev/civilizations/hytale/MineRoomPrefabService.java")
         );
 
-        assertTrue(work.contains("MineRoomPlanner.plan(planned)"));
+        assertTrue(work.contains("MineRoomPlanner.plan(planned, decisionSink)"));
         assertTrue(work.contains("MineNormalTaskSelector.select"));
         assertTrue(work.contains("MineRoomPlanner.MAX_ACTIVE_ROOMS"));
         assertTrue(work.contains("MineRoomPlanner.EXCAVATION_CAPACITY"));
