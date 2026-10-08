@@ -1084,22 +1084,29 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private boolean advanceInfrastructureProbe(World world, WorkerRuntime runtime) {
         if (runtime.resolvedInfrastructure == null) return false;
         Vector3d anchor = runtime.resolvedInfrastructure.workTarget();
-        int y = (int) Math.floor(anchor.y);
         while (runtime.infrastructureProbeIndex < BUILD_PROBE_OFFSETS.length) {
-            int[] offset = BUILD_PROBE_OFFSETS[runtime.infrastructureProbeIndex++];
+            Vector3d candidate = safeBuildProbe(
+                world, anchor, BUILD_PROBE_OFFSETS[runtime.infrastructureProbeIndex++]
+            );
+            if (candidate == null) continue;
+            runtime.infrastructureProbeTarget = candidate;
+            return true;
+        }
+        return false;
+    }
+
+    private static Vector3d safeBuildProbe(World world, Vector3d anchor, int[] offset) {
+            int y = (int) Math.floor(anchor.y);
             int x = (int) Math.floor(anchor.x) + offset[0];
             int z = (int) Math.floor(anchor.z) + offset[1];
             BlockType feet = loadedBlockType(world, new BlockPosition(x, y, z));
             BlockType head = loadedBlockType(world, new BlockPosition(x, y + 1, z));
             BlockType ground = loadedBlockType(world, new BlockPosition(x, y - 1, z));
             if (feet == null || !isEmpty(feet) || head == null || !isEmpty(head)
-                || ground == null || isEmpty(ground)) continue;
+                || ground == null || isEmpty(ground)) return null;
             WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(x, z));
-            if (chunk == null || chunk.getFluidId(x, y, z) != Fluid.EMPTY_ID) continue;
-            runtime.infrastructureProbeTarget = new Vector3d(x + 0.5, y, z + 0.5);
-            return true;
-        }
-        return false;
+            if (chunk == null || chunk.getFluidId(x, y, z) != Fluid.EMPTY_ID) return null;
+            return new Vector3d(x + 0.5, y, z + 0.5);
     }
 
     private RuntimeFrontPlan blockingExcavationFront(
@@ -1610,6 +1617,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             room.position().y(),
             room.position().z() + 0.5
         );
+        if (runtime.roomProbeTarget != null) target = runtime.roomProbeTarget;
         if (!arrived(workerPosition, target)) {
             navigateTo(ref, target, runtime);
             stopBuildingAnimation(ref, store, runtime);
@@ -1637,6 +1645,18 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         runtime.workElapsed = 0.0;
 
         if (!MineRoomPrefabService.placeSection(world, room, section, commandBuffer)) {
+            Vector3d anchor = new Vector3d(
+                room.position().x() + 0.5, room.position().y(), room.position().z() + 0.5
+            );
+            while (runtime.roomProbeIndex < BUILD_PROBE_OFFSETS.length) {
+                Vector3d candidate = safeBuildProbe(
+                    world, anchor, BUILD_PROBE_OFFSETS[runtime.roomProbeIndex++]
+                );
+                if (candidate == null) continue;
+                runtime.roomProbeTarget = candidate;
+                stopBuildingAnimation(ref, store, runtime);
+                return;
+            }
             plan.unavailable = true;
             workerTaskEnded(mine.id(), ref, workerKey, runtime, "ROOM_PREFAB_PLACEMENT_FAILED");
             roomCoordinator.releaseWorker(workerKey);
@@ -3102,6 +3122,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private MineInfrastructurePlacementResolver.ResolvedTask resolvedInfrastructure;
         private int infrastructurePlacementIndex;
         private int infrastructureProbeIndex;
+        private int roomProbeIndex;
+        private Vector3d roomProbeTarget;
         private Vector3d infrastructureProbeTarget;
         private boolean enteredMine;
         private boolean reachedConnector;
@@ -3163,6 +3185,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private void clearRoomAssignment() {
             roomId = null;
             roomBuildSection = null;
+            roomProbeIndex = 0;
+            roomProbeTarget = null;
             claimedBlock = null;
             workElapsed = 0.0;
         }
