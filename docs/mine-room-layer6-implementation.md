@@ -100,4 +100,4 @@ Room planning, priorities, capacities and lifecycle remain Core/domain behavior.
 - rooms do not yet contain functional storage, beds, production stations or logistics;
 - the room-prefab test assets are intentionally simple;
 - a room whose native navigation or prefab placement fails is suppressed for the current runtime; a persistent room-specific unblock/recovery state is deferred;
-- the full aging scheduler across every normal task category remains deferred.
+- the full aging scheduler was deferred at the Layer-6 checkpoint and is implemented in Layer 8; room functional inventories/production remain separate future work.
