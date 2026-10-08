@@ -289,7 +289,7 @@ An autonomously working miner with an active Civ movement destination who makes 
 
 ## Mine depth generation policy
 
-The target is Y=10 with an interval of ten minutes for progress checks. Successive tunnel plans must retain existing excavations and use independent deterministic identifiers. The implementation now refreshes the main excavation horizon every ten minutes and opens a new main tunnel at the mine entrance when a completed main reaches Y=10; the release still requires gameplay verification.
+The target is Y=10 with a ten-minute background check; when no more than five unlocked MAIN slices remain, another batch of up to 24 slices is released immediately instead of waiting for the timer. A release and a failed attempt to create another main tunnel produce one chat message per actual decision. The already-authored tunnel geometry and excavation progress remain unchanged. Successive tunnel plans must retain existing excavations and use independent deterministic identifiers. The implementation now refreshes the main excavation horizon every ten minutes and opens a new main tunnel at the mine entrance when a completed main reaches Y=10; the release still requires gameplay verification.
 
 ## Successive main tunnel planning
 
