@@ -347,6 +347,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             MineNormalTaskSelector.Candidate candidate =
                 selectNormalCandidate(world, mine, minePlan, position);
             if (candidate != null) {
+                runtime.clearIdle();
                 switch (candidate.kind()) {
                     case ROOM -> {
                         RuntimeRoomPlan selectedRoomPlan =
