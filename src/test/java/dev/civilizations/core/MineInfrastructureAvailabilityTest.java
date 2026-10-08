@@ -36,8 +36,14 @@ final class MineInfrastructureAvailabilityTest {
         assertTrue(MineInfrastructureAvailability.isAvailable(
             MineInfrastructureTask.Type.BUILD_BRIDGE, 4, 5, 4, false
         ));
-        assertFalse(MineInfrastructureAvailability.isAvailable(
+        assertTrue(MineInfrastructureAvailability.isAvailable(
             MineInfrastructureTask.Type.BUILD_BRIDGE, 4, 5, 5, false
+        ));
+        assertFalse(MineInfrastructureAvailability.isAvailable(
+            MineInfrastructureTask.Type.BUILD_BRIDGE, 4, 5, 6, false
+        ));
+        assertFalse(MineInfrastructureAvailability.isAvailable(
+            MineInfrastructureTask.Type.BUILD_BRIDGE, 4, 5, 4, true
         ));
         assertTrue(MineInfrastructureAvailability.isAvailable(
             MineInfrastructureTask.Type.BUILD_SUPPORT, 4, 4, 5, false
