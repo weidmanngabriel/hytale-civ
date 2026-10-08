@@ -58,3 +58,18 @@ See [development.md](development.md) for the overall development workflow and [r
 - [NPC listing run 37742779964](https://github.com/weidmanngabriel/hytale-civ/actions/runs/37742779964): six loaded NPCs, including five miners and one construction worker.
 
 These runs prove read-only transport at that time, **not** that the newly allowlisted write commands have been runtime-tested. Avoid executing world-changing commands just to validate infrastructure without current user authorization.
+
+## Structured batch requests (version 1)
+
+Send a single comment to locked Issue #266 with the exact prefix and a JSON body (runner is mandatory):
+
+~~~text
+/hytale-live-batch runner gabe
+{"version":1,"steps":[{"id":"list","action":"command","command":"npcs"},{"id":"delay","action":"wait","seconds":2},{"id":"mine","action":"command","command":"mines"},{"id":"check","action":"assert","from":"mine","contains":"CIVDEV_MINES"}]}
+~~~
+
+Supported actions are \`command\` (existing read and write Hytale Live commands except \`reset\`), \`wait\` (integer 1–30 seconds) and \`assert\` (case-sensitive substring check against a preceding command's output). IDs must be unique alphanumeric/hyphen/underscore identifiers beginning with a letter, max 40 characters. Limits: maximum 30 steps, 16,000 comment characters and 120 seconds total waiting. Any failure stops the batch; there is no shell/PowerShell escape or arbitrary command execution. The existing single-command format and its explicit \`reset\` confirmation requirement remain unchanged. Do not include \`reset\` in batches.
+
+A GitHub-hosted authorization job validates each action and produces a normalized, base64-encoded payload. The trusted Windows runner independently validates each game command. The execution job writes \`HCIV_LIVE_BATCH_RESULT\` to the logs and uploads \`hytale-live-batch-result.json\` as a seven-day workflow artifact. The result contains \`schemaVersion\`, overall \`status\`, selected \`runner\`, and per-step \`id\`, \`action\`, \`success\`, \`durationMs\`, game \`output\` or \`error\`. The normal \`HCIV_LIVE_RUN\` comment still identifies the exact run. An assertion checks previously returned text, not actual world-block changes; confirming excavation requires suitable gameplay telemetry.
+
+The current batch runner composes already supported \`civdev\` commands; \`civdebug mine recover\` is a player-relative command and is **not** currently exposed through this bridge. Adding stable mine-ID-based recovery or block counters needs a separate game-side adapter.
