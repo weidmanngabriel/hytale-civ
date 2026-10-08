@@ -72,9 +72,12 @@ This is not a general cave/liquid simulation: V1 does not pump, fill, redirect o
 
 Recurring supports, lighting and optional decoration are allowed to re-resolve against nearby tunnel slices when their preferred slice is unsuitable. The ordered fallback is preferred slice, then nearest slices before/after it up to ±3. Mandatory passability work does not use this fallback because its location is tied to the obstacle being solved.
 
-A failed block placement keeps already placed world blocks. The next work tick re-resolves from current loaded-world state. If normal infrastructure or decoration has no valid preferred or fallback placement it is skipped; optional atmosphere never blocks a front. If mandatory bridge/step work remains unresolvable, the associated front is abandoned.
+A failed block placement keeps already placed world blocks. The next work tick re-resolves from current loaded-world state. If normal infrastructure or decoration has no valid preferred or fallback placement it is skipped; optional atmosphere never blocks a front. A mandatory step becomes executable only after its lower adjacent excavation slice is finished; attempting to place a stair into as-yet-unexcavated natural stone must not abandon a front. If mandatory bridge/step work remains truly unresolvable AFTER its prerequisite work is completed, the associated front is abandoned.
 
 
 ## Native section reference for placement (2026-10-08)
 
 The pinned HytaleServer.jar `BlockOperations.setBlock(ChunkStore, Ref<ChunkStore>, int, int, int, ...)` resolves `ChunkSection`, `BlockSection` and `BlockComponentSection` on its reference argument. This is a **section** reference; `WorldChunk.getReference()` is the **column** reference and causes `setBlock` to return `false` when the required `ChunkSection` is absent. `MineBlockPlacement` must use `ChunkStore.getChunkSectionReferenceAtBlock(x,y,z)` for placement, connected-block notifications and `BlockPhysics.markDeco/isDeco`, while `WorldChunk` remains useful for loaded-world inspection. This contract is bytecode-verified against the pinned JAR; gameplay success should still be confirmed in a live three-miner session.
+
+
+For regular main-tunnel lantern pillars, the resolver now explicitly prefers the verified native asset ID `Deco_Lantern`, rather than selecting an arbitrary block containing `lantern` (such as a temple fixture). `BUILD_STEP` is only offered after the lower adjacent slice has been fully excavated, so valid natural stone in that not-yet-dug slice cannot be mistaken for terminal stair placement failure. This change is to Civ scheduling; Hytale still places stairs through the existing native BlockOperations path.

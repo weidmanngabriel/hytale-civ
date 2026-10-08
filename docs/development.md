@@ -265,3 +265,6 @@ npm run dev --prefix web-viewer
 Unter Windows lautet der erste Befehl `gradlew.bat exportSimulationRecordings`. Im lokalen Viewer kann eine einzelne Datei aus `build/simulation-recordings/*.json` geöffnet werden. Lokale Dateien haben keinen bestätigten Commit-/CI-Status. Für eine statische Auslieferung dient `npm run build --prefix web-viewer`; die Site liegt dann in `web-viewer/dist/`.
 
 Vieweränderungen werden lokal geprüft und erst nach Integration in `main` auf der gemeinsamen Site veröffentlicht. Entwicklungsbranches liefern Daten für den stabilen Viewer. Lizenzierte Hytale-Basisassets werden nicht veröffentlicht. Der Hytale-Local-Runner wird für diesen Workflow nicht verwendet.
+
+
+**Gezielte Minen-Reparatur für alte Testwelten:** Zeigt `/civdev mines` die Mine-ID, kann `/civdev mine-retry-stair <mine-id>` auf der laufenden Welt eine alte, explizit `ABANDONED` gesetzte Hauptfront wieder öffnen, sofern an genau ihrem aktuellen Slice ein noch offener Pflicht-Treppenübergang liegt. Ergebnisse: `REOPENED`, `NOT_ELIGIBLE` oder `MINE_NOT_READY`. Das ist eine bewusste Dev-Aktion und KEIN genereller Reset; ohne passende alte Treppe werden andere ABANDONED- oder BLOCKED-Fronten niemals freigegeben. Zur Kontrolle `/civdev mine-info <mine-id>` und Minen-Worker/Adapter-Debuglogs verwenden.

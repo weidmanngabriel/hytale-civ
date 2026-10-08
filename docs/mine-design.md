@@ -310,7 +310,7 @@ This is intentionally simple for V1. Persistence may later be optimized if stori
 
 ## 15. Floor steps
 
-When the planned usable floor changes elevation, miners build a connected stone staircase rather than leaving raw one-block ledges. Layer 3 exposes one-block `StepTransition`s; Layer 5 turns each due transition into priority-10 `BUILD_STEP` work so several consecutive transitions visually form one continuous staircase.
+When the planned usable floor changes elevation, miners build a connected stone staircase rather than leaving raw one-block ledges. Layer 3 exposes one-block `StepTransition`s; Layer 5 turns each due transition into priority-10 `BUILD_STEP` work so several consecutive transitions visually form one continuous staircase. Each step waits until BOTH adjacent slices have been excavated so the lower floor cell is genuinely free before the stair is placed. The front pauses after excavating the lower slice until this mandatory step completes; a still-solid lower slice is not an abandonment reason.
 
 Use native stone stair/step blocks, correctly rotated toward the rise direction. The initial implementation covers the three-block guaranteed corridor where world geometry allows it. Every placed stair block takes 0.5 seconds of miner build time.
 
@@ -370,7 +370,7 @@ Main tunnel V1:
 
 - deterministic target spacing roughly 10-18 slices;
 - barrels;
-- crates;
+- crates (5% of main-tunnel decoration rolls);
 - timber piles;
 - small material piles;
 - hanging chains;
@@ -379,7 +379,7 @@ Main tunnel V1:
 Branch tunnel V1:
 
 - sparser target spacing roughly 18-30 slices;
-- crates;
+- crates (10% of branch-tunnel decoration rolls);
 - timber piles;
 - small material piles;
 - no hanging chains or hanging lanterns;
@@ -603,7 +603,7 @@ These should be decided only when their implementation layer needs them.
 
 Live miner excavation is connected to the Layer-2/3/4 mine plan. The active work unit is one `MineTunnelGeometry.Slice`; its variable width/height and voxel set come directly from the planned tunnel geometry. A persistent `MineWorkFront` tracks the current semantic front for every planned main or branch tunnel, while already excavated blocks remain world truth.
 
-Up to two miners may share a normal tunnel front. Their per-block claims are transient execution coordination and are not stored as permanent worker slots. After each completed slice, miners select again. Layer 8 now runs tunnel fronts together with rooms, recurring supports/lights and decoration through the shared normal-task selector: active work with spare capacity first, otherwise effective priority, distance and stable tie-breaking. Steps/bridges at priority 10 remain the separate acute passability path. Rails remain a later integration.
+A main-tunnel excavation front accepts up to three miners, while a branch-tunnel excavation front accepts up to two miners. Their per-block claims are transient execution coordination and are not stored as permanent worker slots. After each completed slice, miners select again. Layer 8 now runs tunnel fronts together with rooms, recurring supports/lights and decoration through the shared normal-task selector: active work with spare capacity first, otherwise effective priority, distance and stable tie-breaking. Steps/bridges at priority 10 remain the separate acute passability path. Rails remain a later integration.
 
 ## Current implementation checkpoint - NPC layer 6 obstacles and failures
 
@@ -641,3 +641,9 @@ Der reale Weltzustand bleibt Wahrheit für entfernte Blöcke; der persistente se
 ### Waiting when work capacity is exhausted
 
 When all currently executable tasks have reached worker capacity, unassigned miners already inside the mine wait in place instead of immediately routing to the mine entrance. They re-evaluate normal work selection regularly. If there is genuinely no executable work, the normal accommodation / entrance idle flow remains unchanged. This does not alter task priorities, reservations, or the two-miner tunnel-front capacity.
+
+### Balancing and legacy step recovery (2026-10-08)
+
+Per active miner, excavation uses `MineTuning.secondsPerBlock = 30/128` seconds, doubling the previous throughput for tunnel AND room excavation without accelerating infrastructure or prefab construction. The main excavation front has three simultaneous block claims; branch fronts retain two. The deterministic decoration-roll distribution is: main tunnel 20% barrel, 5% crate/chest, 25% timber pile, 25% material pile, 13% hanging chain and 12% hanging lantern; branches 10% crate/chest, 50% timber and 40% material. These are planning probabilities rather than guarantees of actual world placement; failed or conflicting decoration is still skipped, not replaced by another type. Existing placed blocks and already completed tasks are not retroactively changed.
+
+A previously persisted `ABANDONED` main front from the prematurely scheduled `BUILD_STEP` cannot be automatically reopened safely, because persistence does not distinguish that historical cause from other unsafe conditions. After installing the fix and with the relevant mine/miner loaded, development command `/civdev mine-retry-stair <mine-id>` explicitly reopens ONLY an abandoned MAIN front stopped at the lower slice of an unfinished authored stair task. It does not reopen arbitrary abandoned or blocked fronts. If the underlying geometry is still invalid it may become abandoned again; this is not a general automated terrain recovery mechanism.

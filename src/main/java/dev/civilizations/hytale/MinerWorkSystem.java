@@ -35,6 +35,7 @@ import dev.civilizations.core.MineFrontTaskScheduler;
 import dev.civilizations.core.MineHeading;
 import dev.civilizations.core.MineInfrastructurePlanner;
 import dev.civilizations.core.MineInfrastructureTask;
+import dev.civilizations.core.MineInfrastructureAvailability;
 import dev.civilizations.core.MineNetwork;
 import dev.civilizations.core.MineNetworkGrowthPlanner;
 import dev.civilizations.core.MineNormalTaskSelector;
@@ -415,7 +416,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             return;
         }
 
-        if (!frontCoordinator.tryJoin(plan.frontId, workerKey)) {
+        if (!frontCoordinator.tryJoin(plan.frontId, workerKey, MineFrontCoordinator.capacityFor(plan.tunnelKind))) {
             workerTaskEnded(mine.id(), ref, workerKey, runtime, "CAPACITY_UNAVAILABLE");
             runtime.clearWorkAssignment();
             unitRegistry.clearMoveTarget(ref);
@@ -462,7 +463,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         workerTaskStarted(
             mine.id(), ref, workerKey, runtime, "EXCAVATE_FRONT",
             plan.frontId, frontCoordinator.workerCount(plan.frontId),
-            MineFrontCoordinator.NORMAL_TUNNEL_FRONT_CAPACITY
+            MineFrontCoordinator.capacityFor(plan.tunnelKind)
         );
         workerState(
             mine.id(), ref, workerKey, runtime, WorkerDebugState.WORKING, "WORK_TARGET_REACHED"
@@ -1065,10 +1066,13 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         MineInfrastructureTask task,
         RuntimeFrontPlan front
     ) {
-        if (task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE) {
-            return !front.complete && task.startSliceIndex() == front.sliceIndex;
-        }
-        return front.complete || task.startSliceIndex() < front.sliceIndex;
+        return MineInfrastructureAvailability.isAvailable(
+            task.type(),
+            task.startSliceIndex(),
+            task.endSliceIndex(),
+            front.sliceIndex,
+            front.complete
+        );
     }
 
     private static RuntimeFrontPlan frontForTunnel(
@@ -1131,7 +1135,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 MineNormalTaskSelector.Kind.TUNNEL_FRONT,
                 priority,
                 frontCoordinator.workerCount(front.id()),
-                MineFrontCoordinator.NORMAL_TUNNEL_FRONT_CAPACITY,
+                MineFrontCoordinator.capacityFor(candidate.tunnelKind),
                 front.position()
             ));
         }
@@ -1724,7 +1728,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             || selectedPlan.complete
             || !available(selected)
             || !frontExecutable(world, minePlan, selectedPlan)
-            || !frontCoordinator.tryJoin(frontId, workerKey)) {
+            || !frontCoordinator.tryJoin(frontId, workerKey, MineFrontCoordinator.capacityFor(selectedPlan.tunnelKind))) {
             return null;
         }
 
@@ -1738,7 +1742,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             "taskType", "EXCAVATE_FRONT",
             "reservation", "JOINED",
             "workers", frontCoordinator.workerCount(selected.id()),
-            "capacity", MineFrontCoordinator.NORMAL_TUNNEL_FRONT_CAPACITY,
+            "capacity", MineFrontCoordinator.capacityFor(selectedPlan.tunnelKind),
             "tunnel", selected.tunnelId(),
             "kind", selected.tunnelId().equals(minePlan.mainTunnelId) ? "MAIN" : "BRANCH",
             "slice", selectedPlan.sliceIndex,
@@ -1750,7 +1754,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                         ? MineFrontTaskScheduler.BRANCH_TUNNEL_PRIORITY
                         : MineFrontTaskScheduler.MAIN_TUNNEL_PRIORITY,
                     frontCoordinator.workerCount(selected.id()),
-                    MineFrontCoordinator.NORMAL_TUNNEL_FRONT_CAPACITY,
+                    MineFrontCoordinator.capacityFor(selectedPlan.tunnelKind),
                     selected.position()
                 ),
                 network.normalTaskPriorityBonuses()
@@ -1771,6 +1775,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         BlockPosition target = frontCoordinator.claimNext(
             plan.frontId,
             workerKey,
+            MineFrontCoordinator.capacityFor(plan.tunnelKind),
             plan.orderedBlocks.get(plan.sliceIndex),
             block -> isAvailableWorkBlock(world, mine, block)
         );
@@ -2102,6 +2107,56 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         return UUID.nameUUIDFromBytes((
             "civ-natural-chamber:" + mineId + ":" + tunnelId + ":" + qx + ":" + qy + ":" + qz
         ).getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Explicit development-only recovery for old premature BUILD_STEP abandonment.
+     * Never reopen arbitrary ABANDONED or BLOCKED fronts: only the main front stopped
+     * at the lower slice of an unfinished authored step can be retried.
+     */
+    public StairRetryResult retryAbandonedMainStair(World world, UUID mineId) {
+        if (world == null || mineId == null) return StairRetryResult.MINE_NOT_READY;
+        UUID worldId = world.getWorldConfig().getUuid();
+        WorldMineKey key = new WorldMineKey(worldId, mineId);
+        RuntimeMinePlan plan = runtimePlans.get(key);
+        MineNetwork network = tunnelRegistry.networkForMine(worldId, mineId);
+        if (plan == null || network == null) return StairRetryResult.MINE_NOT_READY;
+
+        for (RuntimeFrontPlan frontPlan : plan.fronts.values()) {
+            if (frontPlan.tunnelKind != MineTunnel.Kind.MAIN) continue;
+            MineWorkFront front = workFrontById(network, frontPlan.frontId);
+            if (front == null || front.state() != MineWorkFront.State.ABANDONED) continue;
+
+            boolean unresolvedStepAtLowerSlice = plan.infrastructureTasks.values().stream()
+                .anyMatch(infrastructure -> !infrastructure.completed
+                    && infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_STEP
+                    && infrastructure.task.tunnelId().equals(frontPlan.tunnelId)
+                    && infrastructure.task.endSliceIndex() == frontPlan.sliceIndex);
+            if (!MineObstaclePolicy.mayRetryAbandonedStair(front.state(), unresolvedStepAtLowerSlice)) {
+                return StairRetryResult.NOT_ELIGIBLE;
+            }
+
+            MineWorkFront reopened = new MineWorkFront(
+                front.id(), front.tunnelId(), front.position(), MineWorkFront.State.OPEN
+            );
+            tunnelRegistry.putNetwork(world, network.withWorkFront(reopened));
+            frontCoordinator.releaseFront(frontPlan.frontId);
+            // Recreate the regenerated runtime plan from the amended persisted front next tick.
+            runtimePlans.remove(key);
+            decisionSink.record(
+                mineId, front.id(), MineDecisionCategory.ENVIRONMENT, "FRONT_REOPENED_DEV",
+                "reason", "OLD_PREMATURE_BUILD_STEP",
+                "slice", frontPlan.sliceIndex
+            );
+            return StairRetryResult.REOPENED;
+        }
+        return StairRetryResult.NOT_ELIGIBLE;
+    }
+
+    public enum StairRetryResult {
+        REOPENED,
+        MINE_NOT_READY,
+        NOT_ELIGIBLE
     }
 
     private void failFront(

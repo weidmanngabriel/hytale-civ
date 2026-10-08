@@ -5,8 +5,19 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 final class MineObstaclePolicyTest {
+
+    @Test
+    void recoveryOnlyAllowsAbandonedFrontAtUnfinishedStair() {
+        assertTrue(MineObstaclePolicy.mayRetryAbandonedStair(MineWorkFront.State.ABANDONED, true));
+        assertFalse(MineObstaclePolicy.mayRetryAbandonedStair(MineWorkFront.State.ABANDONED, false));
+        assertFalse(MineObstaclePolicy.mayRetryAbandonedStair(MineWorkFront.State.BLOCKED, true));
+        assertFalse(MineObstaclePolicy.mayRetryAbandonedStair(MineWorkFront.State.OPEN, true));
+    }
+
 
     @Test
     void terminalNavigationFailureBlocksButDoesNotAbandonFront() {

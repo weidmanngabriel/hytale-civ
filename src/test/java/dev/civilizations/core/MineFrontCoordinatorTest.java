@@ -13,6 +13,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class MineFrontCoordinatorTest {
 
     @Test
+    void mainTunnelAcceptsThreeMinersButBranchStillOnlyTwo() {
+        MineFrontCoordinator<String> coordinator = new MineFrontCoordinator<>();
+        UUID main = UUID.randomUUID();
+        UUID branch = UUID.randomUUID();
+        assertEquals(3, MineFrontCoordinator.capacityFor(MineTunnel.Kind.MAIN));
+        assertEquals(2, MineFrontCoordinator.capacityFor(MineTunnel.Kind.BRANCH));
+        for (String worker : List.of("a", "b", "c")) {
+            assertTrue(coordinator.tryJoin(main, worker, MineFrontCoordinator.capacityFor(MineTunnel.Kind.MAIN)));
+        }
+        assertFalse(coordinator.tryJoin(main, "d", MineFrontCoordinator.capacityFor(MineTunnel.Kind.MAIN)));
+        assertTrue(coordinator.tryJoin(branch, "a", MineFrontCoordinator.capacityFor(MineTunnel.Kind.BRANCH)));
+        assertTrue(coordinator.tryJoin(branch, "b", MineFrontCoordinator.capacityFor(MineTunnel.Kind.BRANCH)));
+        assertFalse(coordinator.tryJoin(branch, "c", MineFrontCoordinator.capacityFor(MineTunnel.Kind.BRANCH)));
+        var positions = List.of(
+            new BlockPosition(1, 30, 2), new BlockPosition(2, 30, 2), new BlockPosition(3, 30, 2)
+        );
+        assertEquals(positions.get(0), coordinator.claimNext(main, "a", 3, positions, p -> true));
+        assertEquals(positions.get(1), coordinator.claimNext(main, "b", 3, positions, p -> true));
+        assertEquals(positions.get(2), coordinator.claimNext(main, "c", 3, positions, p -> true));
+    }
+
+
+    @Test
     void normalTunnelFrontAcceptsAtMostTwoMiners() {
         MineFrontCoordinator<String> coordinator = new MineFrontCoordinator<>();
         UUID front = UUID.randomUUID();

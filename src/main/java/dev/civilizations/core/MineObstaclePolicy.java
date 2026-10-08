@@ -32,6 +32,14 @@ public final class MineObstaclePolicy {
     /**
      * Returns the preferred slice first, then nearest alternatives alternating backward/forward.
      */
+    /** Explicit dev retry is limited to legacy abandonment at an unfinished stair slice. */
+    public static boolean mayRetryAbandonedStair(
+        MineWorkFront.State state,
+        boolean unfinishedStairAtLowerSlice
+    ) {
+        return state == MineWorkFront.State.ABANDONED && unfinishedStairAtLowerSlice;
+    }
+
     public static List<Integer> fallbackSliceOrder(int preferred, int sliceCount) {
         if (sliceCount < 0) {
             throw new IllegalArgumentException("sliceCount must not be negative.");

@@ -245,7 +245,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getCommandRegistry().registerCommand(
             new CivDevCommand(
                 unitRegistry, activityRegistry, minerAssignments, buildingRegistry, mineDebugService,
-                devScenarioService, devEventHistory
+                minerWorkSystem, devScenarioService, devEventHistory
             )
         );
         getCommandRegistry().registerCommand(new CivTestCommand());

@@ -33,6 +33,7 @@ import dev.civilizations.core.WorldPosition;
 import dev.civilizations.hytale.CivActivityRegistry;
 import dev.civilizations.hytale.CivInhabitantData;
 import dev.civilizations.hytale.CivMineDebugService;
+import dev.civilizations.hytale.MinerWorkSystem;
 import dev.civilizations.hytale.CivMinerAssignmentService;
 import dev.civilizations.hytale.CivUnitRegistry;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
@@ -64,6 +65,7 @@ final class CivDevCommand extends AbstractCommandCollection {
         CivMinerAssignmentService minerAssignments,
         BuildingPlacementRegistry buildings,
         CivMineDebugService mineDebug,
+        MinerWorkSystem minerWorkSystem,
         CivDevScenarioService scenarios,
         CivDevEventHistory history
     ) {
@@ -75,6 +77,7 @@ final class CivDevCommand extends AbstractCommandCollection {
         addSubCommand(new ProfessionCommand(units));
         addSubCommand(new MinesCommand(buildings, units, activities));
         addSubCommand(new MineInfoCommand(mineDebug));
+        addSubCommand(new MineRetryStairCommand(minerWorkSystem));
         addSubCommand(new AssignMineCommand(buildings, minerAssignments));
         addSubCommand(new CivDevScenarioCommand(scenarios));
         addSubCommand(new CivDevResetCommand(scenarios));
@@ -416,6 +419,25 @@ final class CivDevCommand extends AbstractCommandCollection {
                 case UPGRADING -> context.sendMessage(Message.raw("CIVDEV_ERROR mine is upgrading"));
                 case MISSING_CONNECTOR -> context.sendMessage(Message.raw("CIVDEV_ERROR mine has no valid tunnel connector"));
             }
+        }
+    }
+
+    private static final class MineRetryStairCommand extends WorldCommand {
+        private final RequiredArg<UUID> mineUuid;
+        private final MinerWorkSystem minerWorkSystem;
+
+        MineRetryStairCommand(MinerWorkSystem minerWorkSystem) {
+            super("mine-retry-stair", "Reopen an old abandoned MAIN front only if a pending lower-slice stair matches.");
+            this.minerWorkSystem = minerWorkSystem;
+            mineUuid = withRequiredArg("mine", "Mine UUID from civdev mines.", ArgTypes.UUID);
+        }
+
+        @Override
+        protected void executeWorld(CommandContext context, World world, Store<EntityStore> store) {
+            UUID mineId = context.get(mineUuid);
+            MinerWorkSystem.StairRetryResult result =
+                minerWorkSystem.retryAbandonedMainStair(world, mineId);
+            context.sendMessage(Message.raw("CIVDEV_MINE_RETRY_STAIR mine=" + mineId + " result=" + result));
         }
     }
 
