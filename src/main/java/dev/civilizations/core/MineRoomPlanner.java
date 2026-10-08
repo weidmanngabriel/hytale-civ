@@ -36,16 +36,27 @@ public final class MineRoomPlanner {
     }
 
     public static List<MineRoom> plan(MineNetworkGrowthPlanner.Plan minePlan) {
+        return plan(minePlan, MineDecisionSink.NONE);
+    }
+
+    public static List<MineRoom> plan(
+        MineNetworkGrowthPlanner.Plan minePlan,
+        MineDecisionSink decisionSink
+    ) {
         if (minePlan == null) throw new IllegalArgumentException("Mine room planning requires a mine plan.");
+        decisionSink = decisionSink == null ? MineDecisionSink.NONE : decisionSink;
         SplittableRandom random = new SplittableRandom(minePlan.seed() ^ ROOM_SEED_SALT);
         ArrayList<MineRoom> rooms = new ArrayList<>();
         Set<BlockPosition> occupiedCenters = new HashSet<>();
+        UUID mineId = minePlan.network().mineId();
 
         MineNetworkGrowthPlanner.PlannedTunnel main = minePlan.mainTunnel();
-        planMainRooms(main, minePlan.tunnels(), random, rooms, occupiedCenters);
+        planMainRooms(main, minePlan.tunnels(), random, rooms, occupiedCenters, mineId, decisionSink);
         for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : minePlan.tunnels()) {
             if (tunnel.tunnel().kind() == MineTunnel.Kind.BRANCH) {
-                planBranchRooms(tunnel, minePlan.tunnels(), random, rooms, occupiedCenters);
+                planBranchRooms(
+                    tunnel, minePlan.tunnels(), random, rooms, occupiedCenters, mineId, decisionSink
+                );
             }
         }
         return List.copyOf(rooms);
@@ -56,13 +67,18 @@ public final class MineRoomPlanner {
         List<MineNetworkGrowthPlanner.PlannedTunnel> allTunnels,
         SplittableRandom random,
         List<MineRoom> rooms,
-        Set<BlockPosition> occupiedCenters
+        Set<BlockPosition> occupiedCenters,
+        UUID mineId,
+        MineDecisionSink decisionSink
     ) {
         int sliceCount = tunnel.geometry().slices().size();
 
         int restIndex = random.nextInt(REST_MIN_SPACING_BLOCKS, REST_MAX_SPACING_BLOCKS + 1);
         while (restIndex < sliceCount - 8) {
-            tryAdd(tunnel, allTunnels, restIndex, MineRoom.Type.REST_ACCOMMODATION, random, rooms, occupiedCenters);
+            tryAdd(
+                tunnel, allTunnels, restIndex, MineRoom.Type.REST_ACCOMMODATION,
+                random, rooms, occupiedCenters, mineId, decisionSink
+            );
             restIndex += random.nextInt(REST_MIN_SPACING_BLOCKS, REST_MAX_SPACING_BLOCKS + 1);
         }
 
@@ -70,8 +86,21 @@ public final class MineRoomPlanner {
             MATERIAL_STORAGE_MIN_SPACING_BLOCKS, MATERIAL_STORAGE_MAX_SPACING_BLOCKS + 1
         );
         for (int index = storageEligible; index < sliceCount - 6; index += OPPORTUNITY_SPACING) {
-            if (random.nextDouble() <= MATERIAL_STORAGE_CHANCE
-                && tryAdd(tunnel, allTunnels, index, MineRoom.Type.MATERIAL_STORAGE, random, rooms, occupiedCenters)) {
+            double roll = random.nextDouble();
+            boolean selected = roll <= MATERIAL_STORAGE_CHANCE;
+            decisionSink.record(
+                mineId, tunnel.tunnel().id(), MineDecisionCategory.ROOM, "ROOM_OPPORTUNITY",
+                "type", MineRoom.Type.MATERIAL_STORAGE,
+                "slice", index,
+                "decision", selected ? "TRY" : "SKIP",
+                "roll", roll,
+                "chance", MATERIAL_STORAGE_CHANCE
+            );
+            if (selected
+                && tryAdd(
+                    tunnel, allTunnels, index, MineRoom.Type.MATERIAL_STORAGE,
+                    random, rooms, occupiedCenters, mineId, decisionSink
+                )) {
                 storageEligible = index + random.nextInt(
                     MATERIAL_STORAGE_MIN_SPACING_BLOCKS, MATERIAL_STORAGE_MAX_SPACING_BLOCKS + 1
                 );
@@ -85,12 +114,27 @@ public final class MineRoomPlanner {
         List<MineNetworkGrowthPlanner.PlannedTunnel> allTunnels,
         SplittableRandom random,
         List<MineRoom> rooms,
-        Set<BlockPosition> occupiedCenters
+        Set<BlockPosition> occupiedCenters,
+        UUID mineId,
+        MineDecisionSink decisionSink
     ) {
         int sliceCount = tunnel.geometry().slices().size();
         for (int index = OPPORTUNITY_SPACING; index < sliceCount - 4; index += OPPORTUNITY_SPACING) {
-            if (random.nextDouble() <= SMALL_NICHE_CHANCE) {
-                tryAdd(tunnel, allTunnels, index, MineRoom.Type.SMALL_NICHE, random, rooms, occupiedCenters);
+            double roll = random.nextDouble();
+            boolean selected = roll <= SMALL_NICHE_CHANCE;
+            decisionSink.record(
+                mineId, tunnel.tunnel().id(), MineDecisionCategory.ROOM, "ROOM_OPPORTUNITY",
+                "type", MineRoom.Type.SMALL_NICHE,
+                "slice", index,
+                "decision", selected ? "TRY" : "SKIP",
+                "roll", roll,
+                "chance", SMALL_NICHE_CHANCE
+            );
+            if (selected) {
+                tryAdd(
+                    tunnel, allTunnels, index, MineRoom.Type.SMALL_NICHE,
+                    random, rooms, occupiedCenters, mineId, decisionSink
+                );
             }
         }
     }
@@ -102,10 +146,18 @@ public final class MineRoomPlanner {
         MineRoom.Type type,
         SplittableRandom random,
         List<MineRoom> rooms,
-        Set<BlockPosition> occupiedCenters
+        Set<BlockPosition> occupiedCenters,
+        UUID mineId,
+        MineDecisionSink decisionSink
     ) {
         List<MineTunnelGeometry.Slice> slices = tunnel.geometry().slices();
-        if (sliceIndex <= 1 || sliceIndex >= slices.size() - 2) return false;
+        if (sliceIndex <= 1 || sliceIndex >= slices.size() - 2) {
+            decisionSink.record(
+                mineId, tunnel.tunnel().id(), MineDecisionCategory.ROOM, "ROOM_REJECTED",
+                "type", type, "slice", sliceIndex, "reason", "INSUFFICIENT_TUNNEL_LENGTH"
+            );
+            return false;
+        }
         MineTunnelGeometry.Slice slice = slices.get(sliceIndex);
         MineHeading forward = cardinalForward(slices, sliceIndex);
         MineHeading firstOutward = random.nextBoolean() ? left90(forward) : right90(forward);
@@ -115,7 +167,13 @@ public final class MineRoomPlanner {
             MineRoomGeometry.Dimensions dimensions = MineRoomGeometry.dimensions(type);
             int centerDistance = Math.max(2, slice.widthBlocks() / 2) + 2 + dimensions.depth() / 2;
             BlockPosition center = offset(slice.floorCenter(), outward, centerDistance);
-            if (!farEnough(center, occupiedCenters)) continue;
+            if (!farEnough(center, occupiedCenters)) {
+                decisionSink.record(
+                    mineId, tunnel.tunnel().id(), MineDecisionCategory.ROOM, "ROOM_SIDE_REJECTED",
+                    "type", type, "slice", sliceIndex, "side", outward, "reason", "TOO_CLOSE_TO_ROOM"
+                );
+                continue;
+            }
 
             MineRoom candidate = new MineRoom(
                 roomId(tunnel.tunnel().id(), sliceIndex, type, outward),
@@ -129,13 +187,33 @@ public final class MineRoomPlanner {
                 Set.of()
             );
             MineRoomGeometry geometry = MineRoomGeometry.generate(candidate, tunnel.geometry());
-            if (collidesWithTunnelBody(geometry, tunnel.geometry(), sliceIndex)) continue;
-            if (collidesWithUnrelatedTunnel(geometry, tunnel.tunnel().id(), allTunnels)) continue;
+            if (collidesWithTunnelBody(geometry, tunnel.geometry(), sliceIndex)) {
+                decisionSink.record(
+                    mineId, tunnel.tunnel().id(), MineDecisionCategory.ROOM, "ROOM_SIDE_REJECTED",
+                    "type", type, "slice", sliceIndex, "side", outward, "reason", "PARENT_TUNNEL_COLLISION"
+                );
+                continue;
+            }
+            if (collidesWithUnrelatedTunnel(geometry, tunnel.tunnel().id(), allTunnels)) {
+                decisionSink.record(
+                    mineId, tunnel.tunnel().id(), MineDecisionCategory.ROOM, "ROOM_SIDE_REJECTED",
+                    "type", type, "slice", sliceIndex, "side", outward, "reason", "UNRELATED_TUNNEL_COLLISION"
+                );
+                continue;
+            }
 
             rooms.add(candidate);
+            decisionSink.record(
+                mineId, candidate.id(), MineDecisionCategory.ROOM, "ROOM_CREATED",
+                "type", type, "tunnel", tunnel.tunnel().id(), "slice", sliceIndex, "side", outward
+            );
             occupiedCenters.add(center);
             return true;
         }
+        decisionSink.record(
+            mineId, tunnel.tunnel().id(), MineDecisionCategory.ROOM, "ROOM_REJECTED",
+            "type", type, "slice", sliceIndex, "reason", "INSUFFICIENT_SPACE"
+        );
         return false;
     }
 
