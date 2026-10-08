@@ -22,6 +22,15 @@ final class MineGenerationPolicyTest {
   assertFalse(MineGenerationPolicy.due(1000, 600999));
   assertTrue(MineGenerationPolicy.due(1000, 601000));
  }
+ @Test void refreshEarlyWhenOnlyFiveUnlockedSlicesRemain() {
+  assertFalse(MineGenerationPolicy.shouldRefresh(18, 24, 80, 100L, 999999L));
+  assertTrue(MineGenerationPolicy.shouldRefresh(19, 24, 80, 100L, 999999L));
+  assertTrue(MineGenerationPolicy.shouldRefresh(24, 24, 80, 100L, 999999L));
+ }
+ @Test void refreshPeriodicallyUnlessEntireHorizonIsUnlocked() {
+  assertTrue(MineGenerationPolicy.shouldRefresh(2, 24, 80, 1000L, 999L));
+  assertFalse(MineGenerationPolicy.shouldRefresh(24, 24, 24, 1000L, 999L));
+ }
  private static MinePathPoint point(int n, double y) {
   return new MinePathPoint(n, n, y, 0, 6, 6, MineHeading.NORTH, -90, 0);
  }
