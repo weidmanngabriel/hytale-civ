@@ -635,7 +635,7 @@ public final class MineInfrastructurePlacementResolver {
 
             for (int lateral = -1; lateral <= 1; lateral++) {
                 BlockPosition position = atY(at(slice.floorCenter(), cross, lateral, 0), deckY);
-                if (!isEmpty(world, position)) continue;
+                if (!isEmpty(world, position) && !MineBlockPlacement.isDeco(world, position)) continue;
                 placements.putIfAbsent(position, new PlacementStep(
                     position, deck, RotationTuple.NONE,
                     new BlockPosition(position.x(), position.y() - 1, position.z()), true
@@ -645,7 +645,7 @@ public final class MineInfrastructurePlacementResolver {
             RotationTuple longRotation = trunkRotation(forward);
             for (int lateral : new int[]{-2, 2}) {
                 BlockPosition position = atY(at(slice.floorCenter(), cross, lateral, 0), deckY);
-                if (!isEmpty(world, position)) continue;
+                if (!isEmpty(world, position) && !MineBlockPlacement.isDeco(world, position)) continue;
                 placements.putIfAbsent(position, new PlacementStep(
                     position, FIR_TRUNK, longRotation,
                     new BlockPosition(position.x(), position.y() - 1, position.z()), true
@@ -656,7 +656,7 @@ public final class MineInfrastructurePlacementResolver {
                 RotationTuple crossRotation = trunkRotation(cross);
                 for (int lateral = -2; lateral <= 2; lateral++) {
                     BlockPosition position = atY(at(slice.floorCenter(), cross, lateral, 0), deckY - 1);
-                    if (!isEmpty(world, position)) continue;
+                    if (!isEmpty(world, position) && !MineBlockPlacement.isDeco(world, position)) continue;
                     placements.putIfAbsent(position, new PlacementStep(
                         position, FIR_TRUNK, crossRotation,
                         new BlockPosition(position.x(), position.y() - 1, position.z()), true
