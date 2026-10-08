@@ -174,7 +174,7 @@ public final class CivMineDebugService {
 
     /** Only visited and persisted safety anchors; never planned work markers. */
     public ShowResult showSafetyAnchors(
-        PlayerRef playerRef, MineDebugSnapshot snapshot
+        PlayerRef playerRef, MineDebugSnapshot snapshot, UUID worldId
     ) {
         if (playerRef == null || snapshot == null || playerRef.getPacketHandler() == null) {
             return new ShowResult(0, false, true);
@@ -182,7 +182,7 @@ public final class CivMineDebugService {
         hide(playerRef);
         Set<String> ids = new HashSet<>();
         MineNetwork network = tunnelRegistry.networkForMine(
-            playerRef.getWorldUuid(), snapshot.mine().id()
+            worldId, snapshot.mine().id()
         );
         Vector3dc playerPosition = playerRef.getTransform() == null
             ? null : playerRef.getTransform().getPosition();
