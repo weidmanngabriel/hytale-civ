@@ -14,6 +14,7 @@ jobs:
     outputs:
       allowed: ${{ steps.gate.outputs.allowed }}
       command: ${{ steps.gate.outputs.command }}
+      batch: ${{ steps.gate.outputs.batch }}
       requester: ${{ steps.gate.outputs.requester }}
       runner: ${{ steps.gate.outputs.runner }}
     steps:
@@ -38,23 +39,63 @@ jobs:
             const input = (context.payload.comment?.body ?? '').trim();
             const uuid = '[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}';
             const coord = '-?[0-9]{1,5}(?:\\.[0-9]{1,2})?';
-            const coords = `${coord} ${coord} ${coord}`;
-            const read = `(?:status|npcs|mines|npc ${uuid}|events ${uuid}|mine-info ${uuid})`;
-            const write = `(?:reset|spawn Civ_Inhabitant ${coords}|move ${uuid} ${coords}|profession ${uuid} (?:MINER|CONSTRUCTION_WORKER|SOLDIER|WOODCUTTER|FARMER)|assign-mine ${uuid} ${uuid})`;
-            const commandPattern = new RegExp(`^/hytale-live (?:runner (gabe|thommy) )?(${read}|${write})$`);
-            const match = commandPattern.exec(input);
-            if (!match || input.length > 256) {
-              console.log('Ignoring comment without an allowlisted live command.');
+            const coords = coord + ' ' + coord + ' ' + coord;
+            const read = '(?:status|npcs|mines|npc ' + uuid + '|events ' + uuid + '|mine-info ' + uuid + ')';
+            const write = '(?:spawn Civ_Inhabitant ' + coords + '|move ' + uuid + ' ' + coords + '|profession ' + uuid + ' (?:MINER|CONSTRUCTION_WORKER|SOLDIER|WOODCUTTER|FARMER)|assign-mine ' + uuid + ' ' + uuid + ')';
+            const rule = new RegExp('^(' + read + '|' + write + ')$');
+            const translate = s => s === 'status' ? 'version' : 'civdev ' + s;
+            const batch = /^\/hytale-live-batch runner (gabe|thommy)\r?\n([\s\S]+)$/.exec(input);
+            if (batch) {
+              if (input.length > 16000) { core.setFailed('Batch too long'); return; }
+              let parsed;
+              try { parsed = JSON.parse(batch[2]); } catch { core.setFailed('Invalid batch JSON'); return; }
+              if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.steps) || parsed.steps.length < 1 ||
+                  parsed.steps.length > 30 || Object.keys(parsed).some(k => !['version','steps'].includes(k))) {
+                core.setFailed('Invalid batch structure'); return;
+              }
+              const seen = new Set(), commands = new Set(), steps = [];
+              let totalWait = 0;
+              for (const step of parsed.steps) {
+                if (!step || typeof step !== 'object' || Array.isArray(step) ||
+                    typeof step.id !== 'string' || !/^[A-Za-z][\w-]{0,39}$/.test(step.id) ||
+                    seen.has(step.id)) { core.setFailed('Invalid step ID'); return; }
+                seen.add(step.id);
+                if (step.action === 'command') {
+                  if (Object.keys(step).some(k => !['id','action','command'].includes(k)) ||
+                      typeof step.command !== 'string' || step.command.length > 256 || !rule.test(step.command)) {
+                    core.setFailed('Disallowed batch command'); return;
+                  }
+                  steps.push({id:step.id,action:'command',command:translate(step.command)});
+                  commands.add(step.id);
+                } else if (step.action === 'wait') {
+                  if (Object.keys(step).some(k => !['id','action','seconds'].includes(k)) ||
+                      !Number.isInteger(step.seconds) || step.seconds < 1 || step.seconds > 30) {
+                    core.setFailed('Invalid wait'); return;
+                  }
+                  totalWait += step.seconds;
+                  steps.push({id:step.id,action:'wait',seconds:step.seconds});
+                } else if (step.action === 'assert') {
+                  if (Object.keys(step).some(k => !['id','action','from','contains'].includes(k)) ||
+                      typeof step.from !== 'string' || !commands.has(step.from) ||
+                      typeof step.contains !== 'string' || step.contains.length < 1 || step.contains.length > 150) {
+                    core.setFailed('Invalid assertion'); return;
+                  }
+                  steps.push({id:step.id,action:'assert',from:step.from,contains:step.contains});
+                } else { core.setFailed('Unsupported batch action'); return; }
+              }
+              if (totalWait > 120) { core.setFailed('Wait budget exceeded'); return; }
+              core.setOutput('runner',batch[1]);
+              core.setOutput('requester',actor);
+              core.setOutput('batch',Buffer.from(JSON.stringify({version:1,steps})).toString('base64'));
+              core.setOutput('allowed','true');
               return;
             }
-            const runner = match[1] ?? 'auto';
-            let command = match[2];
-            if (command === 'status') command = 'version';
-            else command = 'civdev ' + command;
-            core.setOutput('command', command);
-            core.setOutput('requester', actor);
-            core.setOutput('runner', runner);
-            core.setOutput('allowed', 'true');
+            const match = new RegExp('^/hytale-live (?:runner (gabe|thommy) )?(' + read + '|reset|' + write + ')$').exec(input);
+            if (!match || input.length > 256) return;
+            core.setOutput('command',translate(match[2]));
+            core.setOutput('requester',actor);
+            core.setOutput('runner',match[1] ?? 'auto');
+            core.setOutput('allowed','true');
             console.log('Authorized allowlisted Hytale live request.');
 
   announce:
@@ -86,7 +127,7 @@ jobs:
     needs: authorize
     if: needs.authorize.outputs.allowed == 'true'
     runs-on: ${{ fromJSON(needs.authorize.outputs.runner == 'auto' && '["self-hosted","Windows","X64","hytale-local"]' || format('["self-hosted","Windows","X64","hytale-local","hytale-pc-{0}"]', needs.authorize.outputs.runner)) }}
-    timeout-minutes: 2
+    timeout-minutes: 5
     permissions:
       contents: read
     steps:
@@ -94,10 +135,75 @@ jobs:
         shell: 'powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"'
         env:
           AUTHORIZED_COMMAND: ${{ needs.authorize.outputs.command }}
+          AUTHORIZED_BATCH: ${{ needs.authorize.outputs.batch }}
           REQUESTED_BY: ${{ needs.authorize.outputs.requester }}
           TARGET_RUNNER: ${{ needs.authorize.outputs.runner }}
         run: |
           $ErrorActionPreference = 'Stop'
+          if ($env:REQUESTED_BY -ne 'weidmanngabriel') { throw 'Unexpected requester' }
+          if ($env:TARGET_RUNNER -notin @('auto', 'gabe', 'thommy')) { throw 'Unexpected runner selection' }
+          if ($env:AUTHORIZED_BATCH) {
+            $resultPath = Join-Path $env:RUNNER_TEMP 'hytale-live-batch-result.json'
+            $batch = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:AUTHORIZED_BATCH)) | ConvertFrom-Json
+            if ($batch.version -ne 1 -or $batch.steps.Count -lt 1 -or $batch.steps.Count -gt 30) { throw 'Invalid batch' }
+            $uuid = '[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}'
+            $coord = '-?[0-9]{1,5}(\.[0-9]{1,2})?'
+            $coords = "$coord $coord $coord"
+            $read = "version|civdev (npcs|mines|(npc|events|mine-info) $uuid)"
+            $write = "civdev (spawn Civ_Inhabitant $coords|move $uuid $coords|profession $uuid (MINER|CONSTRUCTION_WORKER|SOLDIER|WOODCUTTER|FARMER)|assign-mine $uuid $uuid)"
+            $seen = @{}
+            $results = [Collections.Generic.List[object]]::new()
+            $status = 'success'
+            $totalWait = 0
+            foreach ($step in $batch.steps) {
+              $watch = [Diagnostics.Stopwatch]::StartNew()
+              $item = [ordered]@{id=$step.id;action=$step.action;success=$false}
+              try {
+                if ($step.id -notmatch '^[A-Za-z][A-Za-z0-9_-]{0,39}$' -or $seen.ContainsKey($step.id)) { throw 'Invalid step ID' }
+                if ($step.action -eq 'command') {
+                  $cmd = [string]$step.command
+                  if ($cmd.Length -gt 256 -or $cmd -notmatch "^($read|$write)$") { throw 'Disallowed command' }
+                  $health = Invoke-RestMethod -Uri 'http://127.0.0.1:5523/health' -TimeoutSec 3
+                  if ($health.ready -ne $true) { throw 'Hytale bridge not ready' }
+                  $payload = @{command=$cmd} | ConvertTo-Json -Compress
+                  $response = Invoke-RestMethod -Uri 'http://127.0.0.1:5523/command' -Method Post -ContentType 'application/json' -Body $payload -TimeoutSec 15
+                  $item.command = $cmd
+                  $item.output = @($response.output)
+                  if (-not $response.success) { throw 'Game command failed' }
+                } elseif ($step.action -eq 'wait') {
+                  $seconds = [int]$step.seconds
+                  $totalWait += $seconds
+                  if ($seconds -lt 1 -or $seconds -gt 30 -or $totalWait -gt 120) { throw 'Invalid wait' }
+                  Start-Sleep -Seconds $seconds
+                  $item.seconds = $seconds
+                } elseif ($step.action -eq 'assert') {
+                  if (-not $seen.ContainsKey([string]$step.from) -or $seen[[string]$step.from].action -ne 'command') { throw 'Invalid assertion source' }
+                  $outputText = @($seen[[string]$step.from].output) -join [Environment]::NewLine
+                  if ([string]::IsNullOrEmpty($step.contains) -or $step.contains.Length -gt 150 -or -not $outputText.Contains([string]$step.contains)) { throw 'Assertion failed' }
+                  $item.from = $step.from
+                  $item.contains = $step.contains
+                } else { throw 'Unknown batch action' }
+                $item.success = $true
+              } catch {
+                $item.error = $_.Exception.Message
+                $status = 'failed'
+              } finally {
+                $watch.Stop()
+                $item.durationMs = $watch.ElapsedMilliseconds
+                $record = [pscustomobject]$item
+                $results.Add($record)
+                $seen[$step.id] = $record
+              }
+              if ($status -eq 'failed') { break }
+            }
+            $report = @{schemaVersion=1;status=$status;runner=$env:TARGET_RUNNER;steps=@($results)}
+            $report | ConvertTo-Json -Depth 12 | Set-Content -Path $resultPath -Encoding UTF8
+            $json = $report | ConvertTo-Json -Depth 12 -Compress
+            if ($json.Length -gt 30000) { $json = $json.Substring(0,30000) + '...[truncated]' }
+            Write-Host "HCIV_LIVE_BATCH_RESULT $json"
+            if ($status -ne 'success') { throw 'Batch failed; inspect result' }
+            exit 0
+          }
           $command = $env:AUTHORIZED_COMMAND
           if ($env:REQUESTED_BY -ne 'weidmanngabriel') { throw 'Unexpected requester' }
           if ($env:TARGET_RUNNER -notin @('auto', 'gabe', 'thommy')) { throw 'Unexpected runner selection' }
@@ -118,3 +224,12 @@ jobs:
           if ($json.Length -gt 30000) { $json = $json.Substring(0,30000) + '...[truncated]' }
           Write-Host "HCIV_LIVE_RESULT $json"
           if (-not $result.success) { throw 'Hytale command failed; see HCIV_LIVE_RESULT' }
+
+      - name: Upload structured batch result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hytale-live-batch-result
+          path: ${{ runner.temp }}/hytale-live-batch-result.json
+          if-no-files-found: ignore
+          retention-days: 7
