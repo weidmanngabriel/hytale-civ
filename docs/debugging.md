@@ -176,3 +176,14 @@ Wie bei den Support-Logs verändert die Diagnose weder die Zufallsfolge noch die
 Die Darstellung ist nur für den anfragenden Spieler sichtbar und verändert keine Weltblöcke. Farben: gelb = Arbeitsfront, grün = Navigationsziel, violett = Raum, weiß = Infrastruktur; die bestehenden Main-/Branch- und Bounds-Farben bleiben erhalten.
 
 Die Marker sind bewusst Momentaufnahmen. Bei fortschreitender Arbeit den Befehl erneut ausführen, um den aktuellen Runtime-Zustand neu darzustellen.
+
+
+### Mine Recovery (Debug)
+
+`/civdebug mine recover status` zeigt die Anzahl betroffener laufender Miner, wiederöffnungsfähiger Fronten und abgeschlossener Fronten für die nächstgelegene Mine (128 Blöcke).
+
+- `/civdebug mine recover workers`: plant für alle aktuell bekannten Miner der Mine einen Reset im nächsten NPC-Tick ein. Aktueller Task, Reservierung, Animation, Navigation/Fehlzustände und temporärer Idle-Zustand werden beendet; der normale autonome Task-Selector läuft danach erneut. NPC-Identität, Name, Beruf und Arbeitsplatzzuordnung werden **nicht** verändert. Ein manuell gesteuerter Miner bleibt unter manueller Kontrolle.
+- `/civdebug mine recover fronts`: setzt persistierte `ABANDONED`- und `BLOCKED`-Fronten auf `OPEN` und hebt die zugehörige Runtime-`unavailable`-Markierung auf. `COMPLETE` bleibt unverändert. Beim nächsten Tick gelten die normalen Hindernis-, Fluid- und Navigationsprüfungen, sodass dieselbe Gefahrenstelle die Front erneut blockieren kann.
+- `/civdebug mine recover all`: kombiniert beide Schritte.
+
+Bereits abgebaute Weltblöcke, fertige Räume und persistierte abgeschlossene Infrastruktur werden nicht zurückgesetzt. Die Befehle benötigen eine nahe Mine und melden die Anzahl der betroffenen Zustände. Es erfolgt **keine** Teleportation und keine Umgehung von Sicherheitsregeln.
