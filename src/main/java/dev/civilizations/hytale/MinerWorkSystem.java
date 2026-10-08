@@ -1013,8 +1013,38 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                     );
                 }
 
-                // Preserve gameplay behavior for now. Re-resolve on the next work tick;
-                // diagnostics above make identical retry loops visible before a gameplay fix.
+                // A fixed occupied block cannot be solved by endlessly retrying placement
+                // from the same position. Release optional work so miners can make progress.
+                // Mandatory passability work must instead close its unsafe front.
+                if (infrastructure.repeatedPlacementFailures >= 3) {
+                    if (infrastructure.task.mandatory()) {
+                        RuntimeFrontPlan affected =
+                            frontForTunnel(minePlan, infrastructure.task.tunnelId());
+                        MineWorkFront front = affected == null ? null : currentFront(
+                            world.getWorldConfig().getUuid(), mine.id(), affected.frontId
+                        );
+                        if (affected != null && front != null) {
+                            failFront(
+                                world, mine, affected, front,
+                                MineObstaclePolicy.FailureKind.MANDATORY_INFRASTRUCTURE_UNRESOLVABLE,
+                                "MANDATORY_PLACEMENT_FAILED"
+                            );
+                        }
+                        workerTaskEnded(
+                            mine.id(), ref, workerKey, runtime, "MANDATORY_PLACEMENT_FAILED"
+                        );
+                        infrastructureReservations.remove(infrastructure.task.id(), workerKey);
+                        unitRegistry.clearMoveTarget(ref);
+                        stopBuildingAnimation(ref, store, runtime);
+                        runtime.clearInfrastructureAssignment();
+                    } else {
+                        completeInfrastructureTask(
+                            world, mine, infrastructure, workerKey, runtime, ref, store,
+                            "SKIPPED_BLOCKED_POSITION"
+                        );
+                    }
+                    return;
+                }
                 runtime.resolvedInfrastructure = null;
                 runtime.infrastructurePlacementIndex = 0;
                 runtime.workElapsed = 0.0;
