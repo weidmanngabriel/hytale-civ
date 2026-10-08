@@ -52,7 +52,7 @@ public final class MineInfrastructurePlacementResolver {
     ) {
         for (int index : candidateSliceOrder(task, geometry.slices().size())) {
             ResolvedTask resolved = resolveSupportAt(world, tunnelKind, geometry, index);
-            if (resolved != null) return resolved;
+            if (resolved != null && placementsAreSafe(world, geometry, resolved)) return resolved;
         }
         return null;
     }
@@ -150,7 +150,7 @@ public final class MineInfrastructurePlacementResolver {
     ) {
         for (int index : candidateSliceOrder(task, geometry.slices().size())) {
             ResolvedTask resolved = resolveLightAt(world, tunnelKind, geometry, index);
-            if (resolved != null) return resolved;
+            if (resolved != null && placementsAreSafe(world, geometry, resolved)) return resolved;
         }
         return null;
     }
@@ -679,6 +679,33 @@ public final class MineInfrastructurePlacementResolver {
             return index >= 0 && index < sliceCount ? List.of(index) : List.of();
         }
         return MineObstaclePolicy.fallbackSliceOrder(task.startSliceIndex(), sliceCount);
+    }
+
+    private static boolean placementsAreSafe(
+        World world, MineTunnelGeometry geometry, ResolvedTask resolved
+    ) {
+        for (PlacementStep placement : resolved.placements()) {
+            BlockPosition position = placement.position();
+            // A support or lantern must never block the reserved walking corridor.
+            for (MineTunnelGeometry.Slice slice : geometry.slices()) {
+                if (slice.navigationCoreBlocks().contains(position)) return false;
+            }
+            // Avoid creating work that would overwrite unexcavated stone or
+            // any existing player block. Already-installed matching pieces are fine.
+            if (!isEmpty(world, position)) {
+                var chunk = world.getChunkIfLoaded(
+                    com.hypixel.hytale.math.util.ChunkUtil.indexChunkFromBlock(
+                        position.x(), position.z()
+                    )
+                );
+                var existing = chunk == null ? null
+                    : chunk.getBlockType(position.x(), position.y(), position.z());
+                if (existing == null || !placement.blockId().equals(existing.getId())) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private static BlockPosition solidBelow(World world, BlockPosition start) {
