@@ -35,6 +35,8 @@ Die gepinnte Server-JAR stellt am aktiven `MotionController` `getNavState()` sow
 
 Civ besitzt weiterhin keinen eigenen Voxel-Pathfinder und keinen allgemeinen Stillstands-Timer als primäres Failure-System. Ein eigener Watchdog wäre nur dann zulässig, wenn ein fokussierter Runtime-Test einen realen Hytale-Stuck-Fall nachweist, der keinen brauchbaren nativen `NavState` erreicht.
 
+Für die opt-in Diagnose protokolliert `MinerNavigationSystem` genau diese vorhandene native Recovery-Kette: Zielwechsel, `REPATH_REQUESTED` mit dem beobachteten `NavState`, danach gegebenenfalls `NAVIGATION_FAILED` und bei Main-Tunnel-Recovery `NAVIGATION_RECOVERY` mit dem verwendeten Safe-Anchor. Die Diagnostik löst selbst weder Repath noch Teleport aus; sie beobachtet nur die ohnehin ausgeführten Schritte.
+
 ## Sichere Minen-Anker
 
 Minen-Anker sind keine aus dem Planer abgeleiteten Wegpunkte. Ein regulärer Anchor wird nur aus tatsächlich beobachteter NPC-Bewegung erzeugt: Der Miner muss den Block durchlaufen haben, der Block muss exakt `BlockType.EMPTY` sein und der Kandidat muss ungefähr 10 Blöcke von umliegenden Anchors entfernt sein.
