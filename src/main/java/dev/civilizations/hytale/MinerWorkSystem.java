@@ -44,6 +44,7 @@ import dev.civilizations.core.MineRoom;
 import dev.civilizations.core.MineRoomCoordinator;
 import dev.civilizations.core.MineRoomGeometry;
 import dev.civilizations.core.MineRoomPlanner;
+import dev.civilizations.core.MineRestartPositionPolicy;
 import dev.civilizations.core.MineIdleDestinationSelector;
 import dev.civilizations.core.MineTunnel;
 import dev.civilizations.core.MineTunnelGeometry;
@@ -230,6 +231,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         Vector3d position = transform.getPosition();
+        // After native LOAD the entity can already be in an excavated tunnel or finished
+        // room. Rehydrate the deterministic plan before forcing the normal surface entry.
+        RuntimeMinePlan minePlan = ensureRuntimePlan(world, mine, connector);
+        if (minePlan == null) return;
+        if (!runtime.reachedConnector && restoredInsideMine(world, minePlan, position)) {
+            runtime.enteredMine = true;
+            runtime.reachedConnector = true;
+        }
         if (!runtime.enteredMine && entrance != null && entrance.bounds() != null) {
             Vector3d target = center(entrance.bounds(), entrance.bounds().minY());
             if (!arrived(position, target)) {
@@ -251,9 +260,6 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             runtime.reachedConnector = true;
             runtime.navigationArrived();
         }
-
-        RuntimeMinePlan minePlan = ensureRuntimePlan(world, mine, connector);
-        if (minePlan == null) return;
 
         if (navigationFailures.consumeIfMatches(workerKey, runtime.navigationTarget)) {
             if (runtime.idleDestination != null) {
@@ -2093,6 +2099,16 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         runtime.idleDestination = outside;
         if (!arrived(position, outside)) navigateTo(ref, outside, runtime);
         else { unitRegistry.clearMoveTarget(ref); runtime.navigationArrived(); }
+    }
+
+    private static boolean restoredInsideMine(World world, RuntimeMinePlan minePlan, Vector3d position) {
+        BlockPosition feet = blockPosition(position);
+        return MineRestartPositionPolicy.alreadyInsideMine(
+            feet,
+            loadedBlockType(world, feet) == BlockType.EMPTY,
+            minePlan.fronts.values().stream().map(front -> front.geometry).toList(),
+            minePlan.rooms.values().stream().map(room -> room.geometry).toList()
+        );
     }
 
     private void navigateTo(Ref<EntityStore> ref, Vector3d target, WorkerRuntime runtime) {
