@@ -735,3 +735,7 @@ NPC-Ebene 8 ergänzt die Wiederanlauf-Erkennung für bereits unter Tage geladene
 ### Waiting when work capacity is exhausted
 
 When all currently executable tasks have reached worker capacity, unassigned miners already inside the mine wait in place instead of immediately routing to the mine entrance. They re-evaluate normal work selection regularly. If there is genuinely no executable work, the normal accommodation / entrance idle flow remains unchanged. This does not alter task priorities, reservations, or the two-miner tunnel-front capacity.
+
+### Main-front capacity, excavation timing and stair readiness
+
+A main-tunnel excavation front admits up to three miners with distinct transient block claims, while a branch-tunnel front remains at two. Room excavation capacity remains three and room building capacity two. Each active miner's tunnel/room excavation interval is now `30/128` seconds per block (twice the prior rate), without changing support/light/decor/bridge/step placement time. Mandatory `BUILD_STEP` work waits until the lower adjacent slice has been excavated; its own reservation and placement remain single-worker tasks. Existing abandoned fronts must not automatically be reopened: targeted dev retry is restricted to the legacy unfinished-stair case.
