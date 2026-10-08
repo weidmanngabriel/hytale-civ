@@ -53,6 +53,24 @@ class MineNetworkTest {
     }
 
     @Test
+    void batchAnchorUpdatesReplaceExistingIdWithoutReordering() {
+        UUID mineId = UUID.randomUUID();
+        UUID mainId = UUID.randomUUID();
+        MineNetwork network = MineNetwork.create(mineId, mainId, new BlockPosition(0, 0, 0));
+        UUID firstId = UUID.randomUUID();
+        UUID secondId = UUID.randomUUID();
+        MineNavigationAnchor first = new MineNavigationAnchor(firstId, mainId,
+            new BlockPosition(1, 0, 0), MineNavigationAnchor.Type.REGULAR, Set.of());
+        MineNavigationAnchor second = new MineNavigationAnchor(secondId, mainId,
+            new BlockPosition(2, 0, 0), MineNavigationAnchor.Type.REGULAR, Set.of());
+        MineNavigationAnchor replacement = new MineNavigationAnchor(firstId, mainId,
+            new BlockPosition(3, 0, 0), MineNavigationAnchor.Type.JUNCTION, Set.of(secondId));
+        network = network.withNavigationAnchors(List.of(first, second));
+        network = network.withNavigationAnchors(List.of(replacement, replacement));
+        assertEquals(List.of(replacement, second), network.navigationAnchors());
+    }
+
+    @Test
     void rejectsBranchWithWrongDepth() {
         UUID mineId = UUID.randomUUID();
         UUID mainId = UUID.randomUUID();
