@@ -276,3 +276,7 @@ Mine priorities apply when a miner selects the next assignment. A newly availabl
 ## Timber decoration placement
 
 New mine planning does not schedule `TIMBER_PILE` floor decorations. These two-block wood piles occupied the same narrow corridor space needed for walking and work, and should not be confused with structural support posts. Existing wood decorations already placed in saved worlds are not automatically deleted.
+
+## Saved mine generation protection
+
+Existing mine excavation progress and completed infrastructure are preserved if the regenerated initial planning set differs from the saved list of tunnels. This is a prerequisite for multiple mining generations; it does not yet enable automatic generation at Y=10.
