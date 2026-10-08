@@ -266,31 +266,48 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         advanceAlreadyExcavatedSlices(world, mine, minePlan);
         refreshBridgeTasks(world, mine, minePlan);
 
-        if (runtime.infrastructureTaskId != null) {
-            RuntimeInfrastructureTask infrastructure =
-                minePlan.infrastructureTasks.get(runtime.infrastructureTaskId);
-            if (infrastructure == null || infrastructure.completed) {
-                releaseInfrastructureReservation(workerKey, runtime);
-                runtime.clearInfrastructureAssignment();
-            } else {
-                executeInfrastructure(
-                    world, mine, minePlan, infrastructure, ref, store, position, workerKey, runtime
-                );
-                return;
-            }
+        RuntimeInfrastructureTask currentInfrastructure = runtime.infrastructureTaskId == null
+            ? null : minePlan.infrastructureTasks.get(runtime.infrastructureTaskId);
+        if (currentInfrastructure != null
+            && !currentInfrastructure.completed
+            && currentInfrastructure.task.mandatory()) {
+            executeInfrastructure(
+                world, mine, minePlan, currentInfrastructure, ref, store, position, workerKey, runtime
+            );
+            return;
         }
 
         RuntimeInfrastructureTask mandatoryInfrastructure =
             selectMandatoryInfrastructureTask(world, mine, minePlan, position, workerKey, runtime);
         if (mandatoryInfrastructure != null) {
+            if (currentInfrastructure != null && !currentInfrastructure.completed) {
+                releaseInfrastructureReservation(workerKey, runtime);
+            }
             if (runtime.frontId != null) frontCoordinator.releaseWorker(workerKey);
             if (runtime.roomId != null) roomCoordinator.releaseWorker(workerKey);
             runtime.clearFrontAssignment();
             runtime.clearRoomAssignment();
+            // selectMandatoryInfrastructureTask established the new reservation/assignment.
+            runtime.infrastructureTaskId = mandatoryInfrastructure.task.id();
             executeInfrastructure(
                 world, mine, minePlan, mandatoryInfrastructure, ref, store, position, workerKey, runtime
             );
             return;
+        }
+
+        if (currentInfrastructure != null) {
+            if (currentInfrastructure.completed) {
+                releaseInfrastructureReservation(workerKey, runtime);
+                runtime.clearInfrastructureAssignment();
+            } else {
+                executeInfrastructure(
+                    world, mine, minePlan, currentInfrastructure, ref, store, position, workerKey, runtime
+                );
+                return;
+            }
+        } else if (runtime.infrastructureTaskId != null) {
+            releaseInfrastructureReservation(workerKey, runtime);
+            runtime.clearInfrastructureAssignment();
         }
 
         if (runtime.roomId != null && roomCoordinator.workerCount(runtime.roomId) == 0) {
