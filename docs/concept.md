@@ -280,3 +280,7 @@ New mine planning does not schedule `TIMBER_PILE` floor decorations. These two-b
 ## Saved mine generation protection
 
 Existing mine excavation progress and completed infrastructure are preserved if the regenerated initial planning set differs from the saved list of tunnels. This is a prerequisite for multiple mining generations; it does not yet enable automatic generation at Y=10.
+
+## Stuck recovery for miners
+
+An autonomously working miner with an active Civ movement destination who makes no significant movement for ten seconds may be repositioned once to a verified, closer navigation anchor on the target route. The job remains assigned. This does not apply to any other profession or player-directed movement.
