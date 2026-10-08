@@ -242,3 +242,8 @@ Ohne ausführbare Minenarbeit gehen Miner selbstständig in die nächstgelegene 
 ## Minenabbauer: Neustart und Weiterarbeit (NPC-Ebene 8)
 
 Nach einem Serverneustart oder dem erneuten Laden eines entfernten NPCs bleiben Minenzugehörigkeit, Beruf, der bereits gespeicherte Tunnel-/Raum-/Infrastrukturfortschritt und sichere Mine-Anker erhalten. Miner nehmen von ihrer Hytale-Position aus automatisch verfügbare Arbeit auf und verteilen sich entsprechend den normalen Prioritäten und Arbeitslimits neu. Vorherige Arbeitsreservierungen, angefangene Abbauzeiten und alte manuelle Zielbefehle werden nicht wiederhergestellt. Bereits unter Tage stehende Miner werden nicht für den Wiedereintritt zum Mineneingang zurückgeschickt; ohne Arbeit nutzen sie die Aufenthaltsregeln von NPC-Ebene 7. Nicht geladene Miner arbeiten nicht im Hintergrund. Bei Abstürzen kann Fortschritt seit dem letzten gespeicherten Hytale-Zustand verloren gehen; die Mod führt keine zusätzliche Datenbank.
+
+
+### Warten bei ausgelasteter Mine
+
+Sind alle aktuell ausführbaren Minenaufgaben vollständig mit Arbeitern belegt, bleiben weitere bereits unter Tage befindliche Miner vor Ort und warten auf freie Kapazität. Erst wenn keine ausführbare Arbeit vorhanden ist, gelten die bisherigen Aufenthaltsraum- oder Eingangsrouten. Die Kapazität von zwei Minern pro Abbaufront bleibt unverändert.
