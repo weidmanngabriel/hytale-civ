@@ -57,13 +57,16 @@ Die Detailregeln dieser Bereiche werden nicht vorab festgelegt, bevor das zugeh�
 - Navigationsanker sind bekannte sichere semantische Punkte und dürfen explizite Nachbarschaftsbeziehungen zu anderen Ankern speichern. Diese Verbindungen sind keine eigene Wegfindung; Hytales Navigation bleibt für den realen Weg zwischen Zielen zuständig.
 - Die Hytale-Welt ist die Wahrheit über tatsächlich ausgehobene und gebaute Blöcke. Das Minennetz speichert keine zweite vollständige Kopie der Weltgeometrie.
 - Deterministisch wiederkehrende Infrastrukturarbeit darf ihre abgeschlossenen Task-IDs im Minennetz speichern, damit sie nach einem Restart nicht erneut angeboten wird. Das ist kein Reparatursystem: Entfernt ein Spieler später fertige Infrastruktur, wird sie nicht allein wegen des fehlenden Weltblocks neu gebaut.
-- Aktuelle Infrastrukturtypen sind `BUILD_SUPPORT`, `BUILD_STEP`, `BUILD_BRIDGE` und `PLACE_LIGHT`. Verpflichtende Passierbarkeitsarbeit kann Priorität 10 besitzen und normalen Weiterbau sperren.
+- Aktuelle Infrastruktur-/Atmosphären-Tasktypen sind `BUILD_SUPPORT`, `BUILD_STEP`, `BUILD_BRIDGE`, `PLACE_LIGHT` und `PLACE_DECORATION`. Verpflichtende Passierbarkeitsarbeit kann Priorität 10 besitzen und normalen Weiterbau sperren.
+- Normale Minenarbeit teilt einen Scheduler: Räume Basis 8, Seitenstollen 6, wiederkehrende Stützen/Licht 5, Hauptstollen 4 und Dekoration 2. Bereits aktive normale Arbeit mit freier Kapazität wird zuerst aufgefüllt.
+- Ausführbare wartende normale Aufgaben, die beim Öffnen neuer Arbeit nicht gewählt werden, altern pro Auswahlentscheidung um +1 bis höchstens effektive Priorität 9. Priority 10 bleibt ausschließlich Sicherheit/Passierbarkeit. Der Bonus gehört zum konkreten Task, wird persistent gespeichert und nach Abschluss oder dauerhafter Unverfügbarkeit dieses Work-Units gelöscht.
+- Branch-Dekoration ist bewusst sparsamer und enthält keine Hängelaternen/Ketten; Seitenstollen verwenden weiterhin nur Fackeln als reguläre Lichtquelle. Optionales Dekor darf die Navigation niemals blockieren und wird bei ungeeigneter Weltgeometrie übersprungen.
 - Eine Work Front im Zustand `BLOCKED` ist aktuell nicht nutzbar, bleibt aber fachlich potentiell später wieder freigebbar. V1 versucht solche Fronten nicht automatisch periodisch erneut.
 - Eine Work Front im Zustand `ABANDONED` besitzt keine sichere V1-Fortsetzung und wird von autonomen Minern nicht mehr ausgewählt.
 - Terminal gescheiterte native Navigation nach genau einem Repath-Versuch blockiert eine betroffene Abbaufront oder Pflicht-Infrastruktur; normale Support-/Lichtarbeit wird lokal übersprungen.
 - Nicht überbrückbare Lücken, Lava, geflutete begehbare Korridore und dauerhaft nicht auflösbare Pflicht-Brücken/-Stufen führen in V1 zum Aufgeben der betroffenen Front.
 - Kleine sichere natürliche Höhlenöffnungen werden ohne eigene Aufgabe in den geplanten Tunnel integriert. Große nutzbare natürliche Höhlen werden als semantische natürliche Kammer gespeichert; Civ berechnet daraus keinen eigenen physischen Pfad.
-- Normale Support-/Lichtarbeit darf vor dem Überspringen bis zu drei Slices vor oder zurück nach einer gültigen Ersatzposition suchen. Pflicht-Infrastruktur bleibt an das konkrete Hindernis gebunden.
+- Normale Support-/Licht-/Dekorationsarbeit darf vor dem Überspringen bis zu drei Slices vor oder zurück nach einer gültigen Ersatzposition suchen. Pflicht-Infrastruktur bleibt an das konkrete Hindernis gebunden.
 
 ## Holzfäller
 
