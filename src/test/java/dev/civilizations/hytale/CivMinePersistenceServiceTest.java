@@ -2,6 +2,7 @@ package dev.civilizations.hytale;
 
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.MineHeading;
+import dev.civilizations.core.MineGenerationProgress;
 import dev.civilizations.core.MineNavigationAnchor;
 import dev.civilizations.core.MineNetwork;
 import dev.civilizations.core.MineRoom;
@@ -65,6 +66,24 @@ class CivMinePersistenceServiceTest {
         assertEquals(3, decoded.normalTaskPriorityBonus(agedTask));
     }
 
+
+    @Test
+    void multipleMainGenerationsAndCompactPlanningStateSurviveReload() {
+        UUID mineId = UUID.randomUUID();
+        UUID root = UUID.randomUUID();
+        UUID secondMain = UUID.randomUUID();
+        MineNetwork network = MineNetwork.create(mineId, root, new BlockPosition(0, 50, 0))
+            .withTunnel(new MineTunnel(secondMain, MineTunnel.Kind.MAIN, null, 0,
+                new BlockPosition(0, 50, 0)))
+            .withGenerationProgress(root, new MineGenerationProgress(40, 600_000L,
+                MineHeading.NORTH, 25L))
+            .withGenerationProgress(secondMain, new MineGenerationProgress(16, 1_200_000L,
+                MineHeading.EAST, 75L));
+        MineNetwork decoded = service.decodeNetwork(service.encodeNetwork(network));
+        assertEquals(network, decoded);
+        assertEquals(2, decoded.tunnels().stream()
+            .filter(t -> t.kind() == MineTunnel.Kind.MAIN).count());
+    }
 
     @Test
     void roundTripKeepsIntegratedNaturalChamberState() {
