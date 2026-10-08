@@ -174,8 +174,8 @@ public final class MineInfrastructurePlacementResolver {
                 "stone", "brick", "pillar", "base"
             );
             String lantern = MineBlockPlacement.resolveAsset(
-                new String[]{"Lantern", "Furniture_Lantern"},
-                "lantern"
+                new String[]{"Deco_Lantern"},
+                "deco", "lantern"
             );
             if (pillar == null || lantern == null) return null;
 
