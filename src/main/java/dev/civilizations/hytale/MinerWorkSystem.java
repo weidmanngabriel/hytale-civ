@@ -1127,6 +1127,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (room.completedBuildSections().size() >= sectionCount) {
             MineRoom built = room.withState(MineRoom.State.BUILT);
             persistRoom(world, mine, built);
+            clearNormalTaskAge(world, mine, room.id());
             roomCoordinator.releaseRoom(room.id());
             runtime.clearRoomAssignment();
             decisionSink.record(
@@ -1194,6 +1195,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             : MineRoom.State.READY_TO_BUILD;
         MineRoom updated = room.withBuildSectionCompleted(section, nextState);
         persistRoom(world, mine, updated);
+        clearNormalTaskAge(world, mine, room.id());
         roomCoordinator.completeBuildSection(room.id(), workerKey, section);
         roomCoordinator.releaseWorker(workerKey);
         stopBuildingAnimation(ref, store, runtime);
@@ -1222,6 +1224,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (unitIndex >= geometry.excavationWorkUnits().size()) {
             MineRoom ready = room.withState(MineRoom.State.READY_TO_BUILD);
             persistRoom(world, mine, ready);
+            clearNormalTaskAge(world, mine, room.id());
             roomCoordinator.releaseRoom(room.id());
             runtime.clearRoomAssignment();
             return;
@@ -1335,6 +1338,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             : MineRoom.State.EXCAVATING;
         MineRoom updated = room.withExcavationProgress(next, nextState);
         persistRoom(world, mine, updated);
+        clearNormalTaskAge(world, mine, room.id());
         roomCoordinator.releaseRoom(room.id());
         stopMiningAnimation(ref, store, runtime);
         runtime.clearRoomAssignment();
@@ -1365,6 +1369,17 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             if (!safeBlock(world, mine, block)) return true;
         }
         return false;
+    }
+
+    private void clearNormalTaskAge(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        UUID taskId
+    ) {
+        MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
+        if (network != null && network.normalTaskPriorityBonus(taskId) > 0) {
+            tunnelRegistry.putNetwork(world, network.withoutNormalTaskPriorityBonus(taskId));
+        }
     }
 
     private void persistRoom(
@@ -1665,6 +1680,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             );
         }
         frontCoordinator.releaseFront(plan.frontId);
+        network = network.withoutNormalTaskPriorityBonus(plan.frontId);
         tunnelRegistry.putNetwork(world, network.withWorkFront(updated));
         decisionSink.record(
             mine.id(), plan.frontId, MineDecisionCategory.PLANNING, "WORK_UNIT_COMPLETED",
