@@ -54,6 +54,8 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
     private static final String MINE_BUILDING = "mine";
     private static final double ANCHOR_PASS_DISTANCE_SQUARED = 2.25;
     private static final double TARGET_EPSILON_SQUARED = 0.0001;
+    private static final double STUCK_TIMEOUT_SECONDS = 10.0;
+    private static final double STUCK_MOVEMENT_THRESHOLD_SQUARED = 0.25 * 0.25;
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
@@ -177,7 +179,7 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
             || runtime.navigationTarget.distanceSquared(moveTarget) > TARGET_EPSILON_SQUARED) {
             Vector3d previousTarget = runtime.navigationTarget == null
                 ? null : new Vector3d(runtime.navigationTarget);
-            runtime.beginNavigationAttempt(moveTarget);
+            runtime.beginNavigationAttempt(moveTarget, position);
             decisionSink.record(
                 mine.id(), null, MineDecisionCategory.NAVIGATION, "NAVIGATION_TARGET_CHANGED",
                 "npc", workerLabel(ref, key),
@@ -192,6 +194,11 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
                 commandBuffer);
             return;
         }
+
+        if (maybeRecoverStuckMiner(
+            dt, ref, key, world, network, currentTunnelId, connector, position,
+            moveTarget, transform, runtime, commandBuffer
+        )) return;
 
         maybeTeleportForLongDistance(
             ref, world, network, currentTunnelId, connector, position, moveTarget, transform, runtime,
@@ -240,6 +247,96 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
         tunnelRegistry.putNetwork(world, updated);
         runtime.lastAnchorId = newId;
         return updated;
+    }
+
+    private boolean maybeRecoverStuckMiner(
+        float dt,
+        Ref<EntityStore> ref,
+        CivUnitRegistry.UnitKey workerKey,
+        World world,
+        MineNetwork network,
+        UUID currentTunnelId,
+        PrefabPlacementService.PlacedMarker connector,
+        Vector3d position,
+        Vector3d moveTarget,
+        TransformComponent transform,
+        NavigationRuntime runtime,
+        CommandBuffer<EntityStore> commandBuffer
+    ) {
+        if (runtime.stuckRecoveryUsed || runtime.pendingTeleportAnchorId != null) return false;
+        if (position.distanceSquared(moveTarget) <= 1.6 * 1.6) {
+            runtime.stillSeconds = 0.0;
+            runtime.stillReference = new Vector3d(position);
+            return false;
+        }
+        if (runtime.stillReference == null
+            || position.distanceSquared(runtime.stillReference) >= STUCK_MOVEMENT_THRESHOLD_SQUARED) {
+            runtime.stillReference = new Vector3d(position);
+            runtime.stillSeconds = 0.0;
+            return false;
+        }
+        runtime.stillSeconds += Math.max(0.0, dt);
+        if (runtime.stillSeconds < STUCK_TIMEOUT_SECONDS) return false;
+        runtime.stuckRecoveryUsed = true;
+        decisionSink.record(
+            runtime.mineId, null, MineDecisionCategory.NAVIGATION, "NPC_STUCK_DETECTED",
+            "npc", workerLabel(ref, workerKey),
+            "target", formatTarget(moveTarget),
+            "seconds", runtime.stillSeconds
+        );
+
+        UUID targetTunnelId = tunnelIdForTarget(
+            network, world.getWorldConfig().getUuid(), moveTarget, connector
+        );
+        MineNavigationAnchor source = anchorById(network.navigationAnchors(), runtime.lastAnchorId);
+        if (source == null) {
+            source = MineNavigationPolicy.closestAnchor(
+                network.navigationAnchors(),
+                currentTunnelId == null ? network.mainTunnelId() : currentTunnelId,
+                worldPosition(position)
+            );
+        }
+        MineNavigationAnchor destination = source == null || targetTunnelId == null ? null
+            : MineNavigationPolicy.selectTeleportAnchor(
+                network.navigationAnchors(), source.id(), targetTunnelId, worldPosition(moveTarget)
+            );
+        if (destination == null
+            || destination.id().equals(source.id())
+            || distanceSquared(destination.position(), worldPosition(moveTarget))
+                >= distanceSquared(blockPosition(position), worldPosition(moveTarget))
+            || !clearRecoveryAnchor(world, destination.position())) {
+            decisionSink.record(
+                runtime.mineId, null, MineDecisionCategory.NAVIGATION, "NPC_STUCK_RECOVERY_FAILED",
+                "npc", workerLabel(ref, workerKey),
+                "target", formatTarget(moveTarget),
+                "reason", "NO_SAFE_CLOSER_ANCHOR"
+            );
+            return false;
+        }
+        commandBuffer.putComponent(
+            ref, Teleport.getComponentType(),
+            new Teleport(anchorPosition(destination.position()), transform.getRotation())
+        );
+        runtime.pendingTeleportAnchorId = destination.id();
+        runtime.lastAnchorId = destination.id();
+        runtime.repathRequested = false;
+        decisionSink.record(
+            runtime.mineId, null, MineDecisionCategory.NAVIGATION, "NPC_STUCK_TELEPORT",
+            "npc", workerLabel(ref, workerKey),
+            "target", formatTarget(moveTarget),
+            "anchor", destination.id(),
+            "position", destination.position()
+        );
+        return true;
+    }
+
+    private static boolean clearRecoveryAnchor(World world, BlockPosition feet) {
+        BlockPosition head = new BlockPosition(feet.x(), feet.y() + 1, feet.z());
+        BlockPosition ground = new BlockPosition(feet.x(), feet.y() - 1, feet.z());
+        BlockType below = loadedBlockType(world, ground);
+        return loadedBlockType(world, feet) == BlockType.EMPTY
+            && loadedBlockType(world, head) == BlockType.EMPTY
+            && below != null && below != BlockType.EMPTY;
     }
 
     private void maybeTeleportForLongDistance(
@@ -537,6 +634,9 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
         private Vector3d navigationTarget;
         private boolean repathRequested;
         private boolean terminalFailureReported;
+        private Vector3d stillReference;
+        private double stillSeconds;
+        private boolean stuckRecoveryUsed;
 
         private void reset(UUID nextMineId) {
             mineId = nextMineId;
@@ -547,14 +647,20 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
             clearNavigationAttempt();
         }
 
-        private void beginNavigationAttempt(Vector3d target) {
+        private void beginNavigationAttempt(Vector3d target, Vector3d position) {
             navigationTarget = new Vector3d(target);
+            stillReference = new Vector3d(position);
+            stillSeconds = 0.0;
+            stuckRecoveryUsed = false;
             repathRequested = false;
             terminalFailureReported = false;
         }
 
         private void clearNavigationAttempt() {
             navigationTarget = null;
+            stillReference = null;
+            stillSeconds = 0.0;
+            stuckRecoveryUsed = false;
             repathRequested = false;
             terminalFailureReported = false;
         }
