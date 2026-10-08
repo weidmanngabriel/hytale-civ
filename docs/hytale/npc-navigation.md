@@ -100,3 +100,7 @@ The miner navigation adapter now observes movement while an autonomous Civ move 
 ## Main tunnel generation and native chat
 
 The pinned project `HytaleServer.jar` exposes `World.sendMessage(Message)` and the existing adapter uses native World/EntityStore services for miner work. Generation-completion chat is dispatched using `World.sendMessage(Message.raw(...))`; this is an API-signature observation, not proof of multiplayer delivery semantics. Mine planning remains a Civ-specific feature: the world stores only the compact N6 generation progress, never individual excavation blocks. The adapter regenerates geometry from saved seeds/headings, and the world remains authoritative for loaded block states. A focused game test should confirm the message and generation transitions.
+
+## Mine debug marker separation
+
+`/civdebug mine show anchors` visualizes only already persisted navigation safety anchors confirmed through miner traversal, within 128 blocks (3D) of the player. Labels include anchor ID, XYZ coordinates, tunnel ID and number of anchor links. `/civdebug mine show markers` retains the original front, room, infrastructure and NPC target markers. Both commands replace the previous overlay; `/civdebug mine hide` removes it. This is read-only and does not alter anchor creation or teleport policy.
