@@ -20,6 +20,8 @@ import com.hypixel.hytale.server.npc.movement.NavState;
 import com.hypixel.hytale.server.npc.movement.controllers.MotionController;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
+import dev.civilizations.core.MineDecisionCategory;
+import dev.civilizations.core.MineDecisionSink;
 import dev.civilizations.core.MineNavigationAnchor;
 import dev.civilizations.core.MineNavigationPolicy;
 import dev.civilizations.core.MineNetwork;
@@ -58,6 +60,7 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
     private final BuildingPlacementRegistry buildingRegistry;
     private final MineTunnelRegistry tunnelRegistry;
     private final MinerNavigationFailureRegistry navigationFailures;
+    private final MineDecisionSink decisionSink;
     private final Map<CivUnitRegistry.UnitKey, NavigationRuntime> runtimes = new ConcurrentHashMap<>();
 
     public MinerNavigationSystem(
@@ -67,12 +70,27 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
         MineTunnelRegistry tunnelRegistry,
         MinerNavigationFailureRegistry navigationFailures
     ) {
+        this(
+            unitRegistry, activityRegistry, buildingRegistry, tunnelRegistry,
+            navigationFailures, MineDecisionSink.NONE
+        );
+    }
+
+    public MinerNavigationSystem(
+        CivUnitRegistry unitRegistry,
+        CivActivityRegistry activityRegistry,
+        BuildingPlacementRegistry buildingRegistry,
+        MineTunnelRegistry tunnelRegistry,
+        MinerNavigationFailureRegistry navigationFailures,
+        MineDecisionSink decisionSink
+    ) {
         super(TICK_INTERVAL_SECONDS);
         this.unitRegistry = unitRegistry;
         this.activityRegistry = activityRegistry;
         this.buildingRegistry = buildingRegistry;
         this.tunnelRegistry = tunnelRegistry;
         this.navigationFailures = navigationFailures;
+        this.decisionSink = decisionSink == null ? MineDecisionSink.NONE : decisionSink;
     }
 
     @Override
@@ -157,7 +175,16 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
 
         if (runtime.navigationTarget == null
             || runtime.navigationTarget.distanceSquared(moveTarget) > TARGET_EPSILON_SQUARED) {
+            Vector3d previousTarget = runtime.navigationTarget == null
+                ? null : new Vector3d(runtime.navigationTarget);
             runtime.beginNavigationAttempt(moveTarget);
+            decisionSink.record(
+                mine.id(), null, MineDecisionCategory.NAVIGATION, "NAVIGATION_TARGET_CHANGED",
+                "npc", workerLabel(ref, key),
+                "from", formatTarget(previousTarget),
+                "to", formatTarget(moveTarget),
+                "reason", "MOVE_TARGET_CHANGED"
+            );
         }
 
         if (!runtime.reachedConnector || !undergroundOrConnector) {
@@ -293,12 +320,26 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
         if (!runtime.repathRequested) {
             controller.setForceRecomputePath(true);
             runtime.repathRequested = true;
+            decisionSink.record(
+                runtime.mineId, null, MineDecisionCategory.NAVIGATION, "REPATH_REQUESTED",
+                "npc", workerLabel(ref, workerKey),
+                "navState", state,
+                "target", formatTarget(moveTarget),
+                "recovery", "FORCE_RECOMPUTE_PATH"
+            );
             return;
         }
 
         if (!runtime.terminalFailureReported) {
             navigationFailures.report(workerKey, moveTarget);
             runtime.terminalFailureReported = true;
+            decisionSink.record(
+                runtime.mineId, null, MineDecisionCategory.NAVIGATION, "NAVIGATION_FAILED",
+                "npc", workerLabel(ref, workerKey),
+                "navState", state,
+                "target", formatTarget(moveTarget),
+                "repath", "already_requested"
+            );
         }
 
         UUID targetTunnelId = tunnelIdForTarget(
@@ -315,12 +356,35 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
                 );
                 runtime.pendingTeleportAnchorId = lastSafe.id();
                 controller.setForceRecomputePath(true);
+                decisionSink.record(
+                    runtime.mineId, null, MineDecisionCategory.NAVIGATION, "NAVIGATION_RECOVERY",
+                    "npc", workerLabel(ref, workerKey),
+                    "navState", state,
+                    "recovery", "TELEPORT_LAST_SAFE_MAIN_ANCHOR",
+                    "anchor", lastSafe.id(),
+                    "position", lastSafe.position()
+                );
             }
         }
 
         // Non-main task release is owned by MinerWorkSystem's front scheduler. This navigation
         // adapter only reports/recovers native movement and never invents a competing task state.
         runtime.repathRequested = false;
+    }
+
+    private String workerLabel(Ref<EntityStore> ref, CivUnitRegistry.UnitKey key) {
+        CivInhabitantData data = ref == null ? null : unitRegistry.getInhabitantData(ref);
+        String name = data == null ? "" : data.fullName().trim();
+        return name.isBlank()
+            ? "entity-" + key.entityIndex()
+            : name.replace(' ', '_') + "#" + key.entityIndex();
+    }
+
+    private static String formatTarget(Vector3d target) {
+        if (target == null) return "-";
+        return String.format(
+            java.util.Locale.ROOT, "(%.2f,%.2f,%.2f)", target.x, target.y, target.z
+        );
     }
 
     private UUID tunnelIdAt(
