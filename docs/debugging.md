@@ -187,3 +187,7 @@ Die Marker sind bewusst Momentaufnahmen. Bei fortschreitender Arbeit den Befehl 
 - `/civdebug mine recover all`: kombiniert beide Schritte.
 
 Bereits abgebaute Weltblöcke, fertige Räume und persistierte abgeschlossene Infrastruktur werden nicht zurückgesetzt. Die Befehle benötigen eine nahe Mine und melden die Anzahl der betroffenen Zustände. Es erfolgt **keine** Teleportation und keine Umgehung von Sicherheitsregeln.
+
+### Player-local mine anchors
+
+`/civdebug mine show anchors` now selects the nearest Civ mine by either the building entrance or regenerated tunnel geometry and displays anchors within 128 blocks of the player's **current 3D position**. The 128-block distance no longer limits selection to the entrance; no individual block positions are persisted for this lookup. Reissue the command after moving to refresh displayed anchors.

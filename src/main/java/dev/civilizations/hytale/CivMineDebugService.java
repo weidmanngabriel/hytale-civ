@@ -28,6 +28,7 @@ public final class CivMineDebugService {
 
     private static final String MINE_BUILDING = "mine";
     private static final double MAX_SELECTION_DISTANCE = 128.0;
+    private static final double MAX_VISUALIZATION_DISTANCE = 128.0;
     private static final float FRONT_OPACITY = 0.26f;
     private static final Vector3f COMPLETE_COLOR = new Vector3f(0.25f, 0.55f, 1.0f);
     private static final Vector3f ACTIVE_COLOR = new Vector3f(1.0f, 0.85f, 0.15f);
@@ -102,7 +103,11 @@ public final class CivMineDebugService {
         double distance = horizontalDistance(referencePosition, mine.bounds());
         List<MinerWorkSystem.MineDebugAnchor> anchors = minerWorkSystem == null
             ? List.of()
-            : minerWorkSystem.debugAnchors(worldId, mine.id());
+            : minerWorkSystem.debugAnchors(worldId, mine.id()).stream()
+                .filter(anchor -> withinPlayerRange(
+                    referencePosition, anchor.x(), anchor.y(), anchor.z()
+                ))
+                .toList();
         return new MineDebugSnapshot(mine, distance, tunnels, anchors);
     }
 
@@ -182,6 +187,20 @@ public final class CivMineDebugService {
         for (BuildingPlacementRegistry.BuildingInstance building : buildingRegistry.buildings(worldId)) {
             if (!MINE_BUILDING.equals(building.buildingType()) || building.bounds() == null) continue;
             double distance = horizontalDistance(position, building.bounds());
+            // A tunnel can run hundreds of blocks away from its entrance.
+            // Select a mine through any nearby planned tunnel slice, without a block index.
+            for (MineTunnelGeometry geometry :
+                tunnelRegistry.geometriesForMine(worldId, building.id()).values()) {
+                for (MineTunnelGeometry.Slice slice : geometry.slices()) {
+                    BlockPosition center = slice.floorCenter();
+                    double sliceDistance = Math.sqrt(
+                        squared(position.x() - center.x())
+                        + squared(position.y() - center.y())
+                        + squared(position.z() - center.z())
+                    );
+                    distance = Math.min(distance, sliceDistance);
+                }
+            }
             if (distance < bestDistance) {
                 bestDistance = distance;
                 best = building;
@@ -202,6 +221,16 @@ public final class CivMineDebugService {
             }
         }
         return closest;
+    }
+
+    static boolean withinPlayerRange(Vector3dc player, double x, double y, double z) {
+        return player != null
+            && squared(player.x() - x) + squared(player.y() - y) + squared(player.z() - z)
+                <= MAX_VISUALIZATION_DISTANCE * MAX_VISUALIZATION_DISTANCE;
+    }
+
+    private static double squared(double value) {
+        return value * value;
     }
 
     private static double horizontalDistance(Vector3dc position, BuildingBounds bounds) {
