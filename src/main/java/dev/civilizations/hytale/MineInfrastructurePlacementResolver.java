@@ -227,7 +227,7 @@ public final class MineInfrastructurePlacementResolver {
         if (task.decorationKind() == null) return null;
         for (int index : candidateSliceOrder(task, geometry.slices().size())) {
             ResolvedTask resolved = resolveDecorationAt(
-                world, task.decorationKind(), tunnelKind, geometry, index
+                world, task.id(), task.decorationKind(), tunnelKind, geometry, index
             );
             if (resolved != null) return resolved;
         }
@@ -236,6 +236,7 @@ public final class MineInfrastructurePlacementResolver {
 
     private static ResolvedTask resolveDecorationAt(
         World world,
+        UUID taskId,
         MineInfrastructureTask.DecorationKind kind,
         MineTunnel.Kind tunnelKind,
         MineTunnelGeometry geometry,
@@ -265,11 +266,11 @@ public final class MineInfrastructurePlacementResolver {
                 world, slice, forward, cross, minOffset, maxOffset
             );
             case MATERIAL_PILE -> materialPile(
-                world, task.id(), slice, cross, minOffset, maxOffset
+                world, taskId, slice, cross, minOffset, maxOffset
             );
             case BARREL -> singleFloorDecoration(
                 world, slice, cross, minOffset, maxOffset,
-                barrelAsset(task.id())
+                barrelAsset(taskId)
             );
             case CRATE -> singleFloorDecoration(
                 world, slice, cross, minOffset, maxOffset,
