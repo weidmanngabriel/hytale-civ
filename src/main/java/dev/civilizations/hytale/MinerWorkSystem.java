@@ -35,6 +35,7 @@ import dev.civilizations.core.MineFrontTaskScheduler;
 import dev.civilizations.core.MineHeading;
 import dev.civilizations.core.MineInfrastructurePlanner;
 import dev.civilizations.core.MineInfrastructureTask;
+import dev.civilizations.core.MineInfrastructureAvailability;
 import dev.civilizations.core.MineNetwork;
 import dev.civilizations.core.MineNetworkGrowthPlanner;
 import dev.civilizations.core.MineNormalTaskSelector;
@@ -1065,15 +1066,13 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         MineInfrastructureTask task,
         RuntimeFrontPlan front
     ) {
-        if (task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE) {
-            return !front.complete && task.startSliceIndex() == front.sliceIndex;
-        }
-        // Stairs occupy the LOWER slice's walkable cells. Excavate that slice first;
-        // otherwise the resolver sees solid natural stone and permanently abandons the front.
-        if (task.type() == MineInfrastructureTask.Type.BUILD_STEP) {
-            return front.complete || task.endSliceIndex() < front.sliceIndex;
-        }
-        return front.complete || task.startSliceIndex() < front.sliceIndex;
+        return MineInfrastructureAvailability.isAvailable(
+            task.type(),
+            task.startSliceIndex(),
+            task.endSliceIndex(),
+            front.sliceIndex,
+            front.complete
+        );
     }
 
     private static RuntimeFrontPlan frontForTunnel(
