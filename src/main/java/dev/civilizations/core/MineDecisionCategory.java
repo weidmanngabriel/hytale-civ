@@ -7,5 +7,6 @@ public enum MineDecisionCategory {
     ROOM,
     ENVIRONMENT,
     NAVIGATION,
+    WORKER,
     ADAPTER
 }
