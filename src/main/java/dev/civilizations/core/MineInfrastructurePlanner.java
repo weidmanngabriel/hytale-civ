@@ -304,12 +304,11 @@ public final class MineInfrastructurePlanner {
             return MineInfrastructureTask.DecorationKind.MATERIAL_PILE;
         }
 
-        if (roll < 18) return MineInfrastructureTask.DecorationKind.BARREL;
-        if (roll < 36) return MineInfrastructureTask.DecorationKind.CRATE;
-        if (roll < 54) return MineInfrastructureTask.DecorationKind.TIMBER_PILE;
-        if (roll < 68) return MineInfrastructureTask.DecorationKind.TOOLS;
-        if (roll < 82) return MineInfrastructureTask.DecorationKind.MATERIAL_PILE;
-        if (roll < 92) return MineInfrastructureTask.DecorationKind.HANGING_CHAIN;
+        if (roll < 20) return MineInfrastructureTask.DecorationKind.BARREL;
+        if (roll < 40) return MineInfrastructureTask.DecorationKind.CRATE;
+        if (roll < 60) return MineInfrastructureTask.DecorationKind.TIMBER_PILE;
+        if (roll < 78) return MineInfrastructureTask.DecorationKind.MATERIAL_PILE;
+        if (roll < 90) return MineInfrastructureTask.DecorationKind.HANGING_CHAIN;
         return MineInfrastructureTask.DecorationKind.HANGING_LANTERN;
     }
 
