@@ -2080,6 +2080,25 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             entityStore,
             chunkStore
         );
+        if (!isEmpty(loadedBlockType(world, target))) {
+            // The player-like break path does not clear every decoration or future
+            // infrastructure asset (some have no Gathering.Breaking definition).
+            // Use Hytale's native chunk break as a bounded fallback, but only for
+            // this already-authorized voxel in the authored tunnel excavation.
+            WorldChunk chunk = world.getChunkIfLoaded(
+                ChunkUtil.indexChunkFromBlock(target.x(), target.z())
+            );
+            if (chunk == null || !safeBlock(world, mine, target)
+                || !chunk.breakBlock(target.x(), target.y(), target.z(), 0, 0)) {
+                return false;
+            }
+            decisionSink.record(
+                mine.id(), plan.frontId, MineDecisionCategory.ADAPTER,
+                "TUNNEL_NONSTANDARD_BLOCK_REMOVED",
+                "block", target,
+                "blockId", type.getId()
+            );
+        }
         if (!isEmpty(loadedBlockType(world, target))) return false;
 
         frontCoordinator.completeClaim(plan.frontId, workerKey, target);
@@ -2634,13 +2653,16 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     ) {
         for (BuildingPlacementRegistry.BuildingInstance building :
             buildingRegistry.buildings(world.getWorldConfig().getUuid())) {
-            if (building.bounds().containsBlock(block)) return false;
+            if (!building.bounds().containsBlock(block)) continue;
+            // Mine corridors may intersect previously constructed mine interiors.
+            // Other buildings, and the current mine's own entrance prefab, remain protected.
+            if (!MINE_BUILDING.equals(building.buildingType())
+                || building.id().equals(mine.id())) return false;
         }
-        BlockType type = loadedBlockType(world, block);
-        if (type == null || isEmpty(type)) return type != null;
-        BlockGathering gathering = type.getGathering();
-        BlockBreakingDropType breaking = gathering == null ? null : gathering.getBreaking();
-        return breaking != null;
+        // Only callers working from authored excavation blocks reach this method.
+        // A tunnel excavates whatever occupies that voxel, including future rails,
+        // supports, lanterns and decorations irrespective of block gathering metadata.
+        return loadedBlockType(world, block) != null;
     }
 
     private static boolean sliceComplete(World world, MineTunnelGeometry.Slice slice) {
