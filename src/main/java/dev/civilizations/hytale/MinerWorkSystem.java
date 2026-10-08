@@ -44,6 +44,7 @@ import dev.civilizations.core.MineRoom;
 import dev.civilizations.core.MineRoomCoordinator;
 import dev.civilizations.core.MineRoomGeometry;
 import dev.civilizations.core.MineRoomPlanner;
+import dev.civilizations.core.MineRestartPositionPolicy;
 import dev.civilizations.core.MineIdleDestinationSelector;
 import dev.civilizations.core.MineTunnel;
 import dev.civilizations.core.MineTunnelGeometry;
@@ -2102,14 +2103,12 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
     private static boolean restoredInsideMine(World world, RuntimeMinePlan minePlan, Vector3d position) {
         BlockPosition feet = blockPosition(position);
-        if (loadedBlockType(world, feet) != BlockType.EMPTY) return false;
-        for (RuntimeFrontPlan front : minePlan.fronts.values()) {
-            if (front.geometry.excavationBlocks().contains(feet)) return true;
-        }
-        for (RuntimeRoomPlan room : minePlan.rooms.values()) {
-            if (room.geometry.excavationBlocks().contains(feet)) return true;
-        }
-        return false;
+        return MineRestartPositionPolicy.alreadyInsideMine(
+            feet,
+            loadedBlockType(world, feet) == BlockType.EMPTY,
+            minePlan.fronts.values().stream().map(front -> front.geometry).toList(),
+            minePlan.rooms.values().stream().map(room -> room.geometry).toList()
+        );
     }
 
     private void navigateTo(Ref<EntityStore> ref, Vector3d target, WorkerRuntime runtime) {
