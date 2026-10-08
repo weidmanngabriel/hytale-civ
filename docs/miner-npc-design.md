@@ -729,3 +729,8 @@ Hytales normaler World-/Entity-Autosave und ordentlicher Store-Shutdown bleiben 
 ### Umsetzungsnachweis und Grenzen
 
 NPC-Ebene 8 ergänzt die Wiederanlauf-Erkennung für bereits unter Tage geladene Miner, ohne einen neuen Persistenzdatentyp einzuführen. Bereits vorhandene Komponenten: CivInhabitantData (native Hytale-Entity-Speicherung), MineNetwork in CivMineDataResource (N5), Hytale-Weltblöcke, CivInhabitantLifecycleSystem (LOAD/UNLOAD), Transient-Claims und deterministische Tunnelgeometrie. Die Aussage über automatische native Entity-Restore- und Save-Lifecycle-Details benötigt für das konkrete Laufzeitverhalten weiterhin einen gezielten Ingame-Test.
+
+
+### Waiting when work capacity is exhausted
+
+When all currently executable tasks have reached worker capacity, unassigned miners already inside the mine wait in place instead of immediately routing to the mine entrance. They re-evaluate normal work selection regularly. If there is genuinely no executable work, the normal accommodation / entrance idle flow remains unchanged. This does not alter task priorities, reservations, or the two-miner tunnel-front capacity.

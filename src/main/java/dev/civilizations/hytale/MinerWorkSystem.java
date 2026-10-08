@@ -1087,6 +1087,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         MineNormalTaskSelector.Candidate selected = selection.selected();
+        runtime.waitingForCapacity = selected == null
+            && MineNormalTaskSelector.allWorkAtCapacity(candidates);
         if (selected == null) {
             String fingerprint = totalFronts + ":" + totalRooms + ":" + totalInfrastructure
                 + ":" + candidates.size();
@@ -2161,6 +2163,15 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         CivUnitRegistry.UnitKey workerKey = unitRegistry.keyOf(ref);
         workerState(mine.id(), ref, workerKey, runtime, WorkerDebugState.IDLE, "NO_AVAILABLE_TASK");
 
+        // All executable tasks are busy: avoid an unnecessary round trip to the entrance.
+        if (runtime.waitingForCapacity && runtime.reachedConnector) {
+            runtime.idleDestination = null;
+            runtime.idleRoomId = null;
+            unitRegistry.clearMoveTarget(ref);
+            runtime.navigationArrived();
+            return;
+        }
+
         MineRoom selected = MineIdleDestinationSelector.select(
             network.rooms(), position.x, position.y, position.z,
             runtime.idleRoomId, runtime.failedIdleRooms,
@@ -2695,6 +2706,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private Vector3d idleDestination;
         private boolean idleReachedConnector;
         private boolean idleEntranceFailed;
+        private boolean waitingForCapacity;
         private final Set<UUID> failedIdleRooms = new HashSet<>();
         private WorkerDebugState debugState;
         private String selectedTaskKey;
@@ -2702,6 +2714,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private String lastNoTaskFingerprint;
 
         private void clearIdle() {
+            waitingForCapacity = false;
             idleRoomId = null;
             idleDestination = null;
             idleReachedConnector = false;
