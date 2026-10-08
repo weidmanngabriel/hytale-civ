@@ -316,3 +316,7 @@ Die Minenansicht trennt drei Verantwortlichkeiten. `Mine · Geometry` isoliert L
 `web-viewer/` ist eine eigenständige Vite-/Three.js-Präsentation außerhalb des Plugin-Classpaths. `Replay` rekonstruiert ausschließlich die aufgezeichneten Änderungen. Große Minen speichern den Felsquader kompakt als implizite `rockBounds`; der Renderer erzeugt nur die Grenzflächen ausgegrabener Hohlräume und nicht die äußere Quaderoberfläche. Dadurch bleibt die freie X-Ray-Spectator-Kamera möglich, ohne den kompletten Fels als Einzelvoxels zu serialisieren. Kamera und Playback besitzen keine Gameplay-Regeln. Die allgemeinen Szenarien verwenden jeweils 600 feste 50-ms-Ticks; Mine-Frames sind semantische Schritte und keine Hytale-Laufzeit.
 
 Die Actions-/Pages-Grenze und die begrenzte Aufbewahrung sind in [ADR 0010](decisions/0010-browser-simulation-recordings.md) beschrieben. Der veröffentlichte Viewer stammt aus `main`; Branch-Aufzeichnungen identifizieren ihren exakten Quellcode-Commit und Run-Attempt. Der Browser benötigt keine GitHub-Zugangsdaten.
+
+### Mine persistence hotpaths (Layer 10)
+
+`MineTunnelRegistry.putNetwork` skips staging a resource when the semantic `MineNetwork` is equal to the currently held snapshot. `MineNetwork.withNavigationAnchors` uses an insertion-ordered map for batch replacement, retaining original ID position while avoiding repeated linear search. No second voxel-level save or new engine persistence layer was added. The `N5` format and native Hytale resource autosave semantics remain unchanged.
