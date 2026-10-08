@@ -30,6 +30,9 @@ public final class MineInfrastructurePlanner {
     public static final int BRANCH_LIGHT_MIN_SPACING = 7;
     public static final int BRANCH_LIGHT_MAX_SPACING = 12;
 
+    /** Temporary feature switch: keep elevation geometry, disable all BUILD_STEP work. */
+    public static final boolean ENABLE_MINE_STEPS = false;
+
     public static final int SUPPORT_PRIORITY = 5;
     public static final int LIGHT_PRIORITY = 5;
     public static final int DECORATION_PRIORITY = 2;
@@ -66,7 +69,7 @@ public final class MineInfrastructurePlanner {
         decisionSink = decisionSink == null ? MineDecisionSink.NONE : decisionSink;
 
         List<MineInfrastructureTask> result = new ArrayList<>();
-        result.addAll(planSteps(tunnelId, geometry));
+        if (ENABLE_MINE_STEPS) result.addAll(planSteps(tunnelId, geometry));
         result.addAll(planSupports(mineId, tunnelId, geometry, decisionSink));
         result.addAll(planLights(tunnelId, geometry));
         result.addAll(planDecorations(mineId, tunnelId, geometry, result, decisionSink));
