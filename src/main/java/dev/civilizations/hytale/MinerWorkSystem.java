@@ -640,8 +640,11 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             WorldChunk chunk = world.getChunkIfLoaded(
                 ChunkUtil.indexChunkFromBlock(block.x(), block.z())
             );
+            // The landing belongs to the next authored excavation slice. Its
+            // walk column may still be solid rock, which the miner will clear.
+            // Require an actual solid floor and no fluid, but do not require
+            // the future tunnel air space to have already been excavated.
             if (walkType != null
-                && isEmpty(walkType)
                 && floorType != null
                 && !isEmpty(floorType)
                 && chunk != null
