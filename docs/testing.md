@@ -254,3 +254,6 @@ Die lokale `civdev`-Diagnostik ist kein Ersatz für Gameplay-Tests. Reine Zustan
 ## Layer-10 persistence/performance regression
 
 `MineNetworkTest.batchAnchorUpdatesReplaceExistingIdWithoutReordering` covers batched replacement, duplicate incoming IDs and stable existing order. Existing `CivMinePersistenceServiceTest` exercises `N5` round trips and `N2`–`N4` decoding. Normal `./gradlew test` and `./gradlew build` are required for the change. Large-network profiling, memory usage and save/load latency are not verified by this small regression and should not be reported as proven improvements without measurements.
+
+
+Minen-Regressionstests: `MineInfrastructureAvailabilityTest` prüft, dass ein `BUILD_STEP` erst nach Aushub des tieferen Übergangsabschnitts freigegeben wird (auf- und abwärts), ohne den früheren Brücken-Vorlauf zu verändern. `MineFrontCoordinatorTest` prüft drei gleichzeitig beanspruchte MAIN-Arbeiter mit unterschiedlichen Block-Claims und weiterhin nur zwei BRANCH-Arbeitern. `MineTuningTest` validiert den verdoppelten Ausgrabungsdurchsatz; `MineObstaclePolicyTest` lässt die explizite Altfall-Wiederaufnahme nur für `ABANDONED` mit passender offener Treppe zu. Native Treppenplatzierung, Block-Asset-Darstellung und die Wiederaufnahme einer gespeicherten Welt erfordern weiterhin einen fokussierten In-Game-Test.
