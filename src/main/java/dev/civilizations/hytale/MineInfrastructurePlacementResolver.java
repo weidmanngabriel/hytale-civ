@@ -52,7 +52,7 @@ public final class MineInfrastructurePlacementResolver {
     ) {
         for (int index : candidateSliceOrder(task, geometry.slices().size())) {
             ResolvedTask resolved = resolveSupportAt(world, tunnelKind, geometry, index);
-            if (resolved != null) return resolved;
+            if (resolved != null && placementsAreSafe(world, geometry, resolved)) return resolved;
         }
         return null;
     }
@@ -150,7 +150,7 @@ public final class MineInfrastructurePlacementResolver {
     ) {
         for (int index : candidateSliceOrder(task, geometry.slices().size())) {
             ResolvedTask resolved = resolveLightAt(world, tunnelKind, geometry, index);
-            if (resolved != null) return resolved;
+            if (resolved != null && placementsAreSafe(world, geometry, resolved)) return resolved;
         }
         return null;
     }
@@ -197,25 +197,28 @@ public final class MineInfrastructurePlacementResolver {
             return null;
         }
 
-        String torch = MineBlockPlacement.resolveAsset(
-            new String[]{"Torch", "Wall_Torch"},
-            "torch"
+        // Both tunnel kinds use a freestanding floor lantern. The light is supported
+        // from below, never attached to a wall (wall-mounted lights are not allowed).
+        String pillar = MineBlockPlacement.resolveAsset(
+            new String[]{"Stone_Brick_Pillar_Base", "Stone_Brick_Pillar_-_Base"},
+            "stone", "brick", "pillar", "base"
         );
-        if (torch == null) return null;
-
-        int y = slice.floorCenter().y() + 2;
-        int[] edgeOffsets = new int[]{minOffset, maxOffset};
-        for (int lateral : edgeOffsets) {
-            BlockPosition target = atY(at(slice.floorCenter(), cross, lateral, 0), y);
-            Cardinal outward = lateral == minOffset ? cross.opposite() : cross;
-            BlockPosition wall = new BlockPosition(
-                target.x() + outward.dx(), target.y(), target.z() + outward.dz()
-            );
-            if (!isEmpty(world, target) || isEmpty(world, wall)) continue;
-            RotationTuple rotation = yawRotation(outward.opposite());
+        String lantern = MineBlockPlacement.resolveAsset(
+            new String[]{"Deco_Lantern"}, "deco", "lantern"
+        );
+        if (pillar == null || lantern == null) return null;
+        for (int lateral : new int[]{minOffset + 1, maxOffset - 1}) {
+            if (Math.abs(lateral) <= 1) continue;
+            BlockPosition base = at(slice.floorCenter(), cross, lateral, 0);
+            BlockPosition floor = new BlockPosition(base.x(), base.y() - 1, base.z());
+            BlockPosition top = new BlockPosition(base.x(), base.y() + 1, base.z());
+            if (!isEmpty(world, base) || !isEmpty(world, top) || isEmpty(world, floor)) continue;
             return new ResolvedTask(
                 workTarget(slice.floorCenter()),
-                List.of(new PlacementStep(target, torch, rotation, wall, false))
+                List.of(
+                    new PlacementStep(base, pillar, RotationTuple.NONE, floor, false),
+                    new PlacementStep(top, lantern, RotationTuple.NONE, base, false)
+                )
             );
         }
         return null;
@@ -676,6 +679,33 @@ public final class MineInfrastructurePlacementResolver {
             return index >= 0 && index < sliceCount ? List.of(index) : List.of();
         }
         return MineObstaclePolicy.fallbackSliceOrder(task.startSliceIndex(), sliceCount);
+    }
+
+    private static boolean placementsAreSafe(
+        World world, MineTunnelGeometry geometry, ResolvedTask resolved
+    ) {
+        for (PlacementStep placement : resolved.placements()) {
+            BlockPosition position = placement.position();
+            // A support or lantern must never block the reserved walking corridor.
+            for (MineTunnelGeometry.Slice slice : geometry.slices()) {
+                if (slice.navigationCoreBlocks().contains(position)) return false;
+            }
+            // Avoid creating work that would overwrite unexcavated stone or
+            // any existing player block. Already-installed matching pieces are fine.
+            if (!isEmpty(world, position)) {
+                var chunk = world.getChunkIfLoaded(
+                    com.hypixel.hytale.math.util.ChunkUtil.indexChunkFromBlock(
+                        position.x(), position.z()
+                    )
+                );
+                var existing = chunk == null ? null
+                    : chunk.getBlockType(position.x(), position.y(), position.z());
+                if (existing == null || !placement.blockId().equals(existing.getId())) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private static BlockPosition solidBelow(World world, BlockPosition start) {
