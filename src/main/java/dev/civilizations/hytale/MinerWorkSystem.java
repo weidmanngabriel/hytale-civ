@@ -38,6 +38,11 @@ import dev.civilizations.core.MineInfrastructureTask;
 import dev.civilizations.core.MineInfrastructureAvailability;
 import dev.civilizations.core.MinePlacementExcavationGuard;
 import dev.civilizations.core.MineNetwork;
+import dev.civilizations.core.MineGenerationPolicy;
+import dev.civilizations.core.MineGenerationProgress;
+import dev.civilizations.core.MineTunnelPath;
+import dev.civilizations.core.MineTunnelVoxelizer;
+import dev.civilizations.core.MinePathPoint;
 import dev.civilizations.core.MineNetworkGrowthPlanner;
 import dev.civilizations.core.MineNormalTaskSelector;
 import dev.civilizations.core.MineObstaclePolicy;
@@ -96,6 +101,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private static final double ARRIVAL_VERTICAL_TOLERANCE = 1.0;
     private static final int MAIN_PLAN_LENGTH_BLOCKS = MinePathPlanner.FOOTPRINT_SIZE_BLOCKS;
     private static final int RUNTIME_PLANNING_TUNNEL_BUDGET = 64;
+    private static final int MAIN_PLANNING_BATCH_SLICES = 24;
 
     private final CivUnitRegistry unitRegistry;
     private final CivActivityRegistry activityRegistry;
@@ -260,6 +266,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         // room. Rehydrate the deterministic plan before forcing the normal surface entry.
         RuntimeMinePlan minePlan = ensureRuntimePlan(world, mine, connector);
         if (minePlan == null) return;
+        refreshMainPlanning(world, mine, minePlan);
         if (!runtime.reachedConnector && restoredInsideMine(world, minePlan, position)) {
             runtime.enteredMine = true;
             runtime.reachedConnector = true;
@@ -424,7 +431,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             }
         }
 
-        if (plan == null || plan.complete || !available(front)) {
+        if (plan == null || plan.complete || !available(front)
+            || (plan.tunnelKind == MineTunnel.Kind.MAIN && plan.sliceIndex >= plan.unlockedSlices)) {
             if (runtime.frontId != null) frontCoordinator.releaseWorker(workerKey);
             runtime.clearFrontAssignment();
             stopMiningAnimation(ref, store, runtime);
@@ -2260,6 +2268,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             while (!plan.complete
                 && !plan.unavailable
                 && !hasPendingMandatoryInfrastructure(minePlan, plan)
+                && (plan.tunnelKind != MineTunnel.Kind.MAIN || plan.sliceIndex < plan.unlockedSlices)
                 && sliceComplete(world, plan.slices.get(plan.sliceIndex))) {
                 completeCurrentSlice(world, mine, minePlan, plan);
                 // A newly reached slice can expose a due stair/bridge on the next outer tick.
@@ -2558,6 +2567,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
     private boolean frontExecutable(World world, RuntimeMinePlan minePlan, RuntimeFrontPlan plan) {
         if (plan.complete || plan.unavailable || hasPendingMandatoryInfrastructure(minePlan, plan)) return false;
+        if (plan.tunnelKind == MineTunnel.Kind.MAIN && plan.sliceIndex >= plan.unlockedSlices) return false;
         if (plan.tunnelKind == MineTunnel.Kind.MAIN || plan.sliceIndex > 0) return true;
         BlockType start = loadedBlockType(world, plan.slices.getFirst().floorCenter());
         return start != null && isEmpty(start);
@@ -3170,6 +3180,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private final List<MineTunnelGeometry.Slice> slices;
         private final List<List<BlockPosition>> orderedBlocks;
         private int sliceIndex;
+        private int unlockedSlices;
         private boolean complete;
         private boolean unavailable;
 
@@ -3181,6 +3192,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             List<MineTunnelGeometry.Slice> slices,
             List<List<BlockPosition>> orderedBlocks,
             int sliceIndex,
+            int unlockedSlices,
             boolean complete,
             boolean unavailable
         ) {
@@ -3191,6 +3203,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             this.slices = List.copyOf(slices);
             this.orderedBlocks = List.copyOf(orderedBlocks);
             this.sliceIndex = sliceIndex;
+            this.unlockedSlices = unlockedSlices;
             this.complete = complete;
             this.unavailable = unavailable;
         }
