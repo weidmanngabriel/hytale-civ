@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -33,6 +34,37 @@ class MineInfrastructurePlannerTest {
             assertEquals(5, support.priority());
             previous = support.startSliceIndex();
         }
+    }
+
+    @Test
+    void supportDiagnosticsDoNotChangePlanAndExplainPlannedSupports() {
+        UUID mineId = UUID.randomUUID();
+        UUID tunnelId = UUID.randomUUID();
+        MineTunnelGeometry geometry = straightGeometry(MineTunnel.Kind.MAIN, 48, 6, 5, 1234L);
+
+        List<MineInfrastructureTask> baseline = MineInfrastructurePlanner.plan(tunnelId, geometry);
+        List<MineDecisionEvent> events = new ArrayList<>();
+        MineDecisionSink sink = new MineDecisionSink() {
+            @Override
+            public boolean enabled(MineDecisionCategory category) {
+                return true;
+            }
+
+            @Override
+            public void record(MineDecisionEvent event) {
+                events.add(event);
+            }
+        };
+
+        List<MineInfrastructureTask> diagnosed =
+            MineInfrastructurePlanner.plan(mineId, tunnelId, geometry, sink);
+
+        assertEquals(baseline, diagnosed);
+        assertTrue(events.stream().anyMatch(event ->
+            event.type().equals("BUILD_SUPPORT_PLANNED")
+                && event.category() == MineDecisionCategory.PLANNING
+        ));
+        assertTrue(events.stream().allMatch(event -> event.mineId().equals(mineId)));
     }
 
     @Test
