@@ -73,3 +73,9 @@ Research for this layer also confirmed reusable native systems for later mine wo
 - native fluid data, prefab placement, animations, rails/minecarts and trigger volumes.
 
 These should be preferred over Civ-owned engine replacements when their runtime semantics fit the required feature.
+
+## On-demand elevation repair (2026-10-08, awaiting runtime verification)
+
+Eager stair planning remains disabled. When Hytale reports a terminal navigation failure for an assigned excavation front, the mine worker may instead create one mandatory `BUILD_STEP` for the transition ending in the previous (already excavated) slice. Both adjacent authored slices must be fully excavated and the task must not already exist. The same native placement resolver handles the actual block placement. A failure without an eligible adjacent elevation transition retains the existing `BLOCKED` outcome, and a failed mandatory repair still follows the normal failure policy. This does not provide general-purpose path carving; any repair outside existing authored mine geometry remains unsupported.
+
+`MineInfrastructurePlanner.recoveryStepTask` uses the original deterministic step task ID and priority 10; it does not re-enable `ENABLE_MINE_STEPS` globally. This behavior is code-verified only and requires focused gameplay validation for actual Hytale stair collision/navigation semantics.
