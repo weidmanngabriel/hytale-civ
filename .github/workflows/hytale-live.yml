@@ -1,0 +1,87 @@
+name: Hytale Live Diagnostics
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  authorize:
+    if: github.event.issue.number == 266
+    runs-on: ubuntu-latest
+    outputs:
+      allowed: ${{ steps.gate.outputs.allowed }}
+      command: ${{ steps.gate.outputs.command }}
+      requester: ${{ steps.gate.outputs.requester }}
+    steps:
+      - id: gate
+        name: Authorize locked-issue command
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.setOutput('allowed', 'false');
+            const issue = context.payload.issue;
+            const actor = context.actor;
+            const author = context.payload.comment?.user?.login;
+            const sender = context.payload.sender?.login;
+            if (issue?.number !== 266 || !issue.locked) {
+              core.setFailed('Only the locked Hytale Live request issue is authorized.');
+              return;
+            }
+            if ([actor, author, sender].some(value => value !== 'weidmanngabriel')) {
+              core.setFailed('Hytale Live requests require the authorized owner account.');
+              return;
+            }
+            const input = (context.payload.comment?.body ?? '').trim();
+            const match = /^\/hytale-live (status|npcs|mines|npc [0-9a-fA-F-]{36}|events [0-9a-fA-F-]{36}|mine-info [0-9a-fA-F-]{36})$/.exec(input);
+            if (!match) {
+              console.log('Ignoring comment without an allowlisted live diagnostic command.');
+              return;
+            }
+            let command = match[1];
+            if (/^(npc|events|mine-info) /.test(command)) {
+              const uuid = command.split(' ')[1];
+              if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(uuid)) {
+                core.setFailed('Invalid UUID.');
+                return;
+              }
+            }
+            if (command === 'status') command = 'version';
+            else command = 'civdev ' + command;
+            core.setOutput('command', command);
+            core.setOutput('requester', actor);
+            core.setOutput('allowed', 'true');
+            console.log('Authorized read-only Hytale diagnostic request.');
+
+  live:
+    name: Query running Hytale instance
+    needs: authorize
+    if: needs.authorize.outputs.allowed == 'true'
+    runs-on: [self-hosted, Windows, X64, hytale-local]
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    steps:
+      - name: Execute allowlisted diagnostic via loopback
+        shell: powershell
+        env:
+          AUTHORIZED_COMMAND: ${{ needs.authorize.outputs.command }}
+          REQUESTED_BY: ${{ needs.authorize.outputs.requester }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $command = $env:AUTHORIZED_COMMAND
+          if ($env:REQUESTED_BY -ne 'weidmanngabriel') { throw 'Unexpected requester' }
+          if ($command -notmatch '^(version|civdev (npcs|mines|(?:npc|events|mine-info) [0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}))$') {
+            throw 'Command failed local allowlist validation'
+          }
+          $uri = 'http://127.0.0.1:5523'
+          $health = Invoke-RestMethod -Uri "$uri/health" -Method Get -TimeoutSec 3
+          if ($health.ready -ne $true) { throw 'Hytale command bridge is not ready' }
+          $payload = @{command = $command} | ConvertTo-Json -Compress
+          $result = Invoke-RestMethod -Uri "$uri/command" -Method Post -ContentType 'application/json' -Body $payload -TimeoutSec 15
+          $json = $result | ConvertTo-Json -Depth 10 -Compress
+          if ($json.Length -gt 30000) { $json = $json.Substring(0,30000) + '...[truncated]' }
+          Write-Host "HCIV_LIVE_RESULT $json"
+          if (-not $result.success) { throw 'Hytale command failed; see HCIV_LIVE_RESULT' }
