@@ -2095,6 +2095,42 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         return true;
     }
 
+    private static MineNetworkGrowthPlanner.Plan clippedInitialPlan(
+        MineNetworkGrowthPlanner.Plan original
+    ) {
+        List<MineNetworkGrowthPlanner.PlannedTunnel> accepted = new ArrayList<>();
+        Map<UUID, MineNetworkGrowthPlanner.PlannedTunnel> byId = new LinkedHashMap<>();
+        MineNetwork network = null;
+        for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : original.tunnels()) {
+            MineNetworkGrowthPlanner.PlannedTunnel chosen = tunnel;
+            if (tunnel.tunnel().kind() == MineTunnel.Kind.MAIN) {
+                MineTunnelPath path = MineGenerationPolicy.capAtMinimumY(tunnel.path());
+                chosen = new MineNetworkGrowthPlanner.PlannedTunnel(
+                    tunnel.tunnel(), path, MineTunnelVoxelizer.voxelize(path), false
+                );
+                network = MineNetwork.create(original.network().mineId(),
+                    tunnel.tunnel().id(), tunnel.tunnel().origin());
+            } else {
+                MineNetworkGrowthPlanner.PlannedTunnel parent = byId.get(tunnel.tunnel().parentTunnelId());
+                if (parent == null) continue;
+                BlockPosition start = tunnel.tunnel().origin();
+                boolean attached = parent.geometry().slices().stream().anyMatch(slice -> {
+                    BlockPosition at = slice.floorCenter();
+                    return Math.abs(at.x() - start.x()) <= 1
+                        && Math.abs(at.y() - start.y()) <= 1
+                        && Math.abs(at.z() - start.z()) <= 1;
+                });
+                if (!attached) continue;
+                network = network.withTunnel(tunnel.tunnel());
+            }
+            accepted.add(chosen);
+            byId.put(chosen.tunnel().id(), chosen);
+        }
+        return new MineNetworkGrowthPlanner.Plan(
+            network, accepted, original.seed(), original.planningBudget()
+        );
+    }
+
     private RuntimeMinePlan ensureRuntimePlan(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
