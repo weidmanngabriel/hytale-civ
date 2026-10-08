@@ -79,9 +79,9 @@ Core decides who acts, why, and toward which semantic/world target. Hytale decid
 
 Plan Phase 1 keeps the actual miner state machine deliberately small.
 
-### 3.1 Persistent autonomous states
+### 3.1 Autonomous lifecycle states (not separately serialized per miner)
 
-The miner has three persistent autonomous states:
+The miner has three semantic autonomous states; these are reconstructed after LOAD rather than independently persisted:
 
 - `IDLE`
   - no currently suitable work is available;
@@ -713,3 +713,19 @@ Wenn kein ausführbarer `EXCAVATE_FRONT`-, Raum- oder Infrastrukturauftrag vorha
 Fehlt ein nutzbarer Ruheraum, führt die Rückkehr über den Tunnel-Connector zum oberirdischen `workplace_access`. Native Navigation und die bestehende sichere Anker-Teleportpolitik bleiben maßgeblich. Neue Arbeit unterbricht Aufenthaltswege und Idle sofort; manuelle Befehle übersteuern sie ebenfalls. Nach manueller Bewegung wird neu gewählt. Ein unbrauchbares Aufenthaltsziel wird übersprungen und der nächste Raum oder der Eingang verwendet. Idle erzeugt keine Wartetasks und altert nicht im normalen Prioritätsscheduler.
 
 Materiallager, Nischen und natürliche Kammern besitzen in V1 keine zusätzliche autonome Aktivität. Logistik, Schlaf/Erholung, zeitgesteuerte Pausen, zusätzliche Raumausstattung und Werkstätten bleiben ausdrücklich offen.
+
+## NPC-Ebene 8 – Persistenz und automatische Wiederaufnahme (V1)
+
+Nach einem Serverneustart und nach einem normalen Hytale-Chunk-Unload/-Reload sind die Hytale-persistierte Civ-Bewohneridentität, Beruf und Arbeitsplatzzuweisung sowie das persistierte MineNetwork die dauerhaften Wahrheiten. Die drei autonomen Zustandsbezeichnungen IDLE, MOVING_TO_TASK und WORKING beschreiben den logischen Ablauf, sind aber **keine separat gespeicherten Miner-Snapshots**. Aktuelle Arbeitsfront-/Raum-/Infrastruktur-Zuweisungen, Teilblock-Arbeitszeiten, Animationen, Spieler-Bewegungsbefehle, Aufenthaltsziele, temporäre Teamgrößen und Claims sind flüchtig. Es gibt keine eigene Miner-Datenbank oder Wiederherstellung einer exakten Task-Position.
+
+Sobald Hytale einen Civ-Miner und die zugeordnete Mine verfügbar macht, wählt Civ ohne künstliche Wartezeit wieder gemäß dem normalen Scheduler und bestehenden Kapazitäten. Es gibt weder eine bevorzugte Rückkehr zur vorherigen Aufgabe noch dauerhafte Miner-Teams. Ohne verfügbare Arbeit gelten die Unterkunfts-/Eingangsregeln von NPC-Ebene 7. Ungeladene NPCs führen keine Hintergrundarbeit aus; das Laden selbst startet die reguläre Aufgabenwahl.
+
+Ein unter Tage geladenes NPC behält seine native Position. Der Miner erkennt eine tatsächlich leere Position innerhalb der regenerierten Tunnel-/Raumgeometrie als bereits erfolgten Mineneintritt und vermeidet einen künstlichen Umweg über den Oberflächeneingang. Von außerhalb der Mine gilt weiterhin die gestaffelte Route workplace_access -> mine_tunnel_connector. Sichere Anker-Teleports verwenden weiterhin nur geprüfte reale Anchor-Blöcke und nie unvalidierte Ziele.
+
+Die bereits gespeicherten Tunnel-/Raum-Work-Units und Infrastrukturabschlüsse bleiben maßgeblich. Der tatsächliche Hytale-Blockzustand wird dort, wo die Arbeitsausführung ihn bereits überprüft, berücksichtigt; einzelne angebrochene Arbeitsanimationen beginnen erneut. Bereits persistent BLOCKED/ABANDONED-Arbeitsfronten bleiben gesperrt, ohne automatischen periodischen Retry. Bei fehlender Mine bleibt der Beruf erhalten, bis eine neue Zuordnung erfolgt. Terminale Navigationsfehler dürfen keine unbegrenzte Retrieschleife erzeugen; wenn kein sicherer Anker oder Ziel verfügbar ist, bleibt der Miner stehen.
+
+Hytales normaler World-/Entity-Autosave und ordentlicher Store-Shutdown bleiben für die Dauerhaftigkeit verantwortlich. Civ staged nur geänderte MineNetwork-Daten in die native World-Resource und erzwingt **keinen** globalen Save pro Block. Bei Absturz kann der seit dem letzten erfolgreich abgeschlossenen Save entstandene Fortschritt verloren gehen. Ein allgemeines atomisches Transaktionsprotokoll über Hytale-Weltblocks und Civ-World-Resource existiert nicht; automatische Recovery darf deswegen keinen garantierten Rollback oder ausnahmslose Selbstheilung behaupten. Raum-Prefab-Abschnitte und Infrastruktur werden nicht blind erneut platziert. Vollständige Cross-Save-Reconciliation, blockierte-Arbeitsfronten-Unblock und Offline-Simulation bleiben spätere Arbeit.
+
+### Umsetzungsnachweis und Grenzen
+
+NPC-Ebene 8 ergänzt die Wiederanlauf-Erkennung für bereits unter Tage geladene Miner, ohne einen neuen Persistenzdatentyp einzuführen. Bereits vorhandene Komponenten: CivInhabitantData (native Hytale-Entity-Speicherung), MineNetwork in CivMineDataResource (N5), Hytale-Weltblöcke, CivInhabitantLifecycleSystem (LOAD/UNLOAD), Transient-Claims und deterministische Tunnelgeometrie. Die Aussage über automatische native Entity-Restore- und Save-Lifecycle-Details benötigt für das konkrete Laufzeitverhalten weiterhin einen gezielten Ingame-Test.
