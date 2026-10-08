@@ -40,7 +40,7 @@ public final class FarmNpcWorkSystem extends DelayedEntitySystem<EntityStore> {
 
     private static final Logger LOGGER = Logger.getLogger(FarmNpcWorkSystem.class.getName());
     private static final float TICK_INTERVAL_SECONDS = 0.75f;
-    private static final double ARRIVAL_DISTANCE = 0.45;
+    private static final double ARRIVAL_DISTANCE = 0.9;
     private static final String WHEAT_ITEM_ID = "Plant_Crop_Wheat_Item";
     private static final String WHEAT_SEED_ITEM_ID = "Plant_Seeds_Wheat";
     private static final BlockRotation DEFAULT_BLOCK_ROTATION =
@@ -507,8 +507,6 @@ public final class FarmNpcWorkSystem extends DelayedEntitySystem<EntityStore> {
     }
 
     private static boolean hasArrived(Vector3d position, Vector3d target) {
-        double dx = position.x - target.x;
-        double dz = position.z - target.z;
-        return dx * dx + dz * dz <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
+        return CivArrivalPolicy.reached(position, target, ARRIVAL_DISTANCE, 1.25);
     }
 }
