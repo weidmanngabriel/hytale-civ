@@ -164,3 +164,5 @@ Für die aktuellen Creator-Prefabs gilt die gemeinsame Geländekonvention: Der P
 - Für den aktuellen Entwicklungsslice erhält ein Bewohner beim Eintritt in den Beruf Bauer vier native Wheat Seed Bags (`Plant_Seeds_Wheat`).
 - Beim Verlassen des Farmer-Berufs werden bis zu vier Wheat Seed Bags wieder aus seinem Inventar entfernt.
 - Dieses Verhalten ist ausdrücklich keine dauerhafte Domänenregel. Es wird entfernt, sobald Farmer Saatgut über die allgemeine Waren-/Logistikbeschaffung beziehen.
+
+- Ausgrabungs-Arbeitsfronten haben eine tunnelabhängige Kapazität: drei Miner am `MAIN`-Tunnel, zwei an `BRANCH`-Tunneln. Eine belegte Front vergibt pro Miner unterschiedliche temporäre Block-Claims. Ein `BUILD_STEP`-Auftrag wird erst nach vollständigem Aushub des tieferen Übergangsabschnitts ausführbar; die Sperre gegen tatsächlich unsichere Weiterarbeit bleibt bestehen.
