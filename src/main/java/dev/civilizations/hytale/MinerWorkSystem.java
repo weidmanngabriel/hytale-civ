@@ -469,6 +469,16 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             runtime.navigationArrived();
         }
 
+        // An already assigned excavator must yield to newly detected mandatory
+        // bridge work as well; the initial task-selection gate alone is too late.
+        if (hasPendingMandatoryInfrastructure(minePlan, plan)) {
+            frontCoordinator.releaseWorker(workerKey);
+            unitRegistry.clearMoveTarget(ref);
+            stopMiningAnimation(ref, store, runtime);
+            runtime.clearWorkAssignment();
+            return;
+        }
+
         MineTunnelGeometry.Slice slice = plan.slices.get(plan.sliceIndex);
         if (containsBlockedSolid(world, mine, slice)) {
             failFront(
