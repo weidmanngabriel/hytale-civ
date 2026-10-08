@@ -5,6 +5,7 @@ import com.hypixel.hytale.protocol.packets.player.RemoveTriggerVolumeDisplay;
 import com.hypixel.hytale.protocol.packets.player.TriggerVolumeDisplayEntry;
 import com.hypixel.hytale.protocol.packets.player.TriggerVolumeShapeType;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
+import com.hypixel.hytale.server.core.universe.world.World;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
 import dev.civilizations.core.MineNetwork;
@@ -103,6 +104,20 @@ public final class CivMineDebugService {
             ? List.of()
             : minerWorkSystem.debugAnchors(worldId, mine.id());
         return new MineDebugSnapshot(mine, distance, tunnels, anchors);
+    }
+
+    public MinerWorkSystem.RecoveryResult recoveryStatus(UUID worldId, UUID mineId) {
+        return minerWorkSystem == null
+            ? new MinerWorkSystem.RecoveryResult(0, 0, 0, false)
+            : minerWorkSystem.recoveryStatus(worldId, mineId);
+    }
+
+    public MinerWorkSystem.RecoveryResult recover(
+        World world, UUID mineId, boolean recoverWorkers, boolean recoverFronts
+    ) {
+        return minerWorkSystem == null
+            ? new MinerWorkSystem.RecoveryResult(0, 0, 0, false)
+            : minerWorkSystem.recover(world, mineId, recoverWorkers, recoverFronts);
     }
 
     public ShowResult show(PlayerRef playerRef, MineDebugSnapshot snapshot, boolean includeBounds) {
