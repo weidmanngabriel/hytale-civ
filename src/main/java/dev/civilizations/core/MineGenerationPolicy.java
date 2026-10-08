@@ -13,6 +13,20 @@ public final class MineGenerationPolicy {
     public static final int MIN_FLOOR_Y = 10;
     public static final long REFRESH_INTERVAL_MILLIS = 10 * 60 * 1000L;
 
+    public static final int REMAINING_SLICES_TO_REFRESH = 5;
+
+    /** Keep work available; the timer is a background fallback, never an idle gate. */
+    public static boolean shouldRefresh(
+        int currentSlice, int unlockedSlices, int totalSlices,
+        long nowMillis, long nextRefreshAtMillis
+    ) {
+        if (currentSlice < 0 || unlockedSlices < 0 || totalSlices < 0
+            || unlockedSlices > totalSlices) throw new IllegalArgumentException("Invalid mine horizon");
+        return unlockedSlices < totalSlices
+            && (unlockedSlices - currentSlice <= REMAINING_SLICES_TO_REFRESH
+                || nowMillis >= nextRefreshAtMillis);
+    }
+
     private MineGenerationPolicy() {
     }
 
