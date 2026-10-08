@@ -16,7 +16,7 @@ import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.BlockOperations;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
-import com.hypixel.hytale.server.core.util.ChunkUtil;
+import com.hypixel.hytale.math.util.ChunkUtil;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
 import dev.civilizations.hytale.CivConstructionPersistenceService;
