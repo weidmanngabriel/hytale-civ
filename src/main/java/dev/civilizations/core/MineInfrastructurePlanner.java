@@ -69,7 +69,7 @@ public final class MineInfrastructurePlanner {
         result.addAll(planSteps(tunnelId, geometry));
         result.addAll(planSupports(mineId, tunnelId, geometry, decisionSink));
         result.addAll(planLights(tunnelId, geometry));
-        result.addAll(planDecorations(tunnelId, geometry, result));
+        result.addAll(planDecorations(mineId, tunnelId, geometry, result, decisionSink));
         result.sort(Comparator
             .comparingInt(MineInfrastructureTask::startSliceIndex)
             .thenComparing(task -> task.type().ordinal()));
@@ -323,9 +323,11 @@ public final class MineInfrastructurePlanner {
     }
 
     private static List<MineInfrastructureTask> planDecorations(
+        UUID mineId,
         UUID tunnelId,
         MineTunnelGeometry geometry,
-        List<MineInfrastructureTask> existingTasks
+        List<MineInfrastructureTask> existingTasks,
+        MineDecisionSink decisionSink
     ) {
         List<MineInfrastructureTask> result = new ArrayList<>();
         List<MineTunnelGeometry.Slice> slices = geometry.slices();
@@ -333,7 +335,18 @@ public final class MineInfrastructurePlanner {
             ? MAIN_DECORATION_MIN_SPACING : BRANCH_DECORATION_MIN_SPACING;
         int max = geometry.tunnelKind() == MineTunnel.Kind.MAIN
             ? MAIN_DECORATION_MAX_SPACING : BRANCH_DECORATION_MAX_SPACING;
-        if (slices.size() < min + 1) return result;
+        if (slices.size() < min + 1) {
+            if (mineId != null) {
+                decisionSink.record(
+                    mineId, tunnelId, MineDecisionCategory.PLANNING, "DECORATION_SKIPPED",
+                    "reason", "TUNNEL_TOO_SHORT",
+                    "tunnelKind", geometry.tunnelKind(),
+                    "sliceCount", slices.size(),
+                    "minimum", min + 1
+                );
+            }
+            return result;
+        }
 
         Set<Integer> excluded = new HashSet<>();
         for (MineInfrastructureTask task : existingTasks) {
@@ -347,18 +360,43 @@ public final class MineInfrastructurePlanner {
         SplittableRandom random = new SplittableRandom(geometry.seed() ^ DECORATION_SEED_SALT);
         int previous = 0;
         while (true) {
-            int desired = previous + random.nextInt(min, max + 1);
-            if (desired >= slices.size() - 1) break;
+            int spacing = random.nextInt(min, max + 1);
+            int desired = previous + spacing;
+            if (desired >= slices.size() - 1) {
+                if (mineId != null) {
+                    decisionSink.record(
+                        mineId, tunnelId, MineDecisionCategory.PLANNING, "DECORATION_SKIPPED",
+                        "reason", "END_OF_TUNNEL",
+                        "previous", previous,
+                        "spacing", spacing,
+                        "desiredSlice", desired,
+                        "sliceCount", slices.size()
+                    );
+                }
+                break;
+            }
 
             int chosen = nearestDecorationSlice(slices.size(), desired, excluded);
             if (chosen <= previous) {
+                if (mineId != null) {
+                    decisionSink.record(
+                        mineId, tunnelId, MineDecisionCategory.PLANNING, "DECORATION_SKIPPED",
+                        "reason", chosen < 0 ? "NO_FREE_SLICE_NEAR_DESIRED" : "NOT_FORWARD_OF_PREVIOUS",
+                        "previous", previous,
+                        "spacing", spacing,
+                        "desiredSlice", desired,
+                        "searchRadius", 3,
+                        "excludedSlices", excluded.size()
+                    );
+                }
                 previous = desired;
                 continue;
             }
 
-            MineInfrastructureTask.DecorationKind kind =
-                chooseDecorationKind(geometry.tunnelKind(), random);
-            result.add(new MineInfrastructureTask(
+            DecorationChoice choice = chooseDecorationKindDetailed(
+                geometry.tunnelKind(), random
+            );
+            MineInfrastructureTask task = new MineInfrastructureTask(
                 taskId(tunnelId, MineInfrastructureTask.Type.PLACE_DECORATION, chosen, chosen),
                 tunnelId,
                 MineInfrastructureTask.Type.PLACE_DECORATION,
@@ -366,8 +404,21 @@ public final class MineInfrastructurePlanner {
                 chosen,
                 chosen,
                 slices.get(chosen).floorCenter(),
-                kind
-            ));
+                choice.kind()
+            );
+            result.add(task);
+            if (mineId != null) {
+                decisionSink.record(
+                    mineId, task.id(), MineDecisionCategory.PLANNING, "DECORATION_PLANNED",
+                    "tunnel", tunnelId,
+                    "tunnelKind", geometry.tunnelKind(),
+                    "kind", choice.kind(),
+                    "roll", choice.roll(),
+                    "spacing", spacing,
+                    "desiredSlice", desired,
+                    "chosenSlice", chosen
+                );
+            }
             excluded.add(chosen);
             previous = chosen;
         }
@@ -388,19 +439,32 @@ public final class MineInfrastructurePlanner {
         MineTunnel.Kind tunnelKind,
         SplittableRandom random
     ) {
-        int roll = random.nextInt(100);
-        if (tunnelKind == MineTunnel.Kind.BRANCH) {
-            if (roll < 35) return MineInfrastructureTask.DecorationKind.CRATE;
-            if (roll < 75) return MineInfrastructureTask.DecorationKind.TIMBER_PILE;
-            return MineInfrastructureTask.DecorationKind.MATERIAL_PILE;
-        }
+        return chooseDecorationKindDetailed(tunnelKind, random).kind();
+    }
 
-        if (roll < 20) return MineInfrastructureTask.DecorationKind.BARREL;
-        if (roll < 40) return MineInfrastructureTask.DecorationKind.CRATE;
-        if (roll < 60) return MineInfrastructureTask.DecorationKind.TIMBER_PILE;
-        if (roll < 78) return MineInfrastructureTask.DecorationKind.MATERIAL_PILE;
-        if (roll < 90) return MineInfrastructureTask.DecorationKind.HANGING_CHAIN;
-        return MineInfrastructureTask.DecorationKind.HANGING_LANTERN;
+    private static DecorationChoice chooseDecorationKindDetailed(
+        MineTunnel.Kind tunnelKind,
+        SplittableRandom random
+    ) {
+        int roll = random.nextInt(100);
+        MineInfrastructureTask.DecorationKind kind;
+        if (tunnelKind == MineTunnel.Kind.BRANCH) {
+            if (roll < 35) kind = MineInfrastructureTask.DecorationKind.CRATE;
+            else if (roll < 75) kind = MineInfrastructureTask.DecorationKind.TIMBER_PILE;
+            else kind = MineInfrastructureTask.DecorationKind.MATERIAL_PILE;
+        } else if (roll < 20) kind = MineInfrastructureTask.DecorationKind.BARREL;
+        else if (roll < 40) kind = MineInfrastructureTask.DecorationKind.CRATE;
+        else if (roll < 60) kind = MineInfrastructureTask.DecorationKind.TIMBER_PILE;
+        else if (roll < 78) kind = MineInfrastructureTask.DecorationKind.MATERIAL_PILE;
+        else if (roll < 90) kind = MineInfrastructureTask.DecorationKind.HANGING_CHAIN;
+        else kind = MineInfrastructureTask.DecorationKind.HANGING_LANTERN;
+        return new DecorationChoice(kind, roll);
+    }
+
+    private record DecorationChoice(
+        MineInfrastructureTask.DecorationKind kind,
+        int roll
+    ) {
     }
 
     private static int nearestOrdinarySlice(

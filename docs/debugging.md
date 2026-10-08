@@ -136,6 +136,34 @@ Der erste Fehler erscheint als `BLOCK_PLACEMENT_FAILED`. Identische Wiederholung
 
 **Wichtig:** Diese Änderung beendet den Retry noch nicht. Der bestehende Gameplay-Pfad re-resolvt weiterhin idempotent beim nächsten Tick. Der Zweck dieser Diagnose ist, vor dem nächsten Fix exakt zu sehen, ob ein stabil wiederholbarer Placement-Fehler vorliegt und warum.
 
+### Dekorations-Diagnostik
+
+Für Dekorationen reichen normalerweise `PLANNING`, `WORKER` und `ADAPTER`:
+
+```text
+/civdebug mine logs on PLANNING,WORKER,ADAPTER
+```
+
+Die Diagnose trennt drei Ebenen:
+
+- `DECORATION_PLANNED`: der Core-Planer hat eine Dekoration erzeugt. Das Event enthält Tunneltyp, Dekorationsart, den bereits für die Auswahl verwendeten Zufallswert sowie gewünschten und tatsächlich gewählten Slice.
+- `DECORATION_SKIPPED`: der Core-Planer hat an einer Gelegenheit keine Dekoration erzeugt, z. B. wegen `TUNNEL_TOO_SHORT`, `END_OF_TUNNEL`, `NO_FREE_SLICE_NEAR_DESIRED` oder `NOT_FORWARD_OF_PREVIOUS`.
+- `DECORATION_TASK_SKIPPED`: die Dekoration existiert als Task, wurde aber aktuell nicht ausgeführt. Gründe werden aggregiert, z. B. `NOT_YET_AVAILABLE`, `RESERVED`, `FRONT_UNAVAILABLE`, `COMPLETED` oder `AVAILABLE_NOT_SELECTED`. Bei letzterem wird zusätzlich die stattdessen gewählte Task ausgegeben.
+- `DECORATION_TASK_SELECTED`: die Dekoration wurde vom normalen Mine-Task-Selector tatsächlich ausgewählt.
+- `DECORATION_SKIPPED_RUNTIME`: die Task wurde ausgewählt, aber der Hytale-Resolver fand keinen gültigen Platz. Das Event enthält Dekorationsart, geplanten Slice, tatsächlich geprüfte Fallback-Slices und aggregierte Weltgründe.
+
+Typische Runtime-Gründe sind:
+
+- `NAVIGATION_CORE_CONFLICT`: die Dekoration würde den freizuhaltenden Navigationskern belegen.
+- `TARGET_OCCUPIED`: der vorgesehene Block ist bereits belegt.
+- `MISSING_FLOOR_SUPPORT`: Boden-Dekoration hätte keinen tragenden Block darunter.
+- `MISSING_CEILING_SUPPORT`: hängende Dekoration hätte keine geeignete Decke.
+- `LANTERN_TARGET_OCCUPIED`: der Platz unter der Kette für die Laterne ist belegt.
+- `CHAIN_ASSET_MISSING`, `LANTERN_ASSET_MISSING` oder `ASSET_MISSING`: das benötigte native Block-Asset konnte nicht aufgelöst werden.
+- `NO_SIDE_CLEARANCE` / `NO_USABLE_SIDE`: der Slice bietet außerhalb des zentralen Laufbereichs keinen verwendbaren Seitenplatz.
+
+Wie bei den Support-Logs verändert die Diagnose weder die Zufallsfolge noch die Auswahlregeln. Sie macht nur sichtbar, an welcher der drei Ebenen eine Dekoration verloren geht.
+
 ### Ingame-Visualisierung
 
 - `/civdebug mine info` zeigt den persistenten Zustand der nächstgelegenen Mine.

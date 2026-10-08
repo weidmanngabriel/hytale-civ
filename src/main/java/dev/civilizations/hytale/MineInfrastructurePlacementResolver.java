@@ -12,7 +12,9 @@ import dev.civilizations.core.MineTunnelGeometry;
 import org.joml.Vector3d;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** Resolves semantic infrastructure work into concrete Hytale block placements. */
@@ -37,7 +39,8 @@ public final class MineInfrastructurePlacementResolver {
             case PLACE_LIGHT -> resolveLight(world, task, tunnelKind, geometry);
             case BUILD_STEP -> resolveStep(world, task, geometry);
             case BUILD_BRIDGE -> resolveBridge(world, task, geometry);
-            case PLACE_DECORATION -> resolveDecoration(world, task, tunnelKind, geometry);
+            case PLACE_DECORATION ->
+                resolveDecorationDetailed(world, task, tunnelKind, geometry).resolvedTask();
         };
     }
 
@@ -218,20 +221,44 @@ public final class MineInfrastructurePlacementResolver {
         return null;
     }
 
-    private static ResolvedTask resolveDecoration(
+    public static DecorationResolution resolveDecorationDetailed(
         World world,
         MineInfrastructureTask task,
         MineTunnel.Kind tunnelKind,
         MineTunnelGeometry geometry
     ) {
-        if (task.decorationKind() == null) return null;
-        for (int index : candidateSliceOrder(task, geometry.slices().size())) {
-            ResolvedTask resolved = resolveDecorationAt(
-                world, task.id(), task.decorationKind(), tunnelKind, geometry, index
-            );
-            if (resolved != null) return resolved;
+        LinkedHashMap<String, Integer> reasons = new LinkedHashMap<>();
+        List<Integer> triedSlices = new ArrayList<>();
+        if (world == null || task == null || tunnelKind == null || geometry == null) {
+            increment(reasons, "INVALID_INPUT");
+            return new DecorationResolution(null, reasons, triedSlices);
         }
-        return null;
+        if (task.type() != MineInfrastructureTask.Type.PLACE_DECORATION) {
+            increment(reasons, "NOT_DECORATION_TASK");
+            return new DecorationResolution(null, reasons, triedSlices);
+        }
+        if (task.decorationKind() == null) {
+            increment(reasons, "DECORATION_KIND_MISSING");
+            return new DecorationResolution(null, reasons, triedSlices);
+        }
+
+        for (int index : candidateSliceOrder(task, geometry.slices().size())) {
+            triedSlices.add(index);
+            ResolvedTask resolved = resolveDecorationAt(
+                world,
+                task.id(),
+                task.decorationKind(),
+                tunnelKind,
+                geometry,
+                index,
+                reasons
+            );
+            if (resolved != null) {
+                return new DecorationResolution(resolved, reasons, triedSlices);
+            }
+        }
+        if (triedSlices.isEmpty()) increment(reasons, "NO_CANDIDATE_SLICE");
+        return new DecorationResolution(null, reasons, triedSlices);
     }
 
     private static ResolvedTask resolveDecorationAt(
@@ -240,9 +267,13 @@ public final class MineInfrastructurePlacementResolver {
         MineInfrastructureTask.DecorationKind kind,
         MineTunnel.Kind tunnelKind,
         MineTunnelGeometry geometry,
-        int index
+        int index,
+        Map<String, Integer> reasons
     ) {
-        if (index <= 0 || index >= geometry.slices().size() - 1) return null;
+        if (index <= 0 || index >= geometry.slices().size() - 1) {
+            increment(reasons, "SLICE_OUT_OF_RANGE");
+            return null;
+        }
         MineTunnelGeometry.Slice slice = geometry.slices().get(index);
         Cardinal forward = localForward(geometry.slices(), index);
         Cardinal cross = forward.cross();
@@ -252,29 +283,30 @@ public final class MineInfrastructurePlacementResolver {
         if (tunnelKind == MineTunnel.Kind.BRANCH
             && (kind == MineInfrastructureTask.DecorationKind.HANGING_CHAIN
                 || kind == MineInfrastructureTask.DecorationKind.HANGING_LANTERN)) {
+            increment(reasons, "UNSUPPORTED_ON_BRANCH");
             return null;
         }
 
         return switch (kind) {
             case HANGING_CHAIN -> hangingDecoration(
-                world, slice, cross, minOffset, maxOffset, false
+                world, slice, cross, minOffset, maxOffset, false, reasons
             );
             case HANGING_LANTERN -> hangingDecoration(
-                world, slice, cross, minOffset, maxOffset, true
+                world, slice, cross, minOffset, maxOffset, true, reasons
             );
             case TIMBER_PILE -> timberPile(
-                world, slice, forward, cross, minOffset, maxOffset
+                world, slice, forward, cross, minOffset, maxOffset, reasons
             );
             case MATERIAL_PILE -> materialPile(
-                world, taskId, slice, cross, minOffset, maxOffset
+                world, taskId, slice, cross, minOffset, maxOffset, reasons
             );
             case BARREL -> singleFloorDecoration(
                 world, slice, cross, minOffset, maxOffset,
-                barrelAsset(taskId)
+                barrelAsset(taskId), reasons
             );
             case CRATE -> singleFloorDecoration(
                 world, slice, cross, minOffset, maxOffset,
-                "Furniture_Crude_Chest_Small"
+                "Furniture_Crude_Chest_Small", reasons
             );
         };
     }
@@ -291,16 +323,32 @@ public final class MineInfrastructurePlacementResolver {
         Cardinal cross,
         int minOffset,
         int maxOffset,
-        String asset
+        String asset,
+        Map<String, Integer> reasons
     ) {
-        if (asset == null) return null;
+        if (asset == null) {
+            increment(reasons, "ASSET_MISSING");
+            return null;
+        }
+        boolean attemptedSide = false;
         for (int lateral : sideOffsets(minOffset, maxOffset)) {
-            if (Math.abs(lateral) <= 1) continue;
+            if (Math.abs(lateral) <= 1) {
+                increment(reasons, "NO_SIDE_CLEARANCE");
+                continue;
+            }
+            attemptedSide = true;
             BlockPosition target = at(slice.floorCenter(), cross, lateral, 0);
             BlockPosition below = new BlockPosition(target.x(), target.y() - 1, target.z());
-            if (slice.navigationCoreBlocks().contains(target)
-                || !isEmpty(world, target)
-                || isEmpty(world, below)) {
+            if (slice.navigationCoreBlocks().contains(target)) {
+                increment(reasons, "NAVIGATION_CORE_CONFLICT");
+                continue;
+            }
+            if (!isEmpty(world, target)) {
+                increment(reasons, "TARGET_OCCUPIED");
+                continue;
+            }
+            if (isEmpty(world, below)) {
+                increment(reasons, "MISSING_FLOOR_SUPPORT");
                 continue;
             }
             Cardinal inward = lateral < 0 ? cross : cross.opposite();
@@ -309,6 +357,7 @@ public final class MineInfrastructurePlacementResolver {
                 List.of(new PlacementStep(target, asset, yawRotation(inward), below, false))
             );
         }
+        if (!attemptedSide) increment(reasons, "NO_USABLE_SIDE");
         return null;
     }
 
@@ -350,20 +399,29 @@ public final class MineInfrastructurePlacementResolver {
         Cardinal forward,
         Cardinal cross,
         int minOffset,
-        int maxOffset
+        int maxOffset,
+        Map<String, Integer> reasons
     ) {
         for (int lateral : sideOffsets(minOffset, maxOffset)) {
-            if (Math.abs(lateral) <= 1) continue;
+            if (Math.abs(lateral) <= 1) {
+                increment(reasons, "NO_SIDE_CLEARANCE");
+                continue;
+            }
             BlockPosition first = at(slice.floorCenter(), cross, lateral, 0);
             BlockPosition second = at(first, forward, 1, 0);
             BlockPosition belowFirst = new BlockPosition(first.x(), first.y() - 1, first.z());
             BlockPosition belowSecond = new BlockPosition(second.x(), second.y() - 1, second.z());
             if (slice.navigationCoreBlocks().contains(first)
-                || slice.navigationCoreBlocks().contains(second)
-                || !isEmpty(world, first)
-                || !isEmpty(world, second)
-                || isEmpty(world, belowFirst)
-                || isEmpty(world, belowSecond)) {
+                || slice.navigationCoreBlocks().contains(second)) {
+                increment(reasons, "NAVIGATION_CORE_CONFLICT");
+                continue;
+            }
+            if (!isEmpty(world, first) || !isEmpty(world, second)) {
+                increment(reasons, "TARGET_OCCUPIED");
+                continue;
+            }
+            if (isEmpty(world, belowFirst) || isEmpty(world, belowSecond)) {
+                increment(reasons, "MISSING_FLOOR_SUPPORT");
                 continue;
             }
             RotationTuple rotation = trunkRotation(forward);
@@ -384,7 +442,8 @@ public final class MineInfrastructurePlacementResolver {
         MineTunnelGeometry.Slice slice,
         Cardinal cross,
         int minOffset,
-        int maxOffset
+        int maxOffset,
+        Map<String, Integer> reasons
     ) {
         String[] oreBlocks = new String[]{
             "Ore_Iron_Stone",
@@ -393,15 +452,26 @@ public final class MineInfrastructurePlacementResolver {
         };
         String material = oreBlocks[Math.floorMod(taskId.hashCode(), oreBlocks.length)];
         if (MineBlockPlacement.resolveAsset(new String[]{material}, material.toLowerCase()) == null) {
+            increment(reasons, "ASSET_MISSING");
             return null;
         }
         for (int lateral : sideOffsets(minOffset, maxOffset)) {
-            if (Math.abs(lateral) <= 1) continue;
+            if (Math.abs(lateral) <= 1) {
+                increment(reasons, "NO_SIDE_CLEARANCE");
+                continue;
+            }
             BlockPosition first = at(slice.floorCenter(), cross, lateral, 0);
             BlockPosition below = new BlockPosition(first.x(), first.y() - 1, first.z());
-            if (slice.navigationCoreBlocks().contains(first)
-                || !isEmpty(world, first)
-                || isEmpty(world, below)) {
+            if (slice.navigationCoreBlocks().contains(first)) {
+                increment(reasons, "NAVIGATION_CORE_CONFLICT");
+                continue;
+            }
+            if (!isEmpty(world, first)) {
+                increment(reasons, "TARGET_OCCUPIED");
+                continue;
+            }
+            if (isEmpty(world, below)) {
+                increment(reasons, "MISSING_FLOOR_SUPPORT");
                 continue;
             }
             return new ResolvedTask(
@@ -418,7 +488,8 @@ public final class MineInfrastructurePlacementResolver {
         Cardinal cross,
         int minOffset,
         int maxOffset,
-        boolean withLantern
+        boolean withLantern,
+        Map<String, Integer> reasons
     ) {
         String chain = MineBlockPlacement.resolveAsset(
             new String[]{"Deco_Iron_Chain_Small"}, "deco", "iron", "chain", "small"
@@ -428,21 +499,44 @@ public final class MineInfrastructurePlacementResolver {
                 new String[]{"Deco_Lantern"}, "deco", "lantern"
             )
             : null;
-        if (chain == null || (withLantern && lantern == null)) return null;
+        if (chain == null) {
+            increment(reasons, "CHAIN_ASSET_MISSING");
+            return null;
+        }
+        if (withLantern && lantern == null) {
+            increment(reasons, "LANTERN_ASSET_MISSING");
+            return null;
+        }
 
         int chainY = slice.floorCenter().y() + slice.heightBlocks() - 1;
         for (int lateral : sideOffsets(minOffset + 1, maxOffset - 1)) {
-            if (Math.abs(lateral) <= 1) continue;
+            if (Math.abs(lateral) <= 1) {
+                increment(reasons, "NO_SIDE_CLEARANCE");
+                continue;
+            }
             BlockPosition chainPos = atY(at(slice.floorCenter(), cross, lateral, 0), chainY);
             BlockPosition ceiling = new BlockPosition(chainPos.x(), chainPos.y() + 1, chainPos.z());
             BlockPosition lanternPos = new BlockPosition(
                 chainPos.x(), chainPos.y() - 1, chainPos.z()
             );
-            if (slice.navigationCoreBlocks().contains(chainPos)
-                || !isEmpty(world, chainPos)
-                || isEmpty(world, ceiling)
-                || (withLantern && (!isEmpty(world, lanternPos)
-                    || slice.navigationCoreBlocks().contains(lanternPos)))) {
+            if (slice.navigationCoreBlocks().contains(chainPos)) {
+                increment(reasons, "NAVIGATION_CORE_CONFLICT");
+                continue;
+            }
+            if (!isEmpty(world, chainPos)) {
+                increment(reasons, "TARGET_OCCUPIED");
+                continue;
+            }
+            if (isEmpty(world, ceiling)) {
+                increment(reasons, "MISSING_CEILING_SUPPORT");
+                continue;
+            }
+            if (withLantern && !isEmpty(world, lanternPos)) {
+                increment(reasons, "LANTERN_TARGET_OCCUPIED");
+                continue;
+            }
+            if (withLantern && slice.navigationCoreBlocks().contains(lanternPos)) {
+                increment(reasons, "LANTERN_NAVIGATION_CORE_CONFLICT");
                 continue;
             }
 
@@ -664,6 +758,21 @@ public final class MineInfrastructurePlacementResolver {
 
     private static Vector3d workTarget(BlockPosition position) {
         return new Vector3d(position.x() + 0.5, position.y(), position.z() + 0.5);
+    }
+
+    private static void increment(Map<String, Integer> reasons, String reason) {
+        reasons.merge(reason, 1, Integer::sum);
+    }
+
+    public record DecorationResolution(
+        ResolvedTask resolvedTask,
+        Map<String, Integer> reasons,
+        List<Integer> triedSlices
+    ) {
+        public DecorationResolution {
+            reasons = Map.copyOf(reasons == null ? Map.of() : reasons);
+            triedSlices = List.copyOf(triedSlices == null ? List.of() : triedSlices);
+        }
     }
 
     public record PlacementStep(
