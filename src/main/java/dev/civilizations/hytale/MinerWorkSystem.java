@@ -44,6 +44,7 @@ import dev.civilizations.core.MineRoom;
 import dev.civilizations.core.MineRoomCoordinator;
 import dev.civilizations.core.MineRoomGeometry;
 import dev.civilizations.core.MineRoomPlanner;
+import dev.civilizations.core.MineIdleDestinationSelector;
 import dev.civilizations.core.MineTunnel;
 import dev.civilizations.core.MineTunnelGeometry;
 import dev.civilizations.core.MineTuning;
@@ -255,6 +256,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (minePlan == null) return;
 
         if (navigationFailures.consumeIfMatches(workerKey, runtime.navigationTarget)) {
+            if (runtime.idleDestination != null) {
+                if (runtime.idleRoomId != null) runtime.failedIdleRooms.add(runtime.idleRoomId);
+                runtime.idleRoomId = null;
+                runtime.idleDestination = null;
+                runtime.navigationArrived();
+                unitRegistry.clearMoveTarget(ref);
+                return;
+            }
             handleTerminalNavigationFailure(
                 world, mine, minePlan, ref, store, workerKey, runtime
             );
@@ -379,10 +388,11 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (plan == null || plan.complete || !available(front)) {
             if (runtime.frontId != null) frontCoordinator.releaseWorker(workerKey);
             runtime.clearFrontAssignment();
-            unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
+            handleIdle(world, mine, connector, position, ref, runtime);
             return;
         }
+        runtime.clearIdle();
 
         if (plan == null || front == null) {
             unitRegistry.clearMoveTarget(ref);
@@ -2019,6 +2029,61 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
     }
 
+    /** No idle simulation: a finished accommodation is simply a preferred waiting destination. */
+    private void handleIdle(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        PrefabPlacementService.PlacedMarker connector,
+        Vector3d position,
+        Ref<EntityStore> ref,
+        WorkerRuntime runtime
+    ) {
+        MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
+        if (network == null) return;
+
+        MineRoom selected = MineIdleDestinationSelector.select(
+            network.rooms(), position.x, position.y, position.z,
+            runtime.idleRoomId, runtime.failedIdleRooms,
+            room -> loadedBlockType(world, room.position()) == BlockType.EMPTY
+        );
+        if (selected != null) {
+            runtime.idleRoomId = selected.id();
+            Vector3d destination = new Vector3d(
+                selected.position().x() + 0.5, selected.position().y(),
+                selected.position().z() + 0.5
+            );
+            runtime.idleDestination = destination;
+            if (!arrived(position, destination)) {
+                navigateTo(ref, destination, runtime);
+            } else {
+                unitRegistry.clearMoveTarget(ref);
+                runtime.navigationArrived();
+            }
+            return;
+        }
+
+        // Return through the same connector as ordinary mine travel, then walk to the entrance.
+        runtime.idleRoomId = null;
+        Vector3d tunnelExit = center(connector.bounds(), connector.bounds().minY());
+        PrefabPlacementService.PlacedMarker access = marker(world, mine, WORKPLACE_ACCESS);
+        if (access == null || access.bounds() == null) {
+            runtime.idleDestination = tunnelExit;
+            if (!arrived(position, tunnelExit)) navigateTo(ref, tunnelExit, runtime);
+            else { unitRegistry.clearMoveTarget(ref); runtime.navigationArrived(); }
+            return;
+        }
+        Vector3d outside = center(access.bounds(), access.bounds().minY());
+        if (!runtime.idleReachedConnector && !arrived(position, tunnelExit)) {
+            runtime.idleDestination = tunnelExit;
+            navigateTo(ref, tunnelExit, runtime);
+            return;
+        }
+        runtime.idleReachedConnector = true;
+        runtime.idleDestination = outside;
+        if (!arrived(position, outside)) navigateTo(ref, outside, runtime);
+        else { unitRegistry.clearMoveTarget(ref); runtime.navigationArrived(); }
+    }
+
     private void navigateTo(Ref<EntityStore> ref, Vector3d target, WorkerRuntime runtime) {
         if (runtime.navigationTarget == null || runtime.navigationTarget.distanceSquared(target) > 0.0001) {
             runtime.navigationTarget = new Vector3d(target);
@@ -2257,8 +2322,20 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private boolean buildingAnimationStarted;
         private double workElapsed;
         private Vector3d navigationTarget;
+        private UUID idleRoomId;
+        private Vector3d idleDestination;
+        private boolean idleReachedConnector;
+        private final Set<UUID> failedIdleRooms = new HashSet<>();
+
+        private void clearIdle() {
+            idleRoomId = null;
+            idleDestination = null;
+            idleReachedConnector = false;
+            failedIdleRooms.clear();
+        }
 
         private void interruptForManualMove() {
+            clearIdle();
             enteredMine = false;
             reachedConnector = false;
             clearWorkAssignment();
@@ -2303,6 +2380,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         private void reset(UUID nextMineId, int nextMinePhase) {
+            clearIdle();
             mineId = nextMineId;
             minePhase = nextMinePhase;
             enteredMine = false;
