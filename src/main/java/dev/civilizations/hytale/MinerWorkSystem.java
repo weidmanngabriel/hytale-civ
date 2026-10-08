@@ -978,7 +978,51 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 room.position()
             ));
         }
-        return MineNormalTaskSelector.select(candidates, blockPosition(position));
+
+        for (RuntimeInfrastructureTask infrastructure : minePlan.infrastructureTasks.values()) {
+            if (infrastructure.completed || infrastructure.task.mandatory()) continue;
+            RuntimeFrontPlan front = frontForTunnel(minePlan, infrastructure.task.tunnelId());
+            if (front == null || front.unavailable
+                || !infrastructureAvailable(infrastructure.task, front)) {
+                continue;
+            }
+            int workers = infrastructureReservations.containsKey(infrastructure.task.id()) ? 1 : 0;
+            candidates.add(new MineNormalTaskSelector.Candidate(
+                infrastructure.task.id(),
+                MineNormalTaskSelector.Kind.INFRASTRUCTURE,
+                infrastructure.task.priority(),
+                workers,
+                1,
+                infrastructure.task.anchor()
+            ));
+        }
+
+        MineNormalTaskSelector.Selection selection = MineNormalTaskSelector.selectWithAging(
+            candidates,
+            blockPosition(position),
+            network.normalTaskPriorityBonuses()
+        );
+        if (!selection.updatedPriorityBonuses().equals(network.normalTaskPriorityBonuses())) {
+            MineNetwork updated = network.withNormalTaskPriorityBonuses(
+                selection.updatedPriorityBonuses()
+            );
+            tunnelRegistry.putNetwork(world, updated);
+            network = updated;
+        }
+
+        MineNormalTaskSelector.Candidate selected = selection.selected();
+        if (selected != null) {
+            decisionSink.record(
+                mine.id(), selected.id(), MineDecisionCategory.PLANNING, "NORMAL_TASK_SELECTED",
+                "kind", selected.kind(),
+                "basePriority", selected.priority(),
+                "effectivePriority", MineNormalTaskSelector.effectivePriority(
+                    selected, network.normalTaskPriorityBonuses()
+                ),
+                "openedWaitingWork", selection.openedWaitingWork()
+            );
+        }
+        return selected;
     }
 
     private RuntimeRoomPlan selectRoom(
