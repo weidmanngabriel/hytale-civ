@@ -67,3 +67,40 @@ test('rejects unauthorized actors and unlocked issue', () => {
   assert.notEqual(check(request,{actor:'stranger'}).outputs.allowed,'true');
   assert.notEqual(check(request,{locked:false}).outputs.allowed,'true');
 });
+
+
+test('exposes typed player, block, building and mine recovery actions in batch', () => {
+  const mine = 'fa733bf0-79b0-47b0-a6d0-9fb60f518120';
+  const player = '5a1966f9-7a77-33d5-ad87-11b912ed28da';
+  const actions = [
+    'agent capabilities', 'agent players', 'agent buildings', 'agent sites',
+    'agent block 700 120 400', 'agent set-block 700 120 400 Stone',
+    'agent create-site ' + player + ' mine 700 120 400',
+    'agent mine-recover ' + mine + ' status'
+  ];
+  const result = check(batch(actions.map((command, i) =>
+    ({id:'agent'+i, action:'command', command}))));
+  assert.equal(result.failure, null);
+  assert.equal(result.outputs.allowed, 'true');
+  const decoded = JSON.parse(Buffer.from(result.outputs.batch, 'base64').toString('utf8'));
+  assert.deepEqual(decoded.steps.map(s => s.command), actions.map(s => s.replace(/^agent /, 'civagent ')));
+});
+test('agent commands work in single-command mode', () => {
+  const result = check('/hytale-live runner gabe agent capabilities');
+  assert.equal(result.outputs.command, 'civagent capabilities');
+  assert.equal(result.outputs.allowed, 'true');
+});
+test('blocks arbitrary console commands and invalid agent arguments', () => {
+  const forbidden = [
+    'agent stop', 'agent shutdown', 'agent set-block 1 2 3 Stone; stop',
+    'agent set-block 1 2 3 ../../bad', 'agent set-block 1 2 3',
+    'agent create-site abc mine 1 2 3', 'agent create-site 00000000-0000-0000-0000-000000000000 unknown 1 2 3',
+    'agent mine-recover 00000000-0000-0000-0000-000000000000 reset',
+    'agent block 1 2 300000',
+    'agent capabilities && stop'
+  ];
+  for (const command of forbidden) {
+    const result = check(batch([{id:'bad', action:'command', command}]));
+    assert.notEqual(result.outputs.allowed, 'true', command);
+  }
+});

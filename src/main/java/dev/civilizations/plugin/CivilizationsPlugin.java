@@ -248,6 +248,12 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 minerWorkSystem, devScenarioService, devEventHistory
             )
         );
+        getCommandRegistry().registerCommand(
+            new CivAgentCommand(
+                buildingRegistry, prefabPlacementService, constructionRegistry,
+                constructionPersistence, mineDebugService
+            )
+        );
         getCommandRegistry().registerCommand(new CivTestCommand());
         if (Boolean.getBoolean("civilizations.runtimeProbe")) {
             getEntityStoreRegistry().registerSystem(new CivRuntimeDamageTraceSystem());
