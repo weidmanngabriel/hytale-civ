@@ -32,20 +32,22 @@ public final class MineInfrastructurePlacementResolver {
     ) {
         if (world == null || task == null || tunnelKind == null || geometry == null) return null;
         return switch (task.type()) {
-            case BUILD_SUPPORT -> resolveSupport(world, task, geometry);
+            case BUILD_SUPPORT -> resolveSupport(world, task, tunnelKind, geometry);
             case PLACE_LIGHT -> resolveLight(world, task, tunnelKind, geometry);
             case BUILD_STEP -> resolveStep(world, task, geometry);
             case BUILD_BRIDGE -> resolveBridge(world, task, geometry);
+            case PLACE_DECORATION -> resolveDecoration(world, task, tunnelKind, geometry);
         };
     }
 
     private static ResolvedTask resolveSupport(
         World world,
         MineInfrastructureTask task,
+        MineTunnel.Kind tunnelKind,
         MineTunnelGeometry geometry
     ) {
         for (int index : candidateSliceOrder(task, geometry.slices().size())) {
-            ResolvedTask resolved = resolveSupportAt(world, geometry, index);
+            ResolvedTask resolved = resolveSupportAt(world, tunnelKind, geometry, index);
             if (resolved != null) return resolved;
         }
         return null;
@@ -53,6 +55,7 @@ public final class MineInfrastructurePlacementResolver {
 
     private static ResolvedTask resolveSupportAt(
         World world,
+        MineTunnel.Kind tunnelKind,
         MineTunnelGeometry geometry,
         int index
     ) {
@@ -63,23 +66,27 @@ public final class MineInfrastructurePlacementResolver {
         int minOffset = -(slice.widthBlocks() / 2);
         int maxOffset = minOffset + slice.widthBlocks() - 1;
 
-        // Grow into already-open side pockets by at most three cells; do not make cave-spanning
-        // monster frames from a normal tunnel support.
-        for (int i = 0; i < 3; i++) {
-            BlockPosition candidate = at(slice.floorCenter(), cross, minOffset - 1, 1);
-            if (!isEmpty(world, candidate)) break;
-            minOffset--;
-        }
-        for (int i = 0; i < 3; i++) {
-            BlockPosition candidate = at(slice.floorCenter(), cross, maxOffset + 1, 1);
-            if (!isEmpty(world, candidate)) break;
-            maxOffset++;
+        if (tunnelKind == MineTunnel.Kind.MAIN) {
+            // The developed main tunnel may use nearby open side pockets for a stronger frame.
+            for (int i = 0; i < 3; i++) {
+                BlockPosition candidate = at(slice.floorCenter(), cross, minOffset - 1, 1);
+                if (!isEmpty(world, candidate)) break;
+                minOffset--;
+            }
+            for (int i = 0; i < 3; i++) {
+                BlockPosition candidate = at(slice.floorCenter(), cross, maxOffset + 1, 1);
+                if (!isEmpty(world, candidate)) break;
+                maxOffset++;
+            }
         }
 
-        if (maxOffset - minOffset - 1 < 4) return null;
+        int minimumClearWidth = tunnelKind == MineTunnel.Kind.MAIN ? 4 : 3;
+        if (maxOffset - minOffset - 1 < minimumClearWidth) return null;
 
         int minBeamY = slice.floorCenter().y() + 3;
-        int maxBeamY = slice.floorCenter().y() + Math.max(slice.heightBlocks() + 5, 8);
+        int maxBeamY = tunnelKind == MineTunnel.Kind.MAIN
+            ? slice.floorCenter().y() + Math.max(slice.heightBlocks() + 5, 8)
+            : slice.floorCenter().y() + slice.heightBlocks() - 1;
         int beamY = -1;
         for (int y = minBeamY; y <= maxBeamY; y++) {
             if (!rowEmpty(world, slice.floorCenter(), cross, minOffset, maxOffset, y)) break;
@@ -110,16 +117,17 @@ public final class MineInfrastructurePlacementResolver {
         }
 
         RotationTuple beamRotation = trunkRotation(cross);
-        // Build the top beam from both outside ends towards the centre.
+        String beamBlock = tunnelKind == MineTunnel.Kind.MAIN ? FIR_TRUNK : FIR_BRANCH;
+        // Main uses a heavy trunk beam; branches use the same simple branch timber as the posts.
         int left = minOffset;
         int right = maxOffset;
         while (left <= right) {
             BlockPosition leftPosition = atY(at(slice.floorCenter(), cross, left, 0), beamY);
-            placements.add(new PlacementStep(leftPosition, FIR_TRUNK, beamRotation,
+            placements.add(new PlacementStep(leftPosition, beamBlock, beamRotation,
                 new BlockPosition(leftPosition.x(), beamY - 1, leftPosition.z()), true));
             if (right != left) {
                 BlockPosition rightPosition = atY(at(slice.floorCenter(), cross, right, 0), beamY);
-                placements.add(new PlacementStep(rightPosition, FIR_TRUNK, beamRotation,
+                placements.add(new PlacementStep(rightPosition, beamBlock, beamRotation,
                     new BlockPosition(rightPosition.x(), beamY - 1, rightPosition.z()), true));
             }
             left++;
@@ -207,6 +215,250 @@ public final class MineInfrastructurePlacementResolver {
             );
         }
         return null;
+    }
+
+    private static ResolvedTask resolveDecoration(
+        World world,
+        MineInfrastructureTask task,
+        MineTunnel.Kind tunnelKind,
+        MineTunnelGeometry geometry
+    ) {
+        if (task.decorationKind() == null) return null;
+        for (int index : candidateSliceOrder(task, geometry.slices().size())) {
+            ResolvedTask resolved = resolveDecorationAt(
+                world, task.decorationKind(), tunnelKind, geometry, index
+            );
+            if (resolved != null) return resolved;
+        }
+        return null;
+    }
+
+    private static ResolvedTask resolveDecorationAt(
+        World world,
+        MineInfrastructureTask.DecorationKind kind,
+        MineTunnel.Kind tunnelKind,
+        MineTunnelGeometry geometry,
+        int index
+    ) {
+        if (index <= 0 || index >= geometry.slices().size() - 1) return null;
+        MineTunnelGeometry.Slice slice = geometry.slices().get(index);
+        Cardinal forward = localForward(geometry.slices(), index);
+        Cardinal cross = forward.cross();
+        int minOffset = -(slice.widthBlocks() / 2);
+        int maxOffset = minOffset + slice.widthBlocks() - 1;
+
+        if (tunnelKind == MineTunnel.Kind.BRANCH
+            && (kind == MineInfrastructureTask.DecorationKind.HANGING_CHAIN
+                || kind == MineInfrastructureTask.DecorationKind.HANGING_LANTERN)) {
+            return null;
+        }
+
+        return switch (kind) {
+            case HANGING_CHAIN -> hangingDecoration(
+                world, slice, cross, minOffset, maxOffset, false
+            );
+            case HANGING_LANTERN -> hangingDecoration(
+                world, slice, cross, minOffset, maxOffset, true
+            );
+            case TIMBER_PILE -> timberPile(
+                world, slice, forward, cross, minOffset, maxOffset
+            );
+            case MATERIAL_PILE -> materialPile(
+                world, slice, cross, minOffset, maxOffset
+            );
+            case BARREL -> singleFloorDecoration(
+                world, slice, cross, minOffset, maxOffset,
+                MineBlockPlacement.resolveAsset(
+                    new String[]{"Furniture_Barrel", "Barrel"}, "barrel"
+                )
+            );
+            case CRATE -> singleFloorDecoration(
+                world, slice, cross, minOffset, maxOffset,
+                MineBlockPlacement.resolveAsset(
+                    new String[]{"Furniture_Crate", "Crate"}, "crate"
+                )
+            );
+            case TOOLS -> wallDecoration(
+                world, slice, cross, minOffset, maxOffset,
+                MineBlockPlacement.resolveAsset(
+                    new String[]{"Tool_Rack", "Tools_Rack", "Furniture_Tool_Rack"}, "tool"
+                )
+            );
+        };
+    }
+
+    private static ResolvedTask singleFloorDecoration(
+        World world,
+        MineTunnelGeometry.Slice slice,
+        Cardinal cross,
+        int minOffset,
+        int maxOffset,
+        String asset
+    ) {
+        if (asset == null) return null;
+        for (int lateral : sideOffsets(minOffset, maxOffset)) {
+            if (Math.abs(lateral) <= 1) continue;
+            BlockPosition target = at(slice.floorCenter(), cross, lateral, 0);
+            BlockPosition below = new BlockPosition(target.x(), target.y() - 1, target.z());
+            if (slice.navigationCoreBlocks().contains(target)
+                || !isEmpty(world, target)
+                || isEmpty(world, below)) {
+                continue;
+            }
+            Cardinal inward = lateral < 0 ? cross : cross.opposite();
+            return new ResolvedTask(
+                workTarget(slice.floorCenter()),
+                List.of(new PlacementStep(target, asset, yawRotation(inward), below, false))
+            );
+        }
+        return null;
+    }
+
+    private static ResolvedTask wallDecoration(
+        World world,
+        MineTunnelGeometry.Slice slice,
+        Cardinal cross,
+        int minOffset,
+        int maxOffset,
+        String asset
+    ) {
+        if (asset == null) return null;
+        int y = slice.floorCenter().y() + Math.min(2, Math.max(1, slice.heightBlocks() - 2));
+        for (int lateral : sideOffsets(minOffset, maxOffset)) {
+            if (Math.abs(lateral) <= 1) continue;
+            BlockPosition target = atY(at(slice.floorCenter(), cross, lateral, 0), y);
+            Cardinal outward = lateral < 0 ? cross.opposite() : cross;
+            BlockPosition wall = new BlockPosition(
+                target.x() + outward.dx(), target.y(), target.z() + outward.dz()
+            );
+            if (slice.navigationCoreBlocks().contains(target)
+                || !isEmpty(world, target)
+                || isEmpty(world, wall)) {
+                continue;
+            }
+            return new ResolvedTask(
+                workTarget(slice.floorCenter()),
+                List.of(new PlacementStep(
+                    target, asset, yawRotation(outward.opposite()), wall, false
+                ))
+            );
+        }
+        return null;
+    }
+
+    private static ResolvedTask timberPile(
+        World world,
+        MineTunnelGeometry.Slice slice,
+        Cardinal forward,
+        Cardinal cross,
+        int minOffset,
+        int maxOffset
+    ) {
+        for (int lateral : sideOffsets(minOffset, maxOffset)) {
+            if (Math.abs(lateral) <= 1) continue;
+            BlockPosition first = at(slice.floorCenter(), cross, lateral, 0);
+            BlockPosition second = at(first, forward, 1, 0);
+            BlockPosition belowFirst = new BlockPosition(first.x(), first.y() - 1, first.z());
+            BlockPosition belowSecond = new BlockPosition(second.x(), second.y() - 1, second.z());
+            if (slice.navigationCoreBlocks().contains(first)
+                || slice.navigationCoreBlocks().contains(second)
+                || !isEmpty(world, first)
+                || !isEmpty(world, second)
+                || isEmpty(world, belowFirst)
+                || isEmpty(world, belowSecond)) {
+                continue;
+            }
+            RotationTuple rotation = trunkRotation(forward);
+            return new ResolvedTask(
+                workTarget(slice.floorCenter()),
+                List.of(
+                    new PlacementStep(first, FIR_TRUNK, rotation, belowFirst, true),
+                    new PlacementStep(second, FIR_TRUNK, rotation, belowSecond, true)
+                )
+            );
+        }
+        return null;
+    }
+
+    private static ResolvedTask materialPile(
+        World world,
+        MineTunnelGeometry.Slice slice,
+        Cardinal cross,
+        int minOffset,
+        int maxOffset
+    ) {
+        String material = MineBlockPlacement.resolveAsset(
+            new String[]{"Rock_Stone_Rubble", "Stone_Rubble", "Rock_Stone"}, "stone"
+        );
+        if (material == null) return null;
+        for (int lateral : sideOffsets(minOffset, maxOffset)) {
+            if (Math.abs(lateral) <= 1) continue;
+            BlockPosition first = at(slice.floorCenter(), cross, lateral, 0);
+            BlockPosition below = new BlockPosition(first.x(), first.y() - 1, first.z());
+            if (slice.navigationCoreBlocks().contains(first)
+                || !isEmpty(world, first)
+                || isEmpty(world, below)) {
+                continue;
+            }
+            return new ResolvedTask(
+                workTarget(slice.floorCenter()),
+                List.of(new PlacementStep(first, material, RotationTuple.NONE, below, false))
+            );
+        }
+        return null;
+    }
+
+    private static ResolvedTask hangingDecoration(
+        World world,
+        MineTunnelGeometry.Slice slice,
+        Cardinal cross,
+        int minOffset,
+        int maxOffset,
+        boolean withLantern
+    ) {
+        String chain = MineBlockPlacement.resolveAsset(
+            new String[]{"Chain", "Metal_Chain", "Furniture_Chain"}, "chain"
+        );
+        String lantern = withLantern
+            ? MineBlockPlacement.resolveAsset(
+                new String[]{"Lantern", "Furniture_Lantern"}, "lantern"
+            )
+            : null;
+        if (chain == null || (withLantern && lantern == null)) return null;
+
+        int chainY = slice.floorCenter().y() + slice.heightBlocks() - 1;
+        for (int lateral : sideOffsets(minOffset + 1, maxOffset - 1)) {
+            if (Math.abs(lateral) <= 1) continue;
+            BlockPosition chainPos = atY(at(slice.floorCenter(), cross, lateral, 0), chainY);
+            BlockPosition ceiling = new BlockPosition(chainPos.x(), chainPos.y() + 1, chainPos.z());
+            BlockPosition lanternPos = new BlockPosition(
+                chainPos.x(), chainPos.y() - 1, chainPos.z()
+            );
+            if (slice.navigationCoreBlocks().contains(chainPos)
+                || !isEmpty(world, chainPos)
+                || isEmpty(world, ceiling)
+                || (withLantern && (!isEmpty(world, lanternPos)
+                    || slice.navigationCoreBlocks().contains(lanternPos)))) {
+                continue;
+            }
+
+            List<PlacementStep> placements = new ArrayList<>();
+            placements.add(new PlacementStep(
+                chainPos, chain, RotationTuple.NONE, ceiling, false
+            ));
+            if (withLantern) {
+                placements.add(new PlacementStep(
+                    lanternPos, lantern, RotationTuple.NONE, chainPos, false
+                ));
+            }
+            return new ResolvedTask(workTarget(slice.floorCenter()), List.copyOf(placements));
+        }
+        return null;
+    }
+
+    private static int[] sideOffsets(int minOffset, int maxOffset) {
+        if (minOffset == maxOffset) return new int[]{minOffset};
+        return new int[]{minOffset, maxOffset};
     }
 
     private static ResolvedTask resolveStep(
