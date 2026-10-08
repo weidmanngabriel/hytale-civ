@@ -140,6 +140,8 @@ jobs:
           TARGET_RUNNER: ${{ needs.authorize.outputs.runner }}
         run: |
           $ErrorActionPreference = 'Stop'
+          if ($env:REQUESTED_BY -ne 'weidmanngabriel') { throw 'Unexpected requester' }
+          if ($env:TARGET_RUNNER -notin @('auto', 'gabe', 'thommy')) { throw 'Unexpected runner selection' }
           if ($env:AUTHORIZED_BATCH) {
             $resultPath = Join-Path $env:RUNNER_TEMP 'hytale-live-batch-result.json'
             $batch = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:AUTHORIZED_BATCH)) | ConvertFrom-Json
