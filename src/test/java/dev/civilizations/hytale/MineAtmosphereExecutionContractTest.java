@@ -40,6 +40,15 @@ final class MineAtmosphereExecutionContractTest {
         assertTrue(resolver.contains("HANGING_LANTERN"));
         assertTrue(resolver.contains("HANGING_CHAIN"));
         assertTrue(resolver.contains("tunnelKind == MineTunnel.Kind.MAIN ? FIR_TRUNK : FIR_BRANCH"));
+        assertTrue(resolver.contains("Furniture_Tavern_Barrel"));
+        assertTrue(resolver.contains("Furniture_Ancient_Barrel"));
+        assertTrue(resolver.contains("Furniture_Crude_Chest_Small"));
+        assertTrue(resolver.contains("Deco_Iron_Chain_Small"));
+        assertTrue(resolver.contains("Deco_Lantern"));
+        assertTrue(resolver.contains("Ore_Iron_Stone"));
+        assertTrue(resolver.contains("Ore_Copper_Stone"));
+        assertTrue(resolver.contains("Ore_Gold_Stone"));
+        assertFalse(resolver.contains("Tool_Rack"));
         assertTrue(resolver.contains("MineBlockPlacement.resolveAsset"));
     }
 }
