@@ -887,9 +887,7 @@ public final class WoodcutterWorkSystem extends DelayedEntitySystem<EntityStore>
     }
 
     private static boolean hasArrived(Vector3d position, Vector3d target) {
-        double dx = position.x - target.x;
-        double dz = position.z - target.z;
-        return dx * dx + dz * dz <= ARRIVAL_DISTANCE * ARRIVAL_DISTANCE;
+        return CivArrivalPolicy.reached(position, target, ARRIVAL_DISTANCE, 1.25);
     }
 
     private static double squared(double value) {
