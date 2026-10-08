@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const workflow = fs.readFileSync(path.join(__dirname, '../.github/workflows/hytale-live.yml'), 'utf8');
+const workflow = fs.readFileSync(path.join(__dirname, '../.github/workflows/hytale-live.yml'), 'utf8').replace(/\r\n/g, '\n');
 const source = workflow.split('        with:\n          script: |\n')[1]
   .split('\n  announce:')[0]
   .split('\n')
