@@ -230,6 +230,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         Vector3d position = transform.getPosition();
+        // After native LOAD the entity can already be in an excavated tunnel or finished
+        // room. Rehydrate the deterministic plan before forcing the normal surface entry.
+        RuntimeMinePlan minePlan = ensureRuntimePlan(world, mine, connector);
+        if (minePlan == null) return;
+        if (!runtime.reachedConnector && restoredInsideMine(world, minePlan, position)) {
+            runtime.enteredMine = true;
+            runtime.reachedConnector = true;
+        }
         if (!runtime.enteredMine && entrance != null && entrance.bounds() != null) {
             Vector3d target = center(entrance.bounds(), entrance.bounds().minY());
             if (!arrived(position, target)) {
@@ -251,9 +259,6 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             runtime.reachedConnector = true;
             runtime.navigationArrived();
         }
-
-        RuntimeMinePlan minePlan = ensureRuntimePlan(world, mine, connector);
-        if (minePlan == null) return;
 
         if (navigationFailures.consumeIfMatches(workerKey, runtime.navigationTarget)) {
             if (runtime.idleDestination != null) {
@@ -2093,6 +2098,18 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         runtime.idleDestination = outside;
         if (!arrived(position, outside)) navigateTo(ref, outside, runtime);
         else { unitRegistry.clearMoveTarget(ref); runtime.navigationArrived(); }
+    }
+
+    private static boolean restoredInsideMine(World world, RuntimeMinePlan minePlan, Vector3d position) {
+        BlockPosition feet = blockPosition(position);
+        if (loadedBlockType(world, feet) != BlockType.EMPTY) return false;
+        for (RuntimeFrontPlan front : minePlan.fronts.values()) {
+            if (front.geometry.excavationBlocks().contains(feet)) return true;
+        }
+        for (RuntimeRoomPlan room : minePlan.rooms.values()) {
+            if (room.geometry.excavationBlocks().contains(feet)) return true;
+        }
+        return false;
     }
 
     private void navigateTo(Ref<EntityStore> ref, Vector3d target, WorkerRuntime runtime) {
