@@ -58,8 +58,8 @@ final class MinerObstacleExecutionContractTest {
 
         assertTrue(source.contains("boolean bridgeInProgress"));
         assertTrue(source.contains("existing.task.tunnelId().equals(front.tunnelId)"));
-        assertTrue(source.contains("existing.task.startSliceIndex() <= front.sliceIndex"));
-        assertTrue(source.contains("existing.task.endSliceIndex() >= front.sliceIndex"));
+        assertTrue(source.contains("Multiple concurrent bridge spans can overlap spatially"));
+        assertTrue(source.contains("existing.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE"));
         assertTrue(source.contains("if (bridgeInProgress) continue;"));
     }
 
