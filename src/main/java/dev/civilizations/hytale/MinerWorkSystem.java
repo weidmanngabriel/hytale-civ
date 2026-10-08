@@ -323,44 +323,51 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (plan == null && runtime.frontId == null) {
             MineNormalTaskSelector.Candidate candidate =
                 selectNormalCandidate(world, mine, minePlan, position);
-            if (candidate != null
-                && (candidate.workerCount() > 0
-                    || candidate.kind() == MineNormalTaskSelector.Kind.ROOM)) {
-                if (candidate.kind() == MineNormalTaskSelector.Kind.ROOM) {
-                    RuntimeRoomPlan selectedRoomPlan =
-                        selectRoom(world, mine, minePlan, candidate.id(), workerKey, runtime);
-                    MineRoom selectedRoom = selectedRoomPlan == null
-                        ? null : currentRoom(worldId, mine.id(), selectedRoomPlan.roomId);
-                    if (selectedRoomPlan != null && selectedRoom != null) {
-                        executeRoom(
-                            world, mine, minePlan, selectedRoomPlan, selectedRoom, ref, store,
-                            commandBuffer, position, workerKey, runtime
-                        );
-                        return;
+            if (candidate != null) {
+                switch (candidate.kind()) {
+                    case ROOM -> {
+                        RuntimeRoomPlan selectedRoomPlan =
+                            selectRoom(world, mine, minePlan, candidate.id(), workerKey, runtime);
+                        MineRoom selectedRoom = selectedRoomPlan == null
+                            ? null : currentRoom(worldId, mine.id(), selectedRoomPlan.roomId);
+                        if (selectedRoomPlan != null && selectedRoom != null) {
+                            executeRoom(
+                                world, mine, minePlan, selectedRoomPlan, selectedRoom, ref, store,
+                                commandBuffer, position, workerKey, runtime
+                            );
+                            return;
+                        }
                     }
-                } else {
-                    plan = selectFront(world, mine, minePlan, position, workerKey, runtime);
-                    front = plan == null ? null : currentFront(worldId, mine.id(), plan.frontId);
+                    case INFRASTRUCTURE -> {
+                        RuntimeInfrastructureTask infrastructure =
+                            selectInfrastructureTaskById(
+                                mine, minePlan, candidate.id(), workerKey, runtime
+                            );
+                        if (infrastructure != null) {
+                            executeInfrastructure(
+                                world, mine, minePlan, infrastructure, ref, store,
+                                position, workerKey, runtime
+                            );
+                            return;
+                        }
+                    }
+                    case TUNNEL_FRONT -> {
+                        plan = selectFrontById(
+                            world, mine, minePlan, candidate.id(), workerKey, runtime
+                        );
+                        front = plan == null
+                            ? null : currentFront(worldId, mine.id(), plan.frontId);
+                    }
                 }
-            }
-        }
-
-        if (plan == null && runtime.frontId == null) {
-            RuntimeInfrastructureTask infrastructure =
-                selectInfrastructureTask(world, mine, minePlan, position, workerKey, runtime, false);
-            if (infrastructure != null) {
-                executeInfrastructure(
-                    world, mine, minePlan, infrastructure, ref, store, position, workerKey, runtime
-                );
-                return;
             }
         }
 
         if (plan == null || plan.complete || !available(front)) {
             if (runtime.frontId != null) frontCoordinator.releaseWorker(workerKey);
             runtime.clearFrontAssignment();
-            plan = selectFront(world, mine, minePlan, position, workerKey, runtime);
-            front = plan == null ? null : currentFront(worldId, mine.id(), plan.frontId);
+            unitRegistry.clearMoveTarget(ref);
+            stopMiningAnimation(ref, store, runtime);
+            return;
         }
 
         if (plan == null || front == null) {
@@ -700,6 +707,35 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             "priority", best.task.priority()
         );
         return best;
+    }
+
+    private RuntimeInfrastructureTask selectInfrastructureTaskById(
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan minePlan,
+        UUID taskId,
+        CivUnitRegistry.UnitKey workerKey,
+        WorkerRuntime runtime
+    ) {
+        RuntimeInfrastructureTask selected = minePlan.infrastructureTasks.get(taskId);
+        if (selected == null || selected.completed || selected.task.mandatory()) return null;
+
+        CivUnitRegistry.UnitKey existing =
+            infrastructureReservations.putIfAbsent(selected.task.id(), workerKey);
+        if (existing != null && !existing.equals(workerKey)) return null;
+
+        runtime.infrastructureTaskId = selected.task.id();
+        runtime.resolvedInfrastructure = null;
+        runtime.infrastructurePlacementIndex = 0;
+        runtime.workElapsed = 0.0;
+        runtime.navigationArrived();
+        decisionSink.record(
+            mine.id(), selected.task.id(), MineDecisionCategory.PLANNING, "TASK_SELECTED",
+            "type", selected.task.type(),
+            "tunnel", selected.task.tunnelId(),
+            "priority", selected.task.priority(),
+            "decoration", selected.task.decorationKind()
+        );
+        return selected;
     }
 
     private void executeInfrastructure(
@@ -1296,40 +1332,25 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (network != null) tunnelRegistry.putNetwork(world, network.withRoom(room));
     }
 
-    private RuntimeFrontPlan selectFront(
+    private RuntimeFrontPlan selectFrontById(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
         RuntimeMinePlan minePlan,
-        Vector3d position,
+        UUID frontId,
         CivUnitRegistry.UnitKey workerKey,
         WorkerRuntime runtime
     ) {
         MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
-        if (network == null) return null;
-
-        List<MineWorkFront> executable = new ArrayList<>();
-        Map<UUID, Integer> workerCounts = new HashMap<>();
-        for (RuntimeFrontPlan candidate : minePlan.fronts.values()) {
-            if (candidate.complete) continue;
-            MineWorkFront front = workFrontById(network, candidate.frontId);
-            if (!available(front) || !frontExecutable(world, minePlan, candidate)) continue;
-            executable.add(front);
-            workerCounts.put(front.id(), frontCoordinator.workerCount(front.id()));
-        }
-
-        MineWorkFront selected = MineFrontTaskScheduler.select(
-            network,
-            executable,
-            workerCounts,
-            blockPosition(position)
-        );
-        if (selected == null || !frontCoordinator.tryJoin(selected.id(), workerKey)) return null;
-
-        RuntimeFrontPlan selectedPlan = minePlan.fronts.get(selected.id());
-        if (selectedPlan == null) {
-            frontCoordinator.releaseWorker(workerKey);
+        RuntimeFrontPlan selectedPlan = minePlan.fronts.get(frontId);
+        MineWorkFront selected = network == null ? null : workFrontById(network, frontId);
+        if (selectedPlan == null
+            || selectedPlan.complete
+            || !available(selected)
+            || !frontExecutable(world, minePlan, selectedPlan)
+            || !frontCoordinator.tryJoin(frontId, workerKey)) {
             return null;
         }
+
         runtime.frontId = selected.id();
         runtime.sliceIndex = selectedPlan.sliceIndex;
         runtime.navigationArrived();
@@ -1337,7 +1358,20 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             mine.id(), selected.id(), MineDecisionCategory.PLANNING, "TASK_SELECTED",
             "tunnel", selected.tunnelId(),
             "kind", selected.tunnelId().equals(minePlan.mainTunnelId) ? "MAIN" : "BRANCH",
-            "slice", selectedPlan.sliceIndex
+            "slice", selectedPlan.sliceIndex,
+            "priority", MineNormalTaskSelector.effectivePriority(
+                new MineNormalTaskSelector.Candidate(
+                    selected.id(),
+                    MineNormalTaskSelector.Kind.TUNNEL_FRONT,
+                    selectedPlan.tunnelKind == MineTunnel.Kind.BRANCH
+                        ? MineFrontTaskScheduler.BRANCH_TUNNEL_PRIORITY
+                        : MineFrontTaskScheduler.MAIN_TUNNEL_PRIORITY,
+                    frontCoordinator.workerCount(selected.id()),
+                    MineFrontCoordinator.NORMAL_TUNNEL_FRONT_CAPACITY,
+                    selected.position()
+                ),
+                network.normalTaskPriorityBonuses()
+            )
         );
         return selectedPlan;
     }
