@@ -97,6 +97,25 @@ public final class MineInfrastructurePlanner {
         );
     }
 
+    /** A verified, already excavated height transition may be repaired on demand. */
+    public static MineInfrastructureTask recoveryStepTask(
+        UUID tunnelId, MineTunnelGeometry.StepTransition transition
+    ) {
+        if (tunnelId == null || transition == null) {
+            throw new IllegalArgumentException("Recovery step inputs must not be null.");
+        }
+        return new MineInfrastructureTask(
+            taskId(tunnelId, MineInfrastructureTask.Type.BUILD_STEP,
+                transition.fromSliceIndex(), transition.toSliceIndex()),
+            tunnelId,
+            MineInfrastructureTask.Type.BUILD_STEP,
+            PASSABILITY_PRIORITY,
+            transition.fromSliceIndex(),
+            transition.toSliceIndex(),
+            transition.fromFloorCenter()
+        );
+    }
+
     private static List<MineInfrastructureTask> planSteps(
         UUID tunnelId,
         MineTunnelGeometry geometry

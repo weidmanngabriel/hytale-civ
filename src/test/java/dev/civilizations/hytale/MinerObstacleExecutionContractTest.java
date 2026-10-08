@@ -51,6 +51,65 @@ final class MinerObstacleExecutionContractTest {
     }
 
     @Test
+    void overlappingBridgeWorkIsNotCreatedWhileExistingSpanIsBeingBuilt() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
+        );
+
+        assertTrue(source.contains("boolean bridgeInProgress"));
+        assertTrue(source.contains("existing.task.tunnelId().equals(front.tunnelId)"));
+        assertTrue(source.contains("existing.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE"));
+        assertTrue(source.contains("if (bridgeInProgress) continue;"));
+    }
+
+    @Test
+    void bridgeIsNotCreatedInsideUnexcavatedStone() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
+        );
+        assertTrue(source.contains("BlockType currentWalkCell = loadedBlockType("));
+        assertTrue(source.contains("currentWalkCell == null || !isEmpty(currentWalkCell)"));
+        assertTrue(source.contains("if (!floorMissing(world, front.slices.get(start)))"));
+    }
+
+    @Test
+    void bridgeDeckAndCrossbeamsDeduplicateVoxelTargets() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MineInfrastructurePlacementResolver.java")
+        );
+        int begin = source.indexOf("private static ResolvedTask resolveBridge(");
+        int end = source.indexOf("private static List<Integer> candidateSliceOrder(", begin);
+        String bridgeResolver = source.substring(begin, end);
+        assertTrue(bridgeResolver.contains("java.util.LinkedHashMap<>"));
+        assertTrue(bridgeResolver.contains("placements.putIfAbsent(position, new PlacementStep("));
+        assertTrue(bridgeResolver.contains("List.copyOf(placements.values())"));
+    }
+
+    @Test
+    void alreadyRestoredBridgeFloorCompletesInsteadOfAbandoning() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
+        );
+        assertTrue(source.contains("bridgeDeckComplete(world, infrastructure)"));
+        assertTrue(source.contains("BRIDGE_DECK_ALREADY_COMPLETE"));
+        assertTrue(source.contains("if (floor == null || isEmpty(floor)) return false;"));
+        assertTrue(source.contains("slice.navigationCoreBlocks()"));
+        assertTrue(source.contains("if (!foundWalkColumn) return false;"));
+    }
+
+    @Test
+    void nativeNavigationFailureCanGenerateOneBoundedStairRepair() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
+        );
+        assertTrue(source.contains("scheduleNearbyRecoveryStep(world, mine, minePlan, affected)"));
+        assertTrue(source.contains("transition.toSliceIndex() != destinationSlice"));
+        assertTrue(source.contains("!sliceComplete(world, front.slices.get(transition.fromSliceIndex()))"));
+        assertTrue(source.contains("minePlan.infrastructureTasks.containsKey(task.id())"));
+        assertTrue(source.contains("NAVIGATION_STEP_REPAIR_CREATED"));
+    }
+
+    @Test
     void mandatoryInfrastructureResolutionFailureAbandonsItsFront() throws Exception {
         String source = Files.readString(
             Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")

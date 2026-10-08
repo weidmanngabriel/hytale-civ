@@ -95,3 +95,13 @@ Both main and branch tunnel support crossbeams use `Wood_Fir_Trunk`. The vertica
 ## Conservative corridor clearance for supports
 
 Supports never occupy a navigation-core voxel. They additionally reject corner-only diagonal adjacency to the core, while allowing edge-adjacent side posts needed for width-five branch tunnels. The true Hytale block model collision footprint remains a separate runtime verification requirement. Ground scanning for post foundations is bounded to three checked levels (nominal floor-minus-one through floor-minus-three); a missing foundation causes the optional support placement to skip instead of creating deep wood rods across open floor gaps. This is a conservative voxel-space proxy, not proof of actual Hytale rotated block hitbox clearance. Native block-model footprint and navigation should be validated in-game before narrowing this margin.
+
+## Overlapping bridge tasks (2026-10-08)
+
+User-provided server logs show distinct `BUILD_BRIDGE` task IDs for overlapping slice ranges of the same tunnel (for example slices 5–7 and slice 5). Different NPCs then attempted to place `Wood_Fir_Trunk` where `Wood_Fir_Branch_Long` had already been placed (`TARGET_OCCUPIED`), followed by `INFRASTRUCTURE_RESOLVE_FAILED` and `FRONT_ABANDONED`.
+
+The guard in `MinerWorkSystem.refreshBridgeTasks` postpones further bridge assessments within a tunnel until its existing unfinished bridge task completes, because adjacent spans can share crossbeam positions. An unresolved bridge whose entire center walking deck is already solid is recognized as completed rather than abandoned; it does not prove side supports are complete. Bridge creation records the floor-center and actual world block type for further investigation. This avoids assessing a bridge while its deck is only partly present, and avoids selecting overlapping work at that slice. It does not prove that the original gap detection was correct, and does not yet solve adjacent-slice or cross-tunnel overlapping placements. Those require world-state diagnostics and behavioral tests before treating the bridge lifecycle as fixed.
+
+## Nearby follow-up work
+
+The Core normal-work selector retains active-work preference and the original effective-priority/aging policy. Only when the active candidate is farther than 24 blocks and a same-effective-priority waiting task lies within 8 blocks does it select that local task. This is a distance heuristic, not an independent pathfinder; Hytale remains responsible for reachability.

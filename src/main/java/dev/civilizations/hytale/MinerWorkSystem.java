@@ -655,6 +655,19 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 continue;
             }
 
+            // Several fronts may point into the same tunnel. A bridge already being
+            // built for the current slice must finish before another front inspects
+            // its intermediate floor state or creates a conflicting overlapping task.
+            boolean bridgeInProgress = minePlan.infrastructureTasks.values().stream()
+                .anyMatch(existing -> !existing.completed
+                    && existing.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE
+                    && existing.task.tunnelId().equals(front.tunnelId)
+                    // A single tunnel has one advancing excavation front. Multiple
+                    // concurrent bridge spans can overlap spatially even when their
+                    // slice indexes do not, due to diagonal cross beams.
+                );
+            if (bridgeInProgress) continue;
+
             BridgeAssessment assessment = assessBridge(world, front);
             if (assessment.abandonReason() != null) {
                 failFront(
@@ -686,7 +699,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 "type", task.type(),
                 "tunnel", task.tunnelId(),
                 "startSlice", task.startSliceIndex(),
-                "endSlice", task.endSliceIndex()
+                "endSlice", task.endSliceIndex(),
+                "floorCenter", front.slices.get(front.sliceIndex).floorCenter(),
+                "floorBlock", new BlockPosition(
+                    task.anchor().x(), task.anchor().y() - 1, task.anchor().z()
+                ),
+                "floorBlockType", String.valueOf(loadedBlockType(world, new BlockPosition(
+                    task.anchor().x(), task.anchor().y() - 1, task.anchor().z()
+                )))
             );
         }
     }
@@ -694,6 +714,15 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private BridgeAssessment assessBridge(World world, RuntimeFrontPlan front) {
         int start = front.sliceIndex;
         if (start <= 0 || start >= front.slices.size() - 2) {
+            return BridgeAssessment.none();
+        }
+        // A missing support voxel inside still-solid rock is not yet an
+        // actionable bridge. Clear the authored walking cell through normal
+        // excavation first; otherwise bridge beams can be placed in stone.
+        BlockType currentWalkCell = loadedBlockType(
+            world, front.slices.get(start).floorCenter()
+        );
+        if (currentWalkCell == null || !isEmpty(currentWalkCell)) {
             return BridgeAssessment.none();
         }
         if (!floorMissing(world, front.slices.get(start))) return BridgeAssessment.none();
@@ -773,6 +802,30 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         int required = Math.min(3, requiredColumns.size());
         return required > 0 && safeColumns.size() >= required;
+    }
+
+    private static boolean bridgeDeckComplete(
+        World world, RuntimeInfrastructureTask infrastructure
+    ) {
+        List<MineTunnelGeometry.Slice> slices = infrastructure.geometry.slices();
+        int start = infrastructure.task.startSliceIndex();
+        int end = infrastructure.task.endSliceIndex();
+        if (start < 0 || end < start || end >= slices.size()) return false;
+        for (int index = start; index <= end; index++) {
+            MineTunnelGeometry.Slice slice = slices.get(index);
+            int walkY = slice.floorCenter().y();
+            boolean foundWalkColumn = false;
+            for (BlockPosition walk : slice.navigationCoreBlocks()) {
+                if (walk.y() != walkY) continue;
+                foundWalkColumn = true;
+                BlockType floor = loadedBlockType(
+                    world, new BlockPosition(walk.x(), walk.y() - 1, walk.z())
+                );
+                if (floor == null || isEmpty(floor)) return false;
+            }
+            if (!foundWalkColumn) return false;
+        }
+        return true;
     }
 
     private static boolean floorMissing(World world, MineTunnelGeometry.Slice slice) {
@@ -974,6 +1027,17 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             }
 
             if (runtime.resolvedInfrastructure == null) {
+                // A pending bridge can become unnecessary after another worker
+                // fills its deck. No remaining placements is success only if
+                // the entire planned walking floor is now present.
+                if (infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE
+                    && bridgeDeckComplete(world, infrastructure)) {
+                    completeInfrastructureTask(
+                        world, mine, infrastructure, workerKey, runtime, ref, store,
+                        "BRIDGE_DECK_ALREADY_COMPLETE"
+                    );
+                    return;
+                }
                 if (decorationResolution != null) {
                     decisionSink.record(
                         mine.id(), infrastructure.task.id(), MineDecisionCategory.ADAPTER,
@@ -2841,17 +2905,21 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         if (affected != null) {
-            MineWorkFront front = currentFront(
-                world.getWorldConfig().getUuid(), mine.id(), affected.frontId
-            );
-            failFront(
-                world,
-                mine,
-                affected,
-                front,
-                MineObstaclePolicy.FailureKind.NAVIGATION_UNREACHABLE,
-                "NATIVE_NAVIGATION_UNREACHABLE"
-            );
+            boolean repairPlanned = runtime.frontId != null
+                && scheduleNearbyRecoveryStep(world, mine, minePlan, affected);
+            if (!repairPlanned) {
+                MineWorkFront front = currentFront(
+                    world.getWorldConfig().getUuid(), mine.id(), affected.frontId
+                );
+                failFront(
+                    world,
+                    mine,
+                    affected,
+                    front,
+                    MineObstaclePolicy.FailureKind.NAVIGATION_UNREACHABLE,
+                    "NATIVE_NAVIGATION_UNREACHABLE"
+                );
+            }
         } else if (infrastructure != null) {
             completeInfrastructureTask(
                 world,
@@ -2873,6 +2941,47 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         stopBuildingAnimation(ref, store, runtime);
         runtime.clearWorkAssignment();
         runtime.navigationArrived();
+    }
+
+    /**
+     * Only a previously excavated authored elevation transition can become an
+     * automatic repair. The normal mine steps feature stays disabled; this is
+     * a bounded response to a native navigation failure, not eager stair work.
+     */
+    private boolean scheduleNearbyRecoveryStep(
+        World world,
+        BuildingPlacementRegistry.BuildingInstance mine,
+        RuntimeMinePlan minePlan,
+        RuntimeFrontPlan front
+    ) {
+        int destinationSlice = front.sliceIndex - 1;
+        if (destinationSlice < 1) return false;
+        for (MineTunnelGeometry.StepTransition transition : front.geometry.stepTransitions()) {
+            if (transition.toSliceIndex() != destinationSlice) continue;
+            if (!sliceComplete(world, front.slices.get(transition.fromSliceIndex()))
+                || !sliceComplete(world, front.slices.get(transition.toSliceIndex()))) {
+                continue;
+            }
+            MineInfrastructureTask task = MineInfrastructurePlanner.recoveryStepTask(
+                front.tunnelId, transition
+            );
+            if (minePlan.infrastructureTasks.containsKey(task.id())) continue;
+            minePlan.infrastructureTasks.put(
+                task.id(),
+                new RuntimeInfrastructureTask(
+                    task, front.tunnelKind, geometryFor(front), false
+                )
+            );
+            decisionSink.record(
+                mine.id(), task.id(), MineDecisionCategory.NAVIGATION,
+                "NAVIGATION_STEP_REPAIR_CREATED",
+                "tunnel", front.tunnelId,
+                "fromSlice", transition.fromSliceIndex(),
+                "toSlice", transition.toSliceIndex()
+            );
+            return true;
+        }
+        return false;
     }
 
     private boolean frontExecutable(World world, RuntimeMinePlan minePlan, RuntimeFrontPlan plan) {

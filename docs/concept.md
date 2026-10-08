@@ -269,11 +269,11 @@ Für Testwelten mit einem alten, wegen verfrühtem `BUILD_STEP` aufgegebenen Hau
 Minenarbeiter bauen optionale Stützen, Lampen und Dekoration erst, wenn im Umkreis von einem Block um jede Zielposition keine noch festen Blöcke einer geplanten, nicht abgeschlossenen Abbaufront liegen. Bei Konflikt bleibt die Aufgabe erhalten und wird erst nach Fortschritt der tatsächlich störenden Front erneut geprüft. Treppen und Brücken behalten ihre verpflichtende Passierbarkeitssteuerung.
 
 
-**Temporär deaktiviert:** Minentreppen und -stufen durch `ENABLE_MINE_STEPS=false`. Haupt- und Seitenstollen behalten Höhenunterschiede, aber es gibt keine `BUILD_STEP`-Arbeit, Ghost-Arbeitsmarker oder Stufen-Pflichtsperren. Bestehende Treppen und `ABANDONED`-Fronten bleiben unverändert. Natürliche Kanten können NPCs weiterhin behindern.
+**Standardmäßig deaktiviert:** Vorsorgliche Minentreppen und -stufen durch `ENABLE_MINE_STEPS=false`. Haupt- und Seitenstollen behalten Höhenunterschiede. Scheitert Hytales Navigation an einem bereits freigegrabenen, direkt vor der Arbeitsfront liegenden Höhenübergang, kann Civ stattdessen genau dort einen begrenzten Pflicht-Treppenauftrag nachfordern. Andere Hindernisse ohne sichere Reparatur bleiben gesperrt. Eine allgemeine autonome Weggrabung durch ungeplantes Terrain ist damit noch nicht eingeführt. Die tatsächliche Hytale-Begehbarkeit des nachgebauten Übergangs muss noch im Spiel geprüft werden.
 
 ## Miner task continuity
 
-Mine priorities apply when a miner selects the next assignment. A newly available priority-10 infrastructure task does not interrupt ongoing front excavation, room work or a partially built support. A task is released on its normal completion, safety failure or explicit recovery; player-directed interventions remain separate.
+Mine priorities apply when a miner selects the next assignment. Bei gleicher effektiver Priorität darf ein Miner eine freie Arbeit innerhalb von acht Blöcken bevorzugen, wenn ein bereits aktiver Auftrag mehr als 24 Blöcke entfernt liegt. Die tatsächliche Erreichbarkeit bewertet weiterhin Hytales Navigation. A newly available priority-10 infrastructure task does not interrupt ongoing front excavation, room work or a partially built support. A task is released on its normal completion, safety failure or explicit recovery; player-directed interventions remain separate.
 
 ## Timber decoration placement
 
