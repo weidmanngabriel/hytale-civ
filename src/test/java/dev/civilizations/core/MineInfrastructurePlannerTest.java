@@ -207,6 +207,24 @@ class MineInfrastructurePlannerTest {
     }
 
     @Test
+    void recoveryStepTaskIsDeterministicWithoutEnablingEagerStairs() {
+        UUID tunnelId = UUID.randomUUID();
+        var transition = new MineTunnelGeometry.StepTransition(
+            2, 3, new BlockPosition(2, 10, 0), new BlockPosition(3, 11, 0)
+        );
+        MineInfrastructureTask first = MineInfrastructurePlanner.recoveryStepTask(
+            tunnelId, transition
+        );
+        MineInfrastructureTask second = MineInfrastructurePlanner.recoveryStepTask(
+            tunnelId, transition
+        );
+        assertEquals(first, second);
+        assertEquals(MineInfrastructureTask.Type.BUILD_STEP, first.type());
+        assertEquals(10, first.priority());
+        assertFalse(MineInfrastructurePlanner.ENABLE_MINE_STEPS);
+    }
+
+    @Test
     void bridgeFactoryCreatesDeterministicMandatoryTask() {
         UUID tunnelId = UUID.randomUUID();
         BlockPosition anchor = new BlockPosition(12, 4, -3);
