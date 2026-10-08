@@ -746,6 +746,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (existing != null && !existing.equals(workerKey)) return null;
 
         runtime.infrastructureTaskId = best.task.id();
+        runtime.selectedTaskKey = best.task.type() + ":" + best.task.id();
         runtime.resolvedInfrastructure = null;
         runtime.infrastructurePlacementIndex = 0;
         runtime.workElapsed = 0.0;
@@ -778,6 +779,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (existing != null && !existing.equals(workerKey)) return null;
 
         runtime.infrastructureTaskId = selected.task.id();
+        runtime.selectedTaskKey = selected.task.type() + ":" + selected.task.id();
         runtime.resolvedInfrastructure = null;
         runtime.infrastructurePlacementIndex = 0;
         runtime.workElapsed = 0.0;
@@ -838,6 +840,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                             "MANDATORY_INFRASTRUCTURE_UNRESOLVABLE"
                         );
                     }
+                    workerTaskEnded(
+                        mine.id(), ref, workerKey, runtime, "MANDATORY_INFRASTRUCTURE_UNRESOLVABLE"
+                    );
                     infrastructureReservations.remove(infrastructure.task.id(), workerKey);
                     runtime.clearInfrastructureAssignment();
                 } else {
@@ -1129,6 +1134,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
         runtime.roomId = roomId;
         runtime.roomBuildSection = null;
+        runtime.selectedTaskKey = (room.state() == MineRoom.State.READY_TO_BUILD
+            ? "BUILD_ROOM:" : "EXCAVATE_ROOM:") + roomId;
         runtime.navigationArrived();
         decisionSink.record(
             mine.id(), roomId, MineDecisionCategory.WORKER, "TASK_SELECTED",
@@ -1137,6 +1144,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             "reservation", "JOINED",
             "workers", roomCoordinator.workerCount(roomId),
             "capacity", roomCapacity(room),
+            "priority", MineRoomPlanner.ROOM_PRIORITY,
             "roomType", room.type(),
             "tunnel", room.tunnelId()
         );
@@ -1203,6 +1211,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         if (room.state() != MineRoom.State.READY_TO_BUILD) {
+            workerTaskEnded(mine.id(), ref, workerKey, runtime, "TASK_NO_LONGER_EXECUTABLE");
             roomCoordinator.releaseWorker(workerKey);
             runtime.clearRoomAssignment();
             return;
@@ -1212,6 +1221,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         int sectionCount = MineRoomPrefabService.sectionCount(room);
         if (sectionCount <= 0) {
             plan.unavailable = true;
+            workerTaskEnded(mine.id(), ref, workerKey, runtime, "INVALID_ROOM_PREFAB");
             roomCoordinator.releaseWorker(workerKey);
             runtime.clearRoomAssignment();
             return;
@@ -1230,6 +1240,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         if (!roomCoordinator.tryJoin(room.id(), workerKey, MineRoomPlanner.BUILD_CAPACITY)) {
+            workerTaskEnded(mine.id(), ref, workerKey, runtime, "CAPACITY_UNAVAILABLE");
             runtime.clearRoomAssignment();
             return;
         }
@@ -1280,6 +1291,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         if (!MineRoomPrefabService.placeSection(world, room, section, commandBuffer)) {
             plan.unavailable = true;
+            workerTaskEnded(mine.id(), ref, workerKey, runtime, "ROOM_PREFAB_PLACEMENT_FAILED");
             roomCoordinator.releaseWorker(workerKey);
             stopBuildingAnimation(ref, store, runtime);
             runtime.clearRoomAssignment();
@@ -1340,6 +1352,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
         if (containsBlockedSolid(world, mine, workUnit)) {
             plan.unavailable = true;
+            workerTaskEnded(mine.id(), ref, workerKey, runtime, "UNSAFE_GEOMETRY");
             roomCoordinator.releaseRoom(room.id());
             stopMiningAnimation(ref, store, runtime);
             runtime.clearRoomAssignment();
@@ -1347,6 +1360,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         if (!roomCoordinator.tryJoin(room.id(), workerKey, MineRoomPlanner.EXCAVATION_CAPACITY)) {
+            workerTaskEnded(mine.id(), ref, workerKey, runtime, "CAPACITY_UNAVAILABLE");
             runtime.clearRoomAssignment();
             return;
         }
@@ -1523,6 +1537,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         runtime.frontId = selected.id();
         runtime.sliceIndex = selectedPlan.sliceIndex;
+        runtime.selectedTaskKey = "EXCAVATE_FRONT:" + selected.id();
         runtime.navigationArrived();
         decisionSink.record(
             mine.id(), selected.id(), MineDecisionCategory.WORKER, "TASK_SELECTED",
@@ -2272,6 +2287,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (mineId == null || taskId == null || runtime == null) return;
         String key = taskType + ":" + taskId;
         if (key.equals(runtime.startedTaskKey)) return;
+        runtime.selectedTaskKey = key;
         runtime.startedTaskKey = key;
         decisionSink.record(
             mineId, taskId, MineDecisionCategory.WORKER, "TASK_STARTED",
@@ -2290,15 +2306,21 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         WorkerRuntime runtime,
         String reason
     ) {
-        if (mineId == null || runtime == null || runtime.startedTaskKey == null) return;
+        if (mineId == null || runtime == null) return;
+        String taskKey = runtime.startedTaskKey != null
+            ? runtime.startedTaskKey
+            : runtime.selectedTaskKey;
+        if (taskKey == null) return;
         UUID taskId = currentTaskId(runtime);
         decisionSink.record(
             mineId, taskId, MineDecisionCategory.WORKER, "TASK_ENDED",
             "npc", workerLabel(ref, workerKey),
-            "task", runtime.startedTaskKey,
+            "task", taskKey,
+            "started", runtime.startedTaskKey != null,
             "reason", reason
         );
         runtime.startedTaskKey = null;
+        runtime.selectedTaskKey = null;
     }
 
     private String workerLabel(Ref<EntityStore> ref, CivUnitRegistry.UnitKey key) {
@@ -2675,6 +2697,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private boolean idleEntranceFailed;
         private final Set<UUID> failedIdleRooms = new HashSet<>();
         private WorkerDebugState debugState;
+        private String selectedTaskKey;
         private String startedTaskKey;
         private String lastNoTaskFingerprint;
 
@@ -2703,6 +2726,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             clearFrontAssignment();
             clearRoomAssignment();
             clearInfrastructureAssignment();
+            selectedTaskKey = null;
+            startedTaskKey = null;
             workElapsed = 0.0;
         }
 
@@ -2739,6 +2764,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             reachedConnector = false;
             animationStarted = false;
             debugState = null;
+            selectedTaskKey = null;
             startedTaskKey = null;
             lastNoTaskFingerprint = null;
             clearAssignment();
