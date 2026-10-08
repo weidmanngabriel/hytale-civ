@@ -92,6 +92,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private static final double INFRASTRUCTURE_SECONDS_PER_BLOCK = 0.5;
     private static final double ROOM_BUILD_SECONDS_PER_SECTION = 1.0;
     private static final int MAX_BRIDGE_SPAN = 16;
+    private static final int BRIDGE_LANDING_OVERLAP_SLICES = 3;
     // Eight compass directions, two blocks from the original work anchor (5x5 footprint).
     private static final int[][] BUILD_PROBE_OFFSETS = {
         {0, -2}, {2, -2}, {2, 0}, {2, 2}, {0, 2}, {-2, 2}, {-2, 0}, {-2, -2}
@@ -760,10 +761,15 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             return BridgeAssessment.abandon("GAP_WITHOUT_PLANNED_CONTINUATION", false);
         }
 
+        // Extend the actual construction footprint across both landings; only
+        // empty/deco voxels are placed into, existing natural terrain stays.
+        int buildStart = Math.max(1, start - BRIDGE_LANDING_OVERLAP_SLICES);
+        int buildEnd = Math.min(front.slices.size() - 1,
+            landing + BRIDGE_LANDING_OVERLAP_SLICES);
         return BridgeAssessment.bridge(MineInfrastructurePlanner.bridgeTask(
             front.tunnelId,
-            start,
-            end,
+            buildStart,
+            buildEnd,
             front.slices.get(start).floorCenter()
         ));
     }
@@ -1149,6 +1155,25 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 );
                 return;
             }
+            if (infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE
+                && MineBlockPlacement.isDeco(world, placement.position())) {
+                // Native Deco metadata identifies player-like placements, not only
+                // Civ ownership. Never remove a non-Deco natural voxel.
+                WorldChunk decoChunk = world.getChunkIfLoaded(
+                    ChunkUtil.indexChunkFromBlock(
+                        placement.position().x(), placement.position().z()
+                    )
+                );
+                if (decoChunk != null && decoChunk.breakBlock(
+                    placement.position().x(), placement.position().y(),
+                    placement.position().z(), 0, 0
+                )) {
+                    decisionSink.record(
+                        mine.id(), infrastructure.task.id(), MineDecisionCategory.ADAPTER,
+                        "BRIDGE_DECO_REPLACED", "position", placement.position()
+                    );
+                }
+            }
             MineBlockPlacement.PlacementResult placementResult =
                 MineBlockPlacement.placeDetailed(
                     world,
@@ -1257,6 +1282,15 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         if (runtime.infrastructurePlacementIndex
             >= runtime.resolvedInfrastructure.placements().size()) {
+            if (infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE
+                && !bridgeDeckComplete(world, infrastructure)) {
+                // Re-resolve once the world has changed; never mark a partial
+                // walking deck as finished or release mining past the gap.
+                runtime.resolvedInfrastructure = null;
+                runtime.infrastructurePlacementIndex = 0;
+                runtime.workElapsed = 0.0;
+                return;
+            }
             completeInfrastructureTask(
                 world, mine, infrastructure, workerKey, runtime, ref, store, "COMPLETED"
             );
