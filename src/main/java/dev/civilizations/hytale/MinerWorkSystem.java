@@ -2449,6 +2449,12 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (rootProgress == null) return;
         BlockPosition entrance = root.slices.getFirst().floorCenter();
         BlockPosition end = completed.slices.getLast().floorCenter();
+        if (entrance.y() <= MineGenerationPolicy.MIN_FLOOR_Y) {
+            decisionSink.record(mine.id(), completed.tunnelId,
+                MineDecisionCategory.PLANNING, "MAIN_EXTENSION_BLOCKED",
+                "reason", "ENTRANCE_ALREADY_AT_MINIMUM_Y");
+            return;
+        }
         boolean depthReached = end.y() <= MineGenerationPolicy.MIN_FLOOR_Y;
         BlockPosition nextOrigin = depthReached ? entrance : end;
         int sequence = (int) current.tunnels().stream()
@@ -3310,6 +3316,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
             for (RuntimeInfrastructureTask infrastructure : plan.infrastructureTasks.values()) {
                 if (infrastructure.completed) continue;
+                RuntimeFrontPlan owner = frontForTunnel(plan, infrastructure.task.tunnelId());
+                if (owner != null && owner.tunnelKind == MineTunnel.Kind.MAIN
+                    && infrastructure.task.startSliceIndex() >= owner.unlockedSlices) continue;
                 result.add(MineDebugAnchor.atBlock(
                     "infrastructure:" + infrastructure.task.id(),
                     MineDebugAnchor.Kind.INFRASTRUCTURE,
