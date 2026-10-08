@@ -110,6 +110,19 @@ class CivMinePersistenceServiceTest {
 
 
     @Test
+    void readsN5SaveWithoutGenerationProgress() {
+        UUID mineId = UUID.randomUUID();
+        UUID mainId = UUID.randomUUID();
+        UUID taskId = UUID.randomUUID();
+        String legacy = "N5|" + mineId + "|" + mainId + "\n"
+            + "T|" + mainId + "|MAIN||0|10,60,10\n"
+            + "P|" + taskId + "|3";
+        MineNetwork loaded = service.decodeNetwork(legacy);
+        assertEquals(Map.of(), loaded.generationProgress());
+        assertEquals(3, loaded.normalTaskPriorityBonus(taskId));
+    }
+
+    @Test
     void readsPreviousN4FormatWithNoAgingState() {
         UUID mineId = UUID.randomUUID();
         UUID mainId = UUID.randomUUID();
