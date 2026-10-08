@@ -84,3 +84,6 @@ For regular main-tunnel lantern pillars, the resolver now explicitly prefers the
 
 
 Optional support/light/decor placement uses a headless `MinePlacementExcavationGuard` with native read-only `loadedBlockType` world inspection to detect still-solid authored excavation within one additional block on all three axes. The check occurs after resolution and just before each native block operation. On conflict, `MinerWorkSystem` releases the worker assignment, retains the optional task and delays reselection until the particular conflicting front advances; it never changes Hytale block placement semantics. Mandatory step and bridge work is excluded from this optional-work delay mechanism.
+
+
+Temporary mine stair switch: `MineInfrastructurePlanner.ENABLE_MINE_STEPS=false`. No stair placement jobs or debug anchors are produced. The resolver implementation is retained, and vertical geometry is unchanged; raw height changes may remain untraversable in native NPC navigation.
