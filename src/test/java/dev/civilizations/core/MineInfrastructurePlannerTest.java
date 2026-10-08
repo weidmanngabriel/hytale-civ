@@ -72,6 +72,24 @@ class MineInfrastructurePlannerTest {
     }
 
     @Test
+    void decorationKeepsDistanceFromPlannedInfrastructureSlices() {
+        MineTunnelGeometry geometry = straightGeometry(MineTunnel.Kind.MAIN, 180, 7, 7, 12345L);
+        List<MineInfrastructureTask> tasks = MineInfrastructurePlanner.plan(UUID.randomUUID(), geometry);
+        List<MineInfrastructureTask> decoration = tasks.stream()
+            .filter(MineInfrastructureTask::decoration)
+            .toList();
+        List<MineInfrastructureTask> infrastructure = tasks.stream()
+            .filter(task -> !task.decoration())
+            .toList();
+
+        for (MineInfrastructureTask decor : decoration) {
+            assertTrue(infrastructure.stream().allMatch(other ->
+                Math.abs(other.startSliceIndex() - decor.startSliceIndex()) > 1
+                    || other.type() == MineInfrastructureTask.Type.BUILD_BRIDGE));
+        }
+    }
+
+    @Test
     void decorationPlanIsDeterministicForSameTunnelAndGeometry() {
         UUID tunnelId = UUID.randomUUID();
         MineTunnelGeometry geometry = straightGeometry(MineTunnel.Kind.MAIN, 140, 7, 7, 991L);
