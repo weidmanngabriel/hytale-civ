@@ -86,6 +86,24 @@ final class MinerObstacleExecutionContractTest {
     }
 
     @Test
+    void bridgeUsesClosedDeckAndExistingBeamSpacingWithShortOuterPosts() throws Exception {
+        String source = Files.readString(
+            Path.of("src/main/java/dev/civilizations/hytale/MineInfrastructurePlacementResolver.java")
+        );
+        int start = source.indexOf("private static ResolvedTask resolveBridge(");
+        int end = source.indexOf("private static List<Integer> candidateSliceOrder(", start);
+        String bridge = source.substring(start, end);
+        assertTrue(bridge.contains("Wood_Softwood_Planks"));
+        assertTrue(bridge.contains("if (deck == null) return null;"));
+        assertTrue(bridge.contains("int deckY = slice.floorCenter().y() - 1;"));
+        assertTrue(bridge.contains("(index - task.startSliceIndex()) % 3 == 0"));
+        assertTrue(bridge.contains("for (int lateral : new int[]{-2, 2})"));
+        assertTrue(bridge.contains("for (int depth = 2; depth <= 4; depth++)"));
+        assertTrue(bridge.contains("if (!isEmpty(world, position)) break;"));
+        assertTrue(bridge.contains("position, FIR_BRANCH, RotationTuple.NONE"));
+    }
+
+    @Test
     void alreadyRestoredBridgeFloorCompletesInsteadOfAbandoning() throws Exception {
         String source = Files.readString(
             Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")

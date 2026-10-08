@@ -105,3 +105,9 @@ The guard in `MinerWorkSystem.refreshBridgeTasks` postpones further bridge asses
 ## Nearby follow-up work
 
 The Core normal-work selector retains active-work preference and the original effective-priority/aging policy. Only when the active candidate is farther than 24 blocks and a same-effective-priority waiting task lies within 8 blocks does it select that local task. This is a distance heuristic, not an independent pathfinder; Hytale remains responsible for reachability.
+
+## Closed bridge deck and bounded outer posts (2026-10-08)
+
+`resolveBridge` keeps the authored slice height (`floorCenter.y - 1`), forward/cross axes, Fir trunk side rails and the original three-slice crossbeam cadence. The three-block center floor uses `Wood_Softwood_Planks`; if that asset is unavailable, a mandatory bridge is not silently substituted with an open Fir-branch lattice. At each existing crossbeam pair of outer positions, short upright `Wood_Fir_Branch_Long` posts extend up to three empty voxels down from the crossbeam. A solid/occupied voxel stops a post; terrain is not excavated to lengthen it. Existing native placement checks reject occupied targets. The exact visual footprint and walking height of connected blocks still require Hytale runtime confirmation.
+
+No destructive collision cleanup has been introduced: the current runtime does not reliably persist per-voxel Civ provenance for old supports, chain, lanterns and decorations; using block IDs alone would risk deleting natural wooden solids or containers. The general access/bridge-recovery algorithm remains a separate change.

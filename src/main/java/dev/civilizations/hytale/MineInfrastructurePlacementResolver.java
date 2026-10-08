@@ -619,10 +619,11 @@ public final class MineInfrastructurePlacementResolver {
         MineTunnelGeometry geometry
     ) {
         String deck = MineBlockPlacement.resolveAsset(
-            new String[]{"Wood_Fir_Planks", "Wood_Fir_Plank"},
-            "fir", "plank"
+            new String[]{"Wood_Softwood_Planks"},
+            "softwood", "plank"
         );
-        if (deck == null) deck = FIR_BRANCH;
+        // Never substitute open branch timber for a solid walking surface.
+        if (deck == null) return null;
 
         java.util.Map<BlockPosition, PlacementStep> placements = new java.util.LinkedHashMap<>();
         List<MineTunnelGeometry.Slice> slices = geometry.slices();
@@ -660,6 +661,20 @@ public final class MineInfrastructurePlacementResolver {
                         position, FIR_TRUNK, crossRotation,
                         new BlockPosition(position.x(), position.y() - 1, position.z()), true
                     ));
+                }
+                // Stylized posts hang beneath the two outer ends of each
+                // existing crossbeam. They must never dig through solid terrain.
+                for (int lateral : new int[]{-2, 2}) {
+                    for (int depth = 2; depth <= 4; depth++) {
+                        BlockPosition position = atY(
+                            at(slice.floorCenter(), cross, lateral, 0), deckY - depth
+                        );
+                        if (!isEmpty(world, position)) break;
+                        placements.putIfAbsent(position, new PlacementStep(
+                            position, FIR_BRANCH, RotationTuple.NONE,
+                            new BlockPosition(position.x(), position.y() + 1, position.z()), true
+                        ));
+                    }
                 }
             }
         }
