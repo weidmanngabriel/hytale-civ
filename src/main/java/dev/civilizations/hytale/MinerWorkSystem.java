@@ -87,6 +87,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private static final double INFRASTRUCTURE_SECONDS_PER_BLOCK = 0.5;
     private static final double ROOM_BUILD_SECONDS_PER_SECTION = 1.0;
     private static final int MAX_BRIDGE_SPAN = 16;
+    // Eight compass directions, two blocks from the original work anchor (5x5 footprint).
+    private static final int[][] BUILD_PROBE_OFFSETS = {
+        {0, -2}, {2, -2}, {2, 0}, {2, 2}, {0, 2}, {-2, 2}, {-2, 0}, {-2, -2}
+    };
     private static final int MAX_FLUID_BRIDGE_SPAN = 10;
     private static final double ARRIVAL_DISTANCE = 1.1;
     private static final int MAIN_PLAN_LENGTH_BLOCKS = MinePathPlanner.FOOTPRINT_SIZE_BLOCKS;
@@ -912,7 +916,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             return;
         }
 
-        Vector3d target = runtime.resolvedInfrastructure.workTarget();
+        Vector3d target = runtime.infrastructureProbeTarget == null
+            ? runtime.resolvedInfrastructure.workTarget() : runtime.infrastructureProbeTarget;
         if (!arrived(workerPosition, target)) {
             navigateTo(ref, target, runtime);
             stopBuildingAnimation(ref, store, runtime);
@@ -1013,10 +1018,19 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                     );
                 }
 
+                // Try one reachable, safe alternative standing position in each compass
+                // direction before giving up this particular infrastructure task.
+                if (advanceInfrastructureProbe(world, runtime)) {
+                    runtime.resolvedInfrastructure = null;
+                    runtime.infrastructurePlacementIndex = 0;
+                    runtime.workElapsed = 0.0;
+                    stopBuildingAnimation(ref, store, runtime);
+                    return;
+                }
                 // A fixed occupied block cannot be solved by endlessly retrying placement
                 // from the same position. Release optional work so miners can make progress.
                 // Mandatory passability work must instead close its unsafe front.
-                if (infrastructure.repeatedPlacementFailures >= 3) {
+                if (runtime.infrastructureProbeIndex >= BUILD_PROBE_OFFSETS.length) {
                     if (infrastructure.task.mandatory()) {
                         RuntimeFrontPlan affected =
                             frontForTunnel(minePlan, infrastructure.task.tunnelId());
@@ -1062,6 +1076,27 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 world, mine, infrastructure, workerKey, runtime, ref, store, "COMPLETED"
             );
         }
+    }
+
+    private boolean advanceInfrastructureProbe(World world, WorkerRuntime runtime) {
+        if (runtime.resolvedInfrastructure == null) return false;
+        Vector3d anchor = runtime.resolvedInfrastructure.workTarget();
+        int y = (int) Math.floor(anchor.y);
+        while (runtime.infrastructureProbeIndex < BUILD_PROBE_OFFSETS.length) {
+            int[] offset = BUILD_PROBE_OFFSETS[runtime.infrastructureProbeIndex++];
+            int x = (int) Math.floor(anchor.x) + offset[0];
+            int z = (int) Math.floor(anchor.z) + offset[1];
+            BlockType feet = loadedBlockType(world, new BlockPosition(x, y, z));
+            BlockType head = loadedBlockType(world, new BlockPosition(x, y + 1, z));
+            BlockType ground = loadedBlockType(world, new BlockPosition(x, y - 1, z));
+            if (feet == null || !isEmpty(feet) || head == null || !isEmpty(head)
+                || ground == null || isEmpty(ground)) continue;
+            WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(x, z));
+            if (chunk == null || chunk.getFluidId(x, y, z) != Fluid.EMPTY_ID) continue;
+            runtime.infrastructureProbeTarget = new Vector3d(x + 0.5, y, z + 0.5);
+            return true;
+        }
+        return false;
     }
 
     private RuntimeFrontPlan blockingExcavationFront(
@@ -3063,6 +3098,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private UUID infrastructureTaskId;
         private MineInfrastructurePlacementResolver.ResolvedTask resolvedInfrastructure;
         private int infrastructurePlacementIndex;
+        private int infrastructureProbeIndex;
+        private Vector3d infrastructureProbeTarget;
         private boolean enteredMine;
         private boolean reachedConnector;
         private boolean animationStarted;
@@ -3131,6 +3168,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             infrastructureTaskId = null;
             resolvedInfrastructure = null;
             infrastructurePlacementIndex = 0;
+            infrastructureProbeIndex = 0;
+            infrastructureProbeTarget = null;
             workElapsed = 0.0;
         }
 
