@@ -624,7 +624,7 @@ public final class MineInfrastructurePlacementResolver {
         );
         if (deck == null) deck = FIR_BRANCH;
 
-        List<PlacementStep> placements = new ArrayList<>();
+        java.util.Map<BlockPosition, PlacementStep> placements = new java.util.LinkedHashMap<>();
         List<MineTunnelGeometry.Slice> slices = geometry.slices();
         for (int index = task.startSliceIndex(); index <= task.endSliceIndex(); index++) {
             MineTunnelGeometry.Slice slice = slices.get(index);
@@ -635,7 +635,7 @@ public final class MineInfrastructurePlacementResolver {
             for (int lateral = -1; lateral <= 1; lateral++) {
                 BlockPosition position = atY(at(slice.floorCenter(), cross, lateral, 0), deckY);
                 if (!isEmpty(world, position)) continue;
-                placements.add(new PlacementStep(
+                placements.putIfAbsent(position, new PlacementStep(
                     position, deck, RotationTuple.NONE,
                     new BlockPosition(position.x(), position.y() - 1, position.z()), true
                 ));
@@ -645,7 +645,7 @@ public final class MineInfrastructurePlacementResolver {
             for (int lateral : new int[]{-2, 2}) {
                 BlockPosition position = atY(at(slice.floorCenter(), cross, lateral, 0), deckY);
                 if (!isEmpty(world, position)) continue;
-                placements.add(new PlacementStep(
+                placements.putIfAbsent(position, new PlacementStep(
                     position, FIR_TRUNK, longRotation,
                     new BlockPosition(position.x(), position.y() - 1, position.z()), true
                 ));
@@ -656,7 +656,7 @@ public final class MineInfrastructurePlacementResolver {
                 for (int lateral = -2; lateral <= 2; lateral++) {
                     BlockPosition position = atY(at(slice.floorCenter(), cross, lateral, 0), deckY - 1);
                     if (!isEmpty(world, position)) continue;
-                    placements.add(new PlacementStep(
+                    placements.putIfAbsent(position, new PlacementStep(
                         position, FIR_TRUNK, crossRotation,
                         new BlockPosition(position.x(), position.y() - 1, position.z()), true
                     ));
@@ -668,7 +668,7 @@ public final class MineInfrastructurePlacementResolver {
         BlockPosition work = task.startSliceIndex() > 0
             ? slices.get(task.startSliceIndex() - 1).floorCenter()
             : slices.get(task.startSliceIndex()).floorCenter();
-        return new ResolvedTask(workTarget(work), List.copyOf(placements));
+        return new ResolvedTask(workTarget(work), List.copyOf(placements.values()));
     }
 
     private static List<Integer> candidateSliceOrder(
