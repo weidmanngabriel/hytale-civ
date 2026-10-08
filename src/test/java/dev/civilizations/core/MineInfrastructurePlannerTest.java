@@ -104,6 +104,40 @@ class MineInfrastructurePlannerTest {
     }
 
     @Test
+    void decorationDiagnosticsDoNotChangePlanAndExplainPlanningDecisions() {
+        UUID mineId = UUID.randomUUID();
+        UUID tunnelId = UUID.randomUUID();
+        MineTunnelGeometry geometry = straightGeometry(MineTunnel.Kind.MAIN, 140, 7, 7, 991L);
+
+        List<MineInfrastructureTask> baseline = MineInfrastructurePlanner.plan(tunnelId, geometry);
+        List<MineDecisionEvent> events = new ArrayList<>();
+        MineDecisionSink sink = new MineDecisionSink() {
+            @Override
+            public boolean enabled(MineDecisionCategory category) {
+                return true;
+            }
+
+            @Override
+            public void record(MineDecisionEvent event) {
+                events.add(event);
+            }
+        };
+
+        List<MineInfrastructureTask> diagnosed =
+            MineInfrastructurePlanner.plan(mineId, tunnelId, geometry, sink);
+
+        assertEquals(baseline, diagnosed);
+        assertTrue(events.stream().anyMatch(event ->
+            event.type().equals("DECORATION_PLANNED")
+                && event.category() == MineDecisionCategory.PLANNING
+        ));
+        assertTrue(events.stream().anyMatch(event ->
+            event.type().equals("DECORATION_SKIPPED")
+                && event.category() == MineDecisionCategory.PLANNING
+        ));
+    }
+
+    @Test
     void decorationKeepsDistanceFromPlannedInfrastructureSlices() {
         MineTunnelGeometry geometry = straightGeometry(MineTunnel.Kind.MAIN, 180, 7, 7, 12345L);
         List<MineInfrastructureTask> tasks = MineInfrastructurePlanner.plan(UUID.randomUUID(), geometry);
