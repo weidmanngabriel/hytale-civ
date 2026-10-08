@@ -652,3 +652,6 @@ A previously persisted `ABANDONED` main front from the prematurely scheduled `BU
 ### Optional infrastructure clearance near unfinished excavation (2026-10-08)
 
 Before placing an optional `BUILD_SUPPORT`, `PLACE_LIGHT`, or `PLACE_DECORATION` block, the worker checks the intended placement against all remaining authored excavation blocks of not-yet-complete mine fronts, using a one-block buffer on X/Y/Z. A conflicting excavation block only counts if the actual world block is still solid. Conflicting optional infrastructure stays pending and is not marked completed or skipped; its worker reservation is released. Once the specifically blocking front advances a slice (or finishes/becomes unavailable), the task becomes eligible for a fresh placement check. The check also runs immediately before each native block placement. Mandatory `BUILD_STEP` and `BUILD_BRIDGE` retain their independent passability sequencing and are not deferred by this optional-work clearance rule.
+
+
+**Temporary (2026-10-08):** `MineInfrastructurePlanner.ENABLE_MINE_STEPS=false`: vertical tunnel geometry and StepTransitions remain unchanged, but no BUILD_STEP work, debug work anchors or mandatory step blockers are produced. Existing placed stairs and persisted ABANDONED fronts are not modified. Bridges remain mandatory; natural one-block ledges may remain untraversable.

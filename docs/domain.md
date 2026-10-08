@@ -166,3 +166,6 @@ Für die aktuellen Creator-Prefabs gilt die gemeinsame Geländekonvention: Der P
 - Dieses Verhalten ist ausdrücklich keine dauerhafte Domänenregel. Es wird entfernt, sobald Farmer Saatgut über die allgemeine Waren-/Logistikbeschaffung beziehen.
 
 - Ausgrabungs-Arbeitsfronten haben eine tunnelabhängige Kapazität: drei Miner am `MAIN`-Tunnel, zwei an `BRANCH`-Tunneln. Eine belegte Front vergibt pro Miner unterschiedliche temporäre Block-Claims. Ein `BUILD_STEP`-Auftrag wird erst nach vollständigem Aushub des tieferen Übergangsabschnitts ausführbar; die Sperre gegen tatsächlich unsichere Weiterarbeit bleibt bestehen.
+
+
+Aktuell bleibt BUILD_STEP als Domänentyp erhalten, wird aber temporär nicht als Infrastrukturaufgabe geplant. Die Geometrie behält Höhenänderungen; Brücken und andere Infrastruktur bleiben aktiv.

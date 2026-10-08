@@ -260,3 +260,6 @@ Minen-Regressionstests: `MineInfrastructureAvailabilityTest` prüft, dass ein `B
 
 
 `MinePlacementExcavationGuardTest` verifies optional infrastructure clearance at adjacent still-solid planned excavation positions, including diagonal/vertical neighbors; completed excavation and positions beyond the one-block buffer are allowed. An in-game check with overlapping tunnel fronts is still needed to verify that the worker releases the conflicting placement task, continues excavation, and later resumes the deferred support/light/decor without obstructing the new front.
+
+
+`MineInfrastructurePlannerTest.leavesHeightTransitionsIntactButDoesNotScheduleDisabledStairs` checks preserved StepTransitions without BUILD_STEP jobs. In-game validation should use a fresh mine to avoid pre-existing ABANDONED state.

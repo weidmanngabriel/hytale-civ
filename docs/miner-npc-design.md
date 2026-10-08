@@ -742,3 +742,6 @@ A main-tunnel excavation front admits up to three miners with distinct transient
 
 
 Optional supports, lights and decoration now use a shared one-block clearance buffer against remaining solid blocks of any planned excavation front. A conflict causes `INFRASTRUCTURE_DELAYED`, releases that miner's assignment, and makes the optional task selectable again after the blocking front advances. This is neither task completion nor permanent abandonment. Already-finished excavation blocks do not cause delay; mandatory stairs and bridges use separate required-work rules.
+
+
+**Temporary behavior:** automatic stair/step construction and its work anchors are disabled at the planner (`ENABLE_MINE_STEPS=false`), while vertical tunnel changes, bridge tasks and other infrastructure remain active. Existing terminal front states are unaffected.

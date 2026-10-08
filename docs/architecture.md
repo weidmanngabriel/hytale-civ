@@ -326,3 +326,6 @@ Die passierbarkeitsrelevante Freigabe normaler Infrastruktur und `BUILD_STEP` ge
 
 
 `MinePlacementExcavationGuard` ist die Core-Prüfung für den ein Block breiten Sicherheitsabstand zwischen optionaler Infrastruktur und noch festen geplanten Abbaublöcken. `MinerWorkSystem` verwendet den bestehenden Hytale-Weltblock-Zugriff, um zu entscheiden, welche geplanten Blöcke tatsächlich noch abzubauen sind. Ein optionaler Bauauftrag wird nur bis zum Fortschritt der konkret blockierenden Front zurückgestellt und danach erneut geprüft; die bestehende Pflichtinfrastruktursteuerung bleibt unverändert.
+
+
+Der Core-Schalter `MineInfrastructurePlanner.ENABLE_MINE_STEPS=false` verhindert die Generierung von `BUILD_STEP`-Tasks, ohne die Layer-3-Höhengeometrie oder den erhaltenen Treppen-Code zu verändern. Runtime-Tasklisten und Debug-Arbeitsanker enthalten dadurch keine Treppenaufträge mehr.

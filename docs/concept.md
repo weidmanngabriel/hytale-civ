@@ -258,3 +258,6 @@ Für Testwelten mit einem alten, wegen verfrühtem `BUILD_STEP` aufgegebenen Hau
 
 
 Minenarbeiter bauen optionale Stützen, Lampen und Dekoration erst, wenn im Umkreis von einem Block um jede Zielposition keine noch festen Blöcke einer geplanten, nicht abgeschlossenen Abbaufront liegen. Bei Konflikt bleibt die Aufgabe erhalten und wird erst nach Fortschritt der tatsächlich störenden Front erneut geprüft. Treppen und Brücken behalten ihre verpflichtende Passierbarkeitssteuerung.
+
+
+**Temporär deaktiviert:** Minentreppen und -stufen durch `ENABLE_MINE_STEPS=false`. Haupt- und Seitenstollen behalten Höhenunterschiede, aber es gibt keine `BUILD_STEP`-Arbeit, Ghost-Arbeitsmarker oder Stufen-Pflichtsperren. Bestehende Treppen und `ABANDONED`-Fronten bleiben unverändert. Natürliche Kanten können NPCs weiterhin behindern.
