@@ -22,7 +22,7 @@ public final class MineInfrastructurePlacementResolver {
 
     private static final String FIR_BRANCH = "Wood_Fir_Branch_Long";
     private static final String FIR_TRUNK = "Wood_Fir_Trunk";
-    private static final int SUPPORT_VERTICAL_SCAN = 12;
+    private static final int SUPPORT_VERTICAL_SCAN = 3;
 
     private MineInfrastructurePlacementResolver() {
     }
@@ -52,7 +52,8 @@ public final class MineInfrastructurePlacementResolver {
     ) {
         for (int index : candidateSliceOrder(task, geometry.slices().size())) {
             ResolvedTask resolved = resolveSupportAt(world, tunnelKind, geometry, index);
-            if (resolved != null && placementsAreSafe(world, geometry, resolved)) return resolved;
+            if (resolved != null && supportClearanceSafe(geometry, resolved)
+                && placementsAreSafe(world, geometry, resolved)) return resolved;
         }
         return null;
     }
@@ -679,6 +680,33 @@ public final class MineInfrastructurePlacementResolver {
             return index >= 0 && index < sliceCount ? List.of(index) : List.of();
         }
         return MineObstaclePolicy.fallbackSliceOrder(task.startSliceIndex(), sliceCount);
+    }
+
+    /**
+     * Protect the full intended walking route, including a one-block horizontal buffer
+     * around the navigation core. In diagonal passages a post's block model can protrude
+     * into that buffer despite its origin voxel being outside the core.
+     */
+    private static boolean supportClearanceSafe(
+        MineTunnelGeometry geometry, ResolvedTask resolved
+    ) {
+        java.util.Set<BlockPosition> core = geometry.navigationCoreBlocks();
+        for (PlacementStep placement : resolved.placements()) {
+            BlockPosition at = placement.position();
+            // Supports above the core ceiling remain valid; only the occupied
+            // standing-height rows need lateral clearance.
+            boolean nearWalkway = false;
+            for (int dx = -1; dx <= 1 && !nearWalkway; dx++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    if (core.contains(new BlockPosition(at.x() + dx, at.y(), at.z() + dz))) {
+                        nearWalkway = true;
+                        break;
+                    }
+                }
+            }
+            if (nearWalkway) return false;
+        }
+        return true;
     }
 
     private static boolean placementsAreSafe(
