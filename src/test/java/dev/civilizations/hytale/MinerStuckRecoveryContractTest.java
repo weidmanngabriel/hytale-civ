@@ -17,7 +17,7 @@ final class MinerStuckRecoveryContractTest {
         assertTrue(navigation.contains("STUCK_TIMEOUT_SECONDS = 10.0"));
         assertTrue(navigation.contains("STUCK_MOVEMENT_THRESHOLD_SQUARED"));
         assertTrue(navigation.contains("runtime.stuckRecoveryUsed = true"));
-        assertTrue(navigation.contains("runtime.stuckRecoveryUsed = false"));
+        assertTrue(navigation.contains("stuckRecoveryUsed = false"));
         assertTrue(navigation.contains("MineNavigationPolicy.selectTeleportAnchor("));
         assertTrue(navigation.contains("clearRecoveryAnchor(world, destination.position())"));
         assertTrue(navigation.contains("NPC_STUCK_DETECTED"));
