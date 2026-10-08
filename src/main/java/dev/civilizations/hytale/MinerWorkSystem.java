@@ -812,11 +812,18 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         int end = infrastructure.task.endSliceIndex();
         if (start < 0 || end < start || end >= slices.size()) return false;
         for (int index = start; index <= end; index++) {
-            BlockPosition center = slices.get(index).floorCenter();
-            BlockType floor = loadedBlockType(
-                world, new BlockPosition(center.x(), center.y() - 1, center.z())
-            );
-            if (floor == null || isEmpty(floor)) return false;
+            MineTunnelGeometry.Slice slice = slices.get(index);
+            int walkY = slice.floorCenter().y();
+            boolean foundWalkColumn = false;
+            for (BlockPosition walk : slice.navigationCoreBlocks()) {
+                if (walk.y() != walkY) continue;
+                foundWalkColumn = true;
+                BlockType floor = loadedBlockType(
+                    world, new BlockPosition(walk.x(), walk.y() - 1, walk.z())
+                );
+                if (floor == null || isEmpty(floor)) return false;
+            }
+            if (!foundWalkColumn) return false;
         }
         return true;
     }
