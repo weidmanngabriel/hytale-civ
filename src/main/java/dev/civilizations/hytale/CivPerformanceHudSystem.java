@@ -35,8 +35,10 @@ public final class CivPerformanceHudSystem extends DelayedEntitySystem<EntitySto
             return;
         }
         int remaining = ((Number) status.get("remainingSeconds")).intValue();
-        recorder.capture(store.getEntityCount(), (int) units.loadedInhabitants().stream()
-            .filter(ref -> ref.getStore() == store).count());
+        if (recorder.needsCapture()) {
+            recorder.capture(store.getEntityCount(), (int) units.loadedInhabitants().stream()
+                .filter(ref -> ref.getStore() == store).count());
+        }
         var existing = manager.getCustomHud(CivPerformanceHud.KEY);
         if (existing instanceof CivPerformanceHud hud) {
             hud.refresh(remaining);
