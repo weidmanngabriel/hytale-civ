@@ -747,6 +747,11 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             return BridgeAssessment.none();
         }
         if (!floorMissing(world, front.slices.get(start))) return BridgeAssessment.none();
+        // A one-block empty support at the authored floor can be ordinary stepped
+        // terrain, not a chasm. Never turn a shallow drop into mandatory bridge work.
+        if (hasShallowSolidGround(world, front.slices.get(start))) {
+            return BridgeAssessment.none();
+        }
         if (floorMissing(world, front.slices.get(start - 1))) {
             return BridgeAssessment.abandon("UNSAFE_GAP_WITHOUT_APPROACH", false);
         }
@@ -757,6 +762,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         while (end + 1 < front.slices.size()
             && floorMissing(world, front.slices.get(end + 1))) {
             end++;
+            if (hasShallowSolidGround(world, front.slices.get(end))) {
+                return BridgeAssessment.none();
+            }
             fluid |= hasFluidBelow(world, front.slices.get(end));
             lava |= hasLavaBelow(world, front.slices.get(end));
             if (end - start + 1 > MAX_BRIDGE_SPAN) {
@@ -779,6 +787,16 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
         if (landing + 1 >= front.slices.size()) {
             return BridgeAssessment.abandon("GAP_WITHOUT_PLANNED_CONTINUATION", false);
+        }
+
+        // Bridge beams and deck follow a single walk elevation. Stepped authored
+        // slices cannot be solved by this structure, even with a solid far landing.
+        if (!MineBridgeTerrainPolicy.isLevelAcross(
+            front.slices.stream().mapToInt(slice -> slice.floorCenter().y()).toArray(),
+            Math.max(0, start - 1),
+            Math.min(front.slices.size() - 1, landing + 1)
+        )) {
+            return BridgeAssessment.none();
         }
 
         // Extend the actual construction footprint across both landings; only
@@ -859,6 +877,23 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         BlockPosition floor = new BlockPosition(center.x(), center.y() - 1, center.z());
         BlockType type = loadedBlockType(world, floor);
         return type != null && isEmpty(type);
+    }
+
+    private static boolean hasShallowSolidGround(
+        World world,
+        MineTunnelGeometry.Slice slice
+    ) {
+        BlockPosition center = slice.floorCenter();
+        // A one- or two-block depression is terrain to navigate/excavate, not an
+        // actual deep span needing a mandatory bridge.
+        for (int depth = 2; depth <= 3; depth++) {
+            BlockType ground = loadedBlockType(world, new BlockPosition(
+                center.x(), center.y() - depth, center.z()
+            ));
+            if (ground == null) return true; // unknown world state is not a proven gap
+            if (!isEmpty(ground)) return true;
+        }
+        return false;
     }
 
     private static boolean hasFluidBelow(World world, MineTunnelGeometry.Slice slice) {
