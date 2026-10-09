@@ -95,6 +95,6 @@ Ein fokussierter Hytale-Local-Lauf auf dem Windows-Runner `gabe` (Commit `0a98cb
 - Der zuvor registrierte Markerbefehl gab zuerst `CIV_RELOAD_MARKER_A` und nach Unload/Ersetzung/Load `CIV_RELOAD_MARKER_B` aus. Damit wurde wirklich geänderter Java-Bytecode geladen.
 - Zwei anschließende native `plugin reload`-Befehle ließen den Serverprozess im Test weiterlaufen. Dies allein beweist keine vollständige ECS-/Listener-Bereinigung oder den Erhalt aktiver NPC-Aufgaben.
 
-Die zugehörige Runtime-Assertion wurde im genannten Lauf erreicht; der übergeordnete GitHub-Job scheiterte danach an einem PowerShell-Harness-Fehler mit nicht initialisiertem `LASTEXITCODE`. Ein sauber grüner Wiederholungslauf steht bis zur entsprechenden Korrektur noch aus.
+Nach Korrektur des PowerShell-Harness lief dieselbe Prüfung mit Commit `c642c2b3ff772d08b09e0bd7162643d5c53b5fa2` im Actions-Lauf `37905568364` vollständig erfolgreich durch (Autorisierung und lokales Szenario grün).
 
 **Nicht verifiziert:** NPC-Arbeitszustände, World-/Entity-Registries, clientseitige UI und Langzeitstabilität über viele Reloads. Das Testergebnis ist eine Aussage zum Laden neuen Java-Codes, keine allgemeine Hot-Reload-Garantie für Civ.
