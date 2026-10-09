@@ -26,6 +26,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.entities.NPCEntity;
 import dev.civilizations.core.BuildingBounds;
 import dev.civilizations.core.BuildingTypes;
+import dev.civilizations.core.MineBuildingTypes;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.WorldPosition;
 import org.joml.Vector3d;
@@ -310,7 +311,8 @@ public final class RtsInteractionController {
                 () -> startPlacement(playerRef, session, PrefabPlacementService.MINE),
                 () -> startPlacement(playerRef, session, PrefabPlacementService.MINE_02),
                 () -> startPlacement(playerRef, session, PrefabPlacementService.MINE_03),
-                () -> startPlacement(playerRef, session, PrefabPlacementService.WHEAT_FIELD)
+                () -> startPlacement(playerRef, session, PrefabPlacementService.WHEAT_FIELD),
+                () -> startPlacement(playerRef, session, PrefabPlacementService.DWARF_MINE)
             )
         );
     }
@@ -640,7 +642,7 @@ public final class RtsInteractionController {
             farmRegistry.findByBuildingInstance(building.worldId(), building.id());
         if (farm != null) {
             assignSelectedFarmer(playerRef, session, farm);
-        } else if ("mine".equals(building.buildingType())
+        } else if (MineBuildingTypes.isMine(building.buildingType())
             && unitRegistry.getProfession(session.commandNpc) == Profession.MINER) {
             assignSelectedMiner(playerRef, session, building);
         }
@@ -669,7 +671,7 @@ public final class RtsInteractionController {
             playerRef.sendMessage(Message.raw("Das Gebäude ist nicht mehr verfügbar."));
             return;
         }
-        if (!"mine".equals(building.buildingType())) {
+        if (!MineBuildingTypes.isMine(building.buildingType())) {
             playerRef.sendMessage(Message.raw("Für dieses Gebäude ist noch kein Ausbau verfügbar."));
             return;
         }
@@ -853,7 +855,7 @@ public final class RtsInteractionController {
         );
 
         unitRegistry.workersAt(buildingId).forEach(unitRegistry::clearWorkplace);
-        if ("mine".equals(building.buildingType())) mineTunnelRegistry.removeMine(world, buildingId);
+        if (MineBuildingTypes.isMine(building.buildingType())) mineTunnelRegistry.removeMine(world, buildingId);
         farmRegistry.removeByBuildingInstance(worldId, buildingId);
         fieldRegistry.removeByBuildingInstance(worldId, buildingId);
         placementRegistry.remove(worldId, buildingId);
@@ -896,7 +898,7 @@ public final class RtsInteractionController {
             TransformComponent transform = store.getComponent(worker, TransformComponent.getComponentType());
             if (transform == null) continue;
             Vector3d position = transform.getPosition();
-            boolean mustEvacuate = "mine".equals(building.buildingType())
+            boolean mustEvacuate = MineBuildingTypes.isMine(building.buildingType())
                 || building.bounds().contains(position.x, position.y, position.z);
             if (!mustEvacuate) continue;
             activityRegistry.cancelManualMove(worker);
