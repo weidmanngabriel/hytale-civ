@@ -314,3 +314,7 @@ Brückenbauaufträge reichen zusätzlich drei semantische Slices in beide Anschl
 Das Civ-Dashboard (/civ) besitzt den Bereich **Debug / Performance**. Die Aufnahme ist standardmäßig deaktiviert; Start und Stopp geschehen bewusst per UI oder über explizit allowlistete Agent-Kommandos. Eine Aufnahme endet spätestens nach 15 Minuten, sobald der reguläre Runtime-/Player-Refresh die Zeitgrenze verarbeitet. Während des Trackings erscheint am oberen rechten Bildschirmrand ein lila, nicht anklickbares HUD „Performance Tracking aktiv“ mit verbleibender Zeit. Zurück zum Screen gelangt man über /civ.
 
 Der Screen zeigt geladene Hytale-Entity-Anzahl aus dem nativen Entity-Store, geladene Civ-Bewohner, den gemessenen Eigenaufwand und die teuersten Civ-Operationen. Er erfasst vorerst Worker-Ticks und gezielte Such-/Planungspfade für Mine, Holzfäller, Farmer, Bauarbeiter und Soldat. Er misst weder Client-FPS noch die vollständige CPU-Last der Hytale-Engine. Berichte und einsekündige Messpunkte können über die Agent-Kommandos als JSON gelesen werden.
+
+## Performance-Diagnostik (Entwicklung)
+
+Der vorhandene opt-in-Civ-Profiler zeichnet nun Systemkosten pro Messintervall sowie automatisch auffällige Systemaufrufe und manuelle Marker auf. Die Daten lassen sich als JSON exportieren und in einem lokalen Browser-Dashboard filtern. Client-FPS werden derzeit nicht gemessen; die Ansicht weist sie deshalb ausdrücklich als nicht verfügbar aus. Die maximale Messdauer beträgt weiterhin 15 Minuten.
