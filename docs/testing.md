@@ -285,3 +285,7 @@ Die Hytale Agent API wird durch den regulären Java-Compile-/Build-Pfad mit der 
 ## Ingame-Profilerbefehle
 
 Die vier Player-Commands (`/civdebug perf start|stop|status|report`) delegieren an den bereits über JUnit getesteten `CivPerformanceRecorder`. Der normale Gradle-Test und Build deckt Kompilierung und Profiler-Regressionen ab; die konkrete Darstellung von Chatnachrichten wird ohne gesonderten Hytale-Local-Lauf nicht als zur Laufzeit bestätigt ausgegeben.
+
+## Isolierter Plugin-Reload-Test
+
+Das opt-in Hytale-Local-Szenario `reload` verwendet den Runner mit Label `hytale-pc-gabe`. Es startet einen separaten Serverprozess in `RUNNER_TEMP` und ein Test-Plugin mit dem Marker `CIV_RELOAD_MARKER_A`. Nach dem Boot ersetzt das Skript ausschließlich die gleich lange Marker-Konstante in der isolierten Plugin-JAR durch `CIV_RELOAD_MARKER_B`, sendet den nativen `plugin reload`-Befehl und kontrolliert, dass ein erneut ausgeführter Markerbefehl den B-Code ausgibt. Zwei weitere Reloads dienen als erster Stabilitätstest. Das Szenario berührt keine regulären Mods oder Spielwelten. NPC-Zustand, registrierte ECS-Komponenten und clientseitige Darstellung sind **durch diesen technischen Marker-Test noch nicht verifiziert**; diese benötigen eigene Folgeprüfungen.
