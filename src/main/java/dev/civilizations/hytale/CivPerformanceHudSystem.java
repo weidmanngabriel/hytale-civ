@@ -34,6 +34,7 @@ public final class CivPerformanceHudSystem extends DelayedEntitySystem<EntitySto
                 manager.removeCustomHud(playerRef, CivPerformanceHud.KEY);
             return;
         }
+        long profilerUiStarted = System.nanoTime();
         int remaining = ((Number) status.get("remainingSeconds")).intValue();
         if (recorder.needsCapture()) {
             recorder.capture(store.getEntityCount(), (int) units.loadedInhabitants().stream()
@@ -45,5 +46,6 @@ public final class CivPerformanceHudSystem extends DelayedEntitySystem<EntitySto
         } else {
             manager.addCustomHud(playerRef, new CivPerformanceHud(playerRef, remaining));
         }
+        recorder.recordProfilerOverhead(System.nanoTime() - profilerUiStarted);
     }
 }
