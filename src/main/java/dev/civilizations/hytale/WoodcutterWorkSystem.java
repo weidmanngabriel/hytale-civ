@@ -112,6 +112,8 @@ public final class WoodcutterWorkSystem extends DelayedEntitySystem<EntityStore>
         Store<EntityStore> store,
         CommandBuffer<EntityStore> commandBuffer
     ) {
+        long civProfilingStarted = CivPerformanceRecorder.beginMeasured();
+        try {
         Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
         CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
 
@@ -227,6 +229,9 @@ public final class WoodcutterWorkSystem extends DelayedEntitySystem<EntityStore>
                 runtime.decisions.requestImmediate();
             }
         }
+        } finally {
+            CivPerformanceRecorder.endMeasured("woodcutter.tick", civProfilingStarted);
+        }
     }
 
     private void searchForTree(
@@ -336,6 +341,8 @@ public final class WoodcutterWorkSystem extends DelayedEntitySystem<EntityStore>
         CivUnitRegistry.UnitKey worker,
         ScanCounters counters
     ) {
+        long civProfilingStarted = CivPerformanceRecorder.beginMeasured();
+        try {
         int centerX = (int) Math.floor(position.x);
         int centerY = (int) Math.floor(position.y);
         int centerZ = (int) Math.floor(position.z);
@@ -417,6 +424,9 @@ public final class WoodcutterWorkSystem extends DelayedEntitySystem<EntityStore>
         }
 
         return nearest;
+        } finally {
+            CivPerformanceRecorder.endMeasured("woodcutter.treeSearch", civProfilingStarted);
+        }
     }
 
     private static boolean isTreeBase(World world, BlockPosition position) {

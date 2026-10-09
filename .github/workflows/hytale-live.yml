@@ -45,10 +45,10 @@ jobs:
             const integer = '-?[0-9]{1,5}';
             const blockPos = integer + ' ' + integer + ' ' + integer;
             const blockId = '[A-Za-z][A-Za-z0-9_./-]{0,99}';
-            const agentRead = '(?:agent (?:capabilities|players|buildings|sites|block ' + blockPos + '))';
+            const agentRead = '(?:agent (?:capabilities|players|buildings|sites|block ' + blockPos + '|perf-(?:status|report)|perf-samples (?:[0-9]|[1-9][0-9]|[1-8][0-9]{2}|900)))';
             const agentWrite = '(?:agent (?:set-block ' + blockPos + ' ' + blockId +
               '|create-site ' + uuid + ' (?:mine|farm|wheat_field) ' + blockPos +
-              '|mine-recover ' + uuid + ' (?:status|workers|fronts|all)))';
+              '|mine-recover ' + uuid + ' (?:status|workers|fronts|all)|perf-(?:start|stop)))';
             const rule = new RegExp('^(' + read + '|' + write + '|' + agentRead + '|' + agentWrite + ')$');
             const translate = s => s === 'status' ? 'version' :
               s.startsWith('agent ') ? 'civagent ' + s.slice(6) : 'civdev ' + s;
@@ -162,8 +162,8 @@ jobs:
             $integer = '-?[0-9]{1,5}'
             $blockPos = "$integer $integer $integer"
             $blockId = '[A-Za-z][A-Za-z0-9_./-]{0,99}'
-            $agentRead = "civagent (capabilities|players|buildings|sites|block $blockPos)"
-            $agentWrite = "civagent (set-block $blockPos $blockId|create-site $uuid (mine|farm|wheat_field) $blockPos|mine-recover $uuid (status|workers|fronts|all))"
+            $agentRead = "civagent (capabilities|players|buildings|sites|block $blockPos|perf-(status|report)|perf-samples ([0-9]|[1-9][0-9]|[1-8][0-9]{2}|900))"
+            $agentWrite = "civagent (set-block $blockPos $blockId|create-site $uuid (mine|farm|wheat_field) $blockPos|mine-recover $uuid (status|workers|fronts|all)|perf-(start|stop))"
             $seen = @{}
             $results = [Collections.Generic.List[object]]::new()
             $status = 'success'
@@ -228,8 +228,8 @@ jobs:
             $integer = '-?[0-9]{1,5}'
             $blockPos = "$integer $integer $integer"
             $blockId = '[A-Za-z][A-Za-z0-9_./-]{0,99}'
-            $agentRead = "civagent (capabilities|players|buildings|sites|block $blockPos)"
-            $agentWrite = "civagent (set-block $blockPos $blockId|create-site $uuid (mine|farm|wheat_field) $blockPos|mine-recover $uuid (status|workers|fronts|all))"
+            $agentRead = "civagent (capabilities|players|buildings|sites|block $blockPos|perf-(status|report)|perf-samples ([0-9]|[1-9][0-9]|[1-8][0-9]{2}|900))"
+            $agentWrite = "civagent (set-block $blockPos $blockId|create-site $uuid (mine|farm|wheat_field) $blockPos|mine-recover $uuid (status|workers|fronts|all)|perf-(start|stop))"
           if ($command.Length -gt 256 -or $command -notmatch "^($read|$write|$agentRead|$agentWrite)$") {
             throw 'Command failed local allowlist validation'
           }

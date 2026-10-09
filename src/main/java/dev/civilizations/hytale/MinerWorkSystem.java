@@ -188,6 +188,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         Store<EntityStore> store,
         CommandBuffer<EntityStore> commandBuffer
     ) {
+        long civProfilingStarted = CivPerformanceRecorder.beginMeasured();
+        try {
         Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
         CivUnitRegistry.UnitKey workerKey = unitRegistry.keyOf(ref);
         if (!ref.isValid() || unitRegistry.getProfession(ref) != Profession.MINER) {
@@ -534,6 +536,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 return;
             }
         }
+        } finally {
+            CivPerformanceRecorder.endMeasured("miner.tick", civProfilingStarted);
+        }
     }
 
     /**
@@ -638,6 +643,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         BuildingPlacementRegistry.BuildingInstance mine,
         RuntimeMinePlan minePlan
     ) {
+        long civProfilingStarted = CivPerformanceRecorder.beginMeasured();
+        try {
         MineNetwork network = tunnelRegistry.networkForMine(
             world.getWorldConfig().getUuid(), mine.id()
         );
@@ -719,6 +726,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                     task.anchor().x(), task.anchor().y() - 1, task.anchor().z()
                 )))
             );
+        }
+        } finally {
+            CivPerformanceRecorder.endMeasured("miner.bridges", civProfilingStarted);
         }
     }
 
@@ -2255,6 +2265,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         BuildingPlacementRegistry.BuildingInstance mine,
         RuntimeMinePlan runtime
     ) {
+        long civProfilingStarted = CivPerformanceRecorder.beginMeasured();
+        try {
         MineNetwork network = tunnelRegistry.networkForMine(
             world.getWorldConfig().getUuid(), mine.id()
         );
@@ -2289,6 +2301,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         if (!network.equals(tunnelRegistry.networkForMine(
                 world.getWorldConfig().getUuid(), mine.id()))) {
             tunnelRegistry.putNetwork(world, network);
+        }
+        } finally {
+            CivPerformanceRecorder.endMeasured("miner.planning", civProfilingStarted);
         }
     }
 

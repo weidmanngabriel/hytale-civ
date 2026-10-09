@@ -37,3 +37,9 @@ Bei Minenarbeit bleibt die Welt-Reconciliation vor dem nächsten Arbeitsfortschr
 Runtime-Kosten von Engine-Zugriffen gehören in den Hytale-Adapter. Bestehende Diagnostik soll die autoritative Gameplay-Suche messen und keine zweite identische Suche nur für Messzwecke auslösen. Siehe außerdem ADR `docs/decisions/0003-runtime-engine-cost-profiling.md`.
 
 Die gewählten Intervalle sind eine konservative Ausgangsbasis. Weitere Vergrößerungen sollten anhand echter Servermessungen erfolgen, nicht anhand angenommener Tick-Kosten.
+
+## Opt-in Civ-Profiler
+
+Die gepinnte Hytale-JAR bestätigt `Store.getEntityCount()` für geladene Hytale-Entitäten; damit braucht die Performance-Ansicht hierfür keinen eigenen Welt-Scan. `CivPerformanceRecorder` enthält ausschließlich bounded Aggregation und eine 15-minütige maximale Laufzeit. Worker-Ticks und einige teure, bereits ausgeführte Mine-/Baumsuchpfade erhalten umschließende Messungen; im deaktivierten Zustand wird keine Zeit erfasst. Ein Spieler-Refresh im Intervall 1 s prüft die Ablaufzeit und pflegt den Anzeige-HUD; bei völlig inaktivem Server ohne ausgeführte Refresh-/Worker-Operationen erfolgt die Prüfung beim nächsten Zugriff.
+
+`perf-report` liefert die inklusive Zeit pro System in ms/s, Aufrufe/s, Mittelwert, Maximum und Histogramm-approximiertes p95. Weil tiefere Arbeit in einem umfassenden Worker-Tick enthalten ist, dürfen Unter- und Oberkategorien nicht summiert werden. Die erfasste Buchhaltungsdauer stellt einen näherungsweisen Eigenaufwand dar und ersetzt **keinen** unabhängigen Profiling-an/aus-Vergleich. Der JUnit-Vergleichstest protokolliert Referenz- und instrumentierte Schleifen ohne unstabile CI-Laufzeitgrenzwerte.

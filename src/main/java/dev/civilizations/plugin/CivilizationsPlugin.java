@@ -33,6 +33,8 @@ import dev.civilizations.hytale.CivMineDecisionDiagnostics;
 import dev.civilizations.hytale.CivMinePersistenceService;
 import dev.civilizations.hytale.CivNameplateStatusSystem;
 import dev.civilizations.hytale.CivPathDebugService;
+import dev.civilizations.hytale.CivPerformanceRecorder;
+import dev.civilizations.hytale.CivPerformanceHudSystem;
 import dev.civilizations.hytale.CivPlayerRigDebugService;
 import dev.civilizations.hytale.CivSelectedBuildingHudController;
 import dev.civilizations.hytale.CivSelectedBuildingHudSystem;
@@ -60,6 +62,7 @@ import dev.civilizations.hytale.WoodcutterWorkSystem;
 public final class CivilizationsPlugin extends JavaPlugin {
 
     private CivCommandBridge commandBridge;
+    private CivPerformanceRecorder performanceRecorder;
 
     private static final String CIV_INHABITANT_DATA_ID = "CivInhabitantData";
     private static final String CIV_BUILDING_DATA_ID = "CivBuildingData";
@@ -101,6 +104,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
         CivMineDecisionDiagnostics mineDecisionDiagnostics = new CivMineDecisionDiagnostics(
             getLogger(), Boolean.getBoolean("civilizations.mineDebug")
         );
+
+        performanceRecorder = new CivPerformanceRecorder();
+        CivPerformanceRecorder.install(performanceRecorder);
 
         CivInhabitantService inhabitantService = new CivInhabitantService(
             inhabitantDataType,
@@ -237,6 +243,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
             new CivNameplateStatusSystem(unitRegistry, activityRegistry);
         getEntityStoreRegistry().registerSystem(nameplateStatusSystem);
         getEntityStoreRegistry().registerSystem(new CivSelectedNpcHudSystem(selectedNpcHudController));
+        getEntityStoreRegistry().registerSystem(new CivPerformanceHudSystem(performanceRecorder, unitRegistry));
         getEntityStoreRegistry().registerSystem(
             new CivSelectedBuildingHudSystem(selectedBuildingHudController)
         );
@@ -251,7 +258,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getCommandRegistry().registerCommand(
             new CivAgentCommand(
                 buildingRegistry, prefabPlacementService, constructionRegistry,
-                constructionPersistence, mineDebugService
+                constructionPersistence, mineDebugService, performanceRecorder
             )
         );
         getCommandRegistry().registerCommand(new CivTestCommand());
@@ -334,5 +341,9 @@ public final class CivilizationsPlugin extends JavaPlugin {
     @Override
     public void shutdown() {
         if (commandBridge != null) commandBridge.close();
+        if (performanceRecorder != null) {
+            performanceRecorder.stop();
+            CivPerformanceRecorder.uninstall(performanceRecorder);
+        }
     }
 }

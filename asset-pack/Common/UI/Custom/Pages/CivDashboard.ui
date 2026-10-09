@@ -14,7 +14,83 @@ $C.@DecoratedContainer {
       LayoutMode: Left;
       Anchor: (Bottom: 18);
       $C.@TextButton #BuildingsButton { @Text = "Gebäude"; Anchor: (Width: 190, Height: 44, Right: 12); }
-      $C.@TextButton #ResidentsButton { @Text = "Bewohner"; Anchor: (Width: 190, Height: 44); }
+      $C.@TextButton #ResidentsButton { @Text = "Bewohner"; Anchor: (Width: 190, Height: 44, Right: 12); }
+      $C.@TextButton #PerformanceButton { @Text = "Debug / Performance"; Anchor: (Width: 220, Height: 44); }
+    }
+    Group #PerfPanel {
+      Visible: false;
+      LayoutMode: Top;
+      Label #PerfState {
+        Text: "Tracking inaktiv";
+        Style: (FontSize: 20, TextColor: #dcb2ff, RenderBold: true);
+        Anchor: (Bottom: 5);
+      }
+      Label #PerfTime {
+        Text: "Maximal 15 Minuten";
+        Style: (FontSize: 14, TextColor: #c5b6d9);
+        Anchor: (Bottom: 11);
+      }
+      Group {
+        LayoutMode: Left;
+        Anchor: (Bottom: 18);
+        $C.@TextButton #PerfStartButton {
+          @Text = "Tracking starten";
+          Anchor: (Width: 200, Height: 42, Right: 10);
+        }
+        $C.@TextButton #PerfStopButton {
+          @Text = "Tracking beenden";
+          Anchor: (Width: 200, Height: 42, Right: 10);
+        }
+        $C.@TextButton #PerfRefreshButton {
+          @Text = "Aktualisieren";
+          Anchor: (Width: 160, Height: 42);
+        }
+      }
+      Label #PerfEntities {
+        Text: "Geladene Hytale-Entitäten: —";
+        Style: (FontSize: 15, TextColor: #ffffff);
+        Anchor: (Bottom: 7);
+      }
+      Label #PerfOverhead {
+        Text: "Profiler-Eigenaufwand: —";
+        Style: (FontSize: 15, TextColor: #ffffff);
+        Anchor: (Bottom: 15);
+      }
+      Label {
+        Text: "Teuerste Civ-Systeme (absteigend nach Gesamtzeit)";
+        Style: (FontSize: 17, TextColor: #ffffff, RenderBold: true);
+        Anchor: (Bottom: 10);
+      }
+      Label #PerfRow0 {
+        Text: "—";
+        Style: (FontSize: 14, TextColor: #d9d5df);
+        Anchor: (Bottom: 9);
+      }
+      Label #PerfRow1 {
+        Text: "—";
+        Style: (FontSize: 14, TextColor: #d9d5df);
+        Anchor: (Bottom: 9);
+      }
+      Label #PerfRow2 {
+        Text: "—";
+        Style: (FontSize: 14, TextColor: #d9d5df);
+        Anchor: (Bottom: 9);
+      }
+      Label #PerfRow3 {
+        Text: "—";
+        Style: (FontSize: 14, TextColor: #d9d5df);
+        Anchor: (Bottom: 9);
+      }
+      Label #PerfRow4 {
+        Text: "—";
+        Style: (FontSize: 14, TextColor: #d9d5df);
+        Anchor: (Bottom: 9);
+      }
+      Label {
+        Text: "Details: /civagent perf-report  |  /civagent perf-samples 0";
+        Style: (FontSize: 12, TextColor: #a8a4b7);
+        Anchor: (Top: 12);
+      }
     }
     Label #SectionTitle { Text: "Gebäude"; Style: (FontSize: 22, TextColor: #ffffff); Anchor: (Bottom: 10); }
     Label #EmptyNotice { Text: "Noch keine Einträge in dieser Welt."; Style: (FontSize: 15, TextColor: #b9b9b9); Visible: false; }

@@ -1,0 +1,18 @@
+Group {
+  Group #PerformanceTrackingBadge {
+    Anchor: (Top: 22, Right: 22, Width: 228, Height: 56);
+    LayoutMode: Top;
+    Padding: (Left: 12, Right: 12, Top: 7, Bottom: 7);
+    Background: #5a247d(0.94);
+    Label {
+      Text: "● Performance Tracking aktiv";
+      Style: (FontSize: 14, TextColor: #ffffff, RenderBold: true);
+      Anchor: (Height: 22);
+    }
+    Label #TrackingRemaining {
+      Text: "15:00 verbleibend · /civ";
+      Style: (FontSize: 12, TextColor: #e2c7ff);
+      Anchor: (Height: 18);
+    }
+  }
+}

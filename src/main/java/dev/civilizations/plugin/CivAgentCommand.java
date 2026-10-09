@@ -21,6 +21,7 @@ import dev.civilizations.core.BlockPosition;
 import dev.civilizations.hytale.BuildingPlacementRegistry;
 import dev.civilizations.hytale.CivConstructionPersistenceService;
 import dev.civilizations.hytale.CivMineDebugService;
+import dev.civilizations.hytale.CivPerformanceRecorder;
 import dev.civilizations.hytale.ConstructionSiteRegistry;
 import dev.civilizations.hytale.PrefabPlacementService;
 import org.joml.Vector3i;
@@ -46,7 +47,8 @@ final class CivAgentCommand extends AbstractCommandCollection {
         PrefabPlacementService placement,
         ConstructionSiteRegistry sites,
         CivConstructionPersistenceService persistence,
-        CivMineDebugService mineDebug
+        CivMineDebugService mineDebug,
+        CivPerformanceRecorder profiler
     ) {
         super("civagent", "Machine-readable Hytale/Civ agent functions.");
         addSubCommand(new Capabilities());
@@ -57,6 +59,11 @@ final class CivAgentCommand extends AbstractCommandCollection {
         addSubCommand(new BlockSet(buildings));
         addSubCommand(new CreateSite(buildings, placement, sites, persistence));
         addSubCommand(new MineRecover(mineDebug));
+        addSubCommand(new PerformanceStart(profiler));
+        addSubCommand(new PerformanceStop(profiler));
+        addSubCommand(new PerformanceStatus(profiler));
+        addSubCommand(new PerformanceReport(profiler));
+        addSubCommand(new PerformanceSamples(profiler));
     }
 
     private static void result(CommandContext context, String action, Object data) {
@@ -96,6 +103,68 @@ final class CivAgentCommand extends AbstractCommandCollection {
         protected abstract void run(CommandContext context, World world);
     }
 
+
+    /** Development-only transport over the existing allowlisted command bridge. */
+    private abstract static class PerformanceAction extends WorldAction {
+        final CivPerformanceRecorder profiler;
+        PerformanceAction(String name, String description, CivPerformanceRecorder profiler) {
+            super(name, description);
+            this.profiler = profiler;
+        }
+    }
+
+    private static final class PerformanceStart extends PerformanceAction {
+        PerformanceStart(CivPerformanceRecorder profiler) {
+            super("perf-start", "Start a capped 15 minute profiling session.", profiler);
+        }
+        @Override protected void run(CommandContext context, World world) {
+            boolean started = profiler.start();
+            result(context, "perf-start", Map.of("started", started, "status", profiler.status()));
+        }
+    }
+
+    private static final class PerformanceStop extends PerformanceAction {
+        PerformanceStop(CivPerformanceRecorder profiler) {
+            super("perf-stop", "Stop profiling and retain the last report.", profiler);
+        }
+        @Override protected void run(CommandContext context, World world) {
+            boolean stopped = profiler.stop();
+            result(context, "perf-stop", Map.of("stopped", stopped, "status", profiler.status()));
+        }
+    }
+
+    private static final class PerformanceStatus extends PerformanceAction {
+        PerformanceStatus(CivPerformanceRecorder profiler) {
+            super("perf-status", "Check a profiling session.", profiler);
+        }
+        @Override protected void run(CommandContext context, World world) {
+            result(context, "perf-status", profiler.status());
+        }
+    }
+
+    private static final class PerformanceReport extends PerformanceAction {
+        PerformanceReport(CivPerformanceRecorder profiler) {
+            super("perf-report", "Read aggregate profiling costs.", profiler);
+        }
+        @Override protected void run(CommandContext context, World world) {
+            result(context, "perf-report", profiler.report());
+        }
+    }
+
+    private static final class PerformanceSamples extends PerformanceAction {
+        private final RequiredArg<Integer> offset;
+        PerformanceSamples(CivPerformanceRecorder profiler) {
+            super("perf-samples", "Read ten timestamped profiling samples starting at an offset.", profiler);
+            offset = withRequiredArg("offset", "Zero-based sample offset", ArgTypes.INTEGER);
+        }
+        @Override protected void run(CommandContext context, World world) {
+            int at = context.get(offset);
+            if (at < 0 || at > CivPerformanceRecorder.MAX_SECONDS)
+                throw new IllegalArgumentException("Sample offset out of range");
+            result(context, "perf-samples", profiler.samples(at, 10));
+        }
+    }
+
     private static final class Capabilities extends WorldAction {
         Capabilities() { super("capabilities", "List currently implemented agent actions."); }
 
@@ -105,6 +174,7 @@ final class CivAgentCommand extends AbstractCommandCollection {
                 "actions", List.of(
                     "capabilities", "players", "buildings", "sites", "block",
                     "set-block", "create-site", "mine-recover",
+                    "perf-start", "perf-stop", "perf-status", "perf-report", "perf-samples",
                     "civdev npcs", "civdev npc", "civdev spawn",
                     "civdev profession", "civdev assign-mine", "civdev mine-info"
                 ),
