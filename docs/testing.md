@@ -26,6 +26,9 @@ Lokale Hytale-Runtime-Szenarien auf dem Self-Hosted-Runner sind aktuell **option
 
 ## Unit-Tests
 
+Die reine `MineBridgeTerrainPolicyTest` prüft, dass ebene Höhenprofile für eine Brücke zugelassen und ansteigende, abfallende oder in der Landung steigende Tunnelprofile ausgeschlossen werden. Die Hytale-seitige geladene Weltblockprüfung auf seichten Untergrund bleibt ein Adapter-/Runtime-Vertrag und ist durch diese Höhenprofiltests allein nicht verifiziert.
+
+
 Schnelle JUnit-5-Tests für reine Java-Domänenregeln und Hilfsfunktionen.
 
 ## Simulations-/Szenario-Tests
