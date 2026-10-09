@@ -21,6 +21,8 @@ jobs:
       artifact_available: ${{ steps.gate.outputs.artifact_available }}
       artifact_name: ${{ steps.gate.outputs.artifact_name }}
       artifact_run_id: ${{ steps.gate.outputs.artifact_run_id }}
+      baseline_sha: ${{ steps.gate.outputs.baseline_sha }}
+      baseline_run_id: ${{ steps.gate.outputs.baseline_run_id }}
 
     steps:
       - name: Validate runtime request
@@ -176,6 +178,33 @@ jobs:
             core.setOutput('artifact_name', artifactName);
             core.setOutput('artifact_run_id', artifactRunId);
             core.setOutput('artifact_available', artifactRunId ? 'true' : 'false');
+            if (selected.includes('deploymentreal')) {
+              if (!artifactRunId) {
+                core.setFailed('deploymentreal requires a successful exact target CI JAR artifact.');
+                return;
+              }
+              const pastRuns = await github.paginate(github.rest.actions.listWorkflowRuns, {
+                owner, repo, workflow_id: 'ci.yml', branch: 'main', status: 'completed', per_page: 30
+              });
+              let baseline = null;
+              for (const run of pastRuns.filter(r => r.conclusion === 'success' && r.head_sha !== headSha)) {
+                const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
+                  owner, repo, run_id: run.id, per_page: 100
+                });
+                if (artifacts.some(a => a.name === `hytale-runtime-plugin-${run.head_sha}` && !a.expired)) {
+                  baseline = {sha: run.head_sha, runId: run.id};
+                  break;
+                }
+              }
+              if (!baseline || !/^[0-9a-f]{40}$/.test(baseline.sha)) {
+                core.setFailed('deploymentreal requires an earlier successful main CI JAR artifact.');
+                return;
+              }
+              core.setOutput('baseline_sha', baseline.sha);
+              core.setOutput('baseline_run_id', String(baseline.runId));
+              console.log(`Artifact comparison: ${baseline.sha} -> ${headSha}`);
+            }
+
 
             console.log('Authorized Hytale runtime request');
             console.log(`Request issue: #${requestIssue}`);
@@ -216,6 +245,9 @@ jobs:
           EXPECTED_SHA: ${{ needs.authorize.outputs.head_sha }}
           REQUESTED_BY: ${{ needs.authorize.outputs.requested_by }}
           REQUESTED_SCENARIOS: ${{ needs.authorize.outputs.scenarios }}
+          HCIV_BASELINE_DIR: ${{ runner.temp }}/hciv-baseline-plugin
+          HCIV_BASELINE_SHA: ${{ needs.authorize.outputs.baseline_sha }}
+          HCIV_TARGET_SHA: ${{ needs.authorize.outputs.head_sha }}
         run: |
           $ErrorActionPreference = 'Stop'
           $actualSha = (git rev-parse HEAD).Trim()
@@ -271,6 +303,16 @@ jobs:
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ needs.authorize.outputs.artifact_run_id }}
+
+      - name: Download exact baseline CI plugin
+        if: contains(needs.authorize.outputs.scenarios, 'deploymentreal')
+        uses: actions/download-artifact@v4
+        with:
+          name: hytale-runtime-plugin-${{ needs.authorize.outputs.baseline_sha }}
+          path: ${{ runner.temp }}/hciv-baseline-plugin
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ needs.authorize.outputs.baseline_run_id }}
 
       - name: Record CI artifact reuse
         if: needs.authorize.outputs.artifact_available == 'true'
