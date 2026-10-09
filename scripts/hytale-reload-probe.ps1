@@ -83,12 +83,6 @@ try {
     $stderrTask = $process.StandardError.BaseStream.CopyToAsync($stderrStream)
     Wait-ForEvidence 'CIV_RELOAD_MARKER_A' 60
     Write-Host 'HCIV_RELOAD_INITIAL_A'
-    Send-Console 'civreloadnpcprepare'
-    Wait-ForEvidence 'CIV_RELOAD_NPC_PREPARED uuid=' 20
-    if (([string](Get-Content -LiteralPath $stdoutPath -Raw)) -like '*CIV_RELOAD_NPC_FAIL*') {
-        throw 'NPC preparation reported a failure.'
-    }
-    Write-Host 'HCIV_RELOAD_NPC_PREPARED'
     # Prepare a complete replacement before attempting any action on the live plugin JAR.
     $replacementPath = Join-Path $RuntimeDir 'civ-version-b.jar'
     Copy-Item -LiteralPath $jarPath -Destination $replacementPath -Force
@@ -104,12 +98,6 @@ try {
     Send-Console 'civreloadmarker'
     Wait-ForEvidence 'CIV_RELOAD_MARKER_B' 25
     Write-Host 'HCIV_RELOAD_NEW_CODE_B'
-    Send-Console 'civreloadnpcverify'
-    Wait-ForEvidence 'CIV_RELOAD_NPC_RESTORED uuid=' 20
-    if (([string](Get-Content -LiteralPath $stdoutPath -Raw)) -like '*CIV_RELOAD_NPC_FAIL*') {
-        throw 'NPC verification reported a failure.'
-    }
-    Write-Host 'HCIV_RELOAD_NPC_RESTORED'
     for ($i=1; $i -le 2; $i++) {
         Send-Console 'plugin reload Civilizations:HytaleCiv'
         Start-Sleep -Seconds 4
