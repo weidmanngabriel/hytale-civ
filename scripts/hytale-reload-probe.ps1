@@ -21,8 +21,8 @@ function Wait-ForEvidence([string]$Evidence, [int]$Seconds) {
     $until = [DateTime]::UtcNow.AddSeconds($Seconds)
     while ([DateTime]::UtcNow -lt $until) {
         if ($process.HasExited) { throw "Server exited before $Evidence" }
-        if ((Test-Path $stdoutPath) -and ([string](Get-Content -LiteralPath $stdoutPath -Raw)).Contains($Evidence)) { return }
-        if ((Test-Path $stderrPath) -and ([string](Get-Content -LiteralPath $stderrPath -Raw)).Contains($Evidence)) { return }
+        if ((Test-Path $stdoutPath) -and ([string](Get-Content -LiteralPath $stdoutPath -Raw)) -like ('*' + $Evidence + '*')) { return }
+        if ((Test-Path $stderrPath) -and ([string](Get-Content -LiteralPath $stderrPath -Raw)) -like ('*' + $Evidence + '*')) { return }
         Start-Sleep -Milliseconds 500
     }
     throw "Timed out waiting for runtime evidence: $Evidence"
@@ -97,6 +97,10 @@ try {
         Write-Host "HCIV_RELOAD_REPEATED_$i"
     }
     Write-Host 'HCIV_RELOAD_RUNTIME_PASS'
+} catch {
+    Write-Host ('HCIV_RELOAD_ERROR ' + $_.Exception.ToString())
+    Write-Host ('HCIV_RELOAD_STACK ' + $_.ScriptStackTrace)
+    throw
 } finally {
     if ($null -ne $process) {
         if (-not $process.HasExited) {
