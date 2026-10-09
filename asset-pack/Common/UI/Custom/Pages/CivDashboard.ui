@@ -1,0 +1,100 @@
+$C = "../Common.ui";
+
+$C.@PageOverlay {}
+$C.@DecoratedContainer {
+  Anchor: (Left: 70, Width: 900, Height: 650);
+  #Title {
+    Group { $C.@Title { @Text = "Civilization Management"; } }
+  }
+  #Content {
+    LayoutMode: Top;
+    FlexWeight: 1;
+    Label #Counters { Text: ""; Style: (FontSize: 17, TextColor: #b9b9b9); Anchor: (Bottom: 16); }
+    Group {
+      LayoutMode: Left;
+      Anchor: (Bottom: 18);
+      $C.@TextButton #BuildingsButton { @Text = "Gebäude"; Anchor: (Width: 190, Height: 44, Right: 12); }
+      $C.@TextButton #ResidentsButton { @Text = "Bewohner"; Anchor: (Width: 190, Height: 44); }
+    }
+    Label #SectionTitle { Text: "Gebäude"; Style: (FontSize: 22, TextColor: #ffffff); Anchor: (Bottom: 10); }
+    Label #EmptyNotice { Text: "Noch keine Einträge in dieser Welt."; Style: (FontSize: 15, TextColor: #b9b9b9); Visible: false; }
+    Group #Entry0 {
+      LayoutMode: Left;
+      Anchor: (Bottom: 6, Height: 50);
+      $C.@TextButton #EntryButton0 { @Text = "Öffnen"; Anchor: (Width: 110, Height: 40, Right: 12); }
+      Group {
+        LayoutMode: Top;
+        Label #EntryTitle0 { Text: ""; Style: (FontSize: 16, TextColor: #ffffff); }
+        Label #EntryDetail0 { Text: ""; Style: (FontSize: 13, TextColor: #b9b9b9); }
+      }
+    }
+    Group #Entry1 {
+      LayoutMode: Left;
+      Anchor: (Bottom: 6, Height: 50);
+      $C.@TextButton #EntryButton1 { @Text = "Öffnen"; Anchor: (Width: 110, Height: 40, Right: 12); }
+      Group {
+        LayoutMode: Top;
+        Label #EntryTitle1 { Text: ""; Style: (FontSize: 16, TextColor: #ffffff); }
+        Label #EntryDetail1 { Text: ""; Style: (FontSize: 13, TextColor: #b9b9b9); }
+      }
+    }
+    Group #Entry2 {
+      LayoutMode: Left;
+      Anchor: (Bottom: 6, Height: 50);
+      $C.@TextButton #EntryButton2 { @Text = "Öffnen"; Anchor: (Width: 110, Height: 40, Right: 12); }
+      Group {
+        LayoutMode: Top;
+        Label #EntryTitle2 { Text: ""; Style: (FontSize: 16, TextColor: #ffffff); }
+        Label #EntryDetail2 { Text: ""; Style: (FontSize: 13, TextColor: #b9b9b9); }
+      }
+    }
+    Group #Entry3 {
+      LayoutMode: Left;
+      Anchor: (Bottom: 6, Height: 50);
+      $C.@TextButton #EntryButton3 { @Text = "Öffnen"; Anchor: (Width: 110, Height: 40, Right: 12); }
+      Group {
+        LayoutMode: Top;
+        Label #EntryTitle3 { Text: ""; Style: (FontSize: 16, TextColor: #ffffff); }
+        Label #EntryDetail3 { Text: ""; Style: (FontSize: 13, TextColor: #b9b9b9); }
+      }
+    }
+    Group #Entry4 {
+      LayoutMode: Left;
+      Anchor: (Bottom: 6, Height: 50);
+      $C.@TextButton #EntryButton4 { @Text = "Öffnen"; Anchor: (Width: 110, Height: 40, Right: 12); }
+      Group {
+        LayoutMode: Top;
+        Label #EntryTitle4 { Text: ""; Style: (FontSize: 16, TextColor: #ffffff); }
+        Label #EntryDetail4 { Text: ""; Style: (FontSize: 13, TextColor: #b9b9b9); }
+      }
+    }
+    Group #Entry5 {
+      LayoutMode: Left;
+      Anchor: (Bottom: 6, Height: 50);
+      $C.@TextButton #EntryButton5 { @Text = "Öffnen"; Anchor: (Width: 110, Height: 40, Right: 12); }
+      Group {
+        LayoutMode: Top;
+        Label #EntryTitle5 { Text: ""; Style: (FontSize: 16, TextColor: #ffffff); }
+        Label #EntryDetail5 { Text: ""; Style: (FontSize: 13, TextColor: #b9b9b9); }
+      }
+    }
+    Group #Entry6 {
+      LayoutMode: Left;
+      Anchor: (Bottom: 6, Height: 50);
+      $C.@TextButton #EntryButton6 { @Text = "Öffnen"; Anchor: (Width: 110, Height: 40, Right: 12); }
+      Group {
+        LayoutMode: Top;
+        Label #EntryTitle6 { Text: ""; Style: (FontSize: 16, TextColor: #ffffff); }
+        Label #EntryDetail6 { Text: ""; Style: (FontSize: 13, TextColor: #b9b9b9); }
+      }
+    }
+    Group {
+      LayoutMode: Left;
+      Anchor: (Top: 12);
+      $C.@TextButton #PreviousButton { @Text = "Zurück"; Anchor: (Width: 130, Height: 42, Right: 12); }
+      Label #Pager { Text: "Seite 1 / 1"; Style: (FontSize: 16, TextColor: #ffffff); Anchor: (Right: 12); }
+      $C.@TextButton #NextButton { @Text = "Weiter"; Anchor: (Width: 130, Height: 42); }
+    }
+  }
+  $C.@TextButton #CloseButton { @Text = "Schließen"; Anchor: (Bottom: 12, Right: 12, Width: 160, Height: 44); }
+}
