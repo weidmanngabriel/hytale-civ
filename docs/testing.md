@@ -278,3 +278,7 @@ Die Hytale Agent API wird durch den regulären Java-Compile-/Build-Pfad mit der 
 ## Performance-Timeline
 
 `CivPerformanceRecorderTest` prüft Intervallkosten, kumulierte Aufrufe, Ereignis-Zeitstempel und die Verfügbarkeit der Marker nach Aufzeichnungsende. Der Laufzeitvergleich ohne/mit Profiling bleibt diagnostisch und besitzt keine anfälligen Zeit-Grenzwerte. Reale FPS-Korrelation benötigt erst eine nachgewiesene clientseitige Messquelle.
+
+## Ingame-Profilerbefehle
+
+Die vier Player-Commands (`/civdebug perf start|stop|status|report`) delegieren an den bereits über JUnit getesteten `CivPerformanceRecorder`. Der normale Gradle-Test und Build deckt Kompilierung und Profiler-Regressionen ab; die konkrete Darstellung von Chatnachrichten wird ohne gesonderten Hytale-Local-Lauf nicht als zur Laufzeit bestätigt ausgegeben.
