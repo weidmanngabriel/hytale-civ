@@ -190,7 +190,7 @@ jobs:
     name: Verify local Hytale gameplay runtime
     needs: authorize
     if: needs.authorize.outputs.authorized == 'true'
-    runs-on: [self-hosted, Windows, X64, hytale-local]
+    runs-on: [self-hosted, Windows, X64, hytale-local, hytale-pc-gabe]
     timeout-minutes: 12
     permissions:
       contents: read
