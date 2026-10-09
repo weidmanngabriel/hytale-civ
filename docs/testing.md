@@ -274,3 +274,7 @@ Die Hytale Agent API wird durch den regulären Java-Compile-/Build-Pfad mit der 
 ## Performance-Recorder
 
 `CivPerformanceRecorderTest` verifiziert den inaktiven Fast-Path, eine einzige gleichzeitige Aufnahme, das 15-Minuten-Limit, Stopp/Neustart, Report-/Aufrufaggregate, Sample-Pagination und die getrennte Buchhaltungszeit. Ein nicht-gatender Test vergleicht Basis- und instrumentierte Schleifenlaufzeit; die Ergebnisse schwanken durch JIT, CPU und CI und sind keine akzeptierte absolute Overhead-Grenze. Belastbare Overhead-Ziele müssen zusätzlich mit reproduzierbaren Hytale-Szenarien und mehreren Messläufen überprüft werden. Die UI-/HUD-Laufzeitdarstellung bleibt ein fokussierter manueller Client-Test.
+
+## Performance-Timeline
+
+`CivPerformanceRecorderTest` prüft Intervallkosten, kumulierte Aufrufe, Ereignis-Zeitstempel und die Verfügbarkeit der Marker nach Aufzeichnungsende. Der Laufzeitvergleich ohne/mit Profiling bleibt diagnostisch und besitzt keine anfälligen Zeit-Grenzwerte. Reale FPS-Korrelation benötigt erst eine nachgewiesene clientseitige Messquelle.
