@@ -62,7 +62,7 @@ This keeps the implementation tied to actual loaded native blocks instead of inv
 
 The bridge adapter uses loaded-world block state and native `WorldChunk.getFluidId(...)`. It never synchronously loads chunks during ECS work.
 
-Current bridge detection is intentionally conservative and only recognizes a missing planned floor-support run with a solid approach, a solid opposite landing and planned continuation. Non-lava fluid below the span lowers the maximum accepted V1 span.
+Bridge candidates now require a level authored walking elevation across the approach, span, landing and first continuation, and at least three empty blocks below the planned walk center (floor position plus two deeper cells). A shallow depression or authored stair/grade change is not treated as a bridge and does not itself abandon the excavation front. Loaded-world uncertainty suppresses an unproven bridge rather than scheduling mandatory construction. The existing solid approach/landing, continuation and fluid limits still apply. This remains a voxel-space safety filter, not proof of NPC traversability.
 
 The pinned 0.6.8 JAR exposes the loaded fluid asset map and `Fluid.hasEffect(ShaderType)`; the protocol enum contains `ShaderType.Lava`. Layer 6 therefore classifies lava from the actual loaded Hytale fluid asset instead of hard-coding a numeric fluid ID. A lava crossing is rejected, as is fluid occupying the miner's navigation corridor.
 
