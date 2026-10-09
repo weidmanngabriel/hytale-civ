@@ -19,6 +19,7 @@ import java.util.List;
 /** First management screen: paged, static client slots (no unsafe appendInline). */
 public final class CivDashboardPage extends InteractiveCustomUIPage<CivDashboardPage.ActionData> {
     private static final int ROWS = 7;
+    private final PlayerRef playerRef;
     private final List<Entry> buildings;
     private final List<Entry> residents;
     private final String tab;
@@ -33,6 +34,7 @@ public final class CivDashboardPage extends InteractiveCustomUIPage<CivDashboard
     private CivDashboardPage(PlayerRef playerRef, List<Entry> buildings, List<Entry> residents,
                              String tab, int page) {
         super(playerRef, CustomPageLifetime.CanDismissOrCloseThroughInteraction, ActionData.CODEC);
+        this.playerRef = playerRef;
         this.buildings = List.copyOf(buildings);
         this.residents = List.copyOf(residents);
         this.tab = tab;
