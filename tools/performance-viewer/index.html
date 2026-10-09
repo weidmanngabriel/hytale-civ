@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Civ Performance Timeline</title>
+<style>
+:root{color-scheme:dark;font:15px system-ui,sans-serif;background:#101722;color:#e7edf5}
+body{max-width:1100px;margin:35px auto;padding:0 20px} h1{font-size:1.7rem}
+section{background:#1b2634;padding:20px;border-radius:12px;margin:16px 0}
+input,select{background:#27374a;color:white;border:1px solid #607087;border-radius:7px;padding:9px}
+svg{width:100%;height:260px;border-bottom:1px solid #536174}
+small{color:#aebfd1} table{border-collapse:collapse;width:100%}
+td,th{padding:8px;text-align:left;border-bottom:1px solid #354559}
+.mark{color:#ffc86c}.empty{color:#afbccc}
+</style></head>
+<body>
+<h1>Hytale Civ – Performance Timeline</h1>
+<p>Öffne einen JSON-Export aus <code>tools/performance-export.py</code>. Alle Daten bleiben im Browser.</p>
+<input id="file" type="file" accept=".json,application/json">
+<section><h2>Aufnahme</h2><div id="overview" class="empty">Keine Daten geladen.</div></section>
+<section><h2>Systemkosten über Zeit</h2>
+<label>System <select id="system"></select></label>
+<svg id="plot" viewBox="0 0 900 260" role="img" aria-label="Zeitlicher Verlauf der Kosten">
+<text x="20" y="40" fill="white">Noch keine Messung</text></svg>
+<small>Y-Achse: Millisekunden pro Messintervall. Die Intervalldauer kann variieren. Verschachtelte Kategorien nicht addieren.</small>
+</section>
+<section><h2>Ereignisse</h2><table><thead><tr><th>Sekunde</th><th>Typ</th><th>Beschreibung</th></tr></thead>
+<tbody id="events"></tbody></table></section>
+<script>
+const $ = id => document.getElementById(id);
+let exportData = null;
+$('file').addEventListener('change', async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!data.report || !Array.isArray(data.samples) || !Array.isArray(data.events))
+      throw new Error('Unbekanntes Exportformat');
+    exportData = data;
+    const report = data.report;
+    $('overview').textContent = 'Start: ' + (report.startedAt || '-') +
+      ' | Dauer: ' + Number(report.durationSeconds || 0).toFixed(1) +
+      ' s | Samples: ' + data.samples.length + ' | Ereignisse: ' + data.events.length +
+      ' | Client-FPS: nicht verfügbar';
+    const systems = [...new Set(data.samples.flatMap(s =>
+      (s.systems || []).map(sys => sys.system)))].sort();
+    $('system').replaceChildren(...systems.map(s => {
+      const option = document.createElement('option');
+      option.value = s; option.textContent = s; return option;
+    }));
+    render();
+    $('events').replaceChildren(...data.events.map(event => {
+      const tr = document.createElement('tr');
+      [Number(event.elapsedSeconds || 0).toFixed(2),
+       event.type || '', event.detail || ''].forEach(value => {
+        const td = document.createElement('td'); td.textContent = value; tr.append(td);
+      });
+      return tr;
+    }));
+  } catch (error) { $('overview').textContent = 'Fehler: ' + error.message; }
+});
+$('system').addEventListener('change', render);
+function render() {
+  const svg = $('plot'); svg.replaceChildren();
+  if (!exportData) return;
+  const selected = $('system').value;
+  const samples = exportData.samples;
+  const points = samples.map(s => [Number(s.elapsedSeconds),
+    Number((s.systems || []).find(x => x.system === selected)?.intervalMs || 0)]);
+  if (!points.length) return;
+  const xmax = Math.max(1, ...points.map(p => p[0]));
+  const ymax = Math.max(1, ...points.map(p => p[1])) * 1.1;
+  const sx = x => 55 + 810 * x / xmax;
+  const sy = y => 225 - 190 * y / ymax;
+  function node(name, attributes, text) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', name);
+    for (const [key,val] of Object.entries(attributes)) el.setAttribute(key,String(val));
+    if (text !== undefined) el.textContent = text;
+    svg.append(el); return el;
+  }
+  node('line',{x1:55,y1:225,x2:875,y2:225,stroke:'#8297ac'});
+  node('line',{x1:55,y1:30,x2:55,y2:225,stroke:'#8297ac'});
+  node('text',{x:15,y:32,fill:'#ccd9ea'},ymax.toFixed(1)+' ms');
+  node('text',{x:840,y:250,fill:'#ccd9ea'},xmax.toFixed(0)+' s');
+  node('polyline',{points:points.map(p=>sx(p[0])+','+sy(p[1])).join(' '),
+    stroke:'#78c8f2','stroke-width':2.5,fill:'none'});
+  for (const event of exportData.events) {
+    const x = Number(event.elapsedSeconds);
+    if (!Number.isFinite(x) || x > xmax) continue;
+    node('line',{x1:sx(x),x2:sx(x),y1:30,y2:225,stroke:'#f1bd64',
+      'stroke-dasharray':'2 5',opacity:.45});
+  }
+}
+</script>
+</body></html>
