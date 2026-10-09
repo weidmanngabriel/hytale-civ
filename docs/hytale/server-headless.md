@@ -223,3 +223,7 @@ Normale Unit-, Simulations-, Build-, API- und Bare-Probe-Checks bleiben auf GitH
 ## Bekannte Runtime-Eigenheiten
 
 Beim normalen Shutdown kann Hytale `0.6.8` einen `WorldCrashRecoveryHandler`-/„Reloading crashed world“-Eintrag erzeugen, obwohl anschließend `Shutdown completed!` erscheint und der Prozess mit Exitcode `0` endet. Der Runtime-Probe wertet deshalb den vollständigen Shutdown-Vertrag aus und behandelt diesen isolierten Logeintrag nicht als Civ-Gameplay-Fehler.
+
+## Isolierte Installation mit kontrolliertem Neustart (Phase 2)
+
+Das Hytale-Local-Szenario `deployment` prüft auf Windows `gabe` den Übergang von einer Civ-Installation zur nächsten **zwischen zwei vollständig getrennten Hytale-Serverprozessen**. Die erste Instanz speichert einen geclaimten Bewohner und fährt sauber herunter. Anschließend sichert der Runner die im isolierten Runtime-Verzeichnis liegende Civ-JAR sowie das Civ-Asset-Pack, installiert eine unterscheidbare JAR und das staged Asset-Pack und startet einen zweiten Serverprozess mit derselben World. Der zweite Prozess muss die persistierte Entity inklusive Claim, Beruf, XP und Arbeitsplatz wiederherstellen. Der Versionsunterschied des Probe-JARs ist nur ein zusätzliches ZIP-Metadatenelement, **keine** neue Gameplay-Implementierung. Ein Fehler im Installations-/Verifikationspfad löst Rückkopieren der Sandbox-Installationsdateien aus. Dieses Verfahren greift nicht auf installierte reguläre Mods, das lokale Spielerprofil oder andere laufende Hytale-Prozesse zu.
