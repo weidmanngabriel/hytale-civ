@@ -1,5 +1,5 @@
 function Run-DeploymentScenario {
-    param([Parameter(Mandatory = $true)][string]$RuntimeDir)
+    param([Parameter(Mandatory = $true)][string]$RuntimeDir, [switch]$InjectFailure)
     $mods = Join-Path $RuntimeDir 'mods'
     $plugins = @(Get-ChildItem -LiteralPath $mods -Filter 'hytale-civ-*.jar' -File)
     if ($plugins.Count -ne 1) { throw "Expected one sandbox Civ plugin; found $($plugins.Count)" }
@@ -56,6 +56,7 @@ function Run-DeploymentScenario {
         Copy-Item -LiteralPath $candidateAssets -Destination $assets -Recurse -ErrorAction Stop
         if ((Get-FileHash -LiteralPath $jar -Algorithm SHA256).Hash -ne $afterHash) { throw 'Installed JAR hash mismatch' }
         Write-Host 'HCIV_DEPLOY_INSTALLED'
+        if ($InjectFailure) { throw 'EXPECTED_DEPLOYMENT_FAILURE_INJECTION' }
         $second = Start-HytaleProbe -RuntimeDir $RuntimeDir -LogPrefix 'deploy.restore' -BootCommand 'civpersistenceprobe' -JvmProperties @('-Dcivilizations.persistenceProbeStage=restore', "-Dcivilizations.persistenceProbeEntityUuid=$uuid") -TimeoutSeconds 75
         Write-Host $second.Combined
         if ($second.Combined.Contains('CIV_PERSISTENCE_PROBE_FAIL')) { throw 'Civ restart reported failure' }
@@ -71,6 +72,15 @@ function Run-DeploymentScenario {
             Copy-Item -LiteralPath $backupAssets -Destination $assets -Recurse -ErrorAction Stop
             if ((Get-FileHash -LiteralPath $jar -Algorithm SHA256).Hash -ne $beforeHash) { throw 'ROLLBACK FAILURE: hash mismatch' }
             Write-Host 'HCIV_DEPLOY_ROLLBACK_RESTORED'
+        }
+        if ($InjectFailure -and $failure.Exception.Message -eq 'EXPECTED_DEPLOYMENT_FAILURE_INJECTION') {
+            if (-not (Test-Path -LiteralPath (Join-Path $assets 'manifest.json') -PathType Leaf)) { throw 'Rollback asset manifest missing' }
+            $rollback = Start-HytaleProbe -RuntimeDir $RuntimeDir -LogPrefix 'deploy.rollback' -BootCommand 'civpersistenceprobe' -JvmProperties @('-Dcivilizations.persistenceProbeStage=restore', "-Dcivilizations.persistenceProbeEntityUuid=$uuid") -TimeoutSeconds 75
+            Write-Host $rollback.Combined
+            if ($rollback.Combined.Contains('CIV_PERSISTENCE_PROBE_FAIL')) { throw 'Restored Civ installation failed to recover persisted NPC' }
+            Assert-Evidence -Combined $rollback.Combined -RequiredEvidence @("CIV_PERSISTENCE_RESTORED uuid=$uuid", 'CIV_PERSISTENCE_RESTORE_PASS', 'Shutdown completed!')
+            Write-Host 'HCIV_DEPLOY_ROLLBACK_RUNTIME_PASS'
+            return
         }
         throw $failure
     }
