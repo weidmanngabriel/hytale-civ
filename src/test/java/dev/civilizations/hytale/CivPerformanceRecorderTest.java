@@ -75,6 +75,41 @@ class CivPerformanceRecorderTest {
     }
 
     @Test
+    void intervalSamplesAndEventsAreBoundedAndShareTimeline() {
+        AtomicLong time = new AtomicLong(1_000_000_000L);
+        CivPerformanceRecorder recorder = new CivPerformanceRecorder(time::get);
+        CivPerformanceRecorder.install(recorder);
+        assertTrue(recorder.start());
+        recorder.event("phase", "start");
+        long started = CivPerformanceRecorder.beginMeasured();
+        time.addAndGet(25_000_000L);
+        CivPerformanceRecorder.endMeasured("miner.tick", started);
+        time.addAndGet(975_000_000L);
+        recorder.capture(30, 3);
+        long next = CivPerformanceRecorder.beginMeasured();
+        time.addAndGet(5_000_000L);
+        CivPerformanceRecorder.endMeasured("miner.tick", next);
+        time.addAndGet(995_000_000L);
+        recorder.capture(30, 3);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> points =
+            (List<Map<String, Object>>) recorder.samples(0, 10).get("samples");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> first =
+            (List<Map<String, Object>>) points.get(0).get("systems");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> second =
+            (List<Map<String, Object>>) points.get(1).get("systems");
+        assertEquals(25.0, (Double) first.get(0).get("intervalMs"), 0.001);
+        assertEquals(5.0, (Double) second.get(0).get("intervalMs"), 0.001);
+        assertEquals(1L, second.get(0).get("intervalCalls"));
+        assertEquals(2, recorder.events(0, 100).get("total"));
+        assertEquals(1.0, (Double) points.get(0).get("intervalSeconds"), 0.001);
+        assertTrue(recorder.stop());
+        assertEquals(2, recorder.events(0, 100).get("total"));
+    }
+
+    @Test
     void measuresBaselineAndEnabledInstrumentationWithoutFlakyTimeThresholds() {
         final int iterations = 60_000;
         long ignored = 0;
