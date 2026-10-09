@@ -315,6 +315,64 @@ public final class RtsInteractionController {
         );
     }
 
+    /** A single dashboard over the existing building and inhabitant authorities. */
+    public void openDashboard(PlayerRef playerRef, Ref<EntityStore> playerEntityRef,
+                              Store<EntityStore> store) {
+        if (playerEntityRef == null || !playerEntityRef.isValid()) return;
+        Player player = store.getComponent(playerEntityRef, Player.getComponentType());
+        UUID worldId = playerRef.getWorldUuid();
+        if (player == null || worldId == null) return;
+        Session session = sessions.get(playerRef.getUuid());
+        List<CivDashboardPage.Entry> buildings = placementRegistry.buildings(worldId).stream()
+            .sorted(java.util.Comparator.comparing(
+                (BuildingPlacementRegistry.BuildingInstance b) -> buildingDisplayName(b))
+                .thenComparing(b -> b.id().toString()))
+            .map(building -> new CivDashboardPage.Entry(
+                buildingDisplayName(building),
+                "Phase " + building.phase() + " · Arbeiter "
+                    + unitRegistry.workersAt(building.id()).size() + "/" + building.workerCapacity(),
+                () -> {
+                    BuildingPlacementRegistry.BuildingInstance current =
+                        placementRegistry.find(worldId, building.id());
+                    if (current == null) {
+                        playerRef.sendMessage(Message.raw("Gebäude nicht mehr verfügbar."));
+                    } else if (session != null) {
+                        selectBuilding(playerRef, session, current);
+                    } else {
+                        playerRef.sendMessage(Message.raw("Zur Auswahl bitte /civrtstest aktivieren."));
+                    }
+                }
+            )).toList();
+        List<CivDashboardPage.Entry> residents = unitRegistry.loadedInhabitants().stream()
+            .filter(ref -> ref.getStore() == store)
+            .sorted(java.util.Comparator.comparing(ref -> {
+                CivInhabitantData data = unitRegistry.getInhabitantData(ref);
+                return data == null ? "" : data.fullName();
+            }))
+            .map(worker -> {
+                CivInhabitantData data = unitRegistry.getInhabitantData(worker);
+                String name = data == null ? "Bewohner" : data.fullName();
+                String job = data == null ? "" : professionDisplayName(data.profession());
+                String workplace = data == null || data.workplaceId() == null
+                    || data.workplaceId().isBlank() ? "Ohne Arbeitsplatz" : "Arbeitsplatz zugewiesen";
+                return new CivDashboardPage.Entry(name, job + " · " + workplace, () -> {
+                    if (session != null && worker.isValid() && unitRegistry.isClaimed(worker)) {
+                        selectNpc(playerRef, session, worker);
+                    } else {
+                        playerRef.sendMessage(Message.raw("Bewohner nicht verfügbar oder RTS deaktiviert."));
+                    }
+                });
+            }).toList();
+        clearPlacementIfPresent(playerRef, session);
+        player.getPageManager().openCustomPage(
+            playerEntityRef, store, new CivDashboardPage(playerRef, buildings, residents)
+        );
+    }
+
+    private void clearPlacementIfPresent(PlayerRef playerRef, Session session) {
+        if (session != null) clearPlacement(playerRef, session);
+    }
+
     public void openWiki(
         PlayerRef playerRef,
         Ref<EntityStore> playerEntityRef,
