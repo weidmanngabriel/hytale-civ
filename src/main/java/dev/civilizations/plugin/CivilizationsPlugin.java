@@ -211,8 +211,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 buildingRegistry,
                 mineTunnelRegistry,
                 minerNavigationFailures,
-                mineDecisionDiagnostics,
-                performanceRecorder
+                mineDecisionDiagnostics
             )
         );
         getEntityStoreRegistry().registerSystem(
@@ -301,7 +300,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 nameplateStatusSystem,
                 playerRigDebugService,
                 mineDebugService,
-                mineDecisionDiagnostics
+                mineDecisionDiagnostics,
+                performanceRecorder
             )
         );
 
