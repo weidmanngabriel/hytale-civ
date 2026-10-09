@@ -6,6 +6,7 @@
     "warmruntime",
     "soldier",
     "mineatmosphere",
-    "reload"
+    "reload",
+    "deployment"
   ]
 }
