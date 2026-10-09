@@ -122,6 +122,16 @@ public final class CivBuildingPersistenceService {
         );
     }
 
+    static PrefabPlacementService.PlacementDefinition definitionForBuilding(String type, int phase) {
+        return switch (type) {
+            case "farm" -> PrefabPlacementService.FARM;
+            case "mine" -> PrefabPlacementService.minePhase(phase);
+            case "dwarf_mine" -> PrefabPlacementService.minePhase("dwarf_mine", phase);
+            case "wheat_field" -> PrefabPlacementService.WHEAT_FIELD;
+            default -> throw new IllegalArgumentException("unknown prefab " + type);
+        };
+    }
+
     private BuildingPlacementRegistry.BuildingInstance decode(UUID worldId, String encoded) {
         String[] parts = encoded.split("\\|", -1);
         boolean legacy = parts.length == 9;
@@ -135,12 +145,8 @@ public final class CivBuildingPersistenceService {
         int phase = legacy ? 1 : Integer.parseInt(parts[2]);
         int offset = legacy ? 0 : 1;
         String boundsVolumeId = unb64(parts[2 + offset]);
-        PrefabPlacementService.PlacementDefinition definition = switch (parts[3 + offset]) {
-            case "farm" -> PrefabPlacementService.FARM;
-            case "mine" -> PrefabPlacementService.minePhase(phase);
-            case "wheat_field" -> PrefabPlacementService.WHEAT_FIELD;
-            default -> throw new IllegalArgumentException("unknown prefab " + parts[3 + offset]);
-        };
+        PrefabPlacementService.PlacementDefinition definition =
+            definitionForBuilding(parts[3 + offset], phase);
         int[] anchor = ints(parts[4 + offset], 3);
         int[] fp = ints(parts[5 + offset], 5);
         double[] bounds = doubles(parts[6 + offset], 6);
