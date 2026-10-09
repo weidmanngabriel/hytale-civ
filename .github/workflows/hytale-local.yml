@@ -224,11 +224,6 @@ jobs:
     permissions:
       contents: read
       actions: read
-    env:
-      HCIV_BASELINE_SHA: ${{ needs.authorize.outputs.baseline_sha }}
-      HCIV_TARGET_SHA: ${{ needs.authorize.outputs.head_sha }}
-      HCIV_BASELINE_DIR: ${{ runner.temp }}/hciv-baseline-plugin
-
     steps:
       - name: Check out exact authorized revision
         uses: actions/checkout@v4
@@ -361,6 +356,9 @@ jobs:
         shell: 'powershell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"'
         env:
           REQUESTED_SCENARIOS: ${{ needs.authorize.outputs.scenarios }}
+          HCIV_BASELINE_SHA: ${{ needs.authorize.outputs.baseline_sha }}
+          HCIV_TARGET_SHA: ${{ needs.authorize.outputs.head_sha }}
+          HCIV_BASELINE_DIR: ${{ runner.temp }}/hciv-baseline-plugin
         run: |
           $ErrorActionPreference = 'Stop'
           $runtimeTimer = [System.Diagnostics.Stopwatch]::StartNew()
