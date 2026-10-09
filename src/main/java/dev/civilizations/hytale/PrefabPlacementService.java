@@ -26,6 +26,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
 import dev.civilizations.core.BuildingOrientation;
+import dev.civilizations.core.MineBuildingTypes;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
 
@@ -83,6 +84,15 @@ public final class PrefabPlacementService {
         "Civilizations/Mine/Mine_03",
         1
     );
+    public static final PlacementDefinition DWARF_MINE = new PlacementDefinition(
+        "dwarf_mine", "Zwergenmine", "Civilizations/DwarfMine/DwarfMine_01", 1
+    );
+    public static final PlacementDefinition DWARF_MINE_02 = new PlacementDefinition(
+        "dwarf_mine", "Zwergenmine 2", "Civilizations/DwarfMine/DwarfMine_02", 1
+    );
+    public static final PlacementDefinition DWARF_MINE_03 = new PlacementDefinition(
+        "dwarf_mine", "Zwergenmine 3", "Civilizations/DwarfMine/DwarfMine_03", 1
+    );
     public static final PlacementDefinition WHEAT_FIELD = new PlacementDefinition(
         "wheat_field",
         "Weizenfeld",
@@ -99,10 +109,24 @@ public final class PrefabPlacementService {
         };
     }
 
+    public static PlacementDefinition minePhase(String buildingType, int phase) {
+        if (MineBuildingTypes.isDwarven(buildingType)) {
+            return switch (phase) {
+                case 1 -> DWARF_MINE;
+                case 2 -> DWARF_MINE_02;
+                case 3 -> DWARF_MINE_03;
+                default -> throw new IllegalArgumentException("Unknown dwarven mine phase " + phase);
+            };
+        }
+        return minePhase(phase);
+    }
+
     public static int phaseForDefinition(PlacementDefinition definition) {
-        if (definition == null || !"mine".equals(definition.id())) return 1;
-        if (MINE_02.prefabKey().equals(definition.prefabKey())) return 2;
-        if (MINE_03.prefabKey().equals(definition.prefabKey())) return 3;
+        if (definition == null || !MineBuildingTypes.isMine(definition.id())) return 1;
+        if (MINE_02.prefabKey().equals(definition.prefabKey())
+            || DWARF_MINE_02.prefabKey().equals(definition.prefabKey())) return 2;
+        if (MINE_03.prefabKey().equals(definition.prefabKey())
+            || DWARF_MINE_03.prefabKey().equals(definition.prefabKey())) return 3;
         return 1;
     }
 
@@ -261,11 +285,11 @@ public final class PrefabPlacementService {
         if (playerRef == null || world == null || building == null || building.placement() == null) {
             throw new IllegalArgumentException("Upgrade requires player, world and existing placement.");
         }
-        if (!"mine".equals(building.buildingType())) {
+        if (!MineBuildingTypes.isMine(building.buildingType())) {
             throw new IllegalArgumentException("Only mine upgrades are authored in this slice.");
         }
 
-        PlacementDefinition definition = minePhase(targetPhase);
+        PlacementDefinition definition = minePhase(building.buildingType(), targetPhase);
         Vector3i previousAnchor = building.placement().anchor();
         Vector3i pointedBlock = new Vector3i(
             previousAnchor.x,
