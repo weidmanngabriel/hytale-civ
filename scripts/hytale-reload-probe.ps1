@@ -20,6 +20,8 @@ $stderrTask = $null
 function Wait-ForEvidence([string]$Evidence, [int]$Seconds) {
     $until = [DateTime]::UtcNow.AddSeconds($Seconds)
     while ([DateTime]::UtcNow -lt $until) {
+        $stdoutStream.Flush()
+        $stderrStream.Flush()
         if ($process.HasExited) { throw "Server exited before $Evidence" }
         if ((Test-Path $stdoutPath) -and ([string](Get-Content -LiteralPath $stdoutPath -Raw)) -like ('*' + $Evidence + '*')) { return }
         if ((Test-Path $stderrPath) -and ([string](Get-Content -LiteralPath $stderrPath -Raw)) -like ('*' + $Evidence + '*')) { return }
