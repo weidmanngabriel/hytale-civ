@@ -96,6 +96,8 @@ public final class ConstructionWorkSystem extends DelayedEntitySystem<EntityStor
         Store<EntityStore> store,
         CommandBuffer<EntityStore> commandBuffer
     ) {
+        long civProfilingStarted = CivPerformanceRecorder.beginMeasured();
+        try {
         Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
         CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
         if (!ref.isValid()) {
@@ -139,6 +141,9 @@ public final class ConstructionWorkSystem extends DelayedEntitySystem<EntityStor
             build(ref, key, world, store, commandBuffer, runtime, dt);
         } else if (intent instanceof ConstructionJob.CompleteConstructionIntent) {
             complete(ref, key, world, store, runtime);
+        }
+        } finally {
+            CivPerformanceRecorder.endMeasured("construction.tick", civProfilingStarted);
         }
     }
 
