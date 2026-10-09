@@ -28,6 +28,7 @@ public final class BuildingMenuPage
     private static final String ACTION_MINE_2 = "mine2";
     private static final String ACTION_MINE_3 = "mine3";
     private static final String ACTION_FIELD = "field";
+    private static final String ACTION_DWARF = "dwarf_mine";
     private static final String ACTION_CLOSE = "close";
 
     private final Runnable selectFarm;
@@ -35,6 +36,7 @@ public final class BuildingMenuPage
     private final Runnable selectMine2;
     private final Runnable selectMine3;
     private final Runnable selectField;
+    private final Runnable selectDwarfMine;
 
     public BuildingMenuPage(
         PlayerRef playerRef,
@@ -42,7 +44,8 @@ public final class BuildingMenuPage
         Runnable selectMine1,
         Runnable selectMine2,
         Runnable selectMine3,
-        Runnable selectField
+        Runnable selectField,
+        Runnable selectDwarfMine
     ) {
         super(
             playerRef,
@@ -54,6 +57,7 @@ public final class BuildingMenuPage
         this.selectMine2 = selectMine2;
         this.selectMine3 = selectMine3;
         this.selectField = selectField;
+        this.selectDwarfMine = selectDwarfMine;
     }
 
     @Override
@@ -69,6 +73,7 @@ public final class BuildingMenuPage
         bind(events, "#Mine2Button", ACTION_MINE_2);
         bind(events, "#Mine3Button", ACTION_MINE_3);
         bind(events, "#FieldButton", ACTION_FIELD);
+        bind(events, "#DwarfMineButton", ACTION_DWARF);
         bind(events, "#CloseButton", ACTION_CLOSE);
     }
 
@@ -109,6 +114,11 @@ public final class BuildingMenuPage
         }
         if (ACTION_FIELD.equals(data.action)) {
             selectField.run();
+            close();
+            return;
+        }
+        if (ACTION_DWARF.equals(data.action)) {
+            selectDwarfMine.run();
             close();
             return;
         }
