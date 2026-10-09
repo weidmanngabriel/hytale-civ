@@ -81,10 +81,18 @@ try {
     $stderrTask = $process.StandardError.BaseStream.CopyToAsync($stderrStream)
     Wait-ForEvidence 'CIV_RELOAD_MARKER_A' 60
     Write-Host 'HCIV_RELOAD_INITIAL_A'
-    Replace-CompiledMarker $jarPath
-    Write-Host 'HCIV_RELOAD_DISK_UPDATED_B'
-    Send-Console 'plugin reload Civilizations:HytaleCiv'
+    # Prepare a complete replacement before attempting any action on the live plugin JAR.
+    $replacementPath = Join-Path $RuntimeDir 'civ-version-b.jar'
+    Copy-Item -LiteralPath $jarPath -Destination $replacementPath -Force
+    Replace-CompiledMarker $replacementPath
+    Write-Host 'HCIV_RELOAD_REPLACEMENT_READY_B'
+    # On Windows, Hytale keeps the loaded JAR locked. Release the classloader before swap.
+    Send-Console 'plugin unload Civilizations:HytaleCiv'
     Start-Sleep -Seconds 4
+    Copy-Item -LiteralPath $replacementPath -Destination $jarPath -Force
+    Write-Host 'HCIV_RELOAD_DISK_UPDATED_B'
+    Send-Console 'plugin load Civilizations:HytaleCiv'
+    Start-Sleep -Seconds 5
     Send-Console 'civreloadmarker'
     Wait-ForEvidence 'CIV_RELOAD_MARKER_B' 25
     Write-Host 'HCIV_RELOAD_NEW_CODE_B'
