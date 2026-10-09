@@ -98,3 +98,9 @@ Ein fokussierter Hytale-Local-Lauf auf dem Windows-Runner `gabe` (Commit `0a98cb
 Nach Korrektur des PowerShell-Harness lief dieselbe Prüfung mit Commit `c642c2b3ff772d08b09e0bd7162643d5c53b5fa2` im Actions-Lauf `37905568364` vollständig erfolgreich durch (Autorisierung und lokales Szenario grün).
 
 **Nicht verifiziert:** NPC-Arbeitszustände, World-/Entity-Registries, clientseitige UI und Langzeitstabilität über viele Reloads. Das Testergebnis ist eine Aussage zum Laden neuen Java-Codes, keine allgemeine Hot-Reload-Garantie für Civ.
+
+## Sicherheitsbefund: aktive Civ-NPCs blockieren Plugin-Unload
+
+**Verifiziert auf HytaleServer 0.6.8, Runner `gabe`:** Im isolierten Runtime-Lauf `37906037185` (Commit `365dcfbf62fb65c622a8627bc0d2ba0732df0ca2`) wurde eine echte `Civ_Inhabitant`-Entity erzeugt, geclaimt und mit `MINER`, 37 XP und einer Workplace-ID versehen (`CIV_RELOAD_NPC_PREPARED`). Der anschließende Befehl `plugin unload Civilizations:HytaleCiv` schlug fehl: `NullPointerException` in `Archetype.validateRegistry` während `ComponentRegistry.unregisterComponent` aus `PluginBase.cleanup`. Die neue Version B konnte in diesem Lauf nicht erfolgreich aktiviert werden.
+
+**Entscheidung:** Plugin-Unload/Reload ist für aktive Civ-Welten **nicht als sicher freigegeben**. Der erfolgreiche Marker-Test ohne Civ-Entities beweist ausschließlich den Java-Bytecode-Austausch in einer isolierten, unbelasteten Runtime. Persistente Civ-Entities und ihre ECS-Komponenten dürfen nicht unter der Annahme eines sicheren Hot Reloads weiterbetrieben werden. Für automatische Plugin-Updates mit regulären NPCs ist stattdessen ein kontrollierter Serverstopp, JAR-Austausch und Neustart vorzusehen; Welt-/NPC-Persistenz ist separat zu validieren. Der native Unload-Fehler bleibt eine dokumentierte Hytale-0.6.8-Grenze, nicht ein erfolgreiches NPC-Restore-Ergebnis.
