@@ -34,6 +34,8 @@ public final class CivPerformanceRecorder {
         if (installed == recorder) installed = null;
     }
 
+    public static CivPerformanceRecorder current() { return installed; }
+
     public static long beginMeasured() {
         CivPerformanceRecorder recorder = installed;
         return recorder == null || recorder.active == null ? 0 : recorder.nanoClock.getAsLong();
