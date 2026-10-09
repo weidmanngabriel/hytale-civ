@@ -139,6 +139,12 @@ public final class CivPerformanceRecorder {
             List.copyOf(values.subList(from, to)));
     }
 
+    /** Tracks HUD/snapshot overhead in addition to per-operation aggregation. */
+    public void recordProfilerOverhead(long nanos) {
+        Session s = active;
+        if (s != null && nanos >= 0) s.bookkeepingNanos.add(nanos);
+    }
+
     private void measure(String key, long start) {
         Session s = active;
         if (s == null) return;
