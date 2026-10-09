@@ -62,7 +62,8 @@ public final class CivPerformanceRecorder {
 
     private static String sanitize(String value, int max) {
         if (value == null) return "";
-        return value.replaceAll("[\\\\p{Cntrl}]", " ").strip().substring(0, Math.min(max, value.strip().length()));
+        String clean = value.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').strip();
+        return clean.substring(0, Math.min(max, clean.length()));
     }
 
     /** Events share the same monotonic timeline as system samples. */
