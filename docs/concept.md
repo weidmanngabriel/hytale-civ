@@ -308,3 +308,9 @@ Brückenbauaufträge reichen zusätzlich drei semantische Slices in beide Anschl
 ## Siedlungsverwaltung (erste Version)
 
 `/civ` öffnet ein großes Managementfenster mit den Tabs Gebäude und Bewohner. Je Seite werden sieben Einträge angezeigt, mit Zurück/Weiter für größere Siedlungen. Die Gebäudeansicht zeigt Name, Phase und derzeit erfasste Arbeiterbelegung; die Bewohneransicht zeigt geladene Civ-Bewohner, ihren Beruf und ob ein Arbeitsplatz zugewiesen ist. Ein Eintrag übernimmt die bestehende RTS-Auswahl, sofern `/civrtstest` aktiv ist. Es wird keine neue Spielmechanik oder Datenbank eingeführt. Die Bewohnerliste enthält gegenwärtig nur geladene, registrierte Civ-NPCs. Direkte Berufs- oder Arbeitsplatzzuteilung im Dashboard ist noch nicht enthalten.
+
+## Opt-in Performance-Profiling
+
+Das Civ-Dashboard (/civ) besitzt den Bereich **Debug / Performance**. Die Aufnahme ist standardmäßig deaktiviert; Start und Stopp geschehen bewusst per UI oder über explizit allowlistete Agent-Kommandos. Eine Aufnahme endet spätestens nach 15 Minuten, sobald der reguläre Runtime-/Player-Refresh die Zeitgrenze verarbeitet. Während des Trackings erscheint am oberen rechten Bildschirmrand ein lila, nicht anklickbares HUD „Performance Tracking aktiv“ mit verbleibender Zeit. Zurück zum Screen gelangt man über /civ.
+
+Der Screen zeigt geladene Hytale-Entity-Anzahl aus dem nativen Entity-Store, geladene Civ-Bewohner, den gemessenen Eigenaufwand und die teuersten Civ-Operationen. Er erfasst vorerst Worker-Ticks und gezielte Such-/Planungspfade für Mine, Holzfäller, Farmer, Bauarbeiter und Soldat. Er misst weder Client-FPS noch die vollständige CPU-Last der Hytale-Engine. Berichte und einsekündige Messpunkte können über die Agent-Kommandos als JSON gelesen werden.
