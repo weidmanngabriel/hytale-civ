@@ -16,11 +16,14 @@ import dev.civilizations.hytale.CivMineDebugService;
 import dev.civilizations.hytale.CivMineDecisionDiagnostics;
 import dev.civilizations.hytale.CivNameplateStatusSystem;
 import dev.civilizations.hytale.CivPathDebugService;
+import dev.civilizations.hytale.CivPerformanceRecorder;
 import dev.civilizations.hytale.CivPlayerRigDebugService;
 import dev.civilizations.hytale.WoodcutterScanDiagnostics;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Comparator;
 
 final class CivDebugCommand extends AbstractPlayerCommand {
     private final BuildingPlacementRegistry buildingRegistry;
@@ -35,12 +38,14 @@ final class CivDebugCommand extends AbstractPlayerCommand {
         CivNameplateStatusSystem nameplateStatusSystem,
         CivPlayerRigDebugService playerRigDebugService,
         CivMineDebugService mineDebugService,
-        CivMineDecisionDiagnostics mineDecisionDiagnostics
+        CivMineDecisionDiagnostics mineDecisionDiagnostics,
+        CivPerformanceRecorder performanceRecorder
     ) {
         super("civdebug", "Shows read-only Civilizations development diagnostics.");
         this.buildingRegistry = buildingRegistry;
         this.buildingPersistence = buildingPersistence;
         addSubCommand(new PathCommand(pathDebugService));
+        addSubCommand(new PerformanceCommand(performanceRecorder));
         addSubCommand(new WoodScanCommand(woodcutterScanDiagnostics));
         addSubCommand(new ActivityCommand(activityRegistry));
         addSubCommand(new StatusCommand(nameplateStatusSystem));
@@ -69,6 +74,106 @@ final class CivDebugCommand extends AbstractPlayerCommand {
                     + " | snapshot=" + snapshotBlocks + " blocks"
                     + " | volumes=" + building.semanticVolumes().size() + " [" + volumes + "]"
             ));
+        }
+    }
+
+    private static final class PerformanceCommand extends AbstractPlayerCommand {
+        private final CivPerformanceRecorder recorder;
+
+        PerformanceCommand(CivPerformanceRecorder recorder) {
+            super("perf", "Civ performance recording: start, stop, status, report.");
+            this.recorder = recorder;
+            addSubCommand(new Action("start", recorder));
+            addSubCommand(new Action("stop", recorder));
+            addSubCommand(new Action("status", recorder));
+            addSubCommand(new Action("report", recorder));
+            requireNoPermission();
+        }
+
+        @Override
+        protected void execute(CommandContext context, Store<EntityStore> store,
+                               Ref<EntityStore> ref, PlayerRef playerRef, World world) {
+            context.sendMessage(Message.raw("Civ-Profiler: /civdebug perf start | stop | status | report"));
+            showStatus(context, recorder);
+        }
+
+        private static void showStatus(CommandContext context, CivPerformanceRecorder recorder) {
+            Map<String, Object> status = recorder.status();
+            boolean active = Boolean.TRUE.equals(status.get("active"));
+            context.sendMessage(Message.raw("Civ-Profiler: " + (active ? "Aufzeichnung aktiv" : "nicht aktiv")
+                + " | Aufnahmelimit: 15 Minuten"
+                + " | letzte Aufnahme vorhanden: " + status.get("hasPreviousReport")));
+            if (active) {
+                context.sendMessage(Message.raw("Laufzeit: " + status.get("elapsedSeconds")
+                    + " s | verbleibend: " + status.get("remainingSeconds") + " s"
+                    + " | Samples: " + status.get("sampleCount")));
+            }
+            context.sendMessage(Message.raw("Gemessen werden Serverkosten, keine Spieler-FPS."));
+        }
+
+        private static final class Action extends AbstractPlayerCommand {
+            private final String action;
+            private final CivPerformanceRecorder recorder;
+
+            Action(String action, CivPerformanceRecorder recorder) {
+                super(action, "Civ-Profiler " + action);
+                this.action = action;
+                this.recorder = recorder;
+                requireNoPermission();
+            }
+
+            @Override
+            protected void execute(CommandContext context, Store<EntityStore> store,
+                                   Ref<EntityStore> ref, PlayerRef playerRef, World world) {
+                switch (action) {
+                    case "start" -> {
+                        boolean started = recorder.start();
+                        context.sendMessage(Message.raw(started
+                            ? "Civ-Performance-Aufzeichnung gestartet (maximal 15 Minuten)."
+                            : "Es läuft bereits eine Aufzeichnung."));
+                        showStatus(context, recorder);
+                    }
+                    case "stop" -> {
+                        boolean stopped = recorder.stop();
+                        context.sendMessage(Message.raw(stopped
+                            ? "Civ-Performance-Aufzeichnung beendet. Ergebnis: /civdebug perf report"
+                            : "Keine aktive Aufzeichnung vorhanden."));
+                    }
+                    case "status" -> showStatus(context, recorder);
+                    case "report" -> showReport(context, recorder);
+                    default -> throw new IllegalStateException("Unbekannte Profiling-Aktion");
+                }
+            }
+        }
+
+        private static void showReport(CommandContext context, CivPerformanceRecorder recorder) {
+            Map<String, Object> report = recorder.report();
+            if (!Boolean.TRUE.equals(report.get("available"))) {
+                context.sendMessage(Message.raw("Noch keine Civ-Performance-Aufnahme vorhanden."));
+                return;
+            }
+            context.sendMessage(Message.raw(String.format(Locale.ROOT,
+                "Civ-Performance | %.1f s | %s | %s Samples | %s Ereignisse",
+                ((Number) report.get("durationSeconds")).doubleValue(),
+                report.get("endReason"), report.get("sampleCount"), report.get("eventCount"))));
+            Object systems = report.get("systems");
+            if (!(systems instanceof List<?> rows) || rows.isEmpty()) {
+                context.sendMessage(Message.raw("Keine instrumentierten Civ-Aufrufe gemessen."));
+                return;
+            }
+            int shown = 0;
+            for (Object value : rows) {
+                if (!(value instanceof Map<?, ?> metric)) continue;
+                if (shown++ >= 5) break;
+                context.sendMessage(Message.raw(String.format(Locale.ROOT,
+                    "%s: %.2f ms/s | %.1f Aufrufe/s | max %.2f ms",
+                    metric.get("system"),
+                    ((Number) metric.get("msPerSecond")).doubleValue(),
+                    ((Number) metric.get("callsPerSecond")).doubleValue(),
+                    ((Number) metric.get("maxMs")).doubleValue())));
+            }
+            context.sendMessage(Message.raw("Die Kategorien können verschachtelt sein und dürfen nicht addiert werden."));
+            context.sendMessage(Message.raw("JSON-Export weiterhin über tools/performance-export.py."));
         }
     }
 

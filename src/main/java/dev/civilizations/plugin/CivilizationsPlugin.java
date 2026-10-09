@@ -300,7 +300,8 @@ public final class CivilizationsPlugin extends JavaPlugin {
                 nameplateStatusSystem,
                 playerRigDebugService,
                 mineDebugService,
-                mineDecisionDiagnostics
+                mineDecisionDiagnostics,
+                performanceRecorder
             )
         );
 
