@@ -85,3 +85,16 @@ Bei einer neuen Registry oder einem neuen Cache muss vor der Implementierung bea
 7. Gibt es einen Test, der Restore beziehungsweise Cleanup gegen veraltete Daten absichert?
 
 Wenn Punkt 4 oder 5 nicht zuverlässig beantwortet ist, bleibt das Verhalten als offen dokumentiert statt durch einen vermuteten Hytale-Hook implementiert zu werden.
+
+## Plugin-Code-Austausch im laufenden Hytale-Server 0.6.8 (Windows)
+
+Ein fokussierter Hytale-Local-Lauf auf dem Windows-Runner `gabe` (Commit `0a98cb7292b40955054ae104fdaed62ed2515feb`, Actions-Lauf `37905217081`) belegt Folgendes:
+
+- Ein vom Server geladenes Java-Plugin-JAR konnte unter Windows nicht mit `ZipFile.Open(..., Update)` verändert werden, solange es geladen war; Windows meldete einen Dateisperrfehler.
+- Nach `plugin unload Civilizations:HytaleCiv` konnte die isolierte JAR ersetzt werden. `plugin load Civilizations:HytaleCiv` aktivierte das Plugin wieder im selben Serverprozess.
+- Der zuvor registrierte Markerbefehl gab zuerst `CIV_RELOAD_MARKER_A` und nach Unload/Ersetzung/Load `CIV_RELOAD_MARKER_B` aus. Damit wurde wirklich geänderter Java-Bytecode geladen.
+- Zwei anschließende native `plugin reload`-Befehle ließen den Serverprozess im Test weiterlaufen. Dies allein beweist keine vollständige ECS-/Listener-Bereinigung oder den Erhalt aktiver NPC-Aufgaben.
+
+Die zugehörige Runtime-Assertion wurde im genannten Lauf erreicht; der übergeordnete GitHub-Job scheiterte danach an einem PowerShell-Harness-Fehler mit nicht initialisiertem `LASTEXITCODE`. Ein sauber grüner Wiederholungslauf steht bis zur entsprechenden Korrektur noch aus.
+
+**Nicht verifiziert:** NPC-Arbeitszustände, World-/Entity-Registries, clientseitige UI und Langzeitstabilität über viele Reloads. Das Testergebnis ist eine Aussage zum Laden neuen Java-Codes, keine allgemeine Hot-Reload-Garantie für Civ.
