@@ -72,9 +72,10 @@ try {
     $psi.RedirectStandardInput = $true
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
-    foreach ($arg in @('-Dcivilizations.runtimeProbe=true','-jar',$env:HYTALE_SERVER_JAR,'--assets',$env:HYTALE_ASSETS_PATH,'--auth-mode','offline','--disable-sentry','--boot-command','civreloadmarker')) {
-        [void]$psi.ArgumentList.Add($arg)
-    }
+    # Windows PowerShell 5.1 uses .NET Framework, where ProcessStartInfo.ArgumentList is unavailable.
+    $psi.Arguments = '-Dcivilizations.runtimeProbe=true -jar "' + $env:HYTALE_SERVER_JAR +
+        '" --assets "' + $env:HYTALE_ASSETS_PATH +
+        '" --auth-mode offline --disable-sentry --boot-command civreloadmarker'
     $process = [System.Diagnostics.Process]::Start($psi)
     $stdoutTask = $process.StandardOutput.BaseStream.CopyToAsync($stdoutStream)
     $stderrTask = $process.StandardError.BaseStream.CopyToAsync($stderrStream)
