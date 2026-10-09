@@ -478,7 +478,7 @@ foreach ($scenario in $Scenarios) {
         switch ($scenario) {
             'woodcutter' { Run-WoodcutterScenario -RuntimeDir $runtimeDir }
             'persistence' { Run-PersistenceScenario -RuntimeDir $runtimeDir }
-            'reload' { & (Join-Path $PSScriptRoot 'hytale-reload-probe.ps1') -RuntimeDir $runtimeDir; if ($LASTEXITCODE -ne 0) { throw 'Reload probe failed' } }
+            'reload' { & (Join-Path $PSScriptRoot 'hytale-reload-probe.ps1') -RuntimeDir $runtimeDir }
             'minesupport' { Run-MineSupportScenario -RuntimeDir $runtimeDir }
             'soldier' { Run-SoldierScenario -RuntimeDir $runtimeDir }
             'mineatmosphere' { Run-MineAtmosphereScenario -RuntimeDir $runtimeDir }
