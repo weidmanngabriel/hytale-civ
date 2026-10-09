@@ -318,3 +318,5 @@ Der Screen zeigt geladene Hytale-Entity-Anzahl aus dem nativen Entity-Store, gel
 ## Performance-Diagnostik (Entwicklung)
 
 Der vorhandene opt-in-Civ-Profiler zeichnet nun Systemkosten pro Messintervall sowie automatisch auffällige Systemaufrufe und manuelle Marker auf. Die Daten lassen sich als JSON exportieren und in einem lokalen Browser-Dashboard filtern. Client-FPS werden derzeit nicht gemessen; die Ansicht weist sie deshalb ausdrücklich als nicht verfügbar aus. Die maximale Messdauer beträgt weiterhin 15 Minuten.
+
+Die Performance-Aufzeichnung ist direkt im Spiel über `/civdebug perf start`, `stop`, `status` und `report` zugänglich. Der Bericht zeigt die fünf teuersten gemessenen Civ-Systeme mit Laufzeit, Häufigkeit und maximaler Einzeldauer. Die Aufnahme läuft serverweit und höchstens 15 Minuten. Client-FPS stehen weiterhin nicht zur Verfügung; für JSON-Export wird die lokale Entwicklungsbrücke verwendet.
