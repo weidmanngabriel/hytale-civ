@@ -747,6 +747,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             return BridgeAssessment.none();
         }
         if (!floorMissing(world, front.slices.get(start))) return BridgeAssessment.none();
+        if (front.slices.get(start - 1).floorCenter().y()
+            != front.slices.get(start).floorCenter().y()) {
+            return BridgeAssessment.none();
+        }
         // A one-block empty support at the authored floor can be ordinary stepped
         // terrain, not a chasm. Never turn a shallow drop into mandatory bridge work.
         if (hasShallowSolidGround(world, front.slices.get(start))) {
@@ -762,6 +766,10 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         while (end + 1 < front.slices.size()
             && floorMissing(world, front.slices.get(end + 1))) {
             end++;
+            if (front.slices.get(end - 1).floorCenter().y()
+                != front.slices.get(end).floorCenter().y()) {
+                return BridgeAssessment.none();
+            }
             if (hasShallowSolidGround(world, front.slices.get(end))) {
                 return BridgeAssessment.none();
             }
