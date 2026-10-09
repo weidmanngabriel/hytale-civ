@@ -361,3 +361,7 @@ Hytale Live kann mehrere bereits zugelassene Bridge-Aktionen als versionierten J
 ## Miner connector proximity for navigation
 
 `MinerConnectorProximity` recognizes miners within the original connector's Y bounds and up to two blocks beyond its X/Z bounds. Only `MinerNavigationSystem` uses this to identify arrival at the connector/tunnel area and enable its existing navigation and stuck-recovery logic. Prefab geometry, trigger volumes, work targets and teleport safety checks remain unchanged. Block-center coordinates match `BuildingBounds.containsBlock` semantics.
+
+### Siedlungsdashboard
+
+`CivDashboardPage` ist eine Hytale-UI-Projektion aus `BuildingPlacementRegistry` und `CivUnitRegistry`. Der Aufruf erfolgt über `/civ` und den bestehenden `RtsInteractionController`. Feste Slots mit Seitenwechsel vermeiden unsichere dynamische Client-Dokument-Insertion. Das Auswählen eines Eintrags delegiert an bestehende RTS-Auswahlfunktionen und erzeugt keine zweite Autorität für Arbeitsplätze oder Berufe. Die derzeitige CivUnitRegistry erfasst nur geladene Bewohner; vollständige Offline-/Unloaded-Listen erfordern später eine autoritative persistente Einwohnerübersicht.

@@ -119,6 +119,16 @@ public final class CivUnitRegistry {
         units.remove(keyOf(ref));
     }
 
+    /** Snapshot of loaded claimed inhabitants only; unloaded entities are not enumerated here. */
+    public List<Ref<EntityStore>> loadedInhabitants() {
+        List<Ref<EntityStore>> result = new ArrayList<>();
+        for (Map.Entry<UnitKey, UnitState> entry : units.entrySet()) {
+            Ref<EntityStore> ref = entry.getValue().ref();
+            if (ref != null && ref.isValid() && isClaimed(ref)) result.add(ref);
+        }
+        return List.copyOf(result);
+    }
+
     public List<Ref<EntityStore>> workersAt(UUID buildingId) {
         if (buildingId == null) {
             return List.of();

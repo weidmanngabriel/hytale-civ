@@ -67,3 +67,7 @@ Die neue Boundary-Darstellung ist durch Packet-Struktur und Servercode der gepin
 Die genaue visuelle Position und Größe der Compact-HUDs bleibt In-Game-Feintuning. Der aktuelle Auswahlbereich sitzt unten links bei 24 px Abstand und 118 px Abstand zum unteren Rand.
 
 Die statischen Worker-Slots, die Upgrade-Darstellung und der neue Baustellen-Detailflow müssen weiterhin fokussiert im echten Client geprüft werden.
+
+## Civ-Managementdashboard
+
+`CivDashboardPage` verwendet `InteractiveCustomUIPage` und statisch deklarierte sieben Zeilen in `Pages/CivDashboard.ui`. Tabs und Seitenwechsel öffnen jeweils eine neue native Seite; damit wird das im Client problematische `appendInline` bewusst vermieden. Die Seite nutzt native Aktivierungs-Events und bestehende RTS-Auswahlaktionen. Die lokale Spielerwelt bestimmt die Gebäudeliste, die Bewohnerliste stammt aus gültigen geladenen Civ-Referenzen der aktuellen Entity-Store-Instanz. Noch offen: tatsächliche Skalierung/Layout und die Darstellung bei 30–50 Einträgen im Hytale-Client. Das Menü erstellt keine Civ-spezifischen Weltänderungen.
