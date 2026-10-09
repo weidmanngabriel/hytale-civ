@@ -215,6 +215,9 @@ public final class CivConstructionPersistenceService {
         if (PrefabPlacementService.MINE.prefabKey().equals(definition.prefabKey())) return "mine1";
         if (PrefabPlacementService.MINE_02.prefabKey().equals(definition.prefabKey())) return "mine2";
         if (PrefabPlacementService.MINE_03.prefabKey().equals(definition.prefabKey())) return "mine3";
+        if (PrefabPlacementService.DWARF_MINE.prefabKey().equals(definition.prefabKey())) return "dwarf1";
+        if (PrefabPlacementService.DWARF_MINE_02.prefabKey().equals(definition.prefabKey())) return "dwarf2";
+        if (PrefabPlacementService.DWARF_MINE_03.prefabKey().equals(definition.prefabKey())) return "dwarf3";
         if (PrefabPlacementService.WHEAT_FIELD.prefabKey().equals(definition.prefabKey())) return "wheat";
         throw new IllegalArgumentException("Unknown construction prefab " + definition.prefabKey());
     }
@@ -225,6 +228,9 @@ public final class CivConstructionPersistenceService {
             case "mine1" -> PrefabPlacementService.MINE;
             case "mine2" -> PrefabPlacementService.MINE_02;
             case "mine3" -> PrefabPlacementService.MINE_03;
+            case "dwarf1" -> PrefabPlacementService.DWARF_MINE;
+            case "dwarf2" -> PrefabPlacementService.DWARF_MINE_02;
+            case "dwarf3" -> PrefabPlacementService.DWARF_MINE_03;
             case "wheat" -> PrefabPlacementService.WHEAT_FIELD;
             default -> throw new IllegalArgumentException("unknown construction prefab token " + token);
         };

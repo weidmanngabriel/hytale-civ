@@ -34,3 +34,7 @@ Die erste Version konzentriert sich auf Pfeiler und Beleuchtung. Eigene Runen, B
 - In-Game-Test: Zwergenmine aus `/civbuild` setzen, Miner zuweisen, auf zwei Kreuzungen und die direkt auftauchenden Laternen warten, Mine upgradeprüfen, Server neu starten und auf Geometrie-/Task-Kontinuität prüfen. Eine bestehende Menschenmine dient parallel als Gegenprobe.
 
 Die Eingangs-Prefabs sind zunächst austauschbare Authoring-Platzhalter. Erst eine Sichtprüfung mit echten Vanilla-Assets kann eine finale zwergische Optik bestätigen.
+
+## Baustellen-Persistenzkorrektur
+
+Die neuen Zwergenminen-PlacementDefinitions müssen auch in `CivConstructionPersistenceService.definitionToken` und `definition` in beide Richtungen registriert sein. Andernfalls schlägt `saveSites` nach dem Baustellen-Commit mit `Unknown construction prefab Civilizations/DwarfMine/DwarfMine_01` fehl: Die Platzierung kann bereits in der Welt sichtbar sein, während der persistente Baustellenzustand nicht vollständig gespeichert wird. Alle drei Phasen verwenden jetzt stabile Tokens `dwarf1`, `dwarf2`, `dwarf3`; ein JUnit-Roundtrip-Test schützt diesen Vertrag. Bereits unterbrochene Baustellen können trotzdem einen erneuten Platzierungsversuch benötigen, wenn vor dieser Korrektur kein Baustellen-Snapshot persistiert wurde.
