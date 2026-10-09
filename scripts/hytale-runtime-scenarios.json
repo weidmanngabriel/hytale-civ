@@ -8,6 +8,7 @@
     "mineatmosphere",
     "reload",
     "deployment",
-    "deploymentrollback"
+    "deploymentrollback",
+    "deploymentreal"
   ]
 }
