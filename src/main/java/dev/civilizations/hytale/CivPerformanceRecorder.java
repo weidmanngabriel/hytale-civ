@@ -19,6 +19,7 @@ import java.util.function.LongSupplier;
 public final class CivPerformanceRecorder {
     public static final int MAX_SECONDS = 15 * 60;
     private static final int MAX_EVENTS = 2048;
+    private static final long SLOW_OPERATION_NANOS = 20_000_000L;
     private static final long MAX_NANOS = MAX_SECONDS * 1_000_000_000L;
     private static volatile CivPerformanceRecorder installed;
 
@@ -200,6 +201,16 @@ public final class CivPerformanceRecorder {
         long beganBookkeeping = after;
         long duration = Math.max(0, after - start);
         s.metrics.computeIfAbsent(key, ignored -> new Metric()).add(duration);
+        if (duration >= SLOW_OPERATION_NANOS) {
+            synchronized (this) {
+                Long last = s.lastSlowMarkerNanos.get(key);
+                if (s == active && s.events.size() < MAX_EVENTS &&
+                    (last == null || after - last >= 1_000_000_000L)) {
+                    s.lastSlowMarkerNanos.put(key, after);
+                    event("slow-operation", key + " " + (duration / 1_000_000.0) + "ms");
+                }
+            }
+        }
         s.bookkeepingNanos.add(Math.max(0, nanoClock.getAsLong() - beganBookkeeping));
     }
 
@@ -275,6 +286,7 @@ public final class CivPerformanceRecorder {
         final List<Map<String, Object>> events = new ArrayList<>();
         final Map<String, Double> previousMs = new LinkedHashMap<>();
         final Map<String, Long> previousCalls = new LinkedHashMap<>();
+        final Map<String, Long> lastSlowMarkerNanos = new LinkedHashMap<>();
         long previousCaptureSeconds = -1;
         int loadedEntities;
         int loadedCivResidents;
