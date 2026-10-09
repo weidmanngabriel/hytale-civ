@@ -71,3 +71,7 @@ Die statischen Worker-Slots, die Upgrade-Darstellung und der neue Baustellen-Det
 ## Civ-Managementdashboard
 
 `CivDashboardPage` verwendet `InteractiveCustomUIPage` und statisch deklarierte sieben Zeilen in `Pages/CivDashboard.ui`. Tabs und Seitenwechsel öffnen jeweils eine neue native Seite; damit wird das im Client problematische `appendInline` bewusst vermieden. Die Seite nutzt native Aktivierungs-Events und bestehende RTS-Auswahlaktionen. Die lokale Spielerwelt bestimmt die Gebäudeliste, die Bewohnerliste stammt aus gültigen geladenen Civ-Referenzen der aktuellen Entity-Store-Instanz. Noch offen: tatsächliche Skalierung/Layout und die Darstellung bei 30–50 Einträgen im Hytale-Client. Das Menü erstellt keine Civ-spezifischen Weltänderungen.
+
+## Performance-HUD und UI
+
+Ein aktiver Civ-Performance-Recorder erzeugt über `CivPerformanceHudSystem` (1-s-`DelayedEntitySystem`) den keyed `CustomUIHud` `civ.performanceTracking`. Der lila HUD am oberen rechten Rand zeigt „Performance Tracking aktiv“ und die Restzeit. Er ist **nicht anklickbar**, weil `CustomUIHud` keine `UIEventBuilder`-Bindings anbietet. In der nativen `CivDashboardPage` führt die dritte Registerkarte „Debug / Performance“ zu Start/Stopp, Status, Zahlen und Refresh. Angezeigte Systemdaten aktualisieren sich auf explizites „Aktualisieren“ oder beim erneuten Öffnen, nicht automatisch in jedem Tick. Runtime-Test von Layout und Lesbarkeit steht noch aus.
