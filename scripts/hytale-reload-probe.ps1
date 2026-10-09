@@ -21,8 +21,8 @@ function Wait-ForEvidence([string]$Evidence, [int]$Seconds) {
     $until = [DateTime]::UtcNow.AddSeconds($Seconds)
     while ([DateTime]::UtcNow -lt $until) {
         if ($process.HasExited) { throw "Server exited before $Evidence" }
-        if ((Test-Path $stdoutPath) -and (Get-Content -LiteralPath $stdoutPath -Raw).Contains($Evidence)) { return }
-        if ((Test-Path $stderrPath) -and (Get-Content -LiteralPath $stderrPath -Raw).Contains($Evidence)) { return }
+        if ((Test-Path $stdoutPath) -and ([string](Get-Content -LiteralPath $stdoutPath -Raw)).Contains($Evidence)) { return }
+        if ((Test-Path $stderrPath) -and ([string](Get-Content -LiteralPath $stderrPath -Raw)).Contains($Evidence)) { return }
         Start-Sleep -Milliseconds 500
     }
     throw "Timed out waiting for runtime evidence: $Evidence"
