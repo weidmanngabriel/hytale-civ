@@ -138,6 +138,7 @@ public final class CivBuildingPersistenceService {
         PrefabPlacementService.PlacementDefinition definition = switch (parts[3 + offset]) {
             case "farm" -> PrefabPlacementService.FARM;
             case "mine" -> PrefabPlacementService.minePhase(phase);
+            case "dwarf_mine" -> PrefabPlacementService.minePhase("dwarf_mine", phase);
             case "wheat_field" -> PrefabPlacementService.WHEAT_FIELD;
             default -> throw new IllegalArgumentException("unknown prefab " + parts[3 + offset]);
         };
