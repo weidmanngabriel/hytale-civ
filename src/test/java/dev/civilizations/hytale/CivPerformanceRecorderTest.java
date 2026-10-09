@@ -104,7 +104,7 @@ class CivPerformanceRecorderTest {
         assertEquals(5.0, (Double) second.get(0).get("intervalMs"), 0.001);
         assertEquals(1L, second.get(0).get("intervalCalls"));
         assertEquals(2, recorder.events(0, 100).get("total"));
-        assertEquals(1.0, (Double) points.get(0).get("intervalSeconds"), 0.001);
+        assertEquals(1.0, ((Number) points.get(0).get("intervalSeconds")).doubleValue(), 0.001);
         assertTrue(recorder.stop());
         assertEquals(2, recorder.events(0, 100).get("total"));
     }
