@@ -365,3 +365,9 @@ Hytale Live kann mehrere bereits zugelassene Bridge-Aktionen als versionierten J
 ### Siedlungsdashboard
 
 `CivDashboardPage` ist eine Hytale-UI-Projektion aus `BuildingPlacementRegistry` und `CivUnitRegistry`. Der Aufruf erfolgt über `/civ` und den bestehenden `RtsInteractionController`. Feste Slots mit Seitenwechsel vermeiden unsichere dynamische Client-Dokument-Insertion. Das Auswählen eines Eintrags delegiert an bestehende RTS-Auswahlfunktionen und erzeugt keine zweite Autorität für Arbeitsplätze oder Berufe. Die derzeitige CivUnitRegistry erfasst nur geladene Bewohner; vollständige Offline-/Unloaded-Listen erfordern später eine autoritative persistente Einwohnerübersicht.
+
+### Performance-Recorder
+
+`CivPerformanceRecorder` ist ein gemeinsamer, nur auf ausdrückliche Anforderung aktivierter Messkern für das Hytale-Adapter-Layer. Die bestehenden Worker-Systeme umgeben autoritative Tick-/Suchpfade mit sehr kurzen Timern; deaktiviert findet nur eine Referenzprüfung statt. Aggregierte Atomic-Zähler, approximative Histogramm-p95, und maximal 900 sekündliche Snapshots vermeiden unbegrenzte Rohereignisse. Die Messungen sind inklusiv (Kindoperationen stecken in Elternoperationen), daher dürfen Zeitwerte aus verschachtelten Kategorien nicht addiert werden. Der Report nennt die separat beobachtete Messbuchhaltung als approximativen Profiler-Eigenaufwand.
+
+`CivPerformanceHudSystem` benutzt einen nativen 1-s-`DelayedEntitySystem` auf Player-Entitäten, um Status-HUD und zusammengefasste World-Entity-Zahlen zu aktualisieren. Nur dieser Refresh erfragt native geladene Hytale-Entity-Zahlen. Start, Stop und Report benutzen UI wie Agent-Anbindung denselben Recorder. Es entstehen keine neuen Gameplay-Zustände, Weltabfragen für Diagnostik oder dauerhaften NPC-Indizes.
