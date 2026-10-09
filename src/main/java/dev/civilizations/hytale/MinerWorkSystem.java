@@ -781,14 +781,6 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         int landing = end + 1;
-        if (landing >= front.slices.size()
-            || !hasSafeOppositeLanding(world, front.slices.get(landing))) {
-            return BridgeAssessment.abandon("GAP_WITHOUT_SAFE_LANDING", false);
-        }
-        if (landing + 1 >= front.slices.size()) {
-            return BridgeAssessment.abandon("GAP_WITHOUT_PLANNED_CONTINUATION", false);
-        }
-
         // Bridge beams and deck follow a single walk elevation. Stepped authored
         // slices cannot be solved by this structure, even with a solid far landing.
         if (!MineBridgeTerrainPolicy.isLevelAcross(
@@ -797,6 +789,14 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             Math.min(front.slices.size() - 1, landing + 1)
         )) {
             return BridgeAssessment.none();
+        }
+
+        if (landing >= front.slices.size()
+            || !hasSafeOppositeLanding(world, front.slices.get(landing))) {
+            return BridgeAssessment.abandon("GAP_WITHOUT_SAFE_LANDING", false);
+        }
+        if (landing + 1 >= front.slices.size()) {
+            return BridgeAssessment.abandon("GAP_WITHOUT_PLANNED_CONTINUATION", false);
         }
 
         // Extend the actual construction footprint across both landings; only
