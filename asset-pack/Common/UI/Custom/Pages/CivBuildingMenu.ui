@@ -50,6 +50,11 @@ $C.@DecoratedContainer {
 
     $C.@TextButton #FieldButton {
       @Text = "Weizenfeld";
+      Anchor: (Width: 300, Height: 48, Bottom: 8);
+    }
+
+    $C.@TextButton #DwarfMineButton {
+      @Text = "Zwergenmine";
       Anchor: (Width: 300, Height: 48);
     }
   }
