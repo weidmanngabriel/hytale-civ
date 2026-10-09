@@ -81,6 +81,8 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
         Store<EntityStore> store,
         CommandBuffer<EntityStore> commandBuffer
     ) {
+        long civProfilingStarted = CivPerformanceRecorder.beginMeasured();
+        try {
         Ref<EntityStore> ref = archetypeChunk.getReferenceTo(index);
         if (ref == null || !ref.isValid()) {
             return;
@@ -133,6 +135,9 @@ public final class SoldierWorkSystem extends EntityTickingSystem<EntityStore> {
         engageNativeRetaliation(target, ref, store);
         runtime.target = target;
         runtime.schedule.scheduleRetry(RETRY_SECONDS);
+        } finally {
+            CivPerformanceRecorder.endMeasured("soldier.tick", civProfilingStarted);
+        }
     }
 
     public Ref<EntityStore> targetOf(Ref<EntityStore> soldier) {
