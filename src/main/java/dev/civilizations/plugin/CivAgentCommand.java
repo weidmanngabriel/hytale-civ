@@ -64,6 +64,8 @@ final class CivAgentCommand extends AbstractCommandCollection {
         addSubCommand(new PerformanceStatus(profiler));
         addSubCommand(new PerformanceReport(profiler));
         addSubCommand(new PerformanceSamples(profiler));
+        addSubCommand(new PerformanceEvents(profiler));
+        addSubCommand(new PerformanceMark(profiler));
     }
 
     private static void result(CommandContext context, String action, Object data) {
@@ -165,6 +167,32 @@ final class CivAgentCommand extends AbstractCommandCollection {
         }
     }
 
+    private static final class PerformanceEvents extends PerformanceAction {
+        private final RequiredArg<Integer> offset;
+        PerformanceEvents(CivPerformanceRecorder profiler) {
+            super("perf-events", "Read recorded timestamped Civ performance markers.", profiler);
+            offset = withRequiredArg("offset", "Zero-based event offset", ArgTypes.INTEGER);
+        }
+        @Override protected void run(CommandContext context, World world) {
+            int at = context.get(offset);
+            if (at < 0 || at > 2048) throw new IllegalArgumentException("Event offset out of range");
+            result(context, "perf-events", profiler.events(at, 100));
+        }
+    }
+
+    private static final class PerformanceMark extends PerformanceAction {
+        private final RequiredArg<String> label;
+        PerformanceMark(CivPerformanceRecorder profiler) {
+            super("perf-mark", "Add a manual marker to the active recording.", profiler);
+            label = withRequiredArg("label", "Marker name (one word)", ArgTypes.STRING);
+        }
+        @Override protected void run(CommandContext context, World world) {
+            if (!profiler.isActive()) throw new IllegalArgumentException("Profiler is inactive");
+            profiler.event("manual", context.get(label));
+            result(context, "perf-mark", Map.of("recorded", true));
+        }
+    }
+
     private static final class Capabilities extends WorldAction {
         Capabilities() { super("capabilities", "List currently implemented agent actions."); }
 
@@ -175,6 +203,7 @@ final class CivAgentCommand extends AbstractCommandCollection {
                     "capabilities", "players", "buildings", "sites", "block",
                     "set-block", "create-site", "mine-recover",
                     "perf-start", "perf-stop", "perf-status", "perf-report", "perf-samples",
+                    "perf-events", "perf-mark",
                     "civdev npcs", "civdev npc", "civdev spawn",
                     "civdev profession", "civdev assign-mine", "civdev mine-info"
                 ),

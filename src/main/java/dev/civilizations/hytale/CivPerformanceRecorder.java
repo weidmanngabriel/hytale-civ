@@ -18,6 +18,8 @@ import java.util.function.LongSupplier;
  */
 public final class CivPerformanceRecorder {
     public static final int MAX_SECONDS = 15 * 60;
+    private static final int MAX_EVENTS = 2048;
+    private static final long SLOW_OPERATION_NANOS = 20_000_000L;
     private static final long MAX_NANOS = MAX_SECONDS * 1_000_000_000L;
     private static volatile CivPerformanceRecorder installed;
 
@@ -45,6 +47,35 @@ public final class CivPerformanceRecorder {
         if (startedNanos == 0) return;
         CivPerformanceRecorder recorder = installed;
         if (recorder != null) recorder.measure(category, startedNanos);
+    }
+
+    /** Optional bounded, timestamped marker emitted only during an active recording. */
+    public synchronized void event(String type, String detail) {
+        expireIfNeeded();
+        Session s = active;
+        if (s == null || s.events.size() >= MAX_EVENTS) return;
+        String kind = sanitize(type, 64);
+        String message = sanitize(detail, 160);
+        if (kind.isEmpty()) return;
+        double elapsed = Math.max(0, nanoClock.getAsLong() - s.startedNanos) / 1_000_000_000.0;
+        s.events.add(Map.of("elapsedSeconds", elapsed, "type", kind, "detail", message));
+    }
+
+    private static String sanitize(String value, int max) {
+        if (value == null) return "";
+        String clean = value.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').strip();
+        return clean.substring(0, Math.min(max, clean.length()));
+    }
+
+    /** Events share the same monotonic timeline as system samples. */
+    public synchronized Map<String, Object> events(int offset, int count) {
+        expireIfNeeded();
+        List<Map<String, Object>> values = active != null ? active.events
+            : lastReport == null ? List.of() : lastReport.events;
+        int from = Math.max(0, Math.min(offset, values.size()));
+        int to = Math.min(values.size(), from + Math.max(1, Math.min(100, count)));
+        return Map.of("total", values.size(), "offset", from, "events",
+            List.copyOf(values.subList(from, to)));
     }
 
     public synchronized boolean start() {
@@ -94,7 +125,21 @@ public final class CivPerformanceRecorder {
             row.put("elapsedSeconds", elapsed);
             row.put("loadedHytaleEntities", s.loadedEntities);
             row.put("loadedCivResidents", s.loadedCivResidents);
-            row.put("systems", systemStats(s));
+            List<Map<String, Object>> interval = new ArrayList<>();
+            for (Map<String, Object> cumulative : systemStats(s)) {
+                String key = (String) cumulative.get("system");
+                double total = (Double) cumulative.get("totalMs");
+                long calls = (Long) cumulative.get("calls");
+                double previousTotal = s.previousMs.getOrDefault(key, 0.0);
+                long previousCalls = s.previousCalls.getOrDefault(key, 0L);
+                interval.add(Map.of("system", key, "intervalMs", Math.max(0.0, total - previousTotal),
+                    "intervalCalls", Math.max(0L, calls - previousCalls)));
+                s.previousMs.put(key, total);
+                s.previousCalls.put(key, calls);
+            }
+            row.put("intervalSeconds", s.previousCaptureSeconds < 0 ? elapsed : elapsed - s.previousCaptureSeconds);
+            s.previousCaptureSeconds = elapsed;
+            row.put("systems", List.copyOf(interval));
             s.samples.add(Map.copyOf(row));
         }
     }
@@ -156,6 +201,16 @@ public final class CivPerformanceRecorder {
         long beganBookkeeping = after;
         long duration = Math.max(0, after - start);
         s.metrics.computeIfAbsent(key, ignored -> new Metric()).add(duration);
+        if (duration >= SLOW_OPERATION_NANOS) {
+            synchronized (this) {
+                Long last = s.lastSlowMarkerNanos.get(key);
+                if (s == active && s.events.size() < MAX_EVENTS &&
+                    (last == null || after - last >= 1_000_000_000L)) {
+                    s.lastSlowMarkerNanos.put(key, after);
+                    event("slow-operation", key + " " + (duration / 1_000_000.0) + "ms");
+                }
+            }
+        }
         s.bookkeepingNanos.add(Math.max(0, nanoClock.getAsLong() - beganBookkeeping));
     }
 
@@ -168,7 +223,7 @@ public final class CivPerformanceRecorder {
 
     private void finish(Session s, long ended, String reason) {
         Map<String, Object> summary = reportOf(s, ended, reason);
-        lastReport = new Report(summary, List.copyOf(s.samples));
+        lastReport = new Report(summary, List.copyOf(s.samples), List.copyOf(s.events));
         active = null;
     }
 
@@ -185,6 +240,7 @@ public final class CivPerformanceRecorder {
         map.put("endReason", reason);
         map.put("maxDurationSeconds", MAX_SECONDS);
         map.put("sampleCount", s.samples.size());
+        map.put("eventCount", s.events.size());
         map.put("loadedHytaleEntities", s.loadedEntities);
         map.put("loadedCivResidents", s.loadedCivResidents);
         map.put("profilerBookkeepingMs", overhead / 1_000_000.0);
@@ -227,6 +283,11 @@ public final class CivPerformanceRecorder {
         final ConcurrentHashMap<String, Metric> metrics = new ConcurrentHashMap<>();
         final LongAdder bookkeepingNanos = new LongAdder();
         final List<Map<String, Object>> samples = new ArrayList<>();
+        final List<Map<String, Object>> events = new ArrayList<>();
+        final Map<String, Double> previousMs = new LinkedHashMap<>();
+        final Map<String, Long> previousCalls = new LinkedHashMap<>();
+        final Map<String, Long> lastSlowMarkerNanos = new LinkedHashMap<>();
+        long previousCaptureSeconds = -1;
         int loadedEntities;
         int loadedCivResidents;
         long lastSecond = -1;
@@ -262,5 +323,6 @@ public final class CivPerformanceRecorder {
         }
     }
 
-    private record Report(Map<String, Object> summary, List<Map<String, Object>> samples) {}
+    private record Report(Map<String, Object> summary, List<Map<String, Object>> samples,
+                          List<Map<String, Object>> events) {}
 }
