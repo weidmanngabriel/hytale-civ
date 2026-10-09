@@ -6,6 +6,10 @@ Hytale Civ ist als Strategie- und Simulations-Plugin für Hytale geplant. Einzel
 
 Spätere Meilensteine können dauerhafte Civ-Bewohner, vollständige Routenplanung, Gebäudebau, Bewohner mit Berufen und Bedürfnissen, physische Waren, lokale Lager, Produktionsketten und Logistik umfassen.
 
+## Zwergenmine – neuer Gebäudetyp
+
+Eine zweite Minenvariante `dwarf_mine` verwendet dieselben Bergarbeiter und Arbeitsplatzregeln wie die Menschenmine. Ihre Unterwelt entsteht als ebenes, geradliniges Raster mit rechtwinkligen Kreuzungen und sofort nach dem Aushub platzierten Steinpfeilern und Laternen. Umfang, feste V1-Geometrie und noch ausstehende eigene Eingangs-/Raumgestaltung sind in [dwarven-mine.md](dwarven-mine.md) festgehalten.
+
 ## Aktueller Umfang
 
 Der aktuelle Produkt-Meilenstein ist ein RTS-Prototyp mit steuerbaren NPCs zusätzlich zum ursprünglichen Plugin-Smoke-Test.
