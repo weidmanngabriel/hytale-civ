@@ -40,6 +40,12 @@ Für die aktuelle Mine entscheidet <code>MineNormalTaskSelector</code> Hytale-un
 
 Layer 5 ergänzt im Core <code>MineInfrastructureTask</code> und <code>MineInfrastructurePlanner</code>. Layer 8 erweitert diese semantischen Tasks um <code>PLACE_DECORATION</code> und gewichtete Dekorationsarten; der Planner legt außerdem dichtere Main- und sparsamere Branch-Atmosphäre fest. Diese Typen kennen Taskart, Priorität, Slice-Bereich und semantischen Zielpunkt, aber keine Hytale-Blocktypen oder Welt-APIs. Layer 6 ergänzt <code>MineRoomPlanner</code>, <code>MineRoomGeometry</code> und <code>MineRoomCoordinator</code> für Raumarbeit. Die tatsächliche Support-/Dekoform, native Asset-Auswahl, Block-/Fluidabfragen, Navigation und Platzierung bleiben Hytale-Adapterarbeit.
 
+### Minenstile
+
+`MineBuildingTypes` klassifiziert Menschen- und Zwergenminen als gemeinsamen Arbeiter-Arbeitsplatz. `MinerWorkSystem` verwendet weiterhin dieselbe Mine-Task-/Blockabbau-/Navigationsschicht; der Gebäudetyp wählt ausschließlich zwischen `MineNetworkGrowthPlanner` (organisch) und `DwarvenMinePlanner` (kardinales flaches Raster). Die Zwergenvariante liefert dasselbe `MineNetworkGrowthPlanner.Plan`-/`MineTunnelGeometry`-Datenformat und umgeht die nachträgliche organische Re-Voxelisierung des menschlichen Hauptstollens.
+
+`DwarvenMineFinishPlan` erzeugt Hytale-unabhängige Steinbogenpositionen abseits des Navigationskerns. Der Hytale-Adapter `DwarvenMineFinishExecutor` platziert Pfeiler und Laternen unmittelbar nach abgeschlossenen Tunnel-Slices mit dem bestehenden `MineBlockPlacement`. Erfolg wird über die ohnehin persistierten Infrastruktur-Completion-IDs im `MineNetwork` vermerkt. Die Menschenmine behält ihren gewöhnlichen Infrastruktur-/Dekor-Task-Scheduler. Die erste Zwergen-Rastergeneration ist bewusst endlich, eben und ohne Steppen. Details und Grenzen: [dwarven-mine.md](dwarven-mine.md).
+
 ### simulation
 
 <code>dev.civilizations.simulation</code> ist ein Hytale-unabhängiger zweiter Laufzeitpfad für Entwicklung und automatisierte Szenario-Tests. <code>SimulationRuntime</code> verwendet dieselben Core-Zustandsautomaten wie Hytale, ersetzt Engine-Schritte aber bewusst durch kleine deterministische Fixtures: geradlinige Fake-Bewegung, In-Memory-Bäume, Baustellen und Felder sowie kontrollierte Resultate.

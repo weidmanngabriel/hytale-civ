@@ -57,3 +57,8 @@ The ore material blocks are normal native ore blocks, including their normal gat
 
 
 Native placement reference: `MineBlockPlacement` passes a `ChunkStore.getChunkSectionReferenceAtBlock(...)` **section** reference to `BlockOperations.setBlock`, native connected-block notification and Deco physics. A chunk-column reference is not valid for these operations. See `mine-infrastructure-building.md`.
+
+
+## Zweiter Minenstil: Zwergenmine
+
+Die Zwergenmine verwendet denselben bestätigten `MineBlockPlacement`-Pfad. Anders als die Menschenmine wartet ihre wiederkehrende Steinpfeiler-/Laternen-Gestaltung nicht auf einen späteren normalen Worker-Task, sondern wird wenige sicher fertig ausgehobene Slices hinter der aktiven Front unmittelbar versucht. In `DwarvenMineFinishExecutor` werden Steinpfeiler über den geladenen `BlockType`-Katalog und `Deco_Lantern` aufgelöst. Der vorhandene Native-Placement-Pfad lehnt belegte/unverfügbare Zielblöcke ab; Core-Positionen sparen den Navigationskern aus. Die konkrete Optik und vollständige Navigierbarkeit dieser Kombination in echten Zwergengängen ist noch nicht mit einem Hytale-Local-Lauf nachgewiesen.

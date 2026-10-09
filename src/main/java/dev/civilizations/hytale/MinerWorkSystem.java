@@ -44,6 +44,9 @@ import dev.civilizations.core.MineTunnelPath;
 import dev.civilizations.core.MineTunnelVoxelizer;
 import dev.civilizations.core.MinePathPoint;
 import dev.civilizations.core.MineNetworkGrowthPlanner;
+import dev.civilizations.core.MineBuildingTypes;
+import dev.civilizations.core.DwarvenMinePlanner;
+import dev.civilizations.core.DwarvenMineFinishPlan;
 import dev.civilizations.core.MineNormalTaskSelector;
 import dev.civilizations.core.MineObstaclePolicy;
 import dev.civilizations.core.MinePathPlanner;
@@ -2398,16 +2401,16 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         MineHeading heading = outwardHeading(mine.bounds(), connector.bounds());
         BlockPosition origin = initialCenterlineOrigin(connector.bounds(), heading);
         long seed = planningSeed(mine.id());
-        MineNetworkGrowthPlanner.Plan planned = MineNetworkGrowthPlanner.plan(
-            mine.id(),
-            origin,
-            heading,
-            MAIN_PLAN_LENGTH_BLOCKS,
-            RUNTIME_PLANNING_TUNNEL_BUDGET,
-            seed,
-            decisionSink
-        );
-        planned = clippedInitialPlan(planned);
+        boolean dwarven = MineBuildingTypes.isDwarven(mine.buildingType());
+        MineNetworkGrowthPlanner.Plan planned = dwarven
+            ? DwarvenMinePlanner.plan(
+                mine.id(), origin, heading, 192, RUNTIME_PLANNING_TUNNEL_BUDGET, seed
+            )
+            : MineNetworkGrowthPlanner.plan(
+                mine.id(), origin, heading, MAIN_PLAN_LENGTH_BLOCKS,
+                RUNTIME_PLANNING_TUNNEL_BUDGET, seed, decisionSink
+            );
+        if (!dwarven) planned = clippedInitialPlan(planned);
         List<MineRoom> plannedRooms = MineRoomPlanner.plan(planned, decisionSink);
 
         MineNetwork persisted = tunnelRegistry.networkForMine(key.worldId, mine.id());
@@ -2540,6 +2543,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
         Map<UUID, RuntimeInfrastructureTask> infrastructureTasks = new LinkedHashMap<>();
         for (MineNetworkGrowthPlanner.PlannedTunnel tunnel : allTunnels) {
+            if (dwarven) continue; // Dwarven arches are finished at excavation completion.
             for (MineInfrastructureTask task :
                 MineInfrastructurePlanner.plan(
                     mine.id(),
@@ -2624,6 +2628,20 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             world, mine, minePlan, plan, completedIndex, network
         );
 
+        if (MineBuildingTypes.isDwarven(mine.buildingType())) {
+            // Immediately finish safe completed slices a few blocks behind the active
+            // face. Stable IDs live in the same persisted infrastructure completion set.
+            int latestSafe = completedIndex - 3;
+            for (int index = Math.max(8, completedIndex - 20); index <= latestSafe; index++) {
+                DwarvenMineFinishPlan.Feature feature =
+                    DwarvenMineFinishPlan.at(plan.tunnelId, plan.geometry, index);
+                if (feature == null || network.infrastructureTaskCompleted(feature.id())) continue;
+                if (DwarvenMineFinishExecutor.finish(world, feature)) {
+                    network = network.withInfrastructureTaskCompleted(feature.id());
+                }
+            }
+        }
+
         int nextIndex = completedIndex + 1;
         MineWorkFront updated;
         if (nextIndex >= plan.slices.size()) {
@@ -2659,6 +2677,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         RuntimeMinePlan plan,
         RuntimeFrontPlan completed
     ) {
+        // V1 dwarven grid is bounded to its authored straight planning envelope.
+        if (MineBuildingTypes.isDwarven(mine.buildingType())) return;
         UUID worldId = world.getWorldConfig().getUuid();
         MineNetwork current = tunnelRegistry.networkForMine(worldId, mine.id());
         if (current == null) return;
@@ -3185,7 +3205,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             if (!building.bounds().containsBlock(block)) continue;
             // Mine corridors may intersect previously constructed mine interiors.
             // Other buildings, and the current mine's own entrance prefab, remain protected.
-            if (!MINE_BUILDING.equals(building.buildingType())
+            if (!MineBuildingTypes.isMine(building.buildingType())
                 || building.id().equals(mine.id())) return false;
         }
         // Only callers working from authored excavation blocks reach this method.
@@ -3232,7 +3252,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         try {
             BuildingPlacementRegistry.BuildingInstance building =
                 buildingRegistry.find(worldId, UUID.fromString(data.workplaceId()));
-            return building != null && MINE_BUILDING.equals(building.buildingType()) ? building : null;
+            return building != null && MineBuildingTypes.isMine(building.buildingType()) ? building : null;
         } catch (IllegalArgumentException ignored) {
             return null;
         }

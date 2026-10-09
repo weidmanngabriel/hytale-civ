@@ -18,6 +18,14 @@ public final class BuildingTypes {
                 new BuildingTypeDefinition.PhaseDefinition(3, 3)
             )
         ),
+        "dwarf_mine", new BuildingTypeDefinition(
+            "dwarf_mine",
+            List.of(
+                new BuildingTypeDefinition.PhaseDefinition(1, 1),
+                new BuildingTypeDefinition.PhaseDefinition(2, 2),
+                new BuildingTypeDefinition.PhaseDefinition(3, 3)
+            )
+        ),
         "wheat_field", new BuildingTypeDefinition(
             "wheat_field",
             List.of(new BuildingTypeDefinition.PhaseDefinition(1, 0))

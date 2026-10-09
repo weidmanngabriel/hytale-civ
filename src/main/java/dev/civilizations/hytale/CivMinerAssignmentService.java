@@ -3,6 +3,7 @@ package dev.civilizations.hytale;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import dev.civilizations.core.Profession;
+import dev.civilizations.core.MineBuildingTypes;
 
 /** Shared validation and state changes for assigning a Civ miner to a completed mine. */
 public final class CivMinerAssignmentService {
@@ -25,7 +26,7 @@ public final class CivMinerAssignmentService {
 
     public Result assign(Ref<EntityStore> miner, BuildingPlacementRegistry.BuildingInstance mine) {
         if (miner == null || !miner.isValid() || !units.isClaimed(miner)) return Result.NOT_CIV_INHABITANT;
-        if (mine == null || !"mine".equals(mine.buildingType())) return Result.NOT_A_MINE;
+        if (mine == null || !MineBuildingTypes.isMine(mine.buildingType())) return Result.NOT_A_MINE;
         if (buildings.isUpgrading(mine.worldId(), mine.id())) return Result.UPGRADING;
         boolean hasConnector = mine.semanticVolumes().stream()
             .anyMatch(volume -> volume.hasTag("civ.type", "mine_tunnel_connector")
