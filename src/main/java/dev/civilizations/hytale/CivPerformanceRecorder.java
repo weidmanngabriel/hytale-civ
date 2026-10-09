@@ -72,6 +72,14 @@ public final class CivPerformanceRecorder {
      * This is the native entity-store snapshot, not a second query for NPCs.
      * Called by the existing player ECS refresh at most once per second.
      */
+    /** Avoid repeating a loaded-Civ enumeration once per player in multiplayer. */
+    public synchronized boolean needsCapture() {
+        expireIfNeeded();
+        Session s = active;
+        return s != null && Math.max(0,
+            (nanoClock.getAsLong() - s.startedNanos) / 1_000_000_000L) != s.lastSecond;
+    }
+
     public synchronized void capture(int loadedEntities, int loadedCivResidents) {
         expireIfNeeded();
         Session s = active;
