@@ -37,7 +37,7 @@ jobs:
 
             const requestIssue = 126;
             const allowedActors = new Set(['weidmanngabriel']);
-            const commandPattern = /^\/hytale-test\s+([a-z0-9]+(?:-[a-z0-9]+)*)\s+([0-9a-f]{7,40})$/;
+            const commandPattern = /^\/hytale-(test\s+([a-z0-9]+(?:-[a-z0-9]+)*)|deploy)\s+([0-9a-f]{7,40})$/;
             const scenarioNamePattern = /^[a-z][a-z0-9]{0,31}$/;
 
             if (context.payload.issue?.number !== requestIssue) {
@@ -60,8 +60,9 @@ jobs:
               return;
             }
 
-            const scenarioPart = match[1];
-            const requestedRef = match[2].toLowerCase();
+            const simpleDeploy = match[1] === 'deploy';
+            const scenarioPart = simpleDeploy ? 'deploymentreal' : match[2];
+            const requestedRef = match[3].toLowerCase();
             const { owner, repo } = context.repo;
 
             let targetCommit;
@@ -206,11 +207,12 @@ jobs:
             }
 
 
-            console.log('Authorized Hytale runtime request');
+            console.log(simpleDeploy ? 'Authorized isolated Hytale Civ deployment' : 'Authorized Hytale runtime request');
             console.log(`Request issue: #${requestIssue}`);
             console.log(`Commit: ${headSha}`);
             console.log(`Requested by: ${actor}`);
             console.log(`Scenarios: ${selected.join(', ')}`);
+            console.log(`Request type: ${simpleDeploy ? 'sandbox deployment' : 'runtime test'}`);
             console.log(artifactRunId
               ? `Using tested CI artifact ${artifactName} from workflow run ${artifactRunId}.`
               : `No successful CI artifact found for ${headSha}; local Gradle fallback will run.`);
