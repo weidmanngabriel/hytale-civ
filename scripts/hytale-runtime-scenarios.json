@@ -5,6 +5,7 @@
     "persistence",
     "warmruntime",
     "soldier",
-    "mineatmosphere"
+    "mineatmosphere",
+    "reload"
   ]
 }

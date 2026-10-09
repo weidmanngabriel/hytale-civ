@@ -285,3 +285,9 @@ Die Hytale Agent API wird durch den regulären Java-Compile-/Build-Pfad mit der 
 ## Ingame-Profilerbefehle
 
 Die vier Player-Commands (`/civdebug perf start|stop|status|report`) delegieren an den bereits über JUnit getesteten `CivPerformanceRecorder`. Der normale Gradle-Test und Build deckt Kompilierung und Profiler-Regressionen ab; die konkrete Darstellung von Chatnachrichten wird ohne gesonderten Hytale-Local-Lauf nicht als zur Laufzeit bestätigt ausgegeben.
+
+## Isolierter Plugin-Reload-Test
+
+Das opt-in Hytale-Local-Szenario `reload` verwendet den Runner mit Label `hytale-pc-gabe`. Es startet einen separaten Serverprozess in `RUNNER_TEMP` und ein Test-Plugin mit dem Marker `CIV_RELOAD_MARKER_A`. Vor dem Boot wird eine zweite Plugin-JAR erzeugt, in der ausschließlich die gleich lange Marker-Konstante durch `CIV_RELOAD_MARKER_B` ersetzt wird. Nach dem Boot entlädt das Skript das Plugin über `plugin unload`, tauscht die isolierte JAR aus und lädt mit `plugin load` neu. Der Markerbefehl muss anschließend den B-Code ausgeben. Zwei weitere Reloads dienen als erster Stabilitätstest. Das Szenario berührt keine regulären Mods oder Spielwelten. NPC-Zustand, registrierte ECS-Komponenten und clientseitige Darstellung sind **durch diesen technischen Marker-Test noch nicht verifiziert**; diese benötigen eigene Folgeprüfungen.
+
+**Sicherheitsgrenze (Hytale 0.6.8):** Ein ergänzender isolierter Versuch mit einem geclaimten Miner scheiterte bereits beim `plugin unload` an einer `NullPointerException` in der Hytale-ECS-Komponentenabmeldung (Actions-Lauf `37906037185`). Das Marker-Szenario bleibt daher bewusst ein NPC-freier API-Test. Ein grüner `reload`-Lauf ist **keine Freigabe** für Hot Reload in aktiven Civ-Welten. Für Deployments mit Bewohnern gilt: kontrollierter Stopp und Neustart.
