@@ -161,7 +161,7 @@ Das Plugin-JAR enthält außerdem die benötigten Bibliotheken aus Gradles <code
 
 ## Hytale Local / Runtime-Tests
 
-Hytale Local bezeichnet im Projekt die gezielte Ausführung echter Hytale-Runtime-Szenarien auf dem lokalen Windows-Self-Hosted-Runner. Es ergänzt Unit-, Simulations- und Adaptertests dort, wo eine Frage nur in der echten Engine zuverlässig beantwortet werden kann, zum Beispiel bei Lifecycle, Event-Dispatch, Navigation, Client-/Server-Interaktion, Asset-Verhalten oder anderen runtime-abhängigen Hytale-Verträgen.
+Hytale Local bezeichnet im Projekt die gezielte Ausführung echter Hytale-Runtime-Szenarien auf dem lokalen Windows-Self-Hosted-Runner. Der Runtime-Job ist durch das zusätzliche Runner-Label `hytale-pc-gabe` ausdrücklich an den Windows-Runner `gabe` gebunden. Es ergänzt Unit-, Simulations- und Adaptertests dort, wo eine Frage nur in der echten Engine zuverlässig beantwortet werden kann, zum Beispiel bei Lifecycle, Event-Dispatch, Navigation, Client-/Server-Interaktion, Asset-Verhalten oder anderen runtime-abhängigen Hytale-Verträgen.
 
 Hytale Local ist bewusst **kein allgemeiner Standard-Testschritt** und kein Merge- oder Release-Gate. Es soll eingesetzt werden, wenn ein konkreter Runtime-Test eine relevante Unsicherheit reduziert oder eine schwer reproduzierbare Engine-Interaktion gezielt diagnostiziert. Reine Core-Logik, Dokumentationsänderungen und Verhalten, das zuverlässig unterhalb der Hytale-Grenze getestet werden kann, gehören weiterhin in die normalen automatisierten Tests.
 
