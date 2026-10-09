@@ -7,6 +7,7 @@
     "soldier",
     "mineatmosphere",
     "reload",
-    "deployment"
+    "deployment",
+    "deploymentrollback"
   ]
 }
