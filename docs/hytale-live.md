@@ -79,3 +79,15 @@ The current batch runner composes already supported \`civdev\` commands; \`civde
 `/hytale-live runner gabe agent capabilities` liest den zur installierten Mod-Version gehörenden Funktionskatalog. Im JSON-Batch gilt `{"id":"capabilities","action":"command","command":"agent capabilities"}`. Weitere Aktionen sind `agent players`, `agent buildings`, `agent sites`, `agent block <x> <y> <z>`, `agent set-block <x> <y> <z> <blockAssetId>`, `agent create-site <playerUuid> <mine|farm|wheat_field> <x> <y> <z>` und `agent mine-recover <mineUuid> <status|workers|fronts|all>`. Der `agent`-Präfix wird nur für erlaubte Kommandos nach `civagent` übersetzt; beliebige native Hytale-Kommandos bleiben gesperrt.
 
 `CIVAGENT_RESULT`-Ausgaben enthalten jeweils `action` und `data` als JSON. Ein `CIVAGENT_ERROR`- oder `CIVDEV_ERROR`-Antworttext gilt nun auch dann als fehlgeschlagener Batch-Schritt, wenn die native Command-Bridge den Transport als erfolgreich meldet. Build-Sites verwenden echte verbundene Spieler und beginnen als Baustelle, nicht als fertiges Gebäude. Neue Kommandos sind erst nach Installation der neuen Mod am laufenden PC verfügbar. Näheres: [Agent API](agent-api.md).
+
+## Performance-Profiler über Hytale Live
+
+Neue allowlistete, serverweite CivAgent-Kommandos (nach Installation der entsprechenden Plugin-Version):
+
+- `agent perf-start`: Profiling beginnen, Laufzeit max. 15 Minuten; wiederholter Start setzt die laufende Aufnahme nicht zurück.
+- `agent perf-status`: Aktivzustand, Restzeit und vorhandenen Report abfragen.
+- `agent perf-stop`: Aufnahme beenden; behält den letzten Report im Speicher.
+- `agent perf-report`: systemweise Aggregation inklusive Messbuchhaltung und Entity-Zahlen als `CIVAGENT_RESULT`.
+- `agent perf-samples <offset>`: 10 sekündliche Messpunkte ab nullbasiertem Offset 0–900.
+
+Diese Aktionen verwenden genau dieselbe Aufnahme wie das Dashboard. Änderungen an der normalen Spielwelt erfolgen nicht, die Messung verursacht aber bewusst zusätzlichen Runtime-Aufwand. Der Hytale-Live-Workflow prüft die Kommandos sowohl am GitHub-hosted Gate als auch am Windows-Self-Hosted Runner. Zugriff auf einen laufenden Rechner erfordert weiterhin die in diesem Dokument beschriebenen Zielrechner-/Freigabeanforderungen.
