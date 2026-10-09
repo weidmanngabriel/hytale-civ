@@ -79,7 +79,18 @@ function Prepare-Runtime {
         throw 'Built Civ plugin JAR was not found in build\libs.'
     }
 
-    Copy-Item -LiteralPath $pluginJar.FullName -Destination $modsDir -Force
+    if ($Scenario -eq 'deploymentreal') {
+        if ($env:HCIV_BASELINE_SHA -notmatch '^[0-9a-f]{40}$' -or $env:HCIV_TARGET_SHA -notmatch '^[0-9a-f]{40}$' -or $env:HCIV_BASELINE_SHA -eq $env:HCIV_TARGET_SHA) {
+            throw 'deploymentreal requires two distinct authorized full commit SHAs.'
+        }
+        $baselineJars = @(Get-ChildItem -LiteralPath $env:HCIV_BASELINE_DIR -Filter 'hytale-civ-*.jar' -File)
+        if ($baselineJars.Count -ne 1) { throw "Expected one earlier CI JAR artifact, found $($baselineJars.Count)." }
+        Copy-Item -LiteralPath $baselineJars[0].FullName -Destination (Join-Path $modsDir $pluginJar.Name) -Force
+        Write-Host "HCIV_ARTIFACT_BASELINE_SHA=$($env:HCIV_BASELINE_SHA)"
+        Write-Host "HCIV_ARTIFACT_TARGET_SHA=$($env:HCIV_TARGET_SHA)"
+    } else {
+        Copy-Item -LiteralPath $pluginJar.FullName -Destination $modsDir -Force
+    }
     Copy-Item -LiteralPath 'asset-pack' -Destination (Join-Path $modsDir 'hytale-civ-assets') -Recurse -Force
     Write-Host "Prepared isolated Hytale runtime for scenario '$Scenario': $runtimeDir"
     return $runtimeDir
@@ -480,6 +491,8 @@ foreach ($scenario in $Scenarios) {
             'persistence' { Run-PersistenceScenario -RuntimeDir $runtimeDir }
             'reload' { & (Join-Path $PSScriptRoot 'hytale-reload-probe.ps1') -RuntimeDir $runtimeDir }
             'deployment' { . (Join-Path $PSScriptRoot 'hytale-deployment-scenario.ps1'); Run-DeploymentScenario -RuntimeDir $runtimeDir }
+            'deploymentrollback' { . (Join-Path $PSScriptRoot 'hytale-deployment-scenario.ps1'); Run-DeploymentScenario -RuntimeDir $runtimeDir -InjectFailure }
+            'deploymentreal' { . (Join-Path $PSScriptRoot 'hytale-deployment-scenario.ps1'); Run-DeploymentScenario -RuntimeDir $runtimeDir -UseRealArtifacts }
             'minesupport' { Run-MineSupportScenario -RuntimeDir $runtimeDir }
             'soldier' { Run-SoldierScenario -RuntimeDir $runtimeDir }
             'mineatmosphere' { Run-MineAtmosphereScenario -RuntimeDir $runtimeDir }
