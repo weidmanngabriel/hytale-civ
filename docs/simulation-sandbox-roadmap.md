@@ -60,7 +60,7 @@ Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenomme
 - [x] Bestehenden Hytale-`MinerWorkSystem` auf diese Ablaufmaschine als Engine-Adapter umstellen (nicht nur parallele Simulation bauen).
 - [x] Headless-Simulator über dieselbe Ablaufmaschine ausführen und Engine-Ergebnisse künstlich melden.
 - [x] Paritätstests über identische Befehls-/Ergebnisfolgen, einschließlich Mehrfach-Miner, Rückweg, Hindernis, Abbruch und Retry.
-- [ ] Integrations- und CI-Abnahme grün; erst dann diesen Teil als abgeschlossen markieren.
+- [x] Integrations- und CI-Abnahme grün: PR #337 per Squash integriert; Main-Build und Release erfolgreich (Nachweise unten).
 
 ## Lab A–C – ergänzender Stand
 
@@ -76,5 +76,9 @@ Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenomme
 - Engine-Golden-Historien vergleichen identische Beobachtungen/Ergebnisse mit produktiver Coordinator- und Headless-Verdrahtung. Sie sind kein echter Hytale-Lauf.
 - Voxel-Runtime testet Mehrfach-Miner, manuellen Abbruch/Wiederaufnahme, Rückweg, Wasser/Lava und explizite Recovery.
 - Native Block-/Prefab-APIs bleiben im Hytale-Adapter. Hytale Local wurde für diese Core-Umstellung nicht ausgeführt.
-- Integration: PR-/Main-CI-Nachweis wird nach erfolgreicher Validierung ergänzt.
+- Lokale Validierung: `./gradlew test` und `./gradlew build` erfolgreich; 303 Java-Tests, keine Fehler oder übersprungenen Tests. MCP-/Live-Node-Tests (18) und Viewer-Tests/Build erfolgreich.
+- [PR #337](https://github.com/weidmanngabriel/hytale-civ/pull/337): [PR-CI 38068231264](https://github.com/weidmanngabriel/hytale-civ/actions/runs/38068231264) erfolgreich für exakt `adfd1ad4950ba0d482d812772d4984f5c0f2314a`.
+- Squash-Merge in `main`: `7ff3a8029b8f0a45d70af3c4ac372670e2d50422`.
+- [Main-CI 38068322122](https://github.com/weidmanngabriel/hytale-civ/actions/runs/38068322122) für diesen Merge erfolgreich: Java-Test/Build, Browser Viewer, MCP auf Ubuntu/Windows und Publish GitHub Release. **Phase 5B ist damit am 10. Oktober 2026 abgeschlossen.**
+- Dieser Roadmap-Nachtrag wird separat nach der geprüften Main-CI integriert; er ändert keinen Gameplay-Code.
 - Unabhängig offen: realer Weltexport, native Navigation/Placementphysik und Nutzerabnahme auf großem Echtweltarchiv. Diese Punkte gehören nicht zum Core-Abschluss von Phase 5B.
