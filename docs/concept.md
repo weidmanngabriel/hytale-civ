@@ -327,3 +327,10 @@ Der vorhandene opt-in-Civ-Profiler zeichnet nun Systemkosten pro Messintervall s
 Die Performance-Aufzeichnung ist direkt im Spiel über `/civdebug perf start`, `stop`, `status` und `report` zugänglich. Der Bericht zeigt die fünf teuersten gemessenen Civ-Systeme mit Laufzeit, Häufigkeit und maximaler Einzeldauer. Die Aufnahme läuft serverweit und höchstens 15 Minuten. Client-FPS stehen weiterhin nicht zur Verfügung; für JSON-Export wird die lokale Entwicklungsbrücke verwendet.
 
 Der lokale 3D-Viewer bietet die Schaltfläche **Performance aufnehmen**. Nach erneutem Klick wird eine JSON-Datei heruntergeladen, die Browser-FPS, Framezeit, Mesh-Aufbauzeiten, API-Latenzen, Welt-/NPC-Größe sowie Tick- und Revisionszahlen enthält. Die Aufnahme ist standardmäßig aus und auf maximal 900 Sekunden-Samples begrenzt. Ein echter Server-Profiler wird dadurch nicht ersetzt.
+
+
+## Simulation Lab: Mine_01 mit Diagnoseansicht
+
+Bei importierter Welt kann der Nutzer das im Repository vorhandene Mine_01-Prefab an expliziten Weltkoordinaten platzieren. Der Simulator materialisiert die authored Blöcke einschließlich der als `Empty` gekennzeichneten Zellen, zeigt die echten Civ-Marker (Gebäudegrenzen, Zugang, Tunnelanschluss) und plant einen Core-Minentunnel anhand der Connector-Richtung. Danach lassen sich Miner in der Nähe des Gebäudezugangs starten. Marker, aktuelle Arbeitsfront, geplante Tunnelmitten, Bewegungsziele, vereinfachte Wege und Blockadezustände werden angezeigt.
+
+Eine eingeschränkte Entwicklerkonsole akzeptiert `/sim mine place X Y Z`, `/sim mine info`, `/sim markers on|off`, `/sim paths on|off`, `/sim block set X Y Z AIR|SOLID|WATER|LAVA`, Ablaufbefehle sowie kleine lesende `/civdev`-/`/civdebug`-Entsprechungen. Sie ist keine vollständige native Hytale-Konsole. Physische Prefab-Entities, die vollständige Hytale-Navigation und alle produktiven Minen-Arbeitsarten werden hier noch nicht simuliert.
