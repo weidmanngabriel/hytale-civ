@@ -132,7 +132,7 @@ public final class LocalSimulationServer implements AutoCloseable {
                     case "reset" -> {
                         running = false;
                         voxelWorld = sourceArchive == null ? null : new VoxelWorld(sourceArchive);
-                        runtime = scenario.createRuntime();
+                        runtime = newRuntime();
                     }
                     case "speed" -> {
                         int value = data.path("value").asInt(0);
