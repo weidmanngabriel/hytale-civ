@@ -30,6 +30,7 @@ public final class LocalSimulationServer implements AutoCloseable {
     private final java.util.concurrent.ExecutorService requests = Executors.newVirtualThreadPerTaskExecutor();
     private final ScheduledExecutorService ticker = Executors.newSingleThreadScheduledExecutor();
     private final Object lock = new Object();
+    private final SimulationEventJournal journal = new SimulationEventJournal();
     private volatile boolean running;
     private volatile int ticksPerFrame = 1;
     private SimulationScenario scenario = SimulationScenarios.DEMO_SETTLEMENT;
@@ -54,7 +55,10 @@ public final class LocalSimulationServer implements AutoCloseable {
         ticker.scheduleAtFixedRate(() -> {
             if (!running) return;
             synchronized (lock) {
-                if (running) runtime.runTicks(ticksPerFrame);
+                if (running) for (int i = 0; i < ticksPerFrame; i++) {
+                    runtime.tick();
+                    journal.observe(runtime.worldSnapshot());
+                }
             }
         }, 50, 50, TimeUnit.MILLISECONDS);
     }
@@ -87,7 +91,7 @@ public final class LocalSimulationServer implements AutoCloseable {
             respond(exchange, 200, Map.of(
                 "scenario", scenario.id(), "running", running, "speed", ticksPerFrame,
                 "additionalWoodcutters", additionalWoodcutters, "additionalBuilders", additionalBuilders,
-                "world", runtime.worldSnapshot(), "worldRevision", voxelWorld == null ? 0 : voxelWorld.revision()
+                "world", runtime.worldSnapshot(), "events", journal.events(), "worldRevision", voxelWorld == null ? 0 : voxelWorld.revision()
             ));
         }
     }
@@ -128,9 +132,10 @@ public final class LocalSimulationServer implements AutoCloseable {
                 switch (command) {
                     case "play" -> running = true;
                     case "pause" -> running = false;
-                    case "step" -> { running = false; runtime.tick(); }
+                    case "step" -> { running = false; runtime.tick(); journal.observe(runtime.worldSnapshot()); }
                     case "reset" -> {
                         running = false;
+                        journal.reset();
                         voxelWorld = sourceArchive == null ? null : new VoxelWorld(sourceArchive);
                         runtime = newRuntime();
                     }
@@ -169,6 +174,7 @@ public final class LocalSimulationServer implements AutoCloseable {
                         additionalBuilders = builders;
                         running = false;
                         runtime = newRuntime();
+                        journal.reset();
                     }
                     case "configureMiners" -> {
                         int miners = data.path("miners").asInt(0);
@@ -176,6 +182,7 @@ public final class LocalSimulationServer implements AutoCloseable {
                         running = false;
                         scenario = customMiners(miners);
                         runtime = scenario.createRuntime();
+                        journal.reset();
                     }
                     case "scenario" -> {
                         String id = data.path("id").asText("");
@@ -184,6 +191,7 @@ public final class LocalSimulationServer implements AutoCloseable {
                             .orElseThrow(() -> new IllegalArgumentException("Unknown scenario"));
                         running = false;
                         runtime = scenario.createRuntime();
+                        journal.reset();
                     }
                     default -> throw new IllegalArgumentException("Unknown command");
                 }
