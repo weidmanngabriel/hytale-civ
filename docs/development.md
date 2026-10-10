@@ -259,6 +259,15 @@ npm run dev --prefix web-viewer
 
 Dann `http://localhost:5173/live.html` öffnen. Unter Windows `gradlew.bat` verwenden. Zum Öffnen einer exportierten Welt `./gradlew localSimulationServer -PsimWorldArchive=/pfad/region.civworld.gz` ausführen. Die Datei bleibt Rohquelle; der Simulator berechnet sein Voxelmodell neu.
 
+### Hytale-Welt einmalig als Rohquelle exportieren
+
+1. Die Civ-Mod in Hytale laden und die gewünschte Region vollständig laden lassen.
+2. In der Server-/Spielkonsole den Entwicklungsbefehl `/worldexport <x> <y> <z> <width> <height> <depth>` ausführen. Die Koordinaten bezeichnen die minimale Ecke; die Größen sind positiv und der Ausschnitt umfasst höchstens 250.000 Voxel.
+3. Der Befehl legt einen komprimierten `.civworld.gz`-Snapshot unter `civ-world-archives/` im Arbeitsverzeichnis der Hytale-Serverinstanz ab und meldet den Dateipfad zurück.
+4. Die Datei unverändert außerhalb des Repositories aufbewahren. Zum Testen `./gradlew localSimulationServer -PsimWorldArchive=/pfad/zur/datei.civworld.gz` ausführen, danach den Browser-Viewer öffnen.
+
+Der Snapshot enthält die ursprünglichen Block-Asset-IDs, nativen Flüssigkeits-IDs, Flüssigkeitsstände und alle Zellen einschließlich Luft. Eine neue Simulationsklassifikation kann deshalb später aus derselben Quelle aufgebaut werden. Hytale-Spielstände direkt außerhalb der Engine zu dekodieren ist noch **nicht verifiziert**; der Befehl liest nur bereits geladene Chunks. Hytale-spezifische Runtime-Verifikation für Export und Fluidverhalten steht noch aus.
+
 Der eigenständige `exportSimulationRecordings`-Gradle-Task und der alte Replay-Viewer können für gezielte Offline-Diagnose noch lokal verwendet werden. Sie sind kein notwendiger Schritt für den Live-Viewer. GitHub Actions führt weiter Tests und Build-Prüfungen aus, aber keine Aufzeichnungs-/Pages-Pipeline.
 
 **Gezielte Minen-Reparatur für alte Testwelten:** Zeigt `/civdev mines` die Mine-ID, kann `/civdev mine-retry-stair <mine-id>` auf der laufenden Welt eine alte, explizit `ABANDONED` gesetzte Hauptfront wieder öffnen, sofern an genau ihrem aktuellen Slice ein noch offener Pflicht-Treppenübergang liegt. Ergebnisse: `REOPENED`, `NOT_ELIGIBLE` oder `MINE_NOT_READY`. Das ist eine bewusste Dev-Aktion und KEIN genereller Reset; ohne passende alte Treppe werden andere ABANDONED- oder BLOCKED-Fronten niemals freigegeben. Zur Kontrolle `/civdev mine-info <mine-id>` und Minen-Worker/Adapter-Debuglogs verwenden.
