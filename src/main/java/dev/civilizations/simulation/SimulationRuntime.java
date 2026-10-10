@@ -12,6 +12,7 @@ import dev.civilizations.core.WorldPosition;
 import dev.civilizations.simulation.world.VoxelWorld;
 import dev.civilizations.simulation.world.WorldArchive;
 import dev.civilizations.core.MineFrontCoordinator;
+import dev.civilizations.core.MineFrontWorkDecision;
 import dev.civilizations.core.MineNormalTaskSelector;
 import dev.civilizations.core.MineFrontTaskScheduler;
 import dev.civilizations.core.MineHeading;
@@ -721,17 +722,14 @@ public final class SimulationRuntime {
                 resident.minerState = "WAIT_FRONT_CAPACITY";
                 return;
             }
-            if (!claims.tryJoin(id, resident.id, capacity)) {
-                resident.minerState = "WAIT_FRONT_CAPACITY";
-                return;
-            }
-            BlockPosition block = claims.claimNext(id,resident.id,
-                MineFrontCoordinator.capacityFor(MineTunnel.Kind.MAIN),candidates,
+            var claim = MineFrontWorkDecision.choose(claims, id, resident.id, capacity, candidates,
                 p -> voxelWorld.material(p) == WorldArchive.Material.SOLID);
-            if (block == null) {
-                resident.minerState = "WAIT_BLOCK";
+            if (claim.result() != MineFrontWorkDecision.Result.CLAIMED) {
+                resident.minerState = claim.result() == MineFrontWorkDecision.Result.FRONT_FULL
+                    ? "WAIT_FRONT_CAPACITY" : "WAIT_BLOCK";
                 return;
             }
+            BlockPosition block = claim.block();
             resident.minerState = "EXCAVATING";
             if (++resident.minerWorkTicks >= 5) {
                 resident.minerWorkTicks = 0;
