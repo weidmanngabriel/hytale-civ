@@ -87,7 +87,7 @@ public final class LocalSimulationServer implements AutoCloseable {
             respond(exchange, 200, Map.of(
                 "scenario", scenario.id(), "running", running, "speed", ticksPerFrame,
                 "additionalWoodcutters", additionalWoodcutters, "additionalBuilders", additionalBuilders,
-                "world", runtime.worldSnapshot()
+                "world", runtime.worldSnapshot(), "worldRevision", voxelWorld == null ? 0 : voxelWorld.revision()
             ));
         }
     }
@@ -134,6 +134,27 @@ public final class LocalSimulationServer implements AutoCloseable {
                         voxelWorld = sourceArchive == null ? null : new VoxelWorld(sourceArchive);
                         runtime = newRuntime();
                     }
+                    case "move" -> {
+                        String id = data.path("id").asText("");
+                        var position = new WorldPosition(
+                            finiteCoordinate(data, "x"), finiteCoordinate(data, "y"), finiteCoordinate(data, "z"));
+                        runtime.orderManualMove(id,position);
+                    }
+                    case "setBlock" -> {
+                        if (voxelWorld == null) throw new IllegalArgumentException("No imported terrain");
+                        int x = data.path("x").asInt(Integer.MIN_VALUE);
+                        int y = data.path("y").asInt(Integer.MIN_VALUE);
+                        int z = data.path("z").asInt(Integer.MIN_VALUE);
+                        String category = data.path("category").asText("");
+                        var material = switch (category) {
+                            case "AIR" -> WorldArchive.Material.AIR;
+                            case "SOLID" -> WorldArchive.Material.SOLID;
+                            case "WATER" -> WorldArchive.Material.WATER;
+                            case "LAVA" -> WorldArchive.Material.LAVA;
+                            default -> throw new IllegalArgumentException("Unsupported material");
+                        };
+                        voxelWorld.set(new BlockPosition(x,y,z), material);
+                    }
                     case "speed" -> {
                         int value = data.path("value").asInt(0);
                         if (value != 1 && value != 5 && value != 20) throw new IllegalArgumentException("Invalid speed");
@@ -173,6 +194,13 @@ public final class LocalSimulationServer implements AutoCloseable {
         } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
             respond(exchange, 400, Map.of("error", "Invalid JSON"));
         }
+    }
+
+    private static double finiteCoordinate(com.fasterxml.jackson.databind.JsonNode data, String field) {
+        var value = data.path(field);
+        if (!value.isNumber() || !Double.isFinite(value.asDouble()) || Math.abs(value.asDouble()) > 100000)
+            throw new IllegalArgumentException("Invalid coordinate: " + field);
+        return value.asDouble();
     }
 
     private SimulationScenario customMiners(int count) {
