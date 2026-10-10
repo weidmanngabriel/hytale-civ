@@ -94,7 +94,7 @@ public final class LocalSimulationServer implements AutoCloseable {
             respond(exchange, 200, Map.of(
                 "scenario", scenario.id(), "running", running, "speed", ticksPerFrame,
                 "additionalWoodcutters", additionalWoodcutters, "additionalBuilders", additionalBuilders,
-                "events", eventLog.snapshot(), "world", runtime.worldSnapshot(), "events", journal.events(), "worldRevision", voxelWorld == null ? 0 : voxelWorld.revision()
+                "events", eventLog.snapshot(), "stateTransitions", journal.events(), "world", runtime.worldSnapshot(), "worldRevision", voxelWorld == null ? 0 : voxelWorld.revision()
             ));
         }
     }
