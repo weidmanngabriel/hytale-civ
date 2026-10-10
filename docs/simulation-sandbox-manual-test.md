@@ -33,3 +33,14 @@ Diese Schritte testen ausschließlich die Headless-Simulation. Das echte Hytale-
 **Hinweis für große Archive:** Beim Start des Java-Servers werden Miner nicht mehr automatisch erstellt. Nach dem Laden des Viewers zunächst die Welt ohne NPCs prüfen; **Miner starten** löst anschließend die gesonderte Miner-Initialisierung aus. Erst wenn `Civ local simulation API: http://localhost:8765/api/state` erscheint, ist der HTTP-Server erreichbar. Bei sehr großen Archiven kann das Einlesen der Datei vor dieser Meldung noch dauern.
 
 **Startdiagnose:** `[CIV STARTUP] Reading archive`, `Archive decoded`, `Creating voxel index and HTTP server` und `READY` protokollieren Phase, Gesamtdauer und JVM-Heap. Falls `READY` fehlt, die letzte sichtbare Startphase und etwaige Exception kopieren. Optional PowerShell-Ausgabe mit `Tee-Object -FilePath civ-startup.log` sichern; die Gradle-Prozentanzeige ist bei dem dauerhaft laufenden Task nicht aussagekräftig.
+
+## Mine_01-Labor (Phasen A–C) – einfacher Abnahmetest
+
+1. Nach `git pull` Java-Server und Browser-Viewer **neu starten**, mit `-PsimWorldArchive=\"C:\\Pfad\\zur\\region.civworld.gz\"` für den Java-Server. Hytale selbst muss nicht laufen.
+2. Rechts im **Minen-Labor** auf **Mine_01 automatisch platzieren** klicken. Falls für die Region keine passende Position gefunden wird, stattdessen eine explizite **Prefab-Anker**-Position X/Y/Z wählen; die Mine_01-Basis liegt 16 Blöcke unter dem vorgesehenen Gelände-Zugang und das gesamte Prefab muss im Export liegen.
+3. Auf **Zur Mine fliegen** klicken. Gebäude-/Zugangsmarker, Tunnelanschluss sowie geplante Arbeitsfronten erscheinen als farbige Debug-Elemente. **Marker / Arbeitsfront** und **NPC-Wege und Ziele** lassen sich unabhängig ein-/ausblenden.
+4. Im Miner-Abschnitt **3** einstellen und **Miner starten** drücken. Danach **Start**. Die NPC-Zustände und ihre Bewegungsziele kontrollieren. Der Headless-Miner verwendet eine vereinfachte Bewegung im Prefab und A* für die Voxel-Tunnel, nicht Hytales echten Seek-Pathfinder.
+5. In der **Dev-Konsole (Simulator)** nacheinander `/sim help`, `/civdev mines`, `/sim mine info`, `/sim markers off`, `/sim markers on` und optional `/sim block X Y Z AIR` ausprobieren. Diese Konsole führt nur freigegebene Simulationsbefehle aus, keine beliebigen Hytale-Commands.
+6. Auf **Reset** klicken. Das Prefab muss wiederhergestellt werden. Für fehlerhafte Miner-Navigation mit **Performance aufnehmen** 30–60 Sekunden protokollieren, **Aufnahme stoppen & JSON speichern** klicken und die JSON-Datei teilen.
+
+**Bekannte Grenze:** Gemeinsame Route (Zugang → Connector → Arbeitsfront), Core-Minenplanung und Front-Claims werden verwendet. Der komplette produktive Miner-Task-Ablauf mit allen Räumen, Infrastrukturmaßnahmen und Recoveries ist noch kein gemeinsamer Core-Controller; vollständige Parität gehört weiterhin zu Phase 5B. Keine automatische Hytale-Runtime in der CI.
