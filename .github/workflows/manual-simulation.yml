@@ -1,0 +1,98 @@
+name: Manual Simulation Diagnostics
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  authorize:
+    if: github.event.issue.number == 341 && !github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    outputs:
+      authorized: ${{ steps.validate.outputs.authorized }}
+      sha: ${{ steps.validate.outputs.sha }}
+      test_class: ${{ steps.validate.outputs.test_class }}
+    steps:
+      - name: Validate exact commit and allowlisted test
+        id: validate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.setOutput('authorized', 'false');
+            const allowed = new Set(['weidmanngabriel']);
+            const author = context.payload.comment?.user?.login;
+            const sender = context.payload.sender?.login;
+            if (!allowed.has(context.actor) || !allowed.has(author) || !allowed.has(sender)) {
+              core.setFailed('Only explicitly authorized users may request simulation tests.');
+              return;
+            }
+            const body = (context.payload.comment?.body || '').trim();
+            const match = /^\/sim-test (miner3) ([0-9a-fA-F]{7,40})$/.exec(body);
+            if (!match) {
+              console.log('Not a recognized /sim-test request; ignoring.');
+              return;
+            }
+            const requested = match[2].toLowerCase();
+            const {owner, repo} = context.repo;
+            let commit;
+            try {
+              commit = (await github.rest.repos.getCommit({owner, repo, ref: requested})).data;
+            } catch (error) {
+              core.setFailed('Requested commit cannot be resolved in this repository: ' + error.message);
+              return;
+            }
+            const sha = (commit.sha || '').toLowerCase();
+            if (!/^[0-9a-f]{40}$/.test(sha) || !sha.startsWith(requested)) {
+              core.setFailed('Commit SHA did not match the requested prefix.');
+              return;
+            }
+            const testClass = 'dev.civilizations.simulation.MineThreeStallDiagnosticTest';
+            core.setOutput('sha', sha);
+            core.setOutput('test_class', testClass);
+            core.setOutput('authorized', 'true');
+            console.log('Authorized simulation test miner3 at commit ' + sha);
+
+  diagnostic:
+    name: Run selected JUnit diagnostic
+    needs: authorize
+    if: needs.authorize.outputs.authorized == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - name: Check out exact authorized commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.authorize.outputs.sha }}
+          persist-credentials: false
+      - name: Verify checkout
+        env:
+          EXPECTED_SHA: ${{ needs.authorize.outputs.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+      - name: Run requested diagnostic only
+        env:
+          TEST_CLASS: ${{ needs.authorize.outputs.test_class }}
+        run: ./gradlew test --tests "$TEST_CLASS" --console=plain --info --stacktrace
+      - name: Upload diagnostic results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manual-simulation-diagnostic-${{ needs.authorize.outputs.sha }}
+          path: |
+            build/test-results/test/
+            build/reports/tests/test/
+          if-no-files-found: warn
+          retention-days: 14

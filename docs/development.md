@@ -299,3 +299,7 @@ In einem Terminal `./gradlew localSimulationServer` starten. In einem zweiten Te
 ### Mine Simulation Lab lokal ausprobieren
 
 Nach dem Start von `localSimulationServer -PsimWorldArchive=...` und `npm run dev` im `web-viewer` im Browser die **Mine_01 automatisch platzieren**-Taste benutzen (oder `/sim mine place X Y Z`, wobei die Koordinaten den Prefab-Anker bezeichnen). Danach **Miner starten** (3), Start und Marker/NPC-Wege einschalten. Die lokale Konsole unterstützt `/sim help`, `/sim mine auto`, `/sim mine place X Y Z`, `/sim mine info`, `/sim miners N`, `/sim block X Y Z AIR|SOLID|WATER|LAVA`, `/sim play|pause|step|reset`, `/sim markers on|off` und `/sim paths on|off`. `/civdev mines`/`mine-info` sind lediglich lokale Diagnose-Aliasse. Fehlende Platzierungseignung oder ein vereinfachter Navigator können explizite Blockaden anzeigen. Keine laufende Hytale-Engine wird dafür benötigt oder automatisch gestartet.
+
+## Manuelle fokussierte Simulationstests
+
+Der separate Issue-Kommentar-Workflow für einzelne Java-Simulationsdiagnosen ist unter [Manuelle Simulationstests](manual-simulation-tests.md) dokumentiert. Er ersetzt keine PR-CI-Gates und startet keine Viewer-, MCP-, Release- oder Hytale-Runtime-Jobs.
