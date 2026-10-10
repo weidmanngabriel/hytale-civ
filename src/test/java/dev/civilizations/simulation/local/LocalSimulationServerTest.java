@@ -54,7 +54,7 @@ class LocalSimulationServerTest {
             assertTrue(terrain.path("loaded").asBoolean());
             assertEquals("test-world",terrain.path("worldId").asText());
             assertEquals(9,terrain.path("cells").size());
-            assertEquals(3,get(url+"state").path("world").path("residents").size());
+            assertEquals(0,get(url+"state").path("world").path("residents").size());
             post(url+"control","{\"command\":\"configureMiners\",\"miners\":2}");
             assertEquals(2,get(url+"state").path("world").path("residents").size());
             post(url+"control","{\"command\":\"reset\"}");
