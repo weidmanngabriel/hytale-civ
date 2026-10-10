@@ -319,3 +319,8 @@ Ein importiertes Archiv liefert beim Start sofort einen leeren NPC-Zustand; `Loc
 Bei Fehlersuche am lokalen Live-Start sind die `[CIV STARTUP]`-Zeilen und die Meldung `READY http://localhost:8765/api/state` maßgeblich. Sie unterscheiden teures gzip-JSON-Decoding von der Voxelindex-Erstellung und Listener-Problemen; die Gradle-Anzeige `75% EXECUTING` ist kein Server-Readiness-Signal.
 
 `denseVoxelIndexPreservesAbsoluteBoundsAndFluidCategories` verifiziert die kompakte Voxel-Speicherung für negative absolute X-Koordinaten, Flüssigkeit, Standfähigkeit, Änderungen und Out-of-Bounds-Abfragen. Die tatsächliche Laufzeit und Heap-Spitze bei 1,87 Millionen Blöcken bleibt durch `[CIV STARTUP]` und den Nutzer-PC zu prüfen.
+
+
+## Headless authored mine and debug contract
+
+`MineWorkerEntryPolicyTest` verifiziert die in Hytale-Adapter und Headless-Simulator gemeinsam getroffene Entscheidung Access → Connector → Front. `MinePrefabPlacementTest` lädt das reale authored `Mine_01.prefab.json`, kontrolliert Marker, begehbare Zielpunkte und unveränderte Welt bei Bounds-Fehlern. `LocalSimulationServerTest` testet Platzierung, Diagnose-Snapshots, expliziten Miner-Start, Tick und Reset. Die Browser-Tests validieren den allowlisted Simulator-Command-Parser. Normale Java- und Browser-CI-Tests benötigen keinen laufenden Hytale-Server. Ein solcher Test ist kein Beweis für die exakte native Bewegung oder vollständige Miner-State-Machine-Parität.
