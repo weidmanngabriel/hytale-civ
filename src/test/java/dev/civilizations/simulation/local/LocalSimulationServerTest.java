@@ -64,6 +64,30 @@ class LocalSimulationServerTest {
     }
 
     @Test
+    void importedWorldAllowsRealTimeNavigationAndReversibleObstacles() throws Exception {
+        var cells = new ArrayList<WorldArchive.Cell>();
+        for (int x=0;x<3;x++) for(int y=0;y<3;y++) for(int z=0;z<3;z++)
+            cells.add(new WorldArchive.Cell(x,y,z,y==0?"native:stone":"air",0,0,"NONE"));
+        var archive=new WorldArchive(1,"navigation",new WorldArchive.Bounds(0,0,0,3,3,3),cells);
+        try(var server=new LocalSimulationServer(0,archive)) {
+            server.start();
+            String url="http://localhost:"+server.port()+"/api/";
+            post(url+"control","{\"command\":\"move\",\"id\":\"miner-1\",\"x\":2.5,\"y\":1,\"z\":2.5}");
+            for(int i=0;i<55;i++)post(url+"control","{\"command\":\"step\"}");
+            var moved=get(url+"state").path("world").path("residents").get(0);
+            assertEquals(2.5,moved.path("position").path("x").asDouble(),0.01);
+            assertEquals(2.5,moved.path("position").path("z").asDouble(),0.01);
+
+            post(url+"control","{\"command\":\"setBlock\",\"x\":1,\"y\":1,\"z\":1,\"category\":\"SOLID\"}");
+            assertEquals(1,get(url+"state").path("worldRevision").asLong());
+            assertEquals(10,get(url+"terrain").path("cells").size());
+            post(url+"control","{\"command\":\"reset\"}");
+            assertEquals(0,get(url+"state").path("worldRevision").asLong());
+            assertEquals(9,get(url+"terrain").path("cells").size());
+        }
+    }
+
+    @Test
     void resetPreservesParameterizedWorkerCounts() throws Exception {
         try(var server=new LocalSimulationServer(0)) {
             server.start();
