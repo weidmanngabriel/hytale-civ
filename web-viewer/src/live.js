@@ -233,7 +233,10 @@ setInterval(()=>{
  if(!profiler.active)return;
  profiler.sample({ticks:lastState?.world?.tickCount||0,simulationRunning:!!lastState?.running,
   residents:lastState?.world?.residents?.length||0,terrainRevision:lastState?.worldRevision||0,...lastTerrainStats,
-  drawCalls:renderer.info.render.calls,trianglesDrawn:renderer.info.render.triangles});
+  drawCalls:renderer.info.render.calls,trianglesDrawn:renderer.info.render.triangles,
+  minerStates:(lastState?.world?.residents||[]).map(r=>({id:r.id,state:r.state,
+    autonomousState:r.autonomousState,position:r.position})),
+  recentEvents:(lastState?.events||[]).slice(-8)});
  $('record-status').textContent=profiler.samples.length+' s erfasst';
 },1000);
 window.addEventListener('beforeunload',()=>abort=true);
