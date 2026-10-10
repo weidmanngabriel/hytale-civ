@@ -14,7 +14,7 @@ Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenomme
 - [x] Live-Start/Pause/Step/Reset und Tick-Zähler implementiert.
 - [x] Vorhandene Core-Szenarien und parametrisierte zusätzliche NPC-Startzustände eingebunden.
 - [x] Interaktive Miner können auf einer ausreichend großen importierten Region Core-geplante Tunnel autonom ausheben (Headless-Diagnose, keine native Hytale-Engine).
-- [ ] CI und Wiederholbarkeit der parametrisierten Szenarien abschließend grün.
+- [x] Java-, Browser- und MCP-CI inklusive parametrisierter Szenarien auf Feature-Commit `b14fe7c` grün (Workflow 38029238656).
 
 ## Phase 3 – Echte Hytale-Welten
 
@@ -38,7 +38,8 @@ Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenomme
 - [ ] CI bestätigt den kompletten Ablauf und zusätzliche reale Höhlen-/Wasser-/Lavafälle.
 - [x] Diagnostische, begrenzte Ereignislisten und zusätzliche Assertions implementiert.
 - [ ] Browser-Event- und Renderingverhalten manuell geprüft.
-- [ ] Alle relevanten Tests erfolgreich abgeschlossen.
+- [x] Alle aktuell im CI ausgeführten 281 Java-Tests und Browser-/MCP-Prüfungen erfolgreich (Feature-Commit `b14fe7c`).
+- [ ] Offene Paritäts- und Integrationsprüfungen aus Phase 5B ergänzen.
 
 ## Phase 6 – Aufräumen und Abschluss
 
