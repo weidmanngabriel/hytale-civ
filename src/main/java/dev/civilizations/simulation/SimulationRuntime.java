@@ -531,6 +531,19 @@ public final class SimulationRuntime {
         if (resident.routeIndex < resident.route.size()) {
             BlockPosition next = resident.route.get(resident.routeIndex);
             WorldPosition waypoint = new WorldPosition(next.x() + 0.5, next.y(), next.z() + 0.5);
+            // A straight 3D line through a one-block step can intersect its
+            // supporting solid voxel. Climb before crossing; cross before descending.
+            WorldPosition here = resident.position;
+            if (waypoint.y() > here.y() + EPSILON) {
+                advanceStraightMovement(resident, new WorldPosition(here.x(), waypoint.y(), here.z()));
+                return false;
+            }
+            if (waypoint.y() < here.y() - EPSILON
+                && (Math.abs(here.x() - waypoint.x()) > EPSILON
+                    || Math.abs(here.z() - waypoint.z()) > EPSILON)) {
+                advanceStraightMovement(resident, new WorldPosition(waypoint.x(), here.y(), waypoint.z()));
+                return false;
+            }
             if (advanceStraightMovement(resident, waypoint)) resident.routeIndex++;
             return false;
         }
