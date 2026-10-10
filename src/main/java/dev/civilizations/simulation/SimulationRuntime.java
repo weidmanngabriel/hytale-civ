@@ -723,18 +723,8 @@ public final class SimulationRuntime {
             }
             UUID id = frontId(sliceIndex);
             int capacity = MineFrontCoordinator.capacityFor(MineTunnel.Kind.MAIN);
-            // The same Core candidate selection and capacity policy is authoritative
-            // for the real Hytale miner and the headless mine lab.
-            var task = new MineNormalTaskSelector.Candidate(
-                id, MineNormalTaskSelector.Kind.TUNNEL_FRONT,
-                MineFrontTaskScheduler.MAIN_TUNNEL_PRIORITY,
-                claims.workerCount(id), capacity, slice.floorCenter()
-            );
-            if (MineNormalTaskSelector.select(List.of(task), blockAt(resident.position)) == null
-                && claims.claimOf(id, resident.id) == null) {
-                resident.minerState = "WAIT_FRONT_CAPACITY";
-                return;
-            }
+            // The shared Core work decision retains membership for workers already at capacity.
+            // Filtering the front as fully occupied here would strand its own miners.
             var claim = MineFrontWorkDecision.choose(claims, id, resident.id, capacity, candidates,
                 p -> voxelWorld.material(p) == WorldArchive.Material.SOLID);
             if (claim.result() != MineFrontWorkDecision.Result.CLAIMED) {
