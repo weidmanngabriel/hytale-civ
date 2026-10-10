@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { adjustFlightSpeed } from './flight-speed.js';
 import { Replay, surfaceFaces, visibleVoxel, MATERIALS } from './replay.js';
 import { sortBranchesByLatestCommit } from './catalog.js';
 import './style.css';
@@ -263,7 +264,7 @@ function validateLocal(data) {new Replay(data);return data;}
 
 window.addEventListener('keydown',event=>{
   if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName))return;
-  if(['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE','ShiftLeft','ShiftRight'].includes(event.code)){keys.add(event.code);event.preventDefault();}
+  if(['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE','Space','ShiftLeft','ShiftRight'].includes(event.code)){keys.add(event.code);event.preventDefault();}
 });
 window.addEventListener('keyup',event=>keys.delete(event.code));
 window.addEventListener('blur',()=>{keys.clear();touchMove.x=touchMove.y=touchLook.x=touchLook.y=touchHeight=0;});
@@ -279,7 +280,10 @@ canvas.addEventListener('pointermove',event=>{
   drag.x=event.clientX;drag.y=event.clientY;updateRotation();
 });
 for(const type of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(type,()=>drag=undefined);
-canvas.addEventListener('wheel',event=>{moveSpeed=THREE.MathUtils.clamp(moveSpeed*Math.exp(-event.deltaY*.001),1,100);event.preventDefault();},{passive:false});
+canvas.addEventListener('wheel',event=>{
+  moveSpeed=adjustFlightSpeed(moveSpeed,event.deltaY,event.deltaMode);
+  event.preventDefault();
+},{passive:false});
 canvas.addEventListener('click',event=>{
   if(!replay||event.button!==0)return;
   const rect=canvas.getBoundingClientRect();
@@ -313,17 +317,17 @@ function animate(now) {
     yaw-=touchLook.x*dt*1.8;pitch=THREE.MathUtils.clamp(pitch-touchLook.y*dt*1.8,-Math.PI/2+.01,Math.PI/2-.01);updateRotation();
     const right=Number(keys.has('KeyD'))-Number(keys.has('KeyA'))+touchMove.x;
     const forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS'))-touchMove.y;
-    const vertical=Number(keys.has('KeyE'))-Number(keys.has('KeyQ'))+touchHeight;
+    const vertical=Number(keys.has('KeyE')||keys.has('Space'))-Number(keys.has('KeyQ')||keys.has('ShiftLeft')||keys.has('ShiftRight'))+touchHeight;
     const velocity=new THREE.Vector3(right,0,-forward).applyQuaternion(camera.quaternion);velocity.y+=vertical;
     if(velocity.lengthSq()>1)velocity.normalize();
-    camera.position.addScaledVector(velocity,dt*moveSpeed*(keys.has('ShiftLeft')||keys.has('ShiftRight')?3:1));
+    camera.position.addScaledVector(velocity,dt*moveSpeed);
     if(playing&&replay){
       // General scenarios preserve 50ms ticks; mine fixtures contain semantic actions, played at 10/s.
       budget+=dt*Number($('speed').value)*(replay.data.timeUnit==='seconds'?20:10);
       if(budget>=1){const advance=Math.floor(budget);budget-=advance;seek(replay.index+advance);}
       if(replay.index===replay.data.frames.length-1)setPlaying(false);
     }
-    $('camera-info').textContent=`Kamera ${formatPosition(camera.position)} · Tempo ${moveSpeed.toFixed(0)}`;
+    $('camera-info').textContent=`Kamera ${formatPosition(camera.position)} · Tempo ${moveSpeed.toFixed(1)}`;
     renderer.render(scene,camera);
   }
   requestAnimationFrame(animate);
