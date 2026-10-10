@@ -9,6 +9,7 @@ import dev.civilizations.core.Profession;
 import dev.civilizations.core.WoodcutterJob;
 import dev.civilizations.core.WorkDecisionSchedule;
 import dev.civilizations.core.WorldPosition;
+import dev.civilizations.simulation.world.VoxelWorld;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -40,6 +41,7 @@ public final class SimulationRuntime {
     private final Map<String, List<WorldPosition>> farmFields = new LinkedHashMap<>();
 
     private long tickCount;
+    private VoxelWorld voxelWorld;
 
     public SimulationRuntime() {
         this(DEFAULT_TICK_SECONDS, DEFAULT_MOVE_SPEED);
@@ -54,6 +56,16 @@ public final class SimulationRuntime {
         }
         this.tickSeconds = tickSeconds;
         this.moveSpeed = moveSpeed;
+    }
+
+    /** Enables realistic pathfinding for this runtime; not used by live Hytale adapters. */
+    public void setVoxelWorld(VoxelWorld world) {
+        voxelWorld = Objects.requireNonNull(world);
+        for (Resident resident : residents.values()) resident.route = List.of();
+    }
+
+    public void addMiner(String id, WorldPosition position) {
+        addResident(Resident.miner(id, position));
     }
 
     public void addWoodcutter(String id, WorldPosition position) {
@@ -468,6 +480,39 @@ public final class SimulationRuntime {
     }
 
     private boolean advanceMovement(Resident resident, WorldPosition target) {
+        if (voxelWorld == null) return advanceStraightMovement(resident, target);
+        BlockPosition current = blockAt(resident.position);
+        BlockPosition goal = blockAt(target);
+        if (!target.equals(resident.routeTarget) || resident.routeRevision != voxelWorld.revision()) {
+            resident.route = voxelWorld.path(current, goal);
+            resident.routeTarget = target;
+            resident.routeRevision = voxelWorld.revision();
+            resident.routeIndex = 0;
+        }
+        if (resident.route.isEmpty()) {
+            resident.navigationBlocked = true;
+            clearMovement(resident);
+            return false;
+        }
+        resident.navigationBlocked = false;
+        while (resident.routeIndex < resident.route.size()
+            && resident.route.get(resident.routeIndex).equals(blockAt(resident.position))) {
+            resident.routeIndex++;
+        }
+        if (resident.routeIndex < resident.route.size()) {
+            BlockPosition next = resident.route.get(resident.routeIndex);
+            WorldPosition waypoint = new WorldPosition(next.x() + 0.5, next.y(), next.z() + 0.5);
+            if (advanceStraightMovement(resident, waypoint)) resident.routeIndex++;
+            return false;
+        }
+        return advanceStraightMovement(resident, target);
+    }
+
+    private static BlockPosition blockAt(WorldPosition p) {
+        return new BlockPosition((int)Math.floor(p.x()),(int)Math.floor(p.y()),(int)Math.floor(p.z()));
+    }
+
+    private boolean advanceStraightMovement(Resident resident, WorldPosition target) {
         if (!target.equals(resident.movementTarget)) {
             resident.movementTarget = target;
             metrics.recordMovementRequest();
@@ -524,6 +569,7 @@ public final class SimulationRuntime {
 
     private static String stateName(Resident resident) {
         InhabitantActivity.ActivityMode activityMode = resident.activity.snapshot().mode();
+        if (resident.navigationBlocked) return "NAVIGATION_BLOCKED";
         if (activityMode == InhabitantActivity.ActivityMode.MANUAL_MOVE) return "MANUAL_MOVE";
         if (activityMode == InhabitantActivity.ActivityMode.RESUME_DELAY) return "RESUME_DELAY";
         return autonomousStateName(resident);
@@ -594,6 +640,11 @@ public final class SimulationRuntime {
         private WorldPosition movementTarget;
         private WorldPosition fieldTarget;
         private double cropGrowthElapsedSeconds;
+        private List<BlockPosition> route = List.of();
+        private WorldPosition routeTarget;
+        private long routeRevision = -1;
+        private int routeIndex;
+        private boolean navigationBlocked;
 
         private Resident(
             String id,
@@ -610,6 +661,10 @@ public final class SimulationRuntime {
             this.woodcutterJob = woodcutterJob;
             this.constructionJob = constructionJob;
             this.farm = farm;
+        }
+
+        static Resident miner(String id, WorldPosition position) {
+            return new Resident(id, Profession.MINER, position, null, null, null);
         }
 
         static Resident woodcutter(String id, WorldPosition position) {
