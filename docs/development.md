@@ -245,27 +245,21 @@ Ein erfolgreicher Tag-Build erzeugt ein normales GitHub Release mit demselben ZI
 
 Ein erneuter Lauf eines Release-Jobs ist idempotent: Existiert das Release bereits, aktualisiert der Workflow die kurze Release-Notiz und ersetzt das ZIP-Asset, statt ein Duplikat anzulegen.
 
-## Browser-Viewer und Branch-Aufzeichnungen
+## Lokaler Browser-Simulator
 
-Einmalig unter **Settings → Pages → Build and deployment → Source: GitHub Actions** wählen. Die Site liegt unter `https://weidmanngabriel.github.io/hytale-civ/`.
+Die Java-Simulation wird lokal und ohne vorberechnete Abläufe gestartet. Der Three.js-Viewer verbindet sich mit dem lokalen Java-HTTP-Server und zeigt den aktuellen Zustand live an. Die ehemaligen Workflows `simulation-pages.yml` und `simulation-recordings.yml` wurden entfernt; GitHub Pages veröffentlicht keine Szenario-Ergebnisse mehr.
 
-Auf relevanten Branch-Pushes führt `.github/workflows/simulation-recordings.yml` Java-Tests und `exportSimulationRecordings` aus. Der Export wird auch bei fehlgeschlagenen Tests versucht; ein abgebrochenes Szenario liefert seinen bis dahin aufgezeichneten Zustand und den Fehler. Ein nicht kompilierbarer Stand hat keinen Replay. `Simulation Pages` veröffentlicht nach Abschluss einen vollständigen Katalog aus vorhandenen internen Artefakten. Es entstehen keine Ergebnis-Commits. Ein Actions-Lauf kann mehrere Minuten dauern; ein Quellcode-Push ist noch keine abgeschlossene Veröffentlichung.
-
-Im Viewer zuerst Branch, dann Lauf und Szenario wählen. Das Test-Badge bezeichnet die Java-Tests dieses Recording-Laufs, nicht sämtliche CI-/Runtime-Prüfungen. Commit-Link und Actions-Link machen den Stand überprüfbar. Für die erste Version werden höchstens drei Läufe pro Branch und insgesamt 40 Läufe innerhalb von 30 Tagen angeboten. Gelöschte/abgelaufene Artefakte sind nicht dauerhaft wiederherstellbar. Unter Actions kann `Simulation Recordings` auf einem Branch und `Simulation Pages` auf `main` manuell erneut gestartet werden.
-
-Lokal:
-
-```sh
-./gradlew exportSimulationRecordings
+~~~sh
+./gradlew localSimulationServer
+# zweites Terminal:
 npm ci --prefix web-viewer
 npm test --prefix web-viewer
 npm run dev --prefix web-viewer
-```
+~~~
 
-Unter Windows lautet der erste Befehl `gradlew.bat exportSimulationRecordings`. Im lokalen Viewer kann eine einzelne Datei aus `build/simulation-recordings/*.json` geöffnet werden. Lokale Dateien haben keinen bestätigten Commit-/CI-Status. Für eine statische Auslieferung dient `npm run build --prefix web-viewer`; die Site liegt dann in `web-viewer/dist/`.
+Dann `http://localhost:5173/live.html` öffnen. Unter Windows `gradlew.bat` verwenden. Zum Öffnen einer exportierten Welt `./gradlew localSimulationServer -PsimWorldArchive=/pfad/region.civworld.gz` ausführen. Die Datei bleibt Rohquelle; der Simulator berechnet sein Voxelmodell neu.
 
-Vieweränderungen werden lokal geprüft und erst nach Integration in `main` auf der gemeinsamen Site veröffentlicht. Entwicklungsbranches liefern Daten für den stabilen Viewer. Lizenzierte Hytale-Basisassets werden nicht veröffentlicht. Der Hytale-Local-Runner wird für diesen Workflow nicht verwendet.
-
+Der eigenständige `exportSimulationRecordings`-Gradle-Task und der alte Replay-Viewer können für gezielte Offline-Diagnose noch lokal verwendet werden. Sie sind kein notwendiger Schritt für den Live-Viewer. GitHub Actions führt weiter Tests und Build-Prüfungen aus, aber keine Aufzeichnungs-/Pages-Pipeline.
 
 **Gezielte Minen-Reparatur für alte Testwelten:** Zeigt `/civdev mines` die Mine-ID, kann `/civdev mine-retry-stair <mine-id>` auf der laufenden Welt eine alte, explizit `ABANDONED` gesetzte Hauptfront wieder öffnen, sofern an genau ihrem aktuellen Slice ein noch offener Pflicht-Treppenübergang liegt. Ergebnisse: `REOPENED`, `NOT_ELIGIBLE` oder `MINE_NOT_READY`. Das ist eine bewusste Dev-Aktion und KEIN genereller Reset; ohne passende alte Treppe werden andere ABANDONED- oder BLOCKED-Fronten niemals freigegeben. Zur Kontrolle `/civdev mine-info <mine-id>` und Minen-Worker/Adapter-Debuglogs verwenden.
 
