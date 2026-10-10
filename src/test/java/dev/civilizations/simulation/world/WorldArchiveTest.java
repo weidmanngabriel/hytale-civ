@@ -17,9 +17,9 @@ class WorldArchiveTest {
         var cells=new ArrayList<WorldArchive.Cell>();
         for(int x=0;x<4;x++) for(int y=0;y<4;y++) for(int z=0;z<4;z++) {
             String block=y==0?"native:stone":"air";
-            cells.add(new WorldArchive.Cell(x,y,z,block,0,0,"NONE"));
+            cells.add(new WorldArchive.Cell(x,y,z,block,x==0&&y==0&&z==0?37:0,x==0&&y==0&&z==0?3:0,0,0,"NONE"));
         }
-        return new WorldArchive(1,"test-world",new WorldArchive.Bounds(0,0,0,4,4,4),cells);
+        return new WorldArchive(WorldArchive.VERSION,"test-world",new WorldArchive.Bounds(0,0,0,4,4,4),cells);
     }
 
     @Test void archiveSurvivesRoundTripWithoutDiscardingNativeIds() throws Exception {
@@ -29,6 +29,8 @@ class WorldArchiveTest {
         var restored=WorldArchive.read(path);
         assertEquals(original,restored);
         assertEquals("native:stone",restored.cells().getFirst().blockKey());
+        assertEquals(37,restored.cells().getFirst().blockIndex());
+        assertEquals(3,restored.cells().getFirst().rotationIndex());
     }
 
     @Test void incompleteOrDuplicateArchiveIsRejected() {
