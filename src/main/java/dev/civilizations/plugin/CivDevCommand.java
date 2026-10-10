@@ -82,6 +82,7 @@ final class CivDevCommand extends AbstractCommandCollection {
         addSubCommand(new CivDevScenarioCommand(scenarios));
         addSubCommand(new CivDevResetCommand(scenarios));
         addSubCommand(new CivDevEventsCommand(history));
+        addSubCommand(new CivWorldExportCommand());
     }
 
     private abstract static class WorldCommand extends AbstractAsyncCommand {
