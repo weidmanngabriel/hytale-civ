@@ -43,6 +43,13 @@ class WorldArchiveTest {
             1,"test-world",original.bounds(),duplicate));
     }
 
+    @Test void largeRegionDimensionLimitCoversTheRequestedTwoCornerExport() {
+        var requested = new WorldArchive.Bounds(56,8,-41,181,148,66);
+        assertEquals(1_872_500,requested.volume());
+        assertTrue(requested.volume() <= WorldArchive.MAX_EXPORT_CELLS);
+        assertTrue(new WorldArchive.Bounds(0,0,0,200,200,100).volume() > WorldArchive.MAX_EXPORT_CELLS);
+    }
+
     @Test void navigationOnlyUsesFourDirectionsAndOneStepHeight() {
         var world=new VoxelWorld(fixture());
         var start=new BlockPosition(0,1,0);
