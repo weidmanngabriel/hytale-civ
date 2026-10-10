@@ -69,9 +69,22 @@ function drawImportedTerrain(data) {
   if (!data.loaded) return;
   importedTerrain = true;
   const begun=performance.now();
-  const next=indexTerrain(data.cells);
-  const dirty=changedChunks(indexedTerrain,next);
-  indexedTerrain=next;
+  let dirty;
+  if (Array.isArray(data.changes)) {
+    dirty=new Set();
+    for(const [x,y,z,type] of data.changes) {
+      const id=x+','+y+','+z;
+      const previous=indexedTerrain.get(id)||0;
+      if(previous===type)continue;
+      if(type===0)indexedTerrain.delete(id);else indexedTerrain.set(id,type);
+      for(const [dx,dy,dz] of [[0,0,0],[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]])
+        dirty.add(chunkKey(x+dx,y+dy,z+dz));
+    }
+  } else {
+    const next=indexTerrain(data.cells);
+    dirty=changedChunks(indexedTerrain,next);
+    indexedTerrain=next;
+  }
   profiler.measure('terrain:diff',performance.now()-begun);
   const colors=[0,0x657182,0x3184b7,0xdb6642,0x5ca5a0].map(c=>new THREE.Color(c));
   const meshStarted=performance.now();
@@ -96,8 +109,8 @@ function drawImportedTerrain(data) {
   lastTerrainStats={cells:indexedTerrain.size, chunks:terrainMeshes.size,
     triangles:[...terrainMeshes.values()].reduce((sum,m)=>sum+m.geometry.getAttribute('position').count/3,0),
     dirtyChunks:dirty.size};
-  const [minX,minY,minZ,maxX,maxY,maxZ] = data.bounds;
-  if (!drawImportedTerrain.initialized) {
+  if (!drawImportedTerrain.initialized && data.bounds) {
+    const [minX,minY,minZ,maxX,maxY,maxZ] = data.bounds;
     camera.position.set((minX+maxX)/2,maxY+10,maxZ+15);
     pitch=-.5; yaw=0;look();
     flightSpeed=Math.max(2,Math.min(15,(maxX-minX)/8));
@@ -139,8 +152,9 @@ async function update() {
     }
     selector.value=selectedResident;
     if (data.worldRevision !== lastTerrainRevision) {
+      const previousRevision=lastTerrainRevision;
       lastTerrainRevision = data.worldRevision;
-      const terrain=await request('terrain');
+      const terrain=await request('terrain'+(previousRevision>=0?'?since='+previousRevision:''));
       drawImportedTerrain(terrain);
       update.prevSig=null;
       drawWorld(data.world);
