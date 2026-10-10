@@ -134,7 +134,7 @@ public final class LocalSimulationServer implements AutoCloseable {
                 switch (command) {
                     case "play" -> { running = true; eventLog.record(runtime.tickCount(), "CONTROL", "play"); }
                     case "pause" -> { running = false; eventLog.record(runtime.tickCount(), "CONTROL", "pause"); }
-                    case "step" -> { running = false; runtime.tick(); journal.observe(runtime.worldSnapshot()); }
+                    case "step" -> { running = false; runtime.tick(); journal.observe(runtime.worldSnapshot()); eventLog.record(runtime.tickCount(), "CONTROL", "step"); }
                     case "reset" -> {
                         running = false;
                         eventLog.clear();
