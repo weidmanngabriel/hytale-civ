@@ -6,6 +6,11 @@ import com.sun.net.httpserver.HttpServer;
 import dev.civilizations.simulation.SimulationRuntime;
 import dev.civilizations.simulation.SimulationScenario;
 import dev.civilizations.simulation.SimulationScenarios;
+import dev.civilizations.simulation.world.WorldArchive;
+import dev.civilizations.simulation.world.VoxelWorld;
+import dev.civilizations.core.BlockPosition;
+import java.nio.file.Path;
+import java.util.ArrayList;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -27,12 +32,19 @@ public final class LocalSimulationServer implements AutoCloseable {
     private volatile int ticksPerFrame = 1;
     private SimulationScenario scenario = SimulationScenarios.DEMO_SETTLEMENT;
     private SimulationRuntime runtime = scenario.createRuntime();
+    private final WorldArchive sourceArchive;
+    private VoxelWorld voxelWorld;
 
-    public LocalSimulationServer(int port) throws IOException {
+    public LocalSimulationServer(int port) throws IOException { this(port, null); }
+
+    public LocalSimulationServer(int port, WorldArchive archive) throws IOException {
+        sourceArchive = archive;
+        voxelWorld = archive == null ? null : new VoxelWorld(archive);
         server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), port), 0);
         server.createContext("/api/scenarios", this::scenarios);
         server.createContext("/api/state", this::state);
         server.createContext("/api/control", this::control);
+        server.createContext("/api/terrain", this::terrain);
         server.setExecutor(Executors.newCachedThreadPool());
         ticker.scheduleAtFixedRate(() -> {
             if (!running) return;
@@ -63,6 +75,29 @@ public final class LocalSimulationServer implements AutoCloseable {
         }
     }
 
+    private void terrain(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equals("GET")) { respond(exchange,405,Map.of("error","GET required")); return; }
+        synchronized(lock) {
+            if (sourceArchive == null) { respond(exchange,200,Map.of("loaded",false)); return; }
+            var bounds=sourceArchive.bounds();
+            var cells=new ArrayList<int[]>();
+            for (var cell:sourceArchive.cells()) {
+                var category=voxelWorld.material(new BlockPosition(cell.x(),cell.y(),cell.z()));
+                int code=switch(category) {
+                    case AIR -> 0;
+                    case SOLID -> 1;
+                    case WATER -> 2;
+                    case LAVA -> 3;
+                    case OTHER_FLUID -> 4;
+                };
+                if(code!=0)cells.add(new int[]{cell.x(),cell.y(),cell.z(),code});
+            }
+            respond(exchange,200,Map.of("loaded",true,"worldId",sourceArchive.worldId(),
+                "bounds",new int[]{bounds.minX(),bounds.minY(),bounds.minZ(),bounds.maxX(),bounds.maxY(),bounds.maxZ()},
+                "cells",cells));
+        }
+    }
+
     private void control(HttpExchange exchange) throws IOException {
         if (exchange.getRequestMethod().equals("OPTIONS")) { preflight(exchange); return; }
         if (!exchange.getRequestMethod().equals("POST")) { respond(exchange, 405, Map.of("error", "POST required")); return; }
@@ -77,7 +112,7 @@ public final class LocalSimulationServer implements AutoCloseable {
                     case "play" -> running = true;
                     case "pause" -> running = false;
                     case "step" -> { running = false; runtime.tick(); }
-                    case "reset" -> { running = false; runtime = scenario.createRuntime(); }
+                    case "reset" -> { running = false; runtime = scenario.createRuntime(); voxelWorld=sourceArchive==null?null:new VoxelWorld(sourceArchive); }
                     case "speed" -> {
                         int value = data.path("value").asInt(0);
                         if (value != 1 && value != 5 && value != 20) throw new IllegalArgumentException("Invalid speed");
@@ -136,7 +171,8 @@ public final class LocalSimulationServer implements AutoCloseable {
     }
 
     public static void main(String[] args) throws Exception {
-        LocalSimulationServer app = new LocalSimulationServer(8765);
+        WorldArchive archive = args.length == 0 ? null : WorldArchive.read(Path.of(args[0]));
+        LocalSimulationServer app = new LocalSimulationServer(8765, archive);
         Runtime.getRuntime().addShutdownHook(new Thread(app::close));
         app.start();
         System.out.println("Civ local simulation API: http://localhost:8765/api/state");
