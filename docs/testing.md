@@ -303,3 +303,7 @@ Das opt-in Hytale-Local-Szenario `deployment` verwendet ausschließlich eine fri
 ## Lokaler Live-Server
 
 `LocalSimulationServerTest` startet die API auf einem temporären Loopback-Port, verifiziert Szenarioauswahl, Tick-Schritt, Start/Pause, Reset und Live-Zustand ohne vorberechnete Replay-Dateien. Die Browseroberfläche wird weiterhin über den `web-viewer`-Build und Node-Tests validiert; echtes Rendering und Pointer-Lock erfordern ergänzend einen manuellen Browsercheck.
+
+## Manuelle Abnahme der lokalen Simulations-Sandbox (10. Oktober 2026)
+
+Der Nutzer hat im lokalen Browser folgende neun Tests erfolgreich bestätigt: Viewer-Start; laufender Tick-Zähler bei Start; Stillstand bei Pause; exakt ein Tick bei Einzelschritt; Reset auf Tick 0; freie WASD-/Maus-Kamera; kleine Geschwindigkeitsänderungen nach drei Mausrad-Rastungen; konfigurierte NPC-Startanzahl; sichtbare arbeitende NPCs und Ereignisprotokoll. Diese Rückmeldung belegt die grundlegende Bedienbarkeit des lokalen Live-Viewers, **nicht** den Export einer realen Hytale-Welt, Korrektheit nativer Hytale-Navigation oder vollständige Parität der beiden Miner-Adapter. Diese weiteren Abnahmen bleiben in `docs/simulation-sandbox-roadmap.md` offen.
