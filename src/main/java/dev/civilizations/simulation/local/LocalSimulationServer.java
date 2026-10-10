@@ -42,6 +42,8 @@ public final class LocalSimulationServer implements AutoCloseable {
     private int additionalBuilders;
     private final WorldArchive sourceArchive;
     private VoxelWorld voxelWorld;
+    /** Changes when the entire voxel world is replaced; distinct from block revision. */
+    private long terrainEpoch;
     private MineSandboxPrefab.Placement minePlacement;
     private MineSandboxPrefab minePrefab;
 
@@ -96,7 +98,8 @@ public final class LocalSimulationServer implements AutoCloseable {
             respond(exchange, 200, Map.of(
                 "scenario", scenario.id(), "running", running, "speed", ticksPerFrame,
                 "additionalWoodcutters", additionalWoodcutters, "additionalBuilders", additionalBuilders,
-                "events", eventLog.snapshot(), "stateTransitions", journal.events(), "world", runtime.worldSnapshot(), "worldRevision", voxelWorld == null ? 0 : voxelWorld.revision()
+                "events", eventLog.snapshot(), "stateTransitions", journal.events(), "world", runtime.worldSnapshot(), "worldRevision", voxelWorld == null ? 0 : voxelWorld.revision(),
+                "terrainEpoch", terrainEpoch
             ));
         }
     }
@@ -125,6 +128,7 @@ public final class LocalSimulationServer implements AutoCloseable {
         var fresh = new VoxelWorld(sourceArchive);
         var placed = prefab().place(fresh,sourceArchive.bounds(),origin);
         voxelWorld = fresh;
+        terrainEpoch++;
         minePlacement = placed;
         scenario = customMiners(0);
         runtime = scenario.createRuntime();
@@ -217,6 +221,7 @@ public final class LocalSimulationServer implements AutoCloseable {
                         eventLog.clear();
                         journal.reset();
                         voxelWorld = sourceArchive == null ? null : new VoxelWorld(sourceArchive);
+                        terrainEpoch++;
                         if (minePlacement != null)
                             minePlacement = prefab().place(voxelWorld,sourceArchive.bounds(),minePlacement.origin());
                         runtime = newRuntime();

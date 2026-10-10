@@ -100,6 +100,7 @@ class LocalSimulationServerTest {
             String url="http://localhost:"+server.port()+"/api/";
             assertEquals(9,get(url+"terrain").path("cells").size());
             assertEquals(0,get(url+"terrain?since=0").path("changes").size());
+            assertEquals(0,get(url+"state").path("terrainEpoch").asLong());
             post(url+"control","{\"command\":\"setBlock\",\"x\":1,\"y\":1,\"z\":1,\"category\":\"SOLID\"}");
             var delta=get(url+"terrain?since=0");
             assertEquals(1,delta.path("revision").asLong());
@@ -107,6 +108,7 @@ class LocalSimulationServerTest {
             assertEquals(1,delta.path("changes").get(0).get(3).asInt());
             post(url+"control","{\"command\":\"reset\"}");
             assertTrue(get(url+"terrain?since=1").has("cells"));
+            assertEquals(1,get(url+"state").path("terrainEpoch").asLong());
             assertEquals(9,get(url+"terrain?since=1").path("cells").size());
         }
     }

@@ -27,6 +27,7 @@ let mineMode = false, lastDebug = null;
 const debugGroup = new THREE.Group();
 scene.add(debugGroup);
 let lastTerrainRevision = -1;
+let lastTerrainEpoch = -1;
 let selectedResident = "";
 scene.add(terrainGroup,voxelGroup,residentsGroup);
 const voxelMaterials = [0x64748b,0x9cb2c2,0xd19d50,0x618d62];
@@ -256,6 +257,12 @@ async function update() {
       selector.replaceChildren(...ids.map(id=>{const o=document.createElement('option');o.value=id;o.textContent=id;return o;}));
     }
     selector.value=selectedResident;
+    // A reset/new prefab creates an independent voxel world. Its revision counter
+    // can accidentally equal the previous world's; force a full terrain snapshot.
+    if (data.terrainEpoch !== lastTerrainEpoch) {
+      lastTerrainEpoch = data.terrainEpoch;
+      lastTerrainRevision = -1;
+    }
     if (data.worldRevision !== lastTerrainRevision) {
       const previousRevision=lastTerrainRevision;
       lastTerrainRevision = data.worldRevision;
