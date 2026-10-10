@@ -30,6 +30,7 @@ public final class LocalSimulationServer implements AutoCloseable {
     private final java.util.concurrent.ExecutorService requests = Executors.newVirtualThreadPerTaskExecutor();
     private final ScheduledExecutorService ticker = Executors.newSingleThreadScheduledExecutor();
     private final Object lock = new Object();
+    private final SimulationEventLog eventLog = new SimulationEventLog();
     private final SimulationEventJournal journal = new SimulationEventJournal();
     private volatile boolean running;
     private volatile int ticksPerFrame = 1;
@@ -91,7 +92,7 @@ public final class LocalSimulationServer implements AutoCloseable {
             respond(exchange, 200, Map.of(
                 "scenario", scenario.id(), "running", running, "speed", ticksPerFrame,
                 "additionalWoodcutters", additionalWoodcutters, "additionalBuilders", additionalBuilders,
-                "world", runtime.worldSnapshot(), "events", journal.events(), "worldRevision", voxelWorld == null ? 0 : voxelWorld.revision()
+                "events", eventLog.snapshot(), "world", runtime.worldSnapshot(), "events", journal.events(), "worldRevision", voxelWorld == null ? 0 : voxelWorld.revision()
             ));
         }
     }
@@ -130,11 +131,12 @@ public final class LocalSimulationServer implements AutoCloseable {
             String command = data.path("command").asText("");
             synchronized (lock) {
                 switch (command) {
-                    case "play" -> running = true;
-                    case "pause" -> running = false;
+                    case "play" -> { running = true; eventLog.record(runtime.tickCount(), "CONTROL", "play"); }
+                    case "pause" -> { running = false; eventLog.record(runtime.tickCount(), "CONTROL", "pause"); }
                     case "step" -> { running = false; runtime.tick(); journal.observe(runtime.worldSnapshot()); }
                     case "reset" -> {
                         running = false;
+                        eventLog.clear();
                         journal.reset();
                         voxelWorld = sourceArchive == null ? null : new VoxelWorld(sourceArchive);
                         runtime = newRuntime();
@@ -144,6 +146,7 @@ public final class LocalSimulationServer implements AutoCloseable {
                         var position = new WorldPosition(
                             finiteCoordinate(data, "x"), finiteCoordinate(data, "y"), finiteCoordinate(data, "z"));
                         runtime.orderManualMove(id,position);
+                        eventLog.record(runtime.tickCount(), "MOVE", id);
                     }
                     case "setBlock" -> {
                         if (voxelWorld == null) throw new IllegalArgumentException("No imported terrain");
@@ -159,6 +162,7 @@ public final class LocalSimulationServer implements AutoCloseable {
                             default -> throw new IllegalArgumentException("Unsupported material");
                         };
                         voxelWorld.set(new BlockPosition(x,y,z), material);
+                        eventLog.record(runtime.tickCount(), "BLOCK", x + "," + y + "," + z + "=" + category);
                     }
                     case "speed" -> {
                         int value = data.path("value").asInt(0);
