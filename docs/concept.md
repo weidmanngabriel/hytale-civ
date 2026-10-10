@@ -233,12 +233,13 @@ Für einen Miner, der zuvor an die Oberfläche gerufen wurde, bleibt die autonom
 
 Navigation Failure stützt sich primär auf Hytales nativen `NavState`: Bei `BLOCKED` oder `ABORTED` wird zunächst genau eine native Pfadneuberechnung angefordert. Scheitert dasselbe Arbeitsziel danach weiterhin, meldet der Navigation-Adapter dies an den Miner-Arbeitsfluss zurück. Eine betroffene Abbaufront oder Pflicht-Infrastruktur wird `BLOCKED`, normale Support-/Lichtarbeit wird übersprungen. Ein sicherer Anchor-Teleport im Hauptkorridor bleibt eine Positions-Recovery, öffnet aber die fehlgeschlagene Arbeit nicht automatisch erneut. `BLOCKED` wird in V1 nicht periodisch wiederprobiert.
 
-## Entwicklungswerkzeug: Browser-Simulation-Lab
+## Entwicklungswerkzeug: Lokale Simulations-Sandbox
 
-Das öffentliche Browser-Lab dient der Prüfung aufgezeichneter Core-Szenarien. Ein Branch-/Lauf-/Szenario-Katalog öffnet einen konkreten Quellcode-Stand; freie Kamera und Spectator-Sicht machen Minenhohlräume untersuchbar. Start/Pause, Einzelschritt, Zeitleiste und Inspector zeigen aufgezeichnete Blockänderungen und Arbeiterzustände. Touch-Steuerung ermöglicht dieselbe Beobachtung auf Mobilgeräten.
+Der lokal gestartete Java-Runner führt Civ-Core-Szenarien ohne Hytale-Laufzeit aus. Der separat geöffnete Three.js-Browser-Viewer liest ihren Live-Zustand. Szenarien bestimmen einen reproduzierbaren Startzustand; der interaktive Lauf wird nicht auf eine feste Tick-Anzahl begrenzt. Start, Pause, Schritt, Reset, Tempo und zusätzliche Test-NPCs stehen als Entwicklungscontrols bereit.
 
-Das Lab verändert kein Gameplay und führt keine neuen Befehle während eines Replays aus. Seine vereinfachte Grafik und Fake-Bewegung sind Entwicklungshilfen; Hytales Navigation, Grafik und Physik bleiben Engine-Verträge.
+Die freie Spectator-Kamera erlaubt Fliegen durch feste Voxel; innere Höhlenflächen bleiben sichtbar. WASD bewegt die Kamera, die Maus ändert die Blickrichtung und das Mausrad verändert das Flugtempo in kleinen Schritten. Ein optional importierter echter Hytale-Weltausschnitt liefert die Blockgeometrie über ein wiederverwendbares, rohes Weltarchiv. Der Simulator leitet daraus Kategorien und eine bewusst vereinfachte Navigation ab.
 
+Die aktuelle Sandbox ist Entwicklungswerkzeug, nicht Hytales Engine. Die echte Native-Navigation und der vollständige produktive Miner-Arbeitsablauf sind nicht durch einen simplen A*-Pfad verifiziert. Tests und Grafiken stellen diese Grenze ausdrücklich dar.
 
 ## Entwicklungszugriff auf die normale Spielwelt
 
