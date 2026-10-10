@@ -295,3 +295,8 @@ Der autorisierte Kommentar `/hytale-deploy <commit-sha>` auf Issue #126 startet 
 ## Lokaler Browser-Live-Viewer
 
 In einem Terminal `./gradlew localSimulationServer` starten. In einem zweiten Terminal `cd web-viewer && npm ci && npm run dev` ausführen; dann `http://localhost:5173/live.html` im Browser öffnen. Die API verwendet ausschließlich Loopback-Port 8765. Start/Pause, Schritt, Reset, Geschwindigkeit und Szenariowechsel steuern die Java-Runtime live; Szenarien haben im interaktiven Betrieb keine Tick-Obergrenze. Escape beendet den Pointer-Lock. Der alte Replay-Viewer (`index.html`) bleibt bis zur abgeschlossenen Migration erhalten.
+
+
+## Browser Mine_01 fixture
+
+Beim lokalen `localSimulationServer` mit `-PsimWorldArchive=...` stehen nun die authored `Mine_01`-Platzierung, 3D-Debugmarker und eine eingeschränkte Simulator-Konsole zur Verfügung. Im Viewer können X/Y/Z der Prefab-**Basis** eingegeben und `Mine_01 platzieren` gedrückt werden. Diese Basis liegt beim authored Phase-1-Prefab 16 Blöcke unter dem gewünschten Gelände-Niveau; die vollständige Prefab-Ausdehnung muss in der Exportregion liegen. Danach Miner starten. Die Oberfläche bietet `/sim help` und lesende `/civdev mines` sowie `/civdebug mine info`-Ansichten, ohne native Serverbefehle aufzurufen. Ohne Mine behält `configureMiners` die frühere Lab-Fixture für bestehende Regressionstests bei.
