@@ -313,3 +313,5 @@ Der Nutzer hat im lokalen Browser folgende neun Tests erfolgreich bestätigt: Vi
 Der Regressionstest `minersStartInSameReachableCavernInsteadOfIsolatedPockets` prüft, dass Miner in importierten Welten nicht über getrennte Höhlenteile verteilt werden. Eine erreichbare Anfangsposition allein beweist noch keine erfolgreiche spätere Front-Navigation.
 
 `terrainDeltaTransmitsOnlyChangedBlocksAndResetCanRecoverFullSnapshot` verifiziert den lokalen Terrain-Deltavertrag einschließlich Reset-Fallback. Die Browser-Performanceaufzeichnung enthält nun pro Sekunde auch begrenzte NPC-Zustände und letzte Ereignisse; damit lassen sich `BLOCKED`-Verläufe zusammen mit FPS und Mesh-Kosten auswerten.
+
+Ein importiertes Archiv liefert beim Start sofort einen leeren NPC-Zustand; `LocalSimulationServerTest` prüft danach die ausdrücklich angeforderte Miner-Konfiguration. Das verhindert die bisherige synchrone Spawnsuche beim initialen Viewer-Start. Das erstmalige Einlesen einer sehr großen gzip-JSON-Datei ist dabei noch nicht unabhängig asynchronisiert.

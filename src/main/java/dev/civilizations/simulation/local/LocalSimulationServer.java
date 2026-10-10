@@ -48,7 +48,7 @@ public final class LocalSimulationServer implements AutoCloseable {
     public LocalSimulationServer(int port, WorldArchive archive) throws IOException {
         sourceArchive = archive;
         voxelWorld = archive == null ? null : new VoxelWorld(archive);
-        if (archive != null) { scenario = customMiners(3); runtime = scenario.createRuntime(); }
+        if (archive != null) { scenario = customMiners(0); runtime = scenario.createRuntime(); }
         server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), port), 0);
         server.createContext("/api/scenarios", this::scenarios);
         server.createContext("/api/state", this::state);
@@ -81,7 +81,7 @@ public final class LocalSimulationServer implements AutoCloseable {
 
     private void scenarios(HttpExchange exchange) throws IOException {
         if (!exchange.getRequestMethod().equals("GET")) { respond(exchange, 405, Map.of("error", "GET required")); return; }
-        var all = sourceArchive == null ? SimulationScenarios.all() : List.of(customMiners(3));
+        var all = sourceArchive == null ? SimulationScenarios.all() : List.of(customMiners(0));
         respond(exchange, 200, all.stream().map(s -> Map.of(
             "id", s.id(), "title", s.displayName(), "description", s.description()
         )).toList());
@@ -211,7 +211,7 @@ public final class LocalSimulationServer implements AutoCloseable {
                     }
                     case "scenario" -> {
                         String id = data.path("id").asText("");
-                        scenario = sourceArchive != null && id.equals("custom-miners") ? customMiners(3)
+                        scenario = sourceArchive != null && id.equals("custom-miners") ? customMiners(0)
                             : sourceArchive == null ? SimulationScenarios.all().stream()
                                 .filter(s -> s.id().equals(id)).findFirst()
                                 .orElseThrow(() -> new IllegalArgumentException("Unknown scenario"))
@@ -249,6 +249,7 @@ public final class LocalSimulationServer implements AutoCloseable {
                 var sim = new SimulationRuntime();
                 if (voxelWorld != null) {
                     sim.setVoxelWorld(voxelWorld);
+                    if (count == 0) return sim;
                     var bounds = sourceArchive.bounds();
                     var candidates = new ArrayList<BlockPosition>();
                     for (int y=bounds.minY()+1;y<bounds.maxY()-1;y++)

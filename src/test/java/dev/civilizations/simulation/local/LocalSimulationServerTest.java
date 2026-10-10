@@ -54,7 +54,7 @@ class LocalSimulationServerTest {
             assertTrue(terrain.path("loaded").asBoolean());
             assertEquals("test-world",terrain.path("worldId").asText());
             assertEquals(9,terrain.path("cells").size());
-            assertEquals(3,get(url+"state").path("world").path("residents").size());
+            assertEquals(0,get(url+"state").path("world").path("residents").size());
             post(url+"control","{\"command\":\"configureMiners\",\"miners\":2}");
             assertEquals(2,get(url+"state").path("world").path("residents").size());
             post(url+"control","{\"command\":\"reset\"}");
@@ -72,6 +72,7 @@ class LocalSimulationServerTest {
         try(var server=new LocalSimulationServer(0,archive)) {
             server.start();
             String url="http://localhost:"+server.port()+"/api/";
+            post(url+"control","{\"command\":\"configureMiners\",\"miners\":3}");
             post(url+"control","{\"command\":\"move\",\"id\":\"miner-1\",\"x\":2.5,\"y\":1,\"z\":2.5}");
             for(int i=0;i<55;i++)post(url+"control","{\"command\":\"step\"}");
             var moved=get(url+"state").path("world").path("residents").get(0);
@@ -151,6 +152,7 @@ class LocalSimulationServerTest {
         try (var server = new LocalSimulationServer(0,archive)) {
             server.start();
             String url = "http://localhost:" + server.port() + "/api/";
+            post(url+"control","{\"command\":\"configureMiners\",\"miners\":3}");
             var residents = get(url+"state").path("world").path("residents");
             assertEquals(3,residents.size());
             // Largest component is x=4..8, not the other side of the gap.
