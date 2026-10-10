@@ -47,6 +47,10 @@ Diese Schritte testen ausschließlich die Headless-Simulation. Das echte Hytale-
 
 **Gezielte Miner-Diagnose:** Nach Platzieren der Mine und Starten der Miner unter „Dev-Konsole“ `/sim worker miner-2` eingeben. Die Ausgabe enthält Position, Zustand, aktuelles Wegziel, Zahl verbleibender Wegpunkte und den gemeldeten Blockadegrund. Bei Bedarf nacheinander alle Miner abfragen; `/sim worker` ist read-only und verändert keine Aufgaben.
 
+## Deterministischer Drei-Miner-Seed
+
+Bei einem mit `-PsimWorldArchive` geladenen Welt-Export im Browser unter **Szenario** den Eintrag **Miner – 3 Workers** auswählen. Der Simulator platziert `Mine_01` automatisch auf geeignetem Oberflächengelände und startet `miner-1`, `miner-2` und `miner-3` mit dem konstanten Planungsseed `99112233`. Anschließend **Start** oder **Einzelschritt** wählen. **Reset** stellt dasselbe Prefab und die drei Miner wieder her. Weitere Läufe mit identischem Export und gleichen Befehlen müssen denselben Startzustand ergeben. Das Szenario benötigt einen ausreichend großen Export mit geeigneter Oberfläche; andernfalls meldet die API, dass kein Platz gefunden wurde. Ohne importierte Welt ist es nicht verfügbar.
+
 ## Phase 5B – gemeinsame Miner-Steuerung prüfen
 
 1. Aktuelles `main` holen, `gradlew.bat test build` ausführen und den lokalen Simulation-Viewer nach der bisherigen Anleitung starten.
