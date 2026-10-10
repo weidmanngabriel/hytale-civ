@@ -187,6 +187,33 @@ class LocalSimulationServerTest {
         }
     }
 
+    @Test
+    void threeMinerScenarioSeedsAndResetsSameSurfaceMine() throws Exception {
+        var cells = new ArrayList<WorldArchive.Cell>();
+        for (int x=0;x<50;x++) for (int y=0;y<35;y++) for (int z=0;z<50;z++)
+            cells.add(new WorldArchive.Cell(x,y,z,y<=16?"native:stone":"air",0,0,"NONE"));
+        var archive = new WorldArchive(WorldArchive.VERSION,"three-miner-fixture",
+            new WorldArchive.Bounds(0,0,0,50,35,50),cells);
+        try (var server = new LocalSimulationServer(0, archive)) {
+            server.start();
+            String url = "http://localhost:" + server.port() + "/api/";
+            var scenarios = get(url+"scenarios");
+            assertTrue(scenarios.toString().contains("mine-three"));
+            post(url+"control","{\"command\":\"scenario\",\"id\":\"mine-three\"}");
+            var original = get(url+"state");
+            assertEquals("mine-three", original.path("scenario").asText());
+            assertEquals(3, original.path("world").path("residents").size());
+            assertTrue(get(url+"debug").path("prefab").path("placed").asBoolean());
+            var originalOrigin = get(url+"debug").path("prefab").path("origin");
+            post(url+"control","{\"command\":\"step\"}");
+            post(url+"control","{\"command\":\"reset\"}");
+            assertEquals("mine-three", get(url+"state").path("scenario").asText());
+            assertEquals(3, get(url+"state").path("world").path("residents").size());
+            assertEquals(0, get(url+"state").path("world").path("tickCount").asLong());
+            assertEquals(originalOrigin, get(url+"debug").path("prefab").path("origin"));
+        }
+    }
+
     private JsonNode get(String url) throws Exception {
         var request = HttpRequest.newBuilder(URI.create(url)).GET().build();
         var response = client.send(request, HttpResponse.BodyHandlers.ofString());
