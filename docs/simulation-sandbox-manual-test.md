@@ -44,3 +44,5 @@ Diese Schritte testen ausschließlich die Headless-Simulation. Das echte Hytale-
 6. Auf **Reset** klicken. Das Prefab muss wiederhergestellt werden. Für fehlerhafte Miner-Navigation mit **Performance aufnehmen** 30–60 Sekunden protokollieren, **Aufnahme stoppen & JSON speichern** klicken und die JSON-Datei teilen.
 
 **Bekannte Grenze:** Gemeinsame Route (Zugang → Connector → Arbeitsfront), Core-Minenplanung und Front-Claims werden verwendet. Der komplette produktive Miner-Task-Ablauf mit allen Räumen, Infrastrukturmaßnahmen und Recoveries ist noch kein gemeinsamer Core-Controller; vollständige Parität gehört weiterhin zu Phase 5B. Keine automatische Hytale-Runtime in der CI.
+
+**Gezielte Miner-Diagnose:** Nach Platzieren der Mine und Starten der Miner unter „Dev-Konsole“ `/sim worker miner-2` eingeben. Die Ausgabe enthält Position, Zustand, aktuelles Wegziel, Zahl verbleibender Wegpunkte und den gemeldeten Blockadegrund. Bei Bedarf nacheinander alle Miner abfragen; `/sim worker` ist read-only und verändert keine Aufgaben.
