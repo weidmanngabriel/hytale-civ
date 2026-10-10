@@ -331,3 +331,5 @@ Der lokale 3D-Viewer bietet die Schaltfläche **Performance aufnehmen**. Nach er
 ## Lokales Minen-Labor (Browser)
 
 Nach Weltimport kann eine echte authored Phase-1-Mine automatisch oder per Weltkoordinaten platziert werden. Der Viewer zeigt deren Volumenmarker, Zugang, Tunnelanschluss, geplante Haupt-Tunnelslices, aktuelle Arbeitsfront sowie simulierte NPC-Ziele und Wege. Die Simulator-Konsole kennt einen bewusst begrenzten `/sim`-Befehlssatz und lesende lokale Alias-Befehle `/civdev mines`/`mine-info`; sie ist keine vollständige Ingame-Konsole. Headless-Wegfindung ist ein vereinfachtes Testmodell. Unbegehbare simulierte Wege sind nicht automatisch Hytale-Navigationsfehler. Die umfassende gemeinsame Miner-Gameplay-Ablaufsteuerung bleibt weiter auszubauen.
+
+Das lokale Simulation Lab unterstützt zur Diagnose einzelner NPCs `/sim worker <id>` (z. B. `/sim worker miner-2`). Es liest den aktuellen simulierten Zustand, die Position, das Bewegungsziel, verbleibende Wegpunkte und die Navigationsfehlermeldung aus, ohne den Spielzustand zu verändern. Der Befehl ist kein nativer Hytale-Konsolenbefehl.
