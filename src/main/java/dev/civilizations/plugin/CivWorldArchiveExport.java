@@ -16,7 +16,7 @@ final class CivWorldArchiveExport {
     private CivWorldArchiveExport() {}
 
     static Path exportLoaded(World world, WorldArchive.Bounds bounds) throws java.io.IOException {
-        if (bounds.volume() > 250000) throw new IllegalArgumentException("Region too large");
+        if (bounds.volume() > WorldArchive.MAX_EXPORT_CELLS) throw new IllegalArgumentException("Region too large");
         var cells = new ArrayList<WorldArchive.Cell>((int) bounds.volume());
         for (int x=bounds.minX(); x<bounds.maxX(); x++) for (int z=bounds.minZ(); z<bounds.maxZ(); z++) {
             WorldChunk chunk=world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(x,z));
