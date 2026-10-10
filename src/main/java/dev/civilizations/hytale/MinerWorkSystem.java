@@ -61,6 +61,7 @@ import dev.civilizations.core.MineTunnel;
 import dev.civilizations.core.MineTunnelGeometry;
 import dev.civilizations.core.MineTuning;
 import dev.civilizations.core.MineWorkFront;
+import dev.civilizations.core.MineWorkerRouteDecision;
 import dev.civilizations.core.Profession;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
@@ -278,7 +279,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             runtime.enteredMine = true;
             runtime.reachedConnector = true;
         }
-        if (!runtime.enteredMine && entrance != null && entrance.bounds() != null) {
+        if (MineWorkerRouteDecision.next(runtime.enteredMine, runtime.reachedConnector)
+            == MineWorkerRouteDecision.Destination.WORKPLACE_ACCESS
+            && entrance != null && entrance.bounds() != null) {
             Vector3d target = center(entrance.bounds(), entrance.bounds().minY());
             if (!arrived(position, target)) {
                 navigateTo(ref, target, runtime);
@@ -289,7 +292,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             runtime.navigationArrived();
         }
 
-        if (!runtime.reachedConnector) {
+        if (MineWorkerRouteDecision.next(runtime.enteredMine, runtime.reachedConnector)
+            != MineWorkerRouteDecision.Destination.WORK_FRONT) {
             Vector3d target = center(connector.bounds(), connector.bounds().minY());
             if (!arrived(position, target)) {
                 navigateTo(ref, target, runtime);
