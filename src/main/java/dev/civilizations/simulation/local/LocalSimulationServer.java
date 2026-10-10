@@ -42,6 +42,8 @@ public final class LocalSimulationServer implements AutoCloseable {
     private int additionalBuilders;
     private final WorldArchive sourceArchive;
     private VoxelWorld voxelWorld;
+    private MineSandboxPrefab.Placement minePlacement;
+    private MineSandboxPrefab minePrefab;
 
     public LocalSimulationServer(int port) throws IOException { this(port, null); }
 
@@ -54,6 +56,7 @@ public final class LocalSimulationServer implements AutoCloseable {
         server.createContext("/api/state", this::state);
         server.createContext("/api/control", this::control);
         server.createContext("/api/terrain", this::terrain);
+        server.createContext("/api/debug", this::debug);
         server.setExecutor(requests);
         ticker.scheduleAtFixedRate(() -> {
             if (!running) return;
@@ -96,6 +99,61 @@ public final class LocalSimulationServer implements AutoCloseable {
                 "events", eventLog.snapshot(), "stateTransitions", journal.events(), "world", runtime.worldSnapshot(), "worldRevision", voxelWorld == null ? 0 : voxelWorld.revision()
             ));
         }
+    }
+
+    private void debug(HttpExchange exchange) throws IOException {
+        if (!exchange.getRequestMethod().equals("GET")) {
+            respond(exchange,405,Map.of("error","GET required")); return;
+        }
+        synchronized(lock) {
+            respond(exchange,200,Map.of(
+                "mine",runtime.mineDebugSnapshot(),
+                "prefab",minePlacement == null ? Map.of("placed",false) : Map.of(
+                    "placed",true,"origin",minePlacement.origin(),
+                    "markers",minePlacement.markers())
+            ));
+        }
+    }
+
+    private MineSandboxPrefab prefab() throws IOException {
+        if (minePrefab == null) minePrefab = new MineSandboxPrefab(MineSandboxPrefab.DEFAULT_PREFAB);
+        return minePrefab;
+    }
+
+    private void placeMine(BlockPosition origin) throws IOException {
+        if (sourceArchive == null) throw new IllegalArgumentException("Load a world archive first");
+        var fresh = new VoxelWorld(sourceArchive);
+        var placed = prefab().place(fresh,sourceArchive.bounds(),origin);
+        voxelWorld = fresh;
+        minePlacement = placed;
+        scenario = customMiners(0);
+        runtime = scenario.createRuntime();
+        running = false;
+        journal.reset();
+        eventLog.record(runtime.tickCount(),"MINE",
+            "Mine_01 placed at "+origin+"; access="+placed.access()+"; connector="+placed.connector());
+    }
+
+    private BlockPosition findMineOrigin() throws IOException {
+        if (sourceArchive == null) throw new IllegalArgumentException("No imported world");
+        var bounds=sourceArchive.bounds();
+        var model=prefab().model().blockBounds();
+        int centerX=(bounds.minX()+bounds.maxX())/2,centerZ=(bounds.minZ()+bounds.maxZ())/2;
+        // Prefer a standable surface near the center, with full prefab below and above it.
+        for(int radius=0;radius<=20;radius+=4) {
+            for(int x=centerX-radius;x<=centerX+radius;x+=4)
+                for(int z=centerZ-radius;z<=centerZ+radius;z+=4) {
+                    if(x+model.minX()<bounds.minX()||x+model.maxX()>=bounds.maxX()
+                        ||z+model.minZ()<bounds.minZ()||z+model.maxZ()>=bounds.maxZ())continue;
+                    for(int feetY=bounds.maxY()-10;feetY>=bounds.minY()+17;feetY--) {
+                        if (!voxelWorld.canStand(new BlockPosition(x,feetY,z))) continue;
+                        int originY=feetY-17;
+                        if(originY+model.maxY()>=bounds.maxY()||originY+model.minY()<bounds.minY())continue;
+                        return new BlockPosition(x,originY,z);
+                    }
+                }
+        }
+        throw new IllegalArgumentException("No suitable mine site near world center; specify /sim mine place X Y Z");
     }
 
     private void terrain(HttpExchange exchange) throws IOException {
@@ -159,6 +217,8 @@ public final class LocalSimulationServer implements AutoCloseable {
                         eventLog.clear();
                         journal.reset();
                         voxelWorld = sourceArchive == null ? null : new VoxelWorld(sourceArchive);
+                        if (minePlacement != null)
+                            minePlacement = prefab().place(voxelWorld,sourceArchive.bounds(),minePlacement.origin());
                         runtime = newRuntime();
                     }
                     case "move" -> {
@@ -201,6 +261,11 @@ public final class LocalSimulationServer implements AutoCloseable {
                         runtime = newRuntime();
                         journal.reset();
                     }
+                    case "placeMine" -> {
+                        placeMine(new BlockPosition(data.path("x").asInt(Integer.MIN_VALUE),
+                            data.path("y").asInt(Integer.MIN_VALUE),data.path("z").asInt(Integer.MIN_VALUE)));
+                    }
+                    case "placeMineAuto" -> { placeMine(findMineOrigin()); }
                     case "configureMiners" -> {
                         int miners = data.path("miners").asInt(0);
                         if (miners < 1 || miners > 20) throw new IllegalArgumentException("miners must be 1..20");
@@ -250,6 +315,28 @@ public final class LocalSimulationServer implements AutoCloseable {
                 if (voxelWorld != null) {
                     sim.setVoxelWorld(voxelWorld);
                     if (count == 0) return sim;
+                    if (minePlacement != null) {
+                        var access=minePlacement.access();
+                        var connector=minePlacement.connector();
+                        var reachable = new ArrayList<BlockPosition>();
+                        for(int dx=-6;dx<=6;dx++) for(int dz=-6;dz<=6;dz++)
+                            for(int dy=-2;dy<=2;dy++) {
+                                var p=new BlockPosition(access.x()+dx,access.y()+dy,access.z()+dz);
+                                if(voxelWorld.canStand(p) && !voxelWorld.path(p,access).isEmpty())
+                                    reachable.add(p);
+                            }
+                        reachable.sort(Comparator
+                            .comparingInt((BlockPosition p)->Math.abs(p.x()-access.x())
+                                +Math.abs(p.z()-access.z())+Math.abs(p.y()-access.y()))
+                            .thenComparingInt(BlockPosition::x).thenComparingInt(BlockPosition::z));
+                        if(reachable.isEmpty())throw new IllegalArgumentException("No reachable worker spawn near workplace_access");
+                        for(int i=0;i<count;i++) {
+                            var p=reachable.get(i%reachable.size());
+                            sim.addMiner("miner-"+(i+1),new WorldPosition(p.x()+.5,p.y(),p.z()+.5));
+                        }
+                        sim.configureMineLab(connector,access,MineHeading.SOUTH,8,99112233L);
+                        return sim;
+                    }
                     var bounds = sourceArchive.bounds();
                     var candidates = new ArrayList<BlockPosition>();
                     for (int y=bounds.minY()+1;y<bounds.maxY()-1;y++)
