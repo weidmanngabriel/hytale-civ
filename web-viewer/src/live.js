@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { adjustFlightSpeed } from './flight-speed.js';
-import { surfaceFaces } from './replay.js';
+import { indexTerrain, changedChunks, chunkKey, meshChunk } from './terrain-chunks.js';
 import { PerformanceRecorder, downloadPerformance } from './performance-recorder.js';
 const profiler = new PerformanceRecorder();
 let lastState = null, lastTerrainStats = {cells:0, triangles:0};
+let indexedTerrain=new Map();
+const terrainMeshes=new Map();
 
 
 const $ = id => document.getElementById(id);
@@ -65,32 +67,35 @@ function drawWorld(data) {
 }
 function drawImportedTerrain(data) {
   if (!data.loaded) return;
-  const begun=performance.now();
   importedTerrain = true;
-  for (const mesh of [...terrainGroup.children]) { terrainGroup.remove(mesh); mesh.geometry?.dispose(); mesh.material?.dispose(); }
-  const map = new Map(data.cells.map(([x,y,z,id])=>[`${x},${y},${z}`,id]));
-  const colors = [0,0x657182,0x3184b7,0xdb6642,0x5ca5a0].map(x=>new THREE.Color(x));
-  const positions = [], normals = [], vertexColors = [];
-  const faces=surfaceFaces(map);
-  profiler.measure('terrain:faces',performance.now()-begun);
+  const begun=performance.now();
+  const next=indexTerrain(data.cells);
+  const dirty=changedChunks(indexedTerrain,next);
+  indexedTerrain=next;
+  profiler.measure('terrain:diff',performance.now()-begun);
+  const colors=[0,0x657182,0x3184b7,0xdb6642,0x5ca5a0].map(c=>new THREE.Color(c));
   const meshStarted=performance.now();
-  for(const face of faces){
-    const color = colors[face.material];
-    for(const index of [0,1,2,0,2,3]){
-      const corner = face.corners[index];
-      positions.push(face.x+corner[0],face.y+corner[1],face.z+corner[2]);
-      normals.push(...face.normal);
+  for(const key of dirty){
+    const old=terrainMeshes.get(key);
+    if(old){terrainGroup.remove(old);old.geometry.dispose();terrainMeshes.delete(key);}
+    const data=meshChunk(indexedTerrain,key);
+    if(!data.positions.length)continue;
+    const vertexColors=[];
+    for(const type of data.materials){
+      const color=colors[type]||colors[1];
       vertexColors.push(color.r,color.g,color.b);
     }
+    const geom=new THREE.BufferGeometry();
+    geom.setAttribute('position',new THREE.Float32BufferAttribute(data.positions,3));
+    geom.setAttribute('normal',new THREE.Float32BufferAttribute(data.normals,3));
+    geom.setAttribute('color',new THREE.Float32BufferAttribute(vertexColors,3));
+    const mesh=new THREE.Mesh(geom,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.FrontSide}));
+    terrainGroup.add(mesh);terrainMeshes.set(key,mesh);
   }
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
-  geom.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
-  geom.setAttribute('color',new THREE.Float32BufferAttribute(vertexColors,3));
-  const mesh = new THREE.Mesh(geom,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.FrontSide}));
-  terrainGroup.add(mesh);
-  lastTerrainStats={cells:data.cells.length,triangles:faces.length*2};
-  profiler.measure('terrain:geometry',performance.now()-meshStarted);
+  profiler.measure('terrain:meshChunks',performance.now()-meshStarted);
+  lastTerrainStats={cells:indexedTerrain.size, chunks:terrainMeshes.size,
+    triangles:[...terrainMeshes.values()].reduce((sum,m)=>sum+m.geometry.getAttribute('position').count/3,0),
+    dirtyChunks:dirty.size};
   const [minX,minY,minZ,maxX,maxY,maxZ] = data.bounds;
   if (!drawImportedTerrain.initialized) {
     camera.position.set((minX+maxX)/2,maxY+10,maxZ+15);
@@ -99,6 +104,7 @@ function drawImportedTerrain(data) {
     drawImportedTerrain.initialized = true;
   }
 }
+
 function drawResidents(list) {
   const current=new Set(list.map(x=>x.id));
   for(const [id,mesh] of people)if(!current.has(id)){residentsGroup.remove(mesh);mesh.geometry.dispose();people.delete(id);}
