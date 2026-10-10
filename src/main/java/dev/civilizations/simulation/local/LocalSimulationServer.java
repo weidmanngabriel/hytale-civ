@@ -148,7 +148,7 @@ public final class LocalSimulationServer implements AutoCloseable {
                         running = false;
                         runtime = newRuntime();
                     }
-                    case "configure" -> {
+                    case "configureMiners" -> {
                         int miners = data.path("miners").asInt(0);
                         if (miners < 1 || miners > 20) throw new IllegalArgumentException("miners must be 1..20");
                         running = false;
