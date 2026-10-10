@@ -107,6 +107,7 @@ async function update() {
     $('message').textContent='';
   } catch(e){showError(e);}
 }
+$('configure').onclick=()=>send('configure',{woodcutters:Number($('woodcutters').value),builders:Number($('builders').value)});
 $('play').onclick=()=>send(running?'pause':'play');
 $('step').onclick=()=>send('step');
 $('reset').onclick=()=>send('reset');
