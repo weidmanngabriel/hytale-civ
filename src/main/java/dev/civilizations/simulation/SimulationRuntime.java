@@ -10,6 +10,16 @@ import dev.civilizations.core.WoodcutterJob;
 import dev.civilizations.core.WorkDecisionSchedule;
 import dev.civilizations.core.WorldPosition;
 import dev.civilizations.simulation.world.VoxelWorld;
+import dev.civilizations.simulation.world.WorldArchive;
+import dev.civilizations.core.MineFrontCoordinator;
+import dev.civilizations.core.MineHeading;
+import dev.civilizations.core.MineNetworkGrowthPlanner;
+import dev.civilizations.core.MineTunnelGeometry;
+import dev.civilizations.core.MineTunnel;
+import java.nio.charset.StandardCharsets;
+import java.util.Comparator;
+import java.util.Set;
+import java.util.UUID;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -42,6 +52,7 @@ public final class SimulationRuntime {
 
     private long tickCount;
     private VoxelWorld voxelWorld;
+    private MineLab mineLab;
 
     public SimulationRuntime() {
         this(DEFAULT_TICK_SECONDS, DEFAULT_MOVE_SPEED);
@@ -63,6 +74,15 @@ public final class SimulationRuntime {
         voxelWorld = Objects.requireNonNull(world);
         for (Resident resident : residents.values()) resident.route = List.of();
     }
+
+    /** Starts deterministic Core-planned excavation against the optional imported voxel adapter. */
+    public void configureMineLab(BlockPosition anchor, MineHeading heading, int length, long seed) {
+        if (voxelWorld == null) throw new IllegalStateException("Mine lab requires imported voxel terrain");
+        if (!voxelWorld.canStand(anchor)) throw new IllegalArgumentException("Mine anchor is not standable");
+        mineLab = new MineLab(anchor, heading, length, seed);
+    }
+
+    public int excavatedMineBlocks() { return mineLab == null ? 0 : mineLab.excavated; }
 
     public void addMiner(String id, WorldPosition position) {
         addResident(Resident.miner(id, position));
@@ -280,7 +300,8 @@ public final class SimulationRuntime {
             case WOODCUTTER -> tickWoodcutter(resident);
             case CONSTRUCTION_WORKER -> tickBuilder(resident);
             case FARMER -> tickFarmer(resident);
-            case MINER, SOLDIER, UNEMPLOYED -> clearMovement(resident);
+            case MINER -> { if (mineLab == null) clearMovement(resident); else mineLab.tick(resident); }
+            case SOLDIER, UNEMPLOYED -> clearMovement(resident);
         }
     }
 
@@ -580,7 +601,8 @@ public final class SimulationRuntime {
             case WOODCUTTER -> resident.woodcutterJob.state().name();
             case CONSTRUCTION_WORKER -> resident.constructionJob.state().name();
             case FARMER -> resident.farm.workState().name();
-            case MINER, SOLDIER, UNEMPLOYED -> "IDLE";
+            case MINER -> resident.minerState;
+            case SOLDIER, UNEMPLOYED -> "IDLE";
         };
     }
 
@@ -627,6 +649,83 @@ public final class SimulationRuntime {
     public record FarmFieldSnapshot(String farmId, WorldPosition position) {
     }
 
+    /**
+     * Simulates engine execution of the Core-produced tunnel slices. This is an
+     * integration fixture, not an alternative to Hytale's actual miner adapter.
+     */
+    private final class MineLab {
+        private final BlockPosition home;
+        private final List<MineTunnelGeometry.Slice> slices;
+        private final MineFrontCoordinator<String> claims = new MineFrontCoordinator<>();
+        private int sliceIndex;
+        private int excavated;
+
+        MineLab(BlockPosition home, MineHeading heading, int length, long seed) {
+            this.home = home;
+            var mineId = UUID.nameUUIDFromBytes(("headless-mine:" + seed).getBytes(StandardCharsets.UTF_8));
+            this.slices = MineNetworkGrowthPlanner.plan(mineId, home, heading, length, 1, seed)
+                .mainTunnel().geometry().slices();
+        }
+
+        void tick(Resident resident) {
+            if (sliceIndex >= slices.size()) {
+                resident.minerState = "RETURNING";
+                WorldPosition destination = new WorldPosition(home.x() + .5, home.y(), home.z() + .5);
+                if (advanceMovement(resident, destination)) {
+                    resident.minerState = "COMPLETE";
+                    clearMovement(resident);
+                }
+                return;
+            }
+            var slice = slices.get(sliceIndex);
+            var candidates = slice.excavationBlocks().stream()
+                .sorted(Comparator.comparingInt(BlockPosition::x)
+                    .thenComparingInt(BlockPosition::y).thenComparingInt(BlockPosition::z))
+                .toList();
+            if (candidates.stream().anyMatch(p -> voxelWorld.material(p) == null)) {
+                resident.minerState = "REGION_BOUNDARY";
+                clearMovement(resident);
+                return;
+            }
+            if (candidates.stream().allMatch(p -> voxelWorld.material(p) != WorldArchive.Material.SOLID)) {
+                claims.releaseFront(frontId(sliceIndex));
+                sliceIndex++;
+                resident.minerState = "NEXT_SLICE";
+                return;
+            }
+            var staging = sliceIndex == 0 ? home : slices.get(sliceIndex-1).floorCenter();
+            WorldPosition workPoint = new WorldPosition(staging.x()+.5,staging.y(),staging.z()+.5);
+            if (distanceSquared(resident.position, workPoint) > 2.25) {
+                resident.minerState = "MOVING_TO_FRONT";
+                advanceMovement(resident, workPoint);
+                return;
+            }
+            UUID id = frontId(sliceIndex);
+            if (!claims.tryJoin(id,resident.id,MineFrontCoordinator.capacityFor(MineTunnel.Kind.MAIN))) {
+                resident.minerState = "WAIT_FRONT_CAPACITY";
+                return;
+            }
+            BlockPosition block = claims.claimNext(id,resident.id,
+                MineFrontCoordinator.capacityFor(MineTunnel.Kind.MAIN),candidates,
+                p -> voxelWorld.material(p) == WorldArchive.Material.SOLID);
+            if (block == null) {
+                resident.minerState = "WAIT_BLOCK";
+                return;
+            }
+            resident.minerState = "EXCAVATING";
+            if (++resident.minerWorkTicks >= 5) {
+                resident.minerWorkTicks = 0;
+                voxelWorld.set(block, WorldArchive.Material.AIR);
+                excavated++;
+                claims.completeClaim(id,resident.id,block);
+            }
+        }
+
+        private UUID frontId(int index) {
+            return UUID.nameUUIDFromBytes(("headless-front:" + index).getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
     private static final class Resident {
         private final String id;
         private final Profession profession;
@@ -645,6 +744,8 @@ public final class SimulationRuntime {
         private long routeRevision = -1;
         private int routeIndex;
         private boolean navigationBlocked;
+        private String minerState = "IDLE";
+        private int minerWorkTicks;
 
         private Resident(
             String id,
