@@ -8,6 +8,7 @@ import dev.civilizations.simulation.SimulationScenario;
 import dev.civilizations.simulation.SimulationScenarios;
 import dev.civilizations.simulation.world.WorldArchive;
 import dev.civilizations.simulation.world.VoxelWorld;
+import dev.civilizations.simulation.prefab.MinePrefabPlacement;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.WorldPosition;
 import dev.civilizations.core.MineHeading;
@@ -42,6 +43,8 @@ public final class LocalSimulationServer implements AutoCloseable {
     private int additionalBuilders;
     private final WorldArchive sourceArchive;
     private VoxelWorld voxelWorld;
+    private MinePrefabPlacement.Placement placedMine;
+    private long terrainEpoch;
 
     public LocalSimulationServer(int port) throws IOException { this(port, null); }
 
@@ -90,10 +93,20 @@ public final class LocalSimulationServer implements AutoCloseable {
     private void state(HttpExchange exchange) throws IOException {
         if (!exchange.getRequestMethod().equals("GET")) { respond(exchange, 405, Map.of("error", "GET required")); return; }
         synchronized (lock) {
-            respond(exchange, 200, Map.of(
-                "scenario", scenario.id(), "running", running, "speed", ticksPerFrame,
-                "additionalWoodcutters", additionalWoodcutters, "additionalBuilders", additionalBuilders,
-                "events", eventLog.snapshot(), "stateTransitions", journal.events(), "world", runtime.worldSnapshot(), "worldRevision", voxelWorld == null ? 0 : voxelWorld.revision()
+            respond(exchange, 200, Map.ofEntries(
+                Map.entry("scenario", scenario.id()), Map.entry("running", running),
+                Map.entry("speed", ticksPerFrame),
+                Map.entry("additionalWoodcutters", additionalWoodcutters),
+                Map.entry("additionalBuilders", additionalBuilders),
+                Map.entry("events", eventLog.snapshot()), Map.entry("stateTransitions", journal.events()),
+                Map.entry("world", runtime.worldSnapshot()),
+                Map.entry("worldRevision", voxelWorld == null ? 0 : voxelWorld.revision()),
+                Map.entry("terrainEpoch",terrainEpoch),
+                Map.entry("mine", placedMine == null ? Map.of("placed",false)
+                    : Map.of("placed",true,"placement",placedMine)),
+                Map.entry("mineWork", runtime.mineDebugSnapshot() == null
+                    ? Map.of("active",false) : runtime.mineDebugSnapshot()),
+                Map.entry("navigation",runtime.navigationDebugSnapshots())
             ));
         }
     }
@@ -159,6 +172,10 @@ public final class LocalSimulationServer implements AutoCloseable {
                         eventLog.clear();
                         journal.reset();
                         voxelWorld = sourceArchive == null ? null : new VoxelWorld(sourceArchive);
+                        if (voxelWorld != null && placedMine != null)
+                            placedMine = MinePrefabPlacement.place(voxelWorld,
+                                Path.of(MinePrefabPlacement.ASSET), placedMine.origin());
+                        terrainEpoch++;
                         runtime = newRuntime();
                     }
                     case "move" -> {
@@ -200,6 +217,24 @@ public final class LocalSimulationServer implements AutoCloseable {
                         running = false;
                         runtime = newRuntime();
                         journal.reset();
+                    }
+                    case "placeMine" -> {
+                        if (sourceArchive == null) throw new IllegalArgumentException("Load an exported world first");
+                        var origin = new BlockPosition(
+                            (int)finiteCoordinate(data,"x"),(int)finiteCoordinate(data,"y"),
+                            (int)finiteCoordinate(data,"z"));
+                        // Create the full fixture separately. Failed placement must leave the previous world intact.
+                        var fresh = new VoxelWorld(sourceArchive);
+                        var placement = MinePrefabPlacement.place(fresh, Path.of(MinePrefabPlacement.ASSET), origin);
+                        voxelWorld = fresh;
+                        placedMine = placement;
+                        terrainEpoch++;
+                        running = false;
+                        scenario = customMiners(0);
+                        runtime = scenario.createRuntime();
+                        journal.reset();
+                        eventLog.record(runtime.tickCount(),"MINE_PREFAB",
+                            "Mine_01 at " + origin + "; " + placement.changedBlocks() + " authored blocks applied");
                     }
                     case "configureMiners" -> {
                         int miners = data.path("miners").asInt(0);
@@ -249,6 +284,33 @@ public final class LocalSimulationServer implements AutoCloseable {
                 var sim = new SimulationRuntime();
                 if (voxelWorld != null) {
                     sim.setVoxelWorld(voxelWorld);
+                    if (placedMine != null) {
+                        sim.configurePrefabMine(placedMine.connector(),placedMine.access(),
+                            placedMine.heading(),16,99112233L);
+                        if (count == 0) return sim;
+                        var access = placedMine.access();
+                        var near = new ArrayList<BlockPosition>();
+                        for (int radius=0;radius<=5;radius++) {
+                            for(int x=access.x()-radius;x<=access.x()+radius;x++)
+                                for(int z=access.z()-radius;z<=access.z()+radius;z++)
+                                    for(int y=access.y()-1;y<=access.y()+1;y++) {
+                                        var p=new BlockPosition(x,y,z);
+                                        if (voxelWorld.canStand(p) && !near.contains(p)) near.add(p);
+                                    }
+                            if(near.size()>=count)break;
+                        }
+                        near.sort(Comparator.comparingDouble((BlockPosition p) ->
+                            Math.pow(p.x()-access.x(),2)+Math.pow(p.y()-access.y(),2)
+                            +Math.pow(p.z()-access.z(),2)));
+                        if(near.size()<count)
+                            throw new IllegalArgumentException("Mine access has only "+near.size()
+                                +" valid local spawn positions for "+count+" miners");
+                        for(int i=0;i<count;i++) {
+                            var p=near.get(i);
+                            sim.addMiner("miner-"+(i+1),new WorldPosition(p.x()+.5,p.y(),p.z()+.5));
+                        }
+                        return sim;
+                    }
                     if (count == 0) return sim;
                     var bounds = sourceArchive.bounds();
                     var candidates = new ArrayList<BlockPosition>();
