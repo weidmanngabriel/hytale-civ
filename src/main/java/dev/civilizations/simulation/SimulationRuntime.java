@@ -19,6 +19,7 @@ import dev.civilizations.core.MineHeading;
 import dev.civilizations.core.MineNetworkGrowthPlanner;
 import dev.civilizations.core.MineTunnelGeometry;
 import dev.civilizations.core.MineTunnel;
+import dev.civilizations.core.MineWorkerEntryPolicy;
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.Set;
@@ -82,8 +83,42 @@ public final class SimulationRuntime {
     public void configureMineLab(BlockPosition anchor, MineHeading heading, int length, long seed) {
         if (voxelWorld == null) throw new IllegalStateException("Mine lab requires imported voxel terrain");
         if (!voxelWorld.canStand(anchor)) throw new IllegalArgumentException("Mine anchor is not standable");
-        mineLab = new MineLab(anchor, heading, length, seed);
+        mineLab = new MineLab(anchor, heading, length, seed, null, null);
     }
+
+    /**
+     * Authored prefab markers determine the semantic entry sequence. The local avatar
+     * uses simplified movement; Hytale owns real stair, ladder and collision behavior.
+     */
+    public void configurePrefabMine(BlockPosition connector, BlockPosition access, MineHeading heading,
+                                    int length, long seed) {
+        if (voxelWorld == null || !voxelWorld.canStand(connector) || !voxelWorld.canStand(access))
+            throw new IllegalArgumentException("Mine prefab access and connector must be standable");
+        mineLab = new MineLab(connector, heading, length, seed, access, connector);
+    }
+
+    public MineDebugSnapshot mineDebugSnapshot() {
+        if (mineLab == null) return null;
+        var current = mineLab.sliceIndex < mineLab.slices.size()
+            ? mineLab.slices.get(mineLab.sliceIndex).floorCenter() : mineLab.home;
+        var planned = mineLab.slices.stream().map(MineTunnelGeometry.Slice::floorCenter).toList();
+        return new MineDebugSnapshot(mineLab.home, current, mineLab.sliceIndex,
+            mineLab.slices.size(), mineLab.excavated, planned);
+    }
+
+    public List<NavigationDebugSnapshot> navigationDebugSnapshots() {
+        return residents.values().stream().map(r -> new NavigationDebugSnapshot(
+            r.id, r.navigationBlocked, r.movementTarget, r.routeTarget,
+            r.route.subList(Math.min(r.routeIndex,r.route.size()),
+                Math.min(r.route.size(),r.routeIndex+48)), r.minerState,
+            r.accessReached, r.connectorReached)).toList();
+    }
+
+    public record MineDebugSnapshot(BlockPosition connector, BlockPosition front, int sliceIndex,
+                                    int totalSlices, int excavatedBlocks, List<BlockPosition> plannedCenters) {}
+    public record NavigationDebugSnapshot(String id, boolean blocked, WorldPosition movementTarget,
+                                         WorldPosition routeTarget, List<BlockPosition> remainingPath,
+                                         String activity, boolean accessReached, boolean connectorReached) {}
 
     public int excavatedMineBlocks() { return mineLab == null ? 0 : mineLab.excavated; }
 
@@ -676,22 +711,49 @@ public final class SimulationRuntime {
      */
     private final class MineLab {
         private final BlockPosition home;
+        private final BlockPosition access;
+        private final BlockPosition connector;
         private final List<MineTunnelGeometry.Slice> slices;
         private final MineFrontCoordinator<String> claims = new MineFrontCoordinator<>();
         private int sliceIndex;
         private int excavated;
 
-        MineLab(BlockPosition home, MineHeading heading, int length, long seed) {
+        MineLab(BlockPosition home, MineHeading heading, int length, long seed,
+                BlockPosition access, BlockPosition connector) {
             this.home = home;
+            this.access = access;
+            this.connector = connector;
             var mineId = UUID.nameUUIDFromBytes(("headless-mine:" + seed).getBytes(StandardCharsets.UTF_8));
             this.slices = MineNetworkGrowthPlanner.plan(mineId, home, heading, length, 1, seed)
                 .mainTunnel().geometry().slices();
         }
 
         void tick(Resident resident) {
+            // Core owns the semantic entrance order. Movement here is a deliberately
+            // abstract headless stand-in for native Hytale Seek inside authored prefabs.
+            var entry = MineWorkerEntryPolicy.next(access != null, resident.accessReached,
+                connector == null || resident.connectorReached);
+            if (entry == MineWorkerEntryPolicy.Destination.WORKPLACE_ACCESS) {
+                resident.minerState = "ENTERING_WORKPLACE";
+                if (advanceStraightMovement(resident, new WorldPosition(
+                    access.x()+.5,access.y(),access.z()+.5))) {
+                    resident.accessReached = true;
+                }
+                return;
+            }
+            if (entry == MineWorkerEntryPolicy.Destination.TUNNEL_CONNECTOR) {
+                resident.minerState = "ENTERING_TUNNEL";
+                if (advanceStraightMovement(resident, new WorldPosition(
+                    connector.x()+.5,connector.y(),connector.z()+.5))) {
+                    resident.connectorReached = true;
+                }
+                return;
+            }
             if (sliceIndex >= slices.size()) {
                 resident.minerState = "RETURNING";
-                WorldPosition destination = new WorldPosition(home.x() + .5, home.y(), home.z() + .5);
+                BlockPosition returnPoint = access == null ? home : access;
+                WorldPosition destination = new WorldPosition(returnPoint.x() + .5,
+                    returnPoint.y(), returnPoint.z() + .5);
                 if (advanceMovement(resident, destination)) {
                     resident.minerState = "COMPLETE";
                     clearMovement(resident);
@@ -772,6 +834,8 @@ public final class SimulationRuntime {
         private String minerState = "IDLE";
         private int minerWorkTicks;
         private boolean minerSuspended;
+        private boolean accessReached;
+        private boolean connectorReached;
 
         private Resident(
             String id,
