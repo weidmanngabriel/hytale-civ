@@ -58,6 +58,7 @@ Vor neuer Hytale-spezifischer Arbeit zuerst diese Übersicht und die relevante T
 - [Minen-Infrastruktur und Blockplatzierung](mine-infrastructure-building.md)
 - [Minenatmosphäre und dekorative Blockplatzierung](mine-atmosphere-building.md)
 - [Minenhöhlen und Loaded-World-Beobachtung](mine-caves-world.md)
+- [Export geladener Weltausschnitte](world-export.md)
 - [Farming und Inventar](farming-inventory.md)
 
 ## Bekannte offene Bereiche
