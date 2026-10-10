@@ -6,6 +6,8 @@ export function parseSimulationCommand(source) {
     return {type:'info'};
   if(root!=='/sim') throw new Error('Nur /sim-Befehle und /civdev mines/mine-info im lokalen Simulator unterstützt.');
   if(verb==='help')return {type:'help'};
+  if(verb==='worker' && rest.length===1 && /^[a-zA-Z0-9_-]{1,64}$/.test(rest[0]))
+    return {type:'worker',id:rest[0]};
   if(verb==='mine' && rest[0]==='info')return {type:'info'};
   if(verb==='mine' && rest[0]==='auto')return {type:'api',command:'placeMineAuto',args:{}};
   if(verb==='mine' && rest[0]==='place' && rest.length===4){
@@ -27,4 +29,4 @@ export function parseSimulationCommand(source) {
     return {type:'overlay',name:verb,enabled:rest[0]==='on'};
   throw new Error('Ungültiger Simulationsbefehl. /sim help zeigt unterstützte Befehle.');
 }
-export const CONSOLE_HELP='/sim mine auto | /sim mine place X Y Z | /sim mine info | /sim miners N | /sim play | /sim pause | /sim step | /sim reset | /sim block X Y Z AIR|SOLID|WATER|LAVA | /sim markers on|off | /sim paths on|off | /civdev mines';
+export const CONSOLE_HELP='/sim mine auto | /sim mine place X Y Z | /sim mine info | /sim miners N | /sim worker ID | /sim play | /sim pause | /sim step | /sim reset | /sim block X Y Z AIR|SOLID|WATER|LAVA | /sim markers on|off | /sim paths on|off | /civdev mines';
