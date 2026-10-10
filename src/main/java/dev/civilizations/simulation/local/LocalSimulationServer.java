@@ -102,23 +102,42 @@ public final class LocalSimulationServer implements AutoCloseable {
         if (!exchange.getRequestMethod().equals("GET")) { respond(exchange,405,Map.of("error","GET required")); return; }
         synchronized(lock) {
             if (sourceArchive == null) { respond(exchange,200,Map.of("loaded",false)); return; }
+            long since = -1;
+            String query = exchange.getRequestURI().getRawQuery();
+            if (query != null && query.matches("since=[0-9]{1,16}")) {
+                try { since = Long.parseLong(query.substring(6)); } catch (NumberFormatException ignored) {}
+            }
+            var changes = voxelWorld.changesSince(since);
+            if (changes != null) {
+                var changed = new ArrayList<int[]>(changes.size());
+                for (var change : changes) {
+                    var p = change.position();
+                    changed.add(new int[]{p.x(), p.y(), p.z(), materialCode(change.material())});
+                }
+                respond(exchange,200,Map.of("loaded",true,"revision",voxelWorld.revision(),"changes",changed));
+                return;
+            }
             var bounds=sourceArchive.bounds();
             var cells=new ArrayList<int[]>();
             for (var cell:sourceArchive.cells()) {
                 var category=voxelWorld.material(new BlockPosition(cell.x(),cell.y(),cell.z()));
-                int code=switch(category) {
-                    case AIR -> 0;
-                    case SOLID -> 1;
-                    case WATER -> 2;
-                    case LAVA -> 3;
-                    case OTHER_FLUID -> 4;
-                };
+                int code=materialCode(category);
                 if(code!=0)cells.add(new int[]{cell.x(),cell.y(),cell.z(),code});
             }
             respond(exchange,200,Map.of("loaded",true,"worldId",sourceArchive.worldId(),
                 "bounds",new int[]{bounds.minX(),bounds.minY(),bounds.minZ(),bounds.maxX(),bounds.maxY(),bounds.maxZ()},
                 "cells",cells));
         }
+    }
+
+    private static int materialCode(WorldArchive.Material category) {
+        return switch(category) {
+            case AIR -> 0;
+            case SOLID -> 1;
+            case WATER -> 2;
+            case LAVA -> 3;
+            case OTHER_FLUID -> 4;
+        };
     }
 
     private void control(HttpExchange exchange) throws IOException {

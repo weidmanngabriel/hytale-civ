@@ -311,3 +311,5 @@ Der Nutzer hat im lokalen Browser folgende neun Tests erfolgreich bestätigt: Vi
 `web-viewer/test/terrain-chunks.test.mjs` prüft selektives Mesh-Invalidieren auch über Chunkgrenzen. `web-viewer/test/performance-recorder.test.mjs` prüft das begrenzte JSON-Recording. Messwerte werden im Browser aufgezeichnet; Performanceverbesserung auf unterschiedlichen PCs bleibt durch reale Exporttests zu prüfen.
 
 Der Regressionstest `minersStartInSameReachableCavernInsteadOfIsolatedPockets` prüft, dass Miner in importierten Welten nicht über getrennte Höhlenteile verteilt werden. Eine erreichbare Anfangsposition allein beweist noch keine erfolgreiche spätere Front-Navigation.
+
+`terrainDeltaTransmitsOnlyChangedBlocksAndResetCanRecoverFullSnapshot` verifiziert den lokalen Terrain-Deltavertrag einschließlich Reset-Fallback. Die Browser-Performanceaufzeichnung enthält nun pro Sekunde auch begrenzte NPC-Zustände und letzte Ereignisse; damit lassen sich `BLOCKED`-Verläufe zusammen mit FPS und Mesh-Kosten auswerten.
