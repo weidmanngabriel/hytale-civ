@@ -349,12 +349,35 @@ public final class LocalSimulationServer implements AutoCloseable {
         requests.shutdownNow();
     }
 
+    private static void startupLog(String stage, long startNanos) {
+        System.out.printf("[CIV STARTUP] %s (%.1f s elapsed; heap %.0f MiB used)%n",
+            stage, (System.nanoTime() - startNanos) / 1_000_000_000.0,
+            (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / 1048576.0);
+        System.out.flush();
+    }
+
     public static void main(String[] args) throws Exception {
-        WorldArchive archive = args.length == 0 ? null : WorldArchive.read(Path.of(args[0]));
-        LocalSimulationServer app = new LocalSimulationServer(8765, archive);
-        Runtime.getRuntime().addShutdownHook(new Thread(app::close));
-        app.start();
-        System.out.println("Civ local simulation API: http://localhost:8765/api/state");
-        Thread.currentThread().join();
+        final long started = System.nanoTime();
+        startupLog("Initializing", started);
+        try {
+            WorldArchive archive = null;
+            if (args.length > 0) {
+                var path = Path.of(args[0]);
+                startupLog("Reading archive " + path.toAbsolutePath(), started);
+                archive = WorldArchive.read(path);
+                startupLog("Archive decoded: " + archive.bounds().volume() + " cells", started);
+            }
+            startupLog("Creating voxel index and HTTP server", started);
+            LocalSimulationServer app = new LocalSimulationServer(8765, archive);
+            startupLog("Starting HTTP listener", started);
+            Runtime.getRuntime().addShutdownHook(new Thread(app::close));
+            app.start();
+            startupLog("READY http://localhost:8765/api/state", started);
+            Thread.currentThread().join();
+        } catch (Throwable error) {
+            startupLog("FAILED: " + error.getClass().getSimpleName() + ": " + error.getMessage(), started);
+            error.printStackTrace(System.err);
+            throw error;
+        }
     }
 }

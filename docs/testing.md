@@ -315,3 +315,5 @@ Der Regressionstest `minersStartInSameReachableCavernInsteadOfIsolatedPockets` p
 `terrainDeltaTransmitsOnlyChangedBlocksAndResetCanRecoverFullSnapshot` verifiziert den lokalen Terrain-Deltavertrag einschließlich Reset-Fallback. Die Browser-Performanceaufzeichnung enthält nun pro Sekunde auch begrenzte NPC-Zustände und letzte Ereignisse; damit lassen sich `BLOCKED`-Verläufe zusammen mit FPS und Mesh-Kosten auswerten.
 
 Ein importiertes Archiv liefert beim Start sofort einen leeren NPC-Zustand; `LocalSimulationServerTest` prüft danach die ausdrücklich angeforderte Miner-Konfiguration. Das verhindert die bisherige synchrone Spawnsuche beim initialen Viewer-Start. Das erstmalige Einlesen einer sehr großen gzip-JSON-Datei ist dabei noch nicht unabhängig asynchronisiert.
+
+Bei Fehlersuche am lokalen Live-Start sind die `[CIV STARTUP]`-Zeilen und die Meldung `READY http://localhost:8765/api/state` maßgeblich. Sie unterscheiden teures gzip-JSON-Decoding von der Voxelindex-Erstellung und Listener-Problemen; die Gradle-Anzeige `75% EXECUTING` ist kein Server-Readiness-Signal.
