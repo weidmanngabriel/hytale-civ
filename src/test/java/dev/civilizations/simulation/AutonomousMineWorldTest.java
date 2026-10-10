@@ -40,7 +40,7 @@ class AutonomousMineWorldTest {
         runtime.runTicks(4500);
         assertTrue(runtime.worldSnapshot().residents().stream()
                 .anyMatch(r -> r.state().equals("COMPLETE")),
-            "At least one miner should find its way back to the starting cave");
+            () -> "No miner returned to home. States=" + runtime.worldSnapshot().residents().stream().map(r -> r.id() + ":" + r.state()).toList() + ", excavated=" + runtime.excavatedMineBlocks());
         assertTrue(runtime.excavatedMineBlocks()>0,
             "Core-planned miner fixtures must actually change imported terrain");
         assertEquals(runtime.excavatedMineBlocks(),world.revision());
