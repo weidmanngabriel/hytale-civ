@@ -62,7 +62,8 @@ class MineThreeStallDiagnosticTest {
             "/" + state.get("sliceCount") + " workers=" + state.get("workers"));
 
         // Existing test only checks >0 blocks. This checks meaningful ongoing progression.
-        assertTrue(((Number) state.get("sliceIndex")).intValue() >= 3,
-            "Three miners stopped before advancing three tunnel slices; see MINE_THREE_DIAGNOSTIC in CI logs");
+        assertTrue(((Number) state.get("sliceIndex")).intValue() == ((Number) state.get("sliceCount")).intValue(),
+            "Three miners did not finish the planned tunnel: excavated=" + lastProgress +
+            " longestStall=" + longestStall + " snapshot=" + state);
     }
 }
