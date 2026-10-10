@@ -121,6 +121,8 @@ async function update() {
       lastTerrainRevision = data.worldRevision;
       const terrain=await request('terrain');
       drawImportedTerrain(terrain);
+      update.prevSig=null;
+      drawWorld(data.world);
     }
     $('message').textContent='';
   } catch(e){showError(e);}
