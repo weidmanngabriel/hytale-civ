@@ -288,6 +288,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
         getCommandRegistry().registerCommand(new CivClaimCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivFarmCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivBuildCommand(rtsInteractionController));
+        getCommandRegistry().registerCommand(new CivWorldExportCommand());
         getCommandRegistry().registerCommand(new CivBuildCancelCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivWikiCommand(rtsInteractionController));
         getCommandRegistry().registerCommand(new CivDashboardCommand(rtsInteractionController));
