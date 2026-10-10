@@ -179,6 +179,16 @@ function drawDebug(data) {
     }
   }
 }
+function focusMine() {
+  const b=(lastDebug?.prefab?.markers||[]).find(m=>m.type==='workplace_access')?.bounds;
+  if(!b){consoleLog('Noch kein Mine_01-Prefab platziert.');return;}
+  const target=new THREE.Vector3((b.minX+b.maxX)/2,(b.minY+b.maxY)/2,(b.minZ+b.maxZ)/2);
+  camera.position.copy(target).add(new THREE.Vector3(13,10,18));
+  const d=target.clone().sub(camera.position).normalize();
+  yaw=Math.atan2(-d.x,-d.z);
+  pitch=Math.asin(d.y);
+  look();
+}
 function consoleLog(message) {
   const output=$('console-output');
   output.textContent=(output.textContent+'\n'+message).split('\n').slice(-16).join('\n');
@@ -264,7 +274,8 @@ $('move').onclick=()=>send('move',{
 });
 $('configure').onclick=()=>send('configure',{woodcutters:Number($('woodcutters').value),builders:Number($('builders').value)});
 $('configureMiners').onclick=()=>send('configureMiners',{miners:Number($('miners').value)});
-$('place-auto').onclick=()=>send('placeMineAuto');
+$('place-auto').onclick=async()=>{await send('placeMineAuto');focusMine();};
+$('focus-mine').onclick=focusMine;
 $('place-mine').onclick=()=>send('placeMine',{x:Number($('mine-x').value),y:Number($('mine-y').value),z:Number($('mine-z').value)});
 $('show-markers').onchange=()=>drawDebug(lastDebug);
 $('show-paths').onchange=()=>drawDebug(lastDebug);
