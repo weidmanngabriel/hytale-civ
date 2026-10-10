@@ -88,6 +88,29 @@ class LocalSimulationServerTest {
     }
 
     @Test
+    void terrainDeltaTransmitsOnlyChangedBlocksAndResetCanRecoverFullSnapshot() throws Exception {
+        var cells = new ArrayList<WorldArchive.Cell>();
+        for (int x=0;x<3;x++) for(int y=0;y<3;y++) for(int z=0;z<3;z++)
+            cells.add(new WorldArchive.Cell(x,y,z,y==0?"native:stone":"air",0,0,"NONE"));
+        var archive = new WorldArchive(WorldArchive.VERSION,"terrain-delta",
+            new WorldArchive.Bounds(0,0,0,3,3,3),cells);
+        try(var server=new LocalSimulationServer(0,archive)) {
+            server.start();
+            String url="http://localhost:"+server.port()+"/api/";
+            assertEquals(9,get(url+"terrain").path("cells").size());
+            assertEquals(0,get(url+"terrain?since=0").path("changes").size());
+            post(url+"control","{\"command\":\"setBlock\",\"x\":1,\"y\":1,\"z\":1,\"category\":\"SOLID\"}");
+            var delta=get(url+"terrain?since=0");
+            assertEquals(1,delta.path("revision").asLong());
+            assertEquals(1,delta.path("changes").size());
+            assertEquals(1,delta.path("changes").get(0).get(3).asInt());
+            post(url+"control","{\"command\":\"reset\"}");
+            assertTrue(get(url+"terrain?since=1").has("cells"));
+            assertEquals(9,get(url+"terrain?since=1").path("cells").size());
+        }
+    }
+
+    @Test
     void resetPreservesParameterizedWorkerCounts() throws Exception {
         try(var server=new LocalSimulationServer(0)) {
             server.start();
