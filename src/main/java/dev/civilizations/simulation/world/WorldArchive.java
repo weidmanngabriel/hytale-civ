@@ -18,7 +18,7 @@ import java.util.zip.GZIPOutputStream;
  * Every sampled coordinate, including air, must be present in the declared box.
  */
 public record WorldArchive(int formatVersion, String worldId, Bounds bounds, List<Cell> cells) {
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
     private static final ObjectMapper JSON = new ObjectMapper();
 
     public WorldArchive {
@@ -73,7 +73,12 @@ public record WorldArchive(int formatVersion, String worldId, Bounds bounds, Lis
         }
     }
 
-    public record Cell(int x,int y,int z,String blockKey,int fluidId,int fluidLevel,String fluidCategory) {
+    public record Cell(int x,int y,int z,String blockKey,int blockIndex,int rotationIndex,
+                       int fluidId,int fluidLevel,String fluidCategory) {
+        public Cell(int x,int y,int z,String blockKey,int fluidId,int fluidLevel,String fluidCategory) {
+            this(x,y,z,blockKey,0,0,fluidId,fluidLevel,fluidCategory);
+        }
+
         public Cell {
             if(blockKey==null||blockKey.isBlank())throw new IllegalArgumentException("blockKey required");
             if(fluidLevel<0||fluidLevel>255)throw new IllegalArgumentException("Invalid fluid level");
