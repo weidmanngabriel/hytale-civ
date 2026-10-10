@@ -31,10 +31,19 @@ class AutonomousMineWorldTest {
         runtime.addMiner("miner-2",new WorldPosition(17.5,10,16.5));
         runtime.addMiner("miner-3",new WorldPosition(16.5,10,17.5));
         runtime.configureMineLab(home,MineHeading.NORTH,8,99112233L);
-        runtime.runTicks(500);
+        runtime.runTicks(100);
+        assertTrue(runtime.cancelManualMove("miner-1") == false,
+            "Miner has no manual order before the interruption");
+        runtime.orderManualMove("miner-1",new WorldPosition(16.5,10,16.5));
+        runtime.runTicks(30);
+        runtime.cancelManualMove("miner-1");
+        runtime.runTicks(4500);
+        assertTrue(runtime.worldSnapshot().residents().stream()
+                .anyMatch(r -> r.state().equals("COMPLETE")),
+            "At least one miner should find its way back to the starting cave");
         assertTrue(runtime.excavatedMineBlocks()>0,
             "Core-planned miner fixtures must actually change imported terrain");
         assertEquals(runtime.excavatedMineBlocks(),world.revision());
-        assertEquals(500,runtime.tickCount());
+        assertEquals(4630,runtime.tickCount());
     }
 }
