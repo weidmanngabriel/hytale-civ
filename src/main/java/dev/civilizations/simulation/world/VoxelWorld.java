@@ -5,6 +5,7 @@ import java.util.*;
 
 /** Geometric A* for a two-block-tall test NPC on a saved voxel world. */
 public final class VoxelWorld {
+    private static final WorldArchive.Material[] MATERIALS = WorldArchive.Material.values();
     private static final int[][] OFFSETS={{1,0},{-1,0},{0,1},{0,-1}};
     private final WorldArchive.Bounds bounds;
     private long revision;
@@ -45,7 +46,7 @@ public final class VoxelWorld {
 
     public WorldArchive.Material material(BlockPosition p) {
         if (!bounds.contains(p.x(),p.y(),p.z())) return null;
-        return WorldArchive.Material.values()[cells[index(p.x(),p.y(),p.z())]];
+        return MATERIALS[cells[index(p.x(),p.y(),p.z())]];
     }
 
     public void set(BlockPosition p, WorldArchive.Material material) {
