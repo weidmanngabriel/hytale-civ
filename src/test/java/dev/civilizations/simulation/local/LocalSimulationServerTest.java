@@ -52,19 +52,19 @@ class LocalSimulationServerTest {
             server.start();
             String url="http://localhost:"+server.port()+"/api/";
             assertFalse(get(url+"state").path("mine").path("placed").asBoolean());
-            post(url+"control","{\\"command\\":\\"placeMine\\",\\"x\\":0,\\"y\\":12,\\"z\\":0}");
+            post(url+"control","{\"command\":\"placeMine\",\"x\":0,\"y\":12,\"z\":0}");
             var state=get(url+"state");
             assertTrue(state.path("mine").path("placed").asBoolean());
             assertTrue(state.path("mine").path("placement").path("markers").size()>=3);
             assertTrue(state.path("mineWork").path("totalSlices").asInt()>0);
-            post(url+"control","{\\"command\\":\\"configureMiners\\",\\"miners\\":3}");
+            post(url+"control","{\"command\":\"configureMiners\",\"miners\":3}");
             state=get(url+"state");
             assertEquals(3,state.path("world").path("residents").size());
             assertEquals(3,state.path("navigation").size());
-            post(url+"control","{\\"command\\":\\"step\\"}");
+            post(url+"control","{\"command\":\"step\"}");
             assertEquals("ENTERING_WORKPLACE",get(url+"state").path("world")
                 .path("residents").get(0).path("autonomousState").asText());
-            post(url+"control","{\\"command\\":\\"reset\\"}");
+            post(url+"control","{\"command\":\"reset\"}");
             state=get(url+"state");
             assertTrue(state.path("mine").path("placed").asBoolean());
             assertEquals(3,state.path("world").path("residents").size());
