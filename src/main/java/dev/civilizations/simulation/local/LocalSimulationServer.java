@@ -44,6 +44,8 @@ public final class LocalSimulationServer implements AutoCloseable {
 
     public void start() { server.start(); }
 
+    public int port() { return server.getAddress().getPort(); }
+
     private void scenarios(HttpExchange exchange) throws IOException {
         if (!exchange.getRequestMethod().equals("GET")) { respond(exchange, 405, Map.of("error", "GET required")); return; }
         respond(exchange, 200, SimulationScenarios.all().stream().map(s -> Map.of(
@@ -99,9 +101,14 @@ public final class LocalSimulationServer implements AutoCloseable {
         }
     }
 
+    private static String allowedOrigin(HttpExchange exchange) {
+        String origin = exchange.getRequestHeaders().getFirst("Origin");
+        return origin != null && isLocalOrigin(exchange) ? origin : "http://localhost:5173";
+    }
+
     private static void preflight(HttpExchange exchange) throws IOException {
         if (!isLocalOrigin(exchange)) { exchange.sendResponseHeaders(403, -1); return; }
-        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "http://localhost:5173");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", allowedOrigin(exchange));
         exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
         exchange.sendResponseHeaders(204, -1);
@@ -117,7 +124,7 @@ public final class LocalSimulationServer implements AutoCloseable {
         byte[] bytes = JSON.writeValueAsBytes(value);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         exchange.getResponseHeaders().set("Cache-Control", "no-store");
-        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "http://localhost:5173");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", allowedOrigin(exchange));
         exchange.sendResponseHeaders(status, bytes.length);
         try (var out = exchange.getResponseBody()) { out.write(bytes); }
     }
