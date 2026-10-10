@@ -13,7 +13,7 @@ Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenomme
 
 - [x] Live-Start/Pause/Step/Reset und Tick-Zähler implementiert.
 - [x] Vorhandene Core-Szenarien und parametrisierte zusätzliche NPC-Startzustände eingebunden.
-- [ ] Interaktive Miner arbeiten eigenständig statt nur manuell zu navigieren.
+- [x] Interaktive Miner können auf einer ausreichend großen importierten Region Core-geplante Tunnel autonom ausheben (Headless-Diagnose, keine native Hytale-Engine).
 - [ ] CI und Wiederholbarkeit der parametrisierten Szenarien abschließend grün.
 
 ## Phase 3 – Echte Hytale-Welten
@@ -29,13 +29,15 @@ Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenomme
 - [x] Vereinfachtes orthogonales A* mit maximal einem Block Höhenunterschied implementiert.
 - [x] Headless-Bewegung kann das importierte Voxelmodell nutzen.
 - [x] Änderung des Voxelkartenzustands invalidiert vorhandene Wege.
-- [ ] Automatischer Minenabbau und geänderte Blöcke im Live-Viewer vollständig gekoppelt.
+- [x] Automatischer Headless-Minenabbau ändert das Voxelmodell, dessen Revision die 3D-Darstellung neu lädt.
 
 ## Phase 5 – Tests und Diagnose
 
 - [x] World-Archive-Roundtrip, Voxel-A*, Live-Steuerung und mehrere NPC-Routen als Java-Tests implementiert.
-- [ ] Komplexes autonomes Mine-Szenario samt Rückweg und Unterbrechung in der Live-Runtime geprüft.
-- [ ] Automatische Assertions und verständliches Ereignisprotokoll für alle neuen Zustände.
+- [x] Automatisierte Mine-Fixture mit drei Minern sowie manuellem Unterbrechen und Rückkehrtest implementiert.
+- [ ] CI bestätigt den kompletten Ablauf und zusätzliche reale Höhlen-/Wasser-/Lavafälle.
+- [x] Diagnostische, begrenzte Ereignislisten und zusätzliche Assertions implementiert.
+- [ ] Browser-Event- und Renderingverhalten manuell geprüft.
 - [ ] Alle relevanten Tests erfolgreich abgeschlossen.
 
 ## Phase 6 – Aufräumen und Abschluss
@@ -43,4 +45,5 @@ Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenomme
 - [x] Actions-Workflows für Replay-Vorberechnung und GitHub-Pages-Veröffentlichung entfernt (Feature-Branch).
 - [x] Entwicklungs-, Architektur-, Test- und Produktdokumentation auf lokale Live-Nutzung aktualisiert.
 - [ ] GitHub CI vollständig grün, PR per Squash nach main integriert und main-CI geprüft.
-- [ ] Manuelle Schritt-für-Schritt-Testanleitung für den fertigen Live-Viewer.
+- [x] Manuelle Schritt-für-Schritt-Testanleitung verfasst: [simulation-sandbox-manual-test.md](simulation-sandbox-manual-test.md).
+- [ ] Lokale Browser-/Ingame-Abnahme anhand dieser Anleitung durchgeführt.
