@@ -323,7 +323,7 @@ Die Minenansicht trennt drei Verantwortlichkeiten. `Mine · Geometry` isoliert L
 
 `web-viewer/` ist eine eigenständige Vite-/Three.js-Präsentation außerhalb des Plugin-Classpaths. `Replay` rekonstruiert ausschließlich die aufgezeichneten Änderungen. Große Minen speichern den Felsquader kompakt als implizite `rockBounds`; der Renderer erzeugt nur die Grenzflächen ausgegrabener Hohlräume und nicht die äußere Quaderoberfläche. Dadurch bleibt die freie X-Ray-Spectator-Kamera möglich, ohne den kompletten Fels als Einzelvoxels zu serialisieren. Kamera und Playback besitzen keine Gameplay-Regeln. Die allgemeinen Szenarien verwenden jeweils 600 feste 50-ms-Ticks; Mine-Frames sind semantische Schritte und keine Hytale-Laufzeit.
 
-Die Actions-/Pages-Grenze und die begrenzte Aufbewahrung sind in [ADR 0010](decisions/0010-browser-simulation-recordings.md) beschrieben. Der veröffentlichte Viewer stammt aus `main`; Branch-Aufzeichnungen identifizieren ihren exakten Quellcode-Commit und Run-Attempt. Der Browser benötigt keine GitHub-Zugangsdaten.
+Die frühere Veröffentlichung über GitHub Actions/Pages wird nur noch historisch durch [ADR 0010](decisions/0010-browser-simulation-recordings.md) erklärt; sie wird nicht mehr ausgeführt. Für laufende Szenarien ist der lokale Java-HTTP-Server mit dem Three.js-Live-Viewer maßgeblich. Der separate Replay-Exporter bleibt als optionales lokales Diagnosewerkzeug erhalten.
 
 ### Mine persistence hotpaths (Layer 10)
 
