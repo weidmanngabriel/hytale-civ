@@ -157,7 +157,8 @@ public final class LocalSimulationServer implements AutoCloseable {
                     }
                     case "scenario" -> {
                         String id = data.path("id").asText("");
-                        scenario = SimulationScenarios.all().stream().filter(s -> s.id().equals(id)).findFirst()
+                        scenario = id.equals("custom-miners") ? customMiners(3) : SimulationScenarios.all().stream()
+                            .filter(s -> s.id().equals(id)).findFirst()
                             .orElseThrow(() -> new IllegalArgumentException("Unknown scenario"));
                         running = false;
                         runtime = scenario.createRuntime();
