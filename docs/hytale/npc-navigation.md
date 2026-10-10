@@ -108,3 +108,8 @@ The pinned project `HytaleServer.jar` exposes `World.sendMessage(Message)` and t
 ## Miner connector proximity for navigation
 
 `MinerConnectorProximity` recognizes miners within the original connector's Y bounds and up to two blocks beyond its X/Z bounds. Only `MinerNavigationSystem` uses this to identify arrival at the connector/tunnel area and enable its existing navigation and stuck-recovery logic. Prefab geometry, trigger volumes, work targets and teleport safety checks remain unchanged. Block-center coordinates match `BuildingBounds.containsBlock` semantics.
+
+
+## Gemeinsame Eintrittsreihenfolge mit dem Headless-Lab
+
+Der Hytale-Miner nutzt für seine vorhandene Entscheidung `workplace_access` → `mine_tunnel_connector` → Arbeitsfront jetzt `MineWorkerEntryPolicy` aus dem Core. Das ändert weder den nativen `ReadPosition`/`Seek`-Pfad noch die per `CivArrivalPolicy` geprüfte Ankunft. Der Headless-Adapter verwendet dieselbe **semantische** Reihenfolge, aber eine bewusst vereinfachte physische Bewegung im Prefab; daraus lässt sich keine Gleichheit von Hytale-`NavState` und Simulations-A* ableiten.
