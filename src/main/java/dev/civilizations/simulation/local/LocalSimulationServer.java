@@ -10,6 +10,8 @@ import dev.civilizations.simulation.world.WorldArchive;
 import dev.civilizations.simulation.world.VoxelWorld;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.WorldPosition;
+import dev.civilizations.core.MineHeading;
+import java.util.Comparator;
 import java.nio.file.Path;
 import java.util.ArrayList;
 
@@ -217,26 +219,50 @@ public final class LocalSimulationServer implements AutoCloseable {
 
     private SimulationScenario customMiners(int count) {
         return new SimulationScenario("custom-miners","Configured Miners",
-            "Dynamic miner start state (navigation lab; excavation work is not yet enabled).",
+            "Dynamic miner start state. Large imported regions also run Core-planned excavation.",
             () -> {
                 var sim = new SimulationRuntime();
                 if (voxelWorld != null) {
                     sim.setVoxelWorld(voxelWorld);
-                    int placed = 0;
                     var bounds = sourceArchive.bounds();
-                    for (int y = bounds.maxY() - 2; y >= bounds.minY() + 1 && placed < count; y--)
-                        for (int x = bounds.minX(); x < bounds.maxX() && placed < count; x++)
-                            for (int z = bounds.minZ(); z < bounds.maxZ() && placed < count; z++) {
-                                var feet = new BlockPosition(x,y,z);
-                                if (!voxelWorld.canStand(feet)) continue;
-                                sim.addMiner("miner-"+(++placed),new WorldPosition(x+0.5,y,z+0.5));
+                    var candidates = new ArrayList<BlockPosition>();
+                    for (int y=bounds.minY()+1;y<bounds.maxY()-1;y++)
+                        for(int x=bounds.minX();x<bounds.maxX();x++)
+                            for(int z=bounds.minZ();z<bounds.maxZ();z++) {
+                                var feet=new BlockPosition(x,y,z);
+                                if(voxelWorld.canStand(feet)) candidates.add(feet);
                             }
-                    if (placed != count) throw new IllegalArgumentException("Insufficient standable positions");
+                    int centerX=(bounds.minX()+bounds.maxX())/2;
+                    int centerZ=(bounds.minZ()+bounds.maxZ())/2;
+                    candidates.sort(Comparator
+                        .comparingInt((BlockPosition p) -> -rockNeighbors(p))
+                        .thenComparingInt(p -> Math.abs(p.x()-centerX)+Math.abs(p.z()-centerZ))
+                        .thenComparingInt(p -> -p.y())
+                        .thenComparingInt(BlockPosition::x)
+                        .thenComparingInt(BlockPosition::z));
+                    if(candidates.size()<count) throw new IllegalArgumentException("Insufficient standable positions");
+                    for(int i=0;i<count;i++){
+                        var p=candidates.get(i);
+                        sim.addMiner("miner-"+(i+1),new WorldPosition(p.x()+.5,p.y(),p.z()+.5));
+                    }
+                    if(bounds.maxX()-bounds.minX()>=24 && bounds.maxZ()-bounds.minZ()>=24
+                        && bounds.maxY()-bounds.minY()>=12){
+                        sim.configureMineLab(candidates.getFirst(),MineHeading.NORTH,8,99112233L);
+                    }
                 } else {
                     for (int i=0;i<count;i++) sim.addMiner("miner-"+(i+1),new WorldPosition(i*2,0,0));
                 }
                 return sim;
             });
+    }
+
+    private int rockNeighbors(BlockPosition p) {
+        int solid=0;
+        for(int[] d:new int[][]{{1,0},{-1,0},{0,1},{0,-1}}){
+            var material=voxelWorld.material(new BlockPosition(p.x()+d[0],p.y(),p.z()+d[1]));
+            if(material==WorldArchive.Material.SOLID)solid++;
+        }
+        return solid;
     }
 
     private static String allowedOrigin(HttpExchange exchange) {
