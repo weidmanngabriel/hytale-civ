@@ -140,4 +140,49 @@ class MineThreeStallDiagnosticTest {
             "Real terrain miners did not complete the tunnel: " + debug);
     }
 
+    @Test
+    void originalSurfaceMinePrefabThreeMinersOnExportedTerrain() throws Exception {
+        var world = RealRegionMineFixture.load();
+        var prefab = new dev.civilizations.simulation.local.MineSandboxPrefab(
+            dev.civilizations.simulation.local.MineSandboxPrefab.DEFAULT_PREFAB);
+        // Exact world-centre candidate from the source export (not the crop centre).
+        var placement = prefab.place(world,
+            new WorldArchive.Bounds(88, 88, -12, 136, 136, 36),
+            new BlockPosition(118, 102, 12));
+        var access = placement.access();
+        var connector = placement.connector();
+        var reachable = new ArrayList<BlockPosition>();
+        for (int dx = -6; dx <= 6; dx++) for (int dz = -6; dz <= 6; dz++)
+            for (int dy = -2; dy <= 2; dy++) {
+                var p = new BlockPosition(access.x()+dx, access.y()+dy, access.z()+dz);
+                if (world.canStand(p) && !world.path(p, access).isEmpty()) reachable.add(p);
+            }
+        reachable.sort(java.util.Comparator
+            .comparingInt((BlockPosition p) -> Math.abs(p.x()-access.x()) +
+                Math.abs(p.z()-access.z()) + Math.abs(p.y()-access.y()))
+            .thenComparingInt(BlockPosition::x).thenComparingInt(BlockPosition::z));
+        assertTrue(reachable.size() >= 3, "Mine prefab lacks reachable spawn cells");
+        var runtime = new SimulationRuntime();
+        runtime.setVoxelWorld(world);
+        for (int i = 0; i < 3; i++) {
+            var p = reachable.get(i);
+            runtime.addMiner("miner-" + (i+1), new WorldPosition(p.x()+.5,p.y(),p.z()+.5));
+        }
+        runtime.configureMineLab(connector, access, MineHeading.SOUTH, 8, 99112233L);
+        for (int tick = 1; tick <= 4500; tick++) {
+            runtime.tick();
+            if (tick % 200 == 0) {
+                var debug = runtime.mineDebugSnapshot();
+                System.out.println("MINE_THREE_ORIGINAL tick=" + tick +
+                    " excavated=" + runtime.excavatedMineBlocks() +
+                    " slices=" + debug.get("sliceIndex") + "/" + debug.get("sliceCount") +
+                    " workers=" + debug.get("workers"));
+            }
+        }
+        var debug = runtime.mineDebugSnapshot();
+        assertTrue(((Number)debug.get("sliceIndex")).intValue() ==
+                ((Number)debug.get("sliceCount")).intValue(),
+            "Original Mine_01 / real terrain three-miner scenario stalled: " + debug);
+    }
+
 }
