@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { adjustFlightSpeed } from './flight-speed.js';
 import { indexTerrain, changedChunks, chunkKey, meshChunk } from './terrain-chunks.js';
 import { PerformanceRecorder, downloadPerformance } from './performance-recorder.js';
+import {parseSimulationCommand,CONSOLE_HELP} from './console-commands.js';
 const profiler = new PerformanceRecorder();
 let lastState = null, lastTerrainStats = {cells:0, triangles:0};
 let indexedTerrain=new Map();
@@ -22,6 +23,9 @@ let world, running = false, currentScenario;
 const keys = new Set();
 const voxelGroup = new THREE.Group(), terrainGroup = new THREE.Group(), residentsGroup = new THREE.Group();
 let importedTerrain = false;
+let mineMode = false, lastDebug = null;
+const debugGroup = new THREE.Group();
+scene.add(debugGroup);
 let lastTerrainRevision = -1;
 let selectedResident = "";
 scene.add(terrainGroup,voxelGroup,residentsGroup);
@@ -118,6 +122,82 @@ function drawImportedTerrain(data) {
   }
 }
 
+function drawDebug(data) {
+  for(const item of [...debugGroup.children]) {
+    debugGroup.remove(item);item.geometry?.dispose();item.material?.dispose();
+  }
+  if(!mineMode || !data)return;
+  const showMarkers=$('show-markers').checked,showPaths=$('show-paths').checked;
+  const mine=data.mine||{},prefab=data.prefab||{};
+  const markerColor={building_bounds:0x6d9cef,workplace_access:0x68dfa1,
+    mine_tunnel_connector:0xefb966,construction_ground_level:0xd0da85};
+  if(showMarkers) {
+    for(const marker of prefab.markers||[]){
+      const b=marker.bounds;
+      const size=new THREE.Vector3(b.maxX-b.minX,b.maxY-b.minY,b.maxZ-b.minZ);
+      const geo=new THREE.EdgesGeometry(new THREE.BoxGeometry(Math.max(.05,size.x),Math.max(.05,size.y),Math.max(.05,size.z)));
+      const line=new THREE.LineSegments(geo,new THREE.LineBasicMaterial({color:markerColor[marker.type]||0xffffff}));
+      line.position.set((b.minX+b.maxX)/2,(b.minY+b.maxY)/2,(b.minZ+b.maxZ)/2);
+      debugGroup.add(line);
+    }
+    if(mine.loaded) {
+      const plan=(mine.plannedSlices||[]).map(p=>new THREE.Vector3(p.x+.5,p.y+1,p.z+.5));
+      if(plan.length>=2) {
+        const route=new THREE.Line(new THREE.BufferGeometry().setFromPoints(plan),
+          new THREE.LineBasicMaterial({color:0xc285f0}));debugGroup.add(route);
+      }
+      if(mine.workFront) {
+        const p=mine.workFront;
+        const marker=new THREE.Mesh(new THREE.SphereGeometry(.55,10,8),
+          new THREE.MeshBasicMaterial({color:0xffc857,transparent:true,opacity:.75}));
+        marker.position.set(p.x+.5,p.y+1,p.z+.5);debugGroup.add(marker);
+      }
+    }
+  }
+  if(showPaths)for(const w of mine.workers||[]){
+    const resident=world?.residents?.find(r=>r.id===w.id);
+    const points=[];
+    if(resident)points.push(new THREE.Vector3(resident.position.x,resident.position.y+.8,resident.position.z));
+    for(const p of w.route||[])points.push(new THREE.Vector3(p.x+.5,p.y+.8,p.z+.5));
+    if(points.length>=2){
+      const blocked=w.state==='NAVIGATION_BLOCKED';
+      debugGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),
+        new THREE.LineBasicMaterial({color:blocked?0xff5757:0x50e2ee})));
+    }
+    if(w.target&&resident){
+      const p=w.target;
+      const dot=new THREE.Mesh(new THREE.SphereGeometry(.2,8,6),
+        new THREE.MeshBasicMaterial({color:w.state==='NAVIGATION_BLOCKED'?0xff5555:0x50e2ee}));
+      dot.position.set(p.x,p.y+.8,p.z);debugGroup.add(dot);
+    }
+  }
+}
+function consoleLog(message) {
+  const output=$('console-output');
+  output.textContent=(output.textContent+'\n'+message).split('\n').slice(-16).join('\n');
+  output.scrollTop=output.scrollHeight;
+}
+async function executeConsole() {
+  const source=$('command-input').value.trim();
+  if(!source)return;
+  consoleLog('> '+source);
+  try {
+    const parsed=parseSimulationCommand(source);
+    if(parsed.type==='help')consoleLog(CONSOLE_HELP);
+    else if(parsed.type==='overlay'){
+      $(parsed.name==='markers'?'show-markers':'show-paths').checked=parsed.enabled;
+      drawDebug(lastDebug);consoleLog(parsed.name+' '+(parsed.enabled?'AN':'AUS'));
+    }else if(parsed.type==='info'){
+      const m=lastDebug?.mine;
+      consoleLog(m?.loaded?('Mine: '+m.sliceIndex+'/'+m.sliceCount+' Slices, '+m.excavatedBlocks+' Blöcke abgebaut')
+        :'Keine simulierte Mine aktiv.');
+    }else{
+      const answer=await request('control',{command:parsed.command,...parsed.args});
+      consoleLog(answer.ok?'OK: '+parsed.command:'Keine Bestätigung');
+      await update();
+    }
+  } catch(e){consoleLog('FEHLER: '+(e.message||String(e)));}
+}
 function drawResidents(list) {
   const current=new Set(list.map(x=>x.id));
   for(const [id,mesh] of people)if(!current.has(id)){residentsGroup.remove(mesh);mesh.geometry.dispose();people.delete(id);}
@@ -144,6 +224,14 @@ async function update() {
     const sig=JSON.stringify([data.world.trees,data.world.constructionSites]);
     if(sig!==update.prevSig){update.prevSig=sig;drawWorld(data.world);}
     drawResidents(data.world.residents);
+    if(mineMode){
+      lastDebug=await request('debug');
+      drawDebug(lastDebug);
+      const m=lastDebug.mine;
+      $('mine-info').textContent=(lastDebug.prefab.placed?'Prefab platziert: '+JSON.stringify(lastDebug.prefab.origin):'Kein Prefab platziert')
+        +(m.loaded?'\nFront '+m.sliceIndex+'/'+m.sliceCount+' · Abbau '+m.excavatedBlocks+' Blöcke\n'
+           +(m.workers||[]).map(w=>w.id+': '+w.state+(w.reason?' ('+w.reason+')':'')).join('\n'):'');
+    }
     const ids=data.world.residents.map(r=>r.id);
     if(!ids.includes(selectedResident))selectedResident=ids[0]||'';
     const selector=$('resident');
@@ -169,6 +257,12 @@ $('move').onclick=()=>send('move',{
 });
 $('configure').onclick=()=>send('configure',{woodcutters:Number($('woodcutters').value),builders:Number($('builders').value)});
 $('configureMiners').onclick=()=>send('configureMiners',{miners:Number($('miners').value)});
+$('place-auto').onclick=()=>send('placeMineAuto');
+$('place-mine').onclick=()=>send('placeMine',{x:Number($('mine-x').value),y:Number($('mine-y').value),z:Number($('mine-z').value)});
+$('show-markers').onchange=()=>drawDebug(lastDebug);
+$('show-paths').onchange=()=>drawDebug(lastDebug);
+$('command-run').onclick=executeConsole;
+$('command-input').onkeydown=e=>{if(e.key==='Enter')executeConsole();};
 $('play').onclick=()=>send(running?'pause':'play');
 $('step').onclick=()=>send('step');
 $('reset').onclick=()=>send('reset');
@@ -179,8 +273,15 @@ async function setup() {
     const scenarios=await request('scenarios');
     for(const s of scenarios){const opt=document.createElement('option');opt.value=s.id;opt.textContent=s.title;$('scenario').append(opt);}
     const terrain=await request('terrain');
-    $('worker-controls').hidden=!!terrain.loaded;
-    $('miner-controls').hidden=!terrain.loaded;
+    mineMode=!!terrain.loaded;
+    $('worker-controls').hidden=mineMode;
+    $('miner-controls').hidden=!mineMode;
+    $('mine-lab').hidden=!mineMode;
+    if(mineMode&&terrain.bounds){
+      $('mine-x').value=Math.floor((terrain.bounds[0]+terrain.bounds[3])/2);
+      $('mine-y').value=terrain.bounds[1]+8;
+      $('mine-z').value=Math.floor((terrain.bounds[2]+terrain.bounds[5])/2);
+    }
     await update();
   } catch(e){showError(e);}
 }
