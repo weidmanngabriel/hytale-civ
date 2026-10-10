@@ -285,12 +285,18 @@ public final class SimulationRuntime {
 
         MovementIntent manual = resident.activity.manualMovementIntent();
         if (manual != null) {
+            if (mineLab != null && resident.profession == Profession.MINER && !resident.minerSuspended) {
+                mineLab.releaseWorker(resident.id);
+                resident.minerWorkTicks = 0;
+                resident.minerSuspended = true;
+            }
             if (advanceMovement(resident, manual.destination())) {
                 resident.activity.completeManualMove();
             }
             return;
         }
 
+        if (manual == null) resident.minerSuspended = false;
         if (!resident.activity.autonomousWorkAllowed()) {
             clearMovement(resident);
             return;
@@ -721,6 +727,10 @@ public final class SimulationRuntime {
             }
         }
 
+        void releaseWorker(String residentId) {
+            claims.releaseWorker(residentId);
+        }
+
         private UUID frontId(int index) {
             return UUID.nameUUIDFromBytes(("headless-front:" + index).getBytes(StandardCharsets.UTF_8));
         }
@@ -746,6 +756,7 @@ public final class SimulationRuntime {
         private boolean navigationBlocked;
         private String minerState = "IDLE";
         private int minerWorkTicks;
+        private boolean minerSuspended;
 
         private Resident(
             String id,
