@@ -307,3 +307,5 @@ Das opt-in Hytale-Local-Szenario `deployment` verwendet ausschließlich eine fri
 ## Manuelle Abnahme der lokalen Simulations-Sandbox (10. Oktober 2026)
 
 Der Nutzer hat im lokalen Browser folgende neun Tests erfolgreich bestätigt: Viewer-Start; laufender Tick-Zähler bei Start; Stillstand bei Pause; exakt ein Tick bei Einzelschritt; Reset auf Tick 0; freie WASD-/Maus-Kamera; kleine Geschwindigkeitsänderungen nach drei Mausrad-Rastungen; konfigurierte NPC-Startanzahl; sichtbare arbeitende NPCs und Ereignisprotokoll. Diese Rückmeldung belegt die grundlegende Bedienbarkeit des lokalen Live-Viewers, **nicht** den Export einer realen Hytale-Welt, Korrektheit nativer Hytale-Navigation oder vollständige Parität der beiden Miner-Adapter. Diese weiteren Abnahmen bleiben in `docs/simulation-sandbox-roadmap.md` offen.
+
+`web-viewer/test/terrain-chunks.test.mjs` prüft selektives Mesh-Invalidieren auch über Chunkgrenzen. `web-viewer/test/performance-recorder.test.mjs` prüft das begrenzte JSON-Recording. Messwerte werden im Browser aufgezeichnet; Performanceverbesserung auf unterschiedlichen PCs bleibt durch reale Exporttests zu prüfen.
