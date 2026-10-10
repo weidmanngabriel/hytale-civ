@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 public final class LocalSimulationServer implements AutoCloseable {
     private static final ObjectMapper JSON = new ObjectMapper();
     private final HttpServer server;
+    private final java.util.concurrent.ExecutorService requests = Executors.newVirtualThreadPerTaskExecutor();
     private final ScheduledExecutorService ticker = Executors.newSingleThreadScheduledExecutor();
     private final Object lock = new Object();
     private volatile boolean running;
@@ -49,7 +50,7 @@ public final class LocalSimulationServer implements AutoCloseable {
         server.createContext("/api/state", this::state);
         server.createContext("/api/control", this::control);
         server.createContext("/api/terrain", this::terrain);
-        server.setExecutor(Executors.newCachedThreadPool());
+        server.setExecutor(requests);
         ticker.scheduleAtFixedRate(() -> {
             if (!running) return;
             synchronized (lock) {
@@ -230,6 +231,7 @@ public final class LocalSimulationServer implements AutoCloseable {
         running = false;
         ticker.shutdownNow();
         server.stop(0);
+        requests.shutdownNow();
     }
 
     public static void main(String[] args) throws Exception {
