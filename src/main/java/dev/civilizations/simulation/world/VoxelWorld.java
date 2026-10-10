@@ -7,6 +7,8 @@ import java.util.*;
 public final class VoxelWorld {
     private static final int[][] OFFSETS={{1,0},{-1,0},{0,1},{0,-1}};
     private final WorldArchive.Bounds bounds;
+    private long revision;
+    public long revision() { return revision; }
     private final Map<BlockPosition, WorldArchive.Material> cells;
 
     public VoxelWorld(WorldArchive archive) {
@@ -21,6 +23,7 @@ public final class VoxelWorld {
     public void set(BlockPosition p, WorldArchive.Material material) {
         if(!bounds.contains(p.x(),p.y(),p.z()))throw new IllegalArgumentException("Outside imported region");
         cells.put(p, Objects.requireNonNull(material));
+        revision++;
     }
 
     public boolean canStand(BlockPosition feet) {
