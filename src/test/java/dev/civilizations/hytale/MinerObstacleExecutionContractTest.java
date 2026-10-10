@@ -20,9 +20,9 @@ final class MinerObstacleExecutionContractTest {
 
         assertTrue(navigation.contains("navigationFailures.report(workerKey, moveTarget)"));
         assertTrue(navigation.contains("setForceRecomputePath(true)"));
-        assertTrue(work.contains("consumeIfMatches(workerKey, runtime.navigationTarget)"));
+        assertTrue(work.contains("consumeIfMatches(worker, nativeTarget)"));
         assertTrue(work.contains("FailureKind.NAVIGATION_UNREACHABLE"));
-        assertTrue(work.contains("SKIPPED_UNREACHABLE"));
+        assertTrue(work.contains("MinerWorkController.Disposition.SKIP_OPTIONAL"));
     }
 
     @Test
@@ -116,7 +116,7 @@ final class MinerObstacleExecutionContractTest {
         assertTrue(work.contains("landing + BRIDGE_LANDING_OVERLAP_SLICES"));
         assertTrue(work.contains("MineBlockPlacement.isDeco(world, placement.position())"));
         assertTrue(work.contains("BRIDGE_DECO_REPLACED"));
-        assertTrue(work.contains("hasPendingMandatoryInfrastructure(minePlan, plan)"));
+        assertTrue(work.contains("hasPendingMandatoryInfrastructure(plan, front)"));
         assertTrue(work.contains("!bridgeDeckComplete(world, infrastructure)"));
         assertTrue(resolver.contains("!MineBlockPlacement.isDeco(world, position)"));
     }
@@ -138,7 +138,7 @@ final class MinerObstacleExecutionContractTest {
         String source = Files.readString(
             Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
         );
-        assertTrue(source.contains("scheduleNearbyRecoveryStep(world, mine, minePlan, affected)"));
+        assertTrue(source.contains("scheduleNearbyRecoveryStep(world, mine, plan, front)"));
         assertTrue(source.contains("transition.toSliceIndex() != destinationSlice"));
         assertTrue(source.contains("!sliceComplete(world, front.slices.get(transition.fromSliceIndex()))"));
         assertTrue(source.contains("minePlan.infrastructureTasks.containsKey(task.id())"));

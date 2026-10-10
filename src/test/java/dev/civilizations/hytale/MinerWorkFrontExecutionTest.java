@@ -36,7 +36,8 @@ final class MinerWorkFrontExecutionTest {
 
         assertTrue(source.contains("RUNTIME_PLANNING_TUNNEL_BUDGET"));
         assertTrue(source.contains("planned.tunnels()"));
-        assertTrue(source.contains("MineNormalTaskSelector.selectWithAging"));
+        assertTrue(source.contains("controller.tick(workerKey, dt, new NativeMinerEngine("));
+        assertTrue(Files.readString(Path.of("src/main/java/dev/civilizations/core/MinerWorkController.java")).contains("MineNormalTaskSelector.selectWithAging"));
         assertTrue(source.contains("MineNormalTaskSelector.Kind.TUNNEL_FRONT"));
         assertTrue(source.contains("MineNormalTaskSelector.Kind.INFRASTRUCTURE"));
         assertTrue(source.contains("putRuntimeGeometries"));

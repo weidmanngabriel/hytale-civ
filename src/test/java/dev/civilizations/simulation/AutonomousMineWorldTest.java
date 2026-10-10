@@ -46,4 +46,33 @@ class AutonomousMineWorldTest {
         assertEquals(runtime.excavatedMineBlocks(),world.revision());
         assertEquals(4630,runtime.tickCount());
     }
+    @Test void fluidsBlockWorkAndExplicitRetryPreservesWorldProgress() {
+        for (var fluid : java.util.List.of(WorldArchive.Material.WATER,WorldArchive.Material.LAVA)) {
+            var cells = new ArrayList<WorldArchive.Cell>();
+            for (int x=0;x<32;x++) for (int y=0;y<32;y++) for (int z=0;z<32;z++) {
+                boolean cave=x>=14&&x<=18&&z>=14&&z<=18&&y>=10&&y<=14;
+                cells.add(new WorldArchive.Cell(x,y,z,(y>=20||cave)?"air":"native:stone",0,0,"NONE"));
+            }
+            var world = new VoxelWorld(new WorldArchive(WorldArchive.VERSION,"hazard-fixture",
+                new WorldArchive.Bounds(0,0,0,32,32,32),cells));
+            var runtime = new SimulationRuntime(); runtime.setVoxelWorld(world);
+            var home = new BlockPosition(16,10,16);
+            var mineId = java.util.UUID.nameUUIDFromBytes("headless-mine:99112233".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            var geometry = dev.civilizations.core.MineNetworkGrowthPlanner.plan(mineId,home,MineHeading.NORTH,8,1,99112233L)
+                .mainTunnel().geometry();
+            var block = geometry.slices().getFirst().excavationBlocks().stream()
+                .filter(p -> world.material(p)==WorldArchive.Material.SOLID).findFirst().orElseThrow();
+            world.set(block,fluid);
+            runtime.addMiner("miner",new WorldPosition(16.5,10,16.5));
+            runtime.configureMineLab(home,MineHeading.NORTH,8,99112233L);
+            runtime.runTicks(100);
+            assertEquals(fluid,world.material(block)); assertEquals(0,runtime.excavatedMineBlocks());
+            assertEquals("BLOCKED",runtime.residentSnapshot("miner").autonomousState());
+            world.set(block,WorldArchive.Material.SOLID);runtime.recoverMineLab();runtime.runTicks(4500);
+            assertTrue(runtime.excavatedMineBlocks()>0);assertEquals(WorldArchive.Material.AIR,world.material(block));
+            int progress=runtime.excavatedMineBlocks();runtime.recoverMineLab();runtime.runTicks(100);
+            assertEquals(progress,runtime.excavatedMineBlocks());
+        }
+    }
+
 }

@@ -46,3 +46,11 @@ Diese Schritte testen ausschließlich die Headless-Simulation. Das echte Hytale-
 **Bekannte Grenze:** Gemeinsame Route (Zugang → Connector → Arbeitsfront), Core-Minenplanung und Front-Claims werden verwendet. Der komplette produktive Miner-Task-Ablauf mit allen Räumen, Infrastrukturmaßnahmen und Recoveries ist noch kein gemeinsamer Core-Controller; vollständige Parität gehört weiterhin zu Phase 5B. Keine automatische Hytale-Runtime in der CI.
 
 **Gezielte Miner-Diagnose:** Nach Platzieren der Mine und Starten der Miner unter „Dev-Konsole“ `/sim worker miner-2` eingeben. Die Ausgabe enthält Position, Zustand, aktuelles Wegziel, Zahl verbleibender Wegpunkte und den gemeldeten Blockadegrund. Bei Bedarf nacheinander alle Miner abfragen; `/sim worker` ist read-only und verändert keine Aufgaben.
+
+## Phase 5B – gemeinsame Miner-Steuerung prüfen
+
+1. Aktuelles `main` holen, `gradlew.bat test build` ausführen und den lokalen Simulation-Viewer nach der bisherigen Anleitung starten.
+2. Mine-Prefab platzieren und drei Miner starten. In `/sim worker <id>` beziehungsweise `/api/debug` den Core-Zustand kontrollieren: Einstieg über Zugang/Connector, anschließend Arbeit.
+3. Einen Miner mit einem manuellen Ziel unterbrechen. Die anderen sollen weiterarbeiten; der unterbrochene Miner steigt nach Zielankunft und Wiederanlaufpause erneut über Zugang/Connector ein.
+4. Nach Ende verfügbarer Arbeit den Rückweg über Connector und Zugang prüfen. Die automatisierten Tests decken zusätzlich Wasser/Lava, Retry und Claim-Freigabe ab.
+5. Optional in der normalen Hytale-Session mit neu installierter Mod und vorhandener Mine vergleichen: drei zugewiesene Miner, manueller Bodenbefehl, automatische Wiederaufnahme und Debug-Minenstatus. Ein solches Ingame-Ergebnis getrennt festhalten; ein grüner Simulator beweist keine native Pfadfindung.

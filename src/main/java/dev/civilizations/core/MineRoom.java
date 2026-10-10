@@ -88,4 +88,22 @@ public record MineRoom(
         WATER_DRAINAGE,
         LARGE_WORK_HALL
     }
+    /** Domain progress shared by real and synthetic room work. */
+    public MineRoom beginExcavation() {
+        return state == State.PLANNED ? withState(State.EXCAVATING) : this;
+    }
+
+    public MineRoom completeExcavationUnit(int unitCount) {
+        if (unitCount < 0) throw new IllegalArgumentException("Invalid unit count");
+        int next = Math.min(unitCount, excavationWorkUnitIndex + 1);
+        return withExcavationProgress(next, next >= unitCount ? State.READY_TO_BUILD : State.EXCAVATING);
+    }
+
+    public MineRoom completeBuildSection(int section, int sectionCount) {
+        if (sectionCount < 1 || section < 0 || section >= sectionCount)
+            throw new IllegalArgumentException("Invalid room section");
+        int count = completedBuildSections.size() + (completedBuildSections.contains(section) ? 0 : 1);
+        return withBuildSectionCompleted(section, count >= sectionCount ? State.BUILT : State.READY_TO_BUILD);
+    }
+
 }

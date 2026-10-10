@@ -19,7 +19,8 @@ final class MinerRoomExecutionContractTest {
         );
 
         assertTrue(work.contains("MineRoomPlanner.plan(planned, decisionSink)"));
-        assertTrue(work.contains("MineNormalTaskSelector.select"));
+        assertTrue(work.contains("case ROOM -> observeRoom(task)"));
+        assertTrue(work.contains("controller.tick(workerKey, dt, new NativeMinerEngine("));
         assertTrue(work.contains("MineRoomPlanner.MAX_ACTIVE_ROOMS"));
         assertTrue(work.contains("MineRoomPlanner.EXCAVATION_CAPACITY"));
         assertTrue(work.contains("MineRoomPlanner.BUILD_CAPACITY"));

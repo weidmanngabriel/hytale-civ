@@ -19,22 +19,12 @@ final class MineAtmosphereExecutionContractTest {
             Path.of("src/main/java/dev/civilizations/hytale/MineInfrastructurePlacementResolver.java")
         );
 
-        assertTrue(work.contains("MineNormalTaskSelector.selectWithAging"));
+        String core = Files.readString(Path.of("src/main/java/dev/civilizations/core/MinerWorkController.java"));
+        assertTrue(core.contains("MineNormalTaskSelector.selectWithAging"));
         assertTrue(work.contains("MineNormalTaskSelector.Kind.INFRASTRUCTURE"));
-        assertTrue(work.contains("selectMandatoryInfrastructureTask"));
-        assertFalse(work.contains("selectInfrastructureTask(world, mine, minePlan, position, workerKey, runtime, false)"));
-        int mandatorySelection = work.indexOf(
-            "selectMandatoryInfrastructureTask(world, mine, minePlan, position, workerKey, runtime)"
-        );
-        int normalInfrastructureExecution = work.indexOf(
-            "if (currentInfrastructure != null)",
-            mandatorySelection
-        );
-        assertTrue(mandatorySelection >= 0);
-        assertTrue(normalInfrastructureExecution > mandatorySelection);
-        assertTrue(work.contains("boolean busyWithCurrentJob = runtime.frontId != null"));
-        assertTrue(work.contains("runtime.roomId != null"));
-        assertTrue(work.contains("busyWithCurrentJob ? null"),
+        assertTrue(work.contains("controller.tick(workerKey, dt, new NativeMinerEngine("));
+        assertFalse(work.contains("selectMandatoryInfrastructureTask"));
+        assertTrue(core.indexOf("if (s.task != null)") < core.indexOf("tasks.stream().filter(Task::mandatory)"),
             "priority-10 work must wait until the current work assignment has ended");
 
         assertTrue(resolver.contains("case PLACE_DECORATION"));
