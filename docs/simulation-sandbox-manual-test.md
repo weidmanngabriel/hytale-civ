@@ -33,3 +33,15 @@ Diese Schritte testen ausschließlich die Headless-Simulation. Das echte Hytale-
 **Hinweis für große Archive:** Beim Start des Java-Servers werden Miner nicht mehr automatisch erstellt. Nach dem Laden des Viewers zunächst die Welt ohne NPCs prüfen; **Miner starten** löst anschließend die gesonderte Miner-Initialisierung aus. Erst wenn `Civ local simulation API: http://localhost:8765/api/state` erscheint, ist der HTTP-Server erreichbar. Bei sehr großen Archiven kann das Einlesen der Datei vor dieser Meldung noch dauern.
 
 **Startdiagnose:** `[CIV STARTUP] Reading archive`, `Archive decoded`, `Creating voxel index and HTTP server` und `READY` protokollieren Phase, Gesamtdauer und JVM-Heap. Falls `READY` fehlt, die letzte sichtbare Startphase und etwaige Exception kopieren. Optional PowerShell-Ausgabe mit `Tee-Object -FilePath civ-startup.log` sichern; die Gradle-Prozentanzeige ist bei dem dauerhaft laufenden Task nicht aussagekräftig.
+
+
+## Mine_01-Szenario und Debug-Konsole testen
+
+1. Aktualisiere `main`, starte `localSimulationServer` mit dem exportierten `.civworld.gz`-Archiv und öffne den Browser-Viewer.
+2. Fliege zu einem geeigneten Bereich, lies die Kamerakoordinaten ab und wähle im Abschnitt **Mine_01 Prefab** die Basis-X/Y/Z. Hinweis: Die Prefab-Basis befindet sich 16 Blöcke unter dem geplanten Gelände-Zugang; alle 19×19×27 Prefab-Koordinaten müssen in der Exportregion liegen. Nutze optional **Kameraposition übernehmen** und korrigiere die Höhe.
+3. Drücke **Mine_01 platzieren**. Es müssen farbige Bounds/Marker für `building_bounds`, `workplace_access` und `mine_tunnel_connector` erscheinen. Eine rote Kugel kennzeichnet die Front und eine violette Linie die geplante Tunnelmitte.
+4. Drücke **Miner starten** (zunächst 3). Beobachte die Diagnose-Zeilen `ENTERING_WORKPLACE`, `ENTERING_TUNNEL`, `MOVING_TO_FRONT`, `EXCAVATING` und mögliche `NAVIGATION_BLOCKED`-Zustände. Cyan zeigt Bewegung, Rot den blockierten Pfad.
+5. Aktiviere/deaktiviere `Prefab- und Frontmarker` beziehungsweise `NPC-Routen und Ziele`. Gib `/sim help`, `/civdev mines`, `/civdebug mine info`, `/civdev npc list` und `/sim block set X Y Z AIR` in die Simulator-Konsole ein.
+6. Prüfe `Reset`: die Mine wird mit denselben Prefab-Zellen und Markern rekonstruiert. Performance-Aufnahme bei Bedarf über den bestehenden JSON-Recorder exportieren.
+
+Die Headless-Bewegung innerhalb des Prefabs ist abstrahiert und kein Hytale-Navigationsbeweis. Der Simulator unterstützt noch nicht sämtliche Infrastruktur- und Raumbauarbeiten des produktiven Miners.
