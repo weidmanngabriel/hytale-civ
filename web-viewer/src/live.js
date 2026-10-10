@@ -152,6 +152,13 @@ function drawDebug(data) {
           new THREE.MeshBasicMaterial({color:0xffc857,transparent:true,opacity:.75}));
         marker.position.set(p.x+.5,p.y+1,p.z+.5);debugGroup.add(marker);
       }
+      for(const task of mine.infrastructureTasks||[]){
+        const p=task.anchor;
+        const taskMarker=new THREE.Mesh(new THREE.OctahedronGeometry(.36),
+          new THREE.MeshBasicMaterial({color:task.type==='BUILD_SUPPORT'?0x5bdf90:0xcf80e6,
+            wireframe:true}));
+        taskMarker.position.set(p.x+.5,p.y+1.4,p.z+.5);debugGroup.add(taskMarker);
+      }
     }
   }
   if(showPaths)for(const w of mine.workers||[]){
