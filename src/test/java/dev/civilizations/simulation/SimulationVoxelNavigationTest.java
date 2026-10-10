@@ -19,7 +19,7 @@ class SimulationVoxelNavigationTest {
             String block = y==0 || wall ? "native:stone" : "air";
             cells.add(new WorldArchive.Cell(x,y,z,block,0,0,"NONE"));
         }
-        return new VoxelWorld(new WorldArchive(1,"maze",
+        return new VoxelWorld(new WorldArchive(WorldArchive.VERSION,"maze",
             new WorldArchive.Bounds(0,0,0,6,4,5),cells));
     }
 
