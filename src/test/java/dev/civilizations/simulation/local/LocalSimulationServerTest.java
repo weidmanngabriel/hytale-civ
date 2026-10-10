@@ -46,7 +46,7 @@ class LocalSimulationServerTest {
         var cells = new ArrayList<WorldArchive.Cell>();
         for (int x=0;x<3;x++) for(int y=0;y<3;y++) for(int z=0;z<3;z++)
             cells.add(new WorldArchive.Cell(x,y,z,y==0?"native:stone":"air",0,0,"NONE"));
-        var archive = new WorldArchive(1,"test-world",new WorldArchive.Bounds(0,0,0,3,3,3),cells);
+        var archive = new WorldArchive(WorldArchive.VERSION,"test-world",new WorldArchive.Bounds(0,0,0,3,3,3),cells);
         try (var server = new LocalSimulationServer(0,archive)) {
             server.start();
             String url="http://localhost:"+server.port()+"/api/";
@@ -68,7 +68,7 @@ class LocalSimulationServerTest {
         var cells = new ArrayList<WorldArchive.Cell>();
         for (int x=0;x<3;x++) for(int y=0;y<3;y++) for(int z=0;z<3;z++)
             cells.add(new WorldArchive.Cell(x,y,z,y==0?"native:stone":"air",0,0,"NONE"));
-        var archive=new WorldArchive(1,"navigation",new WorldArchive.Bounds(0,0,0,3,3,3),cells);
+        var archive=new WorldArchive(WorldArchive.VERSION,"navigation",new WorldArchive.Bounds(0,0,0,3,3,3),cells);
         try(var server=new LocalSimulationServer(0,archive)) {
             server.start();
             String url="http://localhost:"+server.port()+"/api/";
