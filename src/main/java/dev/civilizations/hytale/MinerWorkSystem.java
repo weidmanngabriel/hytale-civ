@@ -31,7 +31,6 @@ import dev.civilizations.core.MineCavePolicy;
 import dev.civilizations.core.MineDecisionCategory;
 import dev.civilizations.core.MineDecisionSink;
 import dev.civilizations.core.MineFrontCoordinator;
-import dev.civilizations.core.MineFrontWorkDecision;
 import dev.civilizations.core.MineFrontTaskScheduler;
 import dev.civilizations.core.MineHeading;
 import dev.civilizations.core.MineInfrastructurePlanner;
@@ -61,7 +60,8 @@ import dev.civilizations.core.MineTunnel;
 import dev.civilizations.core.MineTunnelGeometry;
 import dev.civilizations.core.MineTuning;
 import dev.civilizations.core.MineWorkFront;
-import dev.civilizations.core.MineWorkerRouteDecision;
+import dev.civilizations.core.MinerWorkController;
+import dev.civilizations.core.WorldPosition;
 import dev.civilizations.core.Profession;
 import org.joml.Vector3d;
 import org.joml.Vector3i;
@@ -79,8 +79,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Executes planned mine work fronts with Hytale-native movement, animation and block breaking.
- * The Core scheduler chooses among executable main/branch fronts; this adapter owns world checks and
- * coordinates short-lived block claims between at most two miners per tunnel front.
+ * MinerWorkController owns the shared task lifecycle and transient reservations.
+ * This adapter observes loaded-world geometry and executes native engine operations.
  */
 public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
@@ -120,6 +120,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private final Map<CivUnitRegistry.UnitKey, WorkerRuntime> workers = new ConcurrentHashMap<>();
     private final Map<UUID, CivUnitRegistry.UnitKey> infrastructureReservations =
         new ConcurrentHashMap<>();
+    private final MinerWorkController<CivUnitRegistry.UnitKey> controller =
+        new MinerWorkController<>(frontCoordinator, roomCoordinator, infrastructureReservations);
     private final Map<WorldMineKey, RuntimeMinePlan> runtimePlans = new ConcurrentHashMap<>();
     private final Set<CivUnitRegistry.UnitKey> pendingRecovery = ConcurrentHashMap.newKeySet();
 
@@ -205,345 +207,64 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         WorkerRuntime runtime = workers.computeIfAbsent(workerKey, ignored -> new WorkerRuntime());
         if (!activityRegistry.autonomousWorkAllowed(ref)) {
             workerTaskEnded(runtime.mineId, ref, workerKey, runtime, "MANUAL_MOVE");
-            workerState(runtime.mineId, ref, workerKey, runtime, WorkerDebugState.MANUAL_CONTROL, "MANUAL_MOVE");
+            controller.interrupt(workerKey);
             navigationFailures.forget(workerKey);
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
-            frontCoordinator.releaseWorker(workerKey);
-            roomCoordinator.releaseWorker(workerKey);
-            releaseInfrastructureReservation(workerKey, runtime);
             runtime.interruptForManualMove();
+            workerState(runtime.mineId, ref, workerKey, runtime, WorkerDebugState.MANUAL_CONTROL, "MANUAL_MOVE");
             return;
         }
-
         TransformComponent transform = commandBuffer.getComponent(ref, TransformComponent.getComponentType());
         if (transform == null) return;
         World world = store.getExternalData().getWorld();
         UUID worldId = world.getWorldConfig().getUuid();
         BuildingPlacementRegistry.BuildingInstance mine = assignedMine(ref, worldId);
         if (mine == null) {
+            controller.forget(workerKey);
             navigationFailures.forget(workerKey);
             unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
-            frontCoordinator.releaseWorker(workerKey);
-            roomCoordinator.releaseWorker(workerKey);
-            releaseInfrastructureReservation(workerKey, runtime);
             runtime.clearAssignment();
             return;
         }
-        if (pendingRecovery.remove(workerKey)) {
-            workerTaskEnded(mine.id(), ref, workerKey, runtime, "DEBUG_RECOVERY");
+        if (pendingRecovery.remove(workerKey) || !mine.id().equals(runtime.mineId) || mine.phase() != runtime.minePhase) {
+            controller.forget(workerKey);
+            navigationFailures.forget(workerKey);
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
-            frontCoordinator.releaseWorker(workerKey);
-            roomCoordinator.releaseWorker(workerKey);
-            releaseInfrastructureReservation(workerKey, runtime);
-            navigationFailures.forget(workerKey);
             unitRegistry.clearMoveTarget(ref);
             runtime.reset(mine.id(), mine.phase());
-            decisionSink.record(
-                mine.id(), null, MineDecisionCategory.WORKER, "MINER_RECOVERED",
-                "npc", workerLabel(ref, workerKey), "reason", "DEBUG_RECOVERY"
-            );
         }
-        if (!mine.id().equals(runtime.mineId) || mine.phase() != runtime.minePhase) {
-            navigationFailures.forget(workerKey);
-            stopMiningAnimation(ref, store, runtime);
-            stopBuildingAnimation(ref, store, runtime);
-            frontCoordinator.releaseWorker(workerKey);
-            roomCoordinator.releaseWorker(workerKey);
-            releaseInfrastructureReservation(workerKey, runtime);
-            runtime.reset(mine.id(), mine.phase());
-        }
-
         PrefabPlacementService.PlacedMarker entrance = marker(world, mine, WORKPLACE_ACCESS);
         PrefabPlacementService.PlacedMarker connector = marker(world, mine, TUNNEL_CONNECTOR);
         if (connector == null || connector.bounds() == null) {
+            controller.forget(workerKey);
             unitRegistry.clearMoveTarget(ref);
             stopMiningAnimation(ref, store, runtime);
             stopBuildingAnimation(ref, store, runtime);
-            frontCoordinator.releaseWorker(workerKey);
-            roomCoordinator.releaseWorker(workerKey);
-            releaseInfrastructureReservation(workerKey, runtime);
+            runtime.clearWorkAssignment();
             return;
         }
-
         Vector3d position = transform.getPosition();
-        // After native LOAD the entity can already be in an excavated tunnel or finished
-        // room. Rehydrate the deterministic plan before forcing the normal surface entry.
         RuntimeMinePlan minePlan = ensureRuntimePlan(world, mine, connector);
         if (minePlan == null) return;
         refreshMainPlanning(world, mine, minePlan);
-        if (!runtime.reachedConnector && restoredInsideMine(world, minePlan, position)) {
+        if (runtime.restorePosition && !runtime.reachedConnector && restoredInsideMine(world, minePlan, position)) {
+            controller.restoredInside(workerKey);
             runtime.enteredMine = true;
             runtime.reachedConnector = true;
         }
-        if (MineWorkerRouteDecision.next(runtime.enteredMine, runtime.reachedConnector)
-            == MineWorkerRouteDecision.Destination.WORKPLACE_ACCESS
-            && entrance != null && entrance.bounds() != null) {
-            Vector3d target = center(entrance.bounds(), entrance.bounds().minY());
-            if (!arrived(position, target)) {
-                navigateTo(ref, target, runtime);
-                stopMiningAnimation(ref, store, runtime);
-                return;
-            }
-            runtime.enteredMine = true;
-            runtime.navigationArrived();
-        }
-
-        if (MineWorkerRouteDecision.next(runtime.enteredMine, runtime.reachedConnector)
-            != MineWorkerRouteDecision.Destination.WORK_FRONT) {
-            Vector3d target = center(connector.bounds(), connector.bounds().minY());
-            if (!arrived(position, target)) {
-                navigateTo(ref, target, runtime);
-                stopMiningAnimation(ref, store, runtime);
-                return;
-            }
-            runtime.reachedConnector = true;
-            runtime.navigationArrived();
-        }
-
-        if (navigationFailures.consumeIfMatches(workerKey, runtime.navigationTarget)) {
-            if (runtime.idleDestination != null) {
-                if (runtime.idleRoomId != null) runtime.failedIdleRooms.add(runtime.idleRoomId);
-                else runtime.idleEntranceFailed = true;
-                runtime.idleRoomId = null;
-                runtime.idleDestination = null;
-                runtime.navigationArrived();
-                unitRegistry.clearMoveTarget(ref);
-                return;
-            }
-            handleTerminalNavigationFailure(
-                world, mine, minePlan, ref, store, workerKey, runtime
-            );
-            return;
-        }
-        // Detect passability work before treating already-empty cave slices as completed
-        // excavation. Otherwise a naturally open gap could be skipped before BUILD_BRIDGE exists.
+        runtime.restorePosition = false;
+        // World observations only: passability is assessed before empty slices advance.
         refreshBridgeTasks(world, mine, minePlan);
         advanceAlreadyExcavatedSlices(world, mine, minePlan);
         refreshBridgeTasks(world, mine, minePlan);
-
-        RuntimeInfrastructureTask currentInfrastructure = runtime.infrastructureTaskId == null
-            ? null : minePlan.infrastructureTasks.get(runtime.infrastructureTaskId);
-        if (currentInfrastructure != null
-            && !currentInfrastructure.completed
-            && currentInfrastructure.task.mandatory()) {
-            executeInfrastructure(
-                world, mine, minePlan, currentInfrastructure, ref, store, position, workerKey, runtime
-            );
-            return;
-        }
-
-        // Priority controls selection of the NEXT job, not interruption of an assigned job.
-        // Otherwise miners abandon excavation or half-built supports whenever priority-10
-        // infrastructure appears, causing repeated back-and-forth movement.
-        boolean busyWithCurrentJob = runtime.frontId != null
-            || runtime.roomId != null
-            || (currentInfrastructure != null && !currentInfrastructure.completed);
-        RuntimeInfrastructureTask mandatoryInfrastructure = busyWithCurrentJob ? null
-            : selectMandatoryInfrastructureTask(world, mine, minePlan, position, workerKey, runtime);
-        if (mandatoryInfrastructure != null) {
-            if (runtime.frontId != null) frontCoordinator.releaseWorker(workerKey);
-            if (runtime.roomId != null) roomCoordinator.releaseWorker(workerKey);
-            runtime.clearFrontAssignment();
-            runtime.clearRoomAssignment();
-            // selectMandatoryInfrastructureTask established the new reservation/assignment.
-            runtime.infrastructureTaskId = mandatoryInfrastructure.task.id();
-            executeInfrastructure(
-                world, mine, minePlan, mandatoryInfrastructure, ref, store, position, workerKey, runtime
-            );
-            return;
-        }
-
-        if (currentInfrastructure != null) {
-            if (currentInfrastructure.completed) {
-                releaseInfrastructureReservation(workerKey, runtime);
-                runtime.clearInfrastructureAssignment();
-            } else {
-                executeInfrastructure(
-                    world, mine, minePlan, currentInfrastructure, ref, store, position, workerKey, runtime
-                );
-                return;
-            }
-        } else if (runtime.infrastructureTaskId != null) {
-            releaseInfrastructureReservation(workerKey, runtime);
-            runtime.clearInfrastructureAssignment();
-        }
-
-        if (runtime.roomId != null && roomCoordinator.workerCount(runtime.roomId) == 0) {
-            runtime.clearRoomAssignment();
-        }
-        RuntimeRoomPlan currentRoomPlan =
-            runtime.roomId == null ? null : minePlan.rooms.get(runtime.roomId);
-        MineRoom currentRoom = currentRoomPlan == null
-            ? null : currentRoom(worldId, mine.id(), currentRoomPlan.roomId);
-        if (currentRoomPlan != null && currentRoom != null
-            && !currentRoom.terminal() && !currentRoomPlan.unavailable) {
-            executeRoom(
-                world, mine, minePlan, currentRoomPlan, currentRoom, ref, store, commandBuffer,
-                position, workerKey, runtime
-            );
-            return;
-        }
-        if (runtime.roomId != null) {
-            roomCoordinator.releaseWorker(workerKey);
-            runtime.clearRoomAssignment();
-        }
-
-        if (runtime.frontId != null && frontCoordinator.workerCount(runtime.frontId) == 0) {
-            runtime.clearFrontAssignment();
-        }
-
-        RuntimeFrontPlan plan = runtime.frontId == null ? null : minePlan.fronts.get(runtime.frontId);
-        MineWorkFront front = plan == null ? null : currentFront(worldId, mine.id(), plan.frontId);
-
-        if (plan == null && runtime.frontId == null) {
-            MineNormalTaskSelector.Candidate candidate =
-                selectNormalCandidate(world, mine, minePlan, position, workerKey, runtime);
-            if (candidate != null) {
-                runtime.clearIdle();
-                switch (candidate.kind()) {
-                    case ROOM -> {
-                        RuntimeRoomPlan selectedRoomPlan =
-                            selectRoom(world, mine, minePlan, candidate.id(), workerKey, runtime);
-                        MineRoom selectedRoom = selectedRoomPlan == null
-                            ? null : currentRoom(worldId, mine.id(), selectedRoomPlan.roomId);
-                        if (selectedRoomPlan != null && selectedRoom != null) {
-                            executeRoom(
-                                world, mine, minePlan, selectedRoomPlan, selectedRoom, ref, store,
-                                commandBuffer, position, workerKey, runtime
-                            );
-                            return;
-                        }
-                    }
-                    case INFRASTRUCTURE -> {
-                        RuntimeInfrastructureTask infrastructure =
-                            selectInfrastructureTaskById(
-                                mine, minePlan, candidate.id(), workerKey, runtime
-                            );
-                        if (infrastructure != null) {
-                            executeInfrastructure(
-                                world, mine, minePlan, infrastructure, ref, store,
-                                position, workerKey, runtime
-                            );
-                            return;
-                        }
-                    }
-                    case TUNNEL_FRONT -> {
-                        plan = selectFrontById(
-                            world, mine, minePlan, candidate.id(), workerKey, runtime
-                        );
-                        front = plan == null
-                            ? null : currentFront(worldId, mine.id(), plan.frontId);
-                    }
-                }
-            }
-        }
-
-        if (plan == null || plan.complete || !available(front)
-            || (plan.tunnelKind == MineTunnel.Kind.MAIN && plan.sliceIndex >= plan.unlockedSlices)) {
-            if (runtime.frontId != null) frontCoordinator.releaseWorker(workerKey);
-            runtime.clearFrontAssignment();
-            stopMiningAnimation(ref, store, runtime);
-            workerTaskEnded(mine.id(), ref, workerKey, runtime,
-                plan != null && plan.complete ? "TASK_COMPLETED" : "TASK_NO_LONGER_EXECUTABLE");
-            workerState(
-                mine.id(), ref, workerKey, runtime, WorkerDebugState.IDLE, "NO_AVAILABLE_TASK"
-            );
-            handleIdle(world, mine, connector, position, ref, runtime);
-            return;
-        }
-        runtime.clearIdle();
-
-        if (plan == null || front == null) {
-            unitRegistry.clearMoveTarget(ref);
-            stopMiningAnimation(ref, store, runtime);
-            return;
-        }
-
-        if (!frontCoordinator.tryJoin(plan.frontId, workerKey, MineFrontCoordinator.capacityFor(plan.tunnelKind))) {
-            workerTaskEnded(mine.id(), ref, workerKey, runtime, "CAPACITY_UNAVAILABLE");
-            runtime.clearWorkAssignment();
-            unitRegistry.clearMoveTarget(ref);
-            stopMiningAnimation(ref, store, runtime);
-            return;
-        }
-
-        if (runtime.sliceIndex != plan.sliceIndex) {
-            stopMiningAnimation(ref, store, runtime);
-            runtime.sliceIndex = plan.sliceIndex;
-            runtime.workElapsed = 0.0;
-            runtime.claimedBlock = null;
-            runtime.navigationArrived();
-        }
-
-        // An already assigned excavator must yield to newly detected mandatory
-        // bridge work as well; the initial task-selection gate alone is too late.
-        if (hasPendingMandatoryInfrastructure(minePlan, plan)) {
-            frontCoordinator.releaseWorker(workerKey);
-            unitRegistry.clearMoveTarget(ref);
-            stopMiningAnimation(ref, store, runtime);
-            runtime.clearWorkAssignment();
-            return;
-        }
-
-        MineTunnelGeometry.Slice slice = plan.slices.get(plan.sliceIndex);
-        if (containsBlockedSolid(world, mine, slice)) {
-            failFront(
-                world,
-                mine,
-                plan,
-                front,
-                MineObstaclePolicy.FailureKind.UNSAFE_GEOMETRY,
-                "UNSAFE_OR_UNBREAKABLE_SLICE"
-            );
-            workerTaskEnded(mine.id(), ref, workerKey, runtime, "UNSAFE_GEOMETRY");
-            unitRegistry.clearMoveTarget(ref);
-            stopMiningAnimation(ref, store, runtime);
-            frontCoordinator.releaseWorker(workerKey);
-            runtime.clearWorkAssignment();
-            return;
-        }
-
-        Vector3d workTarget = workTarget(plan, minePlan.mainTunnelId, connector);
-        if (!arrived(position, workTarget)) {
-            navigateTo(ref, workTarget, runtime);
-            stopMiningAnimation(ref, store, runtime);
-            return;
-        }
-        runtime.navigationArrived();
-        unitRegistry.clearMoveTarget(ref);
-
-        stopBuildingAnimation(ref, store, runtime);
-        workerTaskStarted(
-            mine.id(), ref, workerKey, runtime, "EXCAVATE_FRONT",
-            plan.frontId, frontCoordinator.workerCount(plan.frontId),
-            MineFrontCoordinator.capacityFor(plan.tunnelKind)
-        );
-        workerState(
-            mine.id(), ref, workerKey, runtime, WorkerDebugState.WORKING, "WORK_TARGET_REACHED"
-        );
-        if (!runtime.animationStarted) {
-            AnimationUtils.playAnimation(
-                ref, AnimationSlot.Action, MINING_ITEM_ANIMATIONS, MINING_ANIMATION, store
-            );
-            runtime.animationStarted = true;
-        }
-
-        runtime.workElapsed += dt;
-        while (runtime.workElapsed >= MineTuning.secondsPerBlock()) {
-            runtime.workElapsed -= MineTuning.secondsPerBlock();
-            if (!workOneBlock(world, ref, store, mine, plan, workerKey, runtime)) break;
-            if (sliceComplete(world, slice)) {
-                completeCurrentSlice(world, mine, minePlan, plan);
-                workerTaskEnded(mine.id(), ref, workerKey, runtime, "WORK_UNIT_COMPLETED");
-                stopMiningAnimation(ref, store, runtime);
-                runtime.clearWorkAssignment();
-                return;
-            }
-        }
+        controller.tick(workerKey, dt, new NativeMinerEngine(
+            world, mine, minePlan, entrance, connector, ref, store, commandBuffer,
+            position, workerKey, runtime
+        ));
         } finally {
             CivPerformanceRecorder.endMeasured("miner.tick", civProfilingStarted);
         }
@@ -639,11 +360,363 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     public void forgetRuntime(Ref<EntityStore> ref) {
         if (ref == null) return;
         CivUnitRegistry.UnitKey key = unitRegistry.keyOf(ref);
-        frontCoordinator.releaseWorker(key);
-        roomCoordinator.releaseWorker(key);
+        controller.forget(key);
         WorkerRuntime runtime = workers.remove(key);
         if (runtime != null) releaseInfrastructureReservation(key, runtime);
         navigationFailures.forget(key);
+    }
+
+    /** Hytale executes world work; the Core owns the order, claims, time and retry limit. */
+    private final class NativeMinerEngine implements MinerWorkController.Engine {
+        private final World world;
+        private final BuildingPlacementRegistry.BuildingInstance mine;
+        private final RuntimeMinePlan plan;
+        private final PrefabPlacementService.PlacedMarker entrance, connectorMarker;
+        private final Ref<EntityStore> ref;
+        private final Store<EntityStore> store;
+        private final CommandBuffer<EntityStore> commandBuffer;
+        private final Vector3d position;
+        private final CivUnitRegistry.UnitKey worker;
+        private final WorkerRuntime runtime;
+        private List<MinerWorkController.Task> observedTasks = List.of();
+
+        NativeMinerEngine(World world, BuildingPlacementRegistry.BuildingInstance mine,
+            RuntimeMinePlan plan, PrefabPlacementService.PlacedMarker entrance,
+            PrefabPlacementService.PlacedMarker connectorMarker, Ref<EntityStore> ref,
+            Store<EntityStore> store, CommandBuffer<EntityStore> commandBuffer,
+            Vector3d position, CivUnitRegistry.UnitKey worker, WorkerRuntime runtime) {
+            this.world = world; this.mine = mine; this.plan = plan;
+            this.entrance = entrance; this.connectorMarker = connectorMarker;
+            this.ref = ref; this.store = store; this.commandBuffer = commandBuffer;
+            this.position = position; this.worker = worker; this.runtime = runtime;
+        }
+        private WorldPosition point(Vector3d v) { return new WorldPosition(v.x, v.y, v.z); }
+        private Vector3d vector(WorldPosition v) { return new Vector3d(v.x(), v.y(), v.z()); }
+        @Override public WorldPosition access() {
+            return entrance == null || entrance.bounds() == null ? connector()
+                : point(center(entrance.bounds(), entrance.bounds().minY()));
+        }
+        @Override public WorldPosition connector() {
+            return point(center(connectorMarker.bounds(), connectorMarker.bounds().minY()));
+        }
+        @Override public BlockPosition position() { return blockPosition(position); }
+        @Override public MinerWorkController.Navigation navigate(WorldPosition target) {
+            Vector3d nativeTarget = vector(target);
+            if (navigationFailures.consumeIfMatches(worker, nativeTarget))
+                return MinerWorkController.Navigation.FAILED;
+            if (arrived(position, nativeTarget)) {
+                var state = controller.snapshot(worker).state();
+                if (state == MinerWorkController.State.ENTERING_ACCESS) runtime.enteredMine = true;
+                if (state == MinerWorkController.State.ENTERING_CONNECTOR) runtime.reachedConnector = true;
+                return MinerWorkController.Navigation.ARRIVED;
+            }
+            var state = controller.snapshot(worker).state();
+            runtime.idleDestination = state == MinerWorkController.State.RETURNING_CONNECTOR
+                || state == MinerWorkController.State.RETURNING_ACCESS || state == MinerWorkController.State.RESTING
+                ? nativeTarget : null;
+            navigateTo(ref, nativeTarget, runtime);
+            stopMiningAnimation(ref, store, runtime);
+            stopBuildingAnimation(ref, store, runtime);
+            return MinerWorkController.Navigation.MOVING;
+        }
+        @Override public void stop() {
+            unitRegistry.clearMoveTarget(ref); runtime.navigationArrived();
+        }
+        @Override public List<MinerWorkController.Task> tasks() {
+            List<MinerWorkController.Task> tasks = new ArrayList<>();
+            for (RuntimeInfrastructureTask task : plan.infrastructureTasks.values()) {
+                RuntimeFrontPlan front = frontForTunnel(plan, task.task.tunnelId());
+                if (!task.completed && task.task.mandatory() && front != null && !front.unavailable
+                    && infrastructureAvailable(task.task, front)) {
+                    tasks.add(new MinerWorkController.Task(task.task.id(), MineNormalTaskSelector.Kind.INFRASTRUCTURE,
+                        10, 1, task.task.anchor(), true));
+                }
+            }
+            for (var task : normalCandidates(world, mine, plan, position, worker, runtime)) {
+                tasks.add(new MinerWorkController.Task(task.id(), task.kind(), task.priority(),
+                    task.capacity(), task.position(), false));
+            }
+            observedTasks = List.copyOf(tasks);
+            return observedTasks;
+        }
+        @Override public Map<UUID, Integer> priorityBonuses() {
+            MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
+            return network == null ? Map.of() : network.normalTaskPriorityBonuses();
+        }
+        @Override public void priorityBonuses(Map<UUID, Integer> bonuses) {
+            MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
+            if (network != null && !network.normalTaskPriorityBonuses().equals(bonuses))
+                tunnelRegistry.putNetwork(world, network.withNormalTaskPriorityBonuses(bonuses));
+        }
+        @Override public void selected(MinerWorkController.Task task) {
+            runtime.clearIdle(); runtime.clearWorkAssignment();
+            switch (task.kind()) {
+                case TUNNEL_FRONT -> runtime.frontId = task.id();
+                case ROOM -> runtime.roomId = task.id();
+                case INFRASTRUCTURE -> runtime.infrastructureTaskId = task.id();
+            }
+            runtime.selectedTaskKey = task.kind() + ":" + task.id();
+            RuntimeInfrastructureTask infrastructure = plan.infrastructureTasks.get(task.id());
+            if (infrastructure != null && infrastructure.task.decoration())
+                decisionSink.record(mine.id(), task.id(), MineDecisionCategory.WORKER, "DECORATION_TASK_SELECTED",
+                    "npc", workerLabel(ref,worker), "kind", infrastructure.task.decorationKind());
+            for (var candidate : observedTasks) {
+                RuntimeInfrastructureTask other = plan.infrastructureTasks.get(candidate.id());
+                if (!candidate.id().equals(task.id()) && other != null && other.task.decoration())
+                    decisionSink.record(mine.id(), candidate.id(), MineDecisionCategory.WORKER, "DECORATION_TASK_SKIPPED",
+                        "reason", "AVAILABLE_NOT_SELECTED", "selectedInstead", task.id());
+            }
+            decisionSink.record(mine.id(), task.id(), MineDecisionCategory.WORKER, "TASK_SELECTED",
+                "npc", workerLabel(ref, worker), "taskType", task.kind(), "reservation", "JOINED",
+                "workers", controller.workerCount(task), "capacity", task.capacity(), "priority", task.priority());
+        }
+        private MinerWorkController.Work work(String revision, Vector3d target,
+            MinerWorkController.Operation operation, double seconds, List<BlockPosition> blocks,
+            int sections, Set<Integer> completed) {
+            return new MinerWorkController.Work(MinerWorkController.Readiness.READY, revision,
+                point(target), operation, seconds, blocks, sections, completed);
+        }
+        private MinerWorkController.Work stopped(MinerWorkController.Readiness readiness) {
+            return MinerWorkController.Work.stopped(readiness);
+        }
+        @Override public MinerWorkController.Work observe(MinerWorkController.Task task) {
+            return switch (task.kind()) {
+                case TUNNEL_FRONT -> observeFront(task);
+                case ROOM -> observeRoom(task);
+                case INFRASTRUCTURE -> observeInfrastructure(task);
+            };
+        }
+        private MinerWorkController.Work observeFront(MinerWorkController.Task task) {
+            RuntimeFrontPlan front = plan.fronts.get(task.id());
+            MineWorkFront persisted = currentFront(world.getWorldConfig().getUuid(), mine.id(), task.id());
+            if (front == null || front.complete) return stopped(MinerWorkController.Readiness.COMPLETE);
+            if (!MinerWorkSystem.available(persisted) || front.unavailable || front.sliceIndex >= front.unlockedSlices)
+                return stopped(MinerWorkController.Readiness.DEFERRED);
+            // Mandatory passability work preempts excavation only at this safety boundary.
+            if (hasPendingMandatoryInfrastructure(plan, front)) return stopped(MinerWorkController.Readiness.DEFERRED);
+            MineTunnelGeometry.Slice slice = front.slices.get(front.sliceIndex);
+            if (containsBlockedSolid(world, mine, slice)) return stopped(MinerWorkController.Readiness.UNSAFE);
+            if (sliceComplete(world, slice)) return stopped(MinerWorkController.Readiness.COMPLETE);
+            runtime.sliceIndex = front.sliceIndex;
+            return work("front:" + front.sliceIndex, workTarget(front, plan.mainTunnelId, connectorMarker),
+                MinerWorkController.Operation.EXCAVATE, MineTuning.secondsPerBlock(),
+                front.orderedBlocks.get(front.sliceIndex), 0, Set.of());
+        }
+        private MinerWorkController.Work observeRoom(MinerWorkController.Task task) {
+            RuntimeRoomPlan roomPlan = plan.rooms.get(task.id());
+            MineRoom room = currentRoom(world.getWorldConfig().getUuid(), mine.id(), task.id());
+            if (roomPlan == null || room == null || roomPlan.unavailable)
+                return stopped(MinerWorkController.Readiness.DEFERRED);
+            if (room.terminal()) return stopped(MinerWorkController.Readiness.COMPLETE);
+            if (room.state() == MineRoom.State.PLANNED) {
+                room = room.beginExcavation(); persistRoom(world, mine, room);
+            }
+            if (room.state() == MineRoom.State.EXCAVATING) {
+                int index = room.excavationWorkUnitIndex();
+                if (index >= roomPlan.geometry.excavationWorkUnits().size())
+                    return stopped(MinerWorkController.Readiness.COMPLETE);
+                var blocks = roomPlan.geometry.excavationWorkUnits().get(index);
+                if (containsBlockedSolid(world, mine, blocks)) return stopped(MinerWorkController.Readiness.UNSAFE);
+                if (roomWorkUnitComplete(world, blocks)) return stopped(MinerWorkController.Readiness.COMPLETE);
+                BlockPosition target = roomPlan.geometry.workTargetForUnit(index);
+                return work("room:" + index, new Vector3d(target.x()+.5,target.y(),target.z()+.5),
+                    MinerWorkController.Operation.EXCAVATE, MineTuning.secondsPerBlock(), blocks, 0, Set.of());
+            }
+            int count = MineRoomPrefabService.sectionCount(room);
+            if (count <= 0) return stopped(MinerWorkController.Readiness.UNRESOLVABLE);
+            if (room.completedBuildSections().size() >= count) return stopped(MinerWorkController.Readiness.COMPLETE);
+            return work("build", new Vector3d(room.position().x()+.5,room.position().y(),room.position().z()+.5),
+                MinerWorkController.Operation.BUILD_SECTION, ROOM_BUILD_SECONDS_PER_SECTION,
+                List.of(), count, room.completedBuildSections());
+        }
+        private MinerWorkController.Work observeInfrastructure(MinerWorkController.Task task) {
+            RuntimeInfrastructureTask infrastructure = plan.infrastructureTasks.get(task.id());
+            if (infrastructure == null || infrastructure.completed) return stopped(MinerWorkController.Readiness.COMPLETE);
+            RuntimeFrontPlan front = frontForTunnel(plan, infrastructure.task.tunnelId());
+            if (front == null || front.unavailable) return stopped(MinerWorkController.Readiness.DEFERRED);
+            if (runtime.resolvedInfrastructure == null) {
+                if (infrastructure.task.decoration()) {
+                    var decorationResolution = MineInfrastructurePlacementResolver.resolveDecorationDetailed(
+                        world, infrastructure.task, infrastructure.tunnelKind, infrastructure.geometry);
+                    runtime.resolvedInfrastructure = decorationResolution.resolvedTask();
+                    if (runtime.resolvedInfrastructure == null)
+                        decisionSink.record(mine.id(),task.id(),MineDecisionCategory.ADAPTER,"DECORATION_SKIPPED_RUNTIME",
+                            "triedSlices", decorationResolution.triedSlices(), "reasons", decorationResolution.reasons());
+                } else runtime.resolvedInfrastructure = MineInfrastructurePlacementResolver.resolve(
+                    world, infrastructure.task, infrastructure.tunnelKind, infrastructure.geometry);
+                runtime.infrastructurePlacementIndex = 0;
+            }
+            if (runtime.resolvedInfrastructure == null) {
+                if (infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE
+                    && bridgeDeckComplete(world, infrastructure)) {
+                    decisionSink.record(mine.id(),task.id(),MineDecisionCategory.ADAPTER,"BRIDGE_DECK_ALREADY_COMPLETE");
+                    return stopped(MinerWorkController.Readiness.COMPLETE);
+                }
+                return stopped(MinerWorkController.Readiness.UNRESOLVABLE);
+            }
+            RuntimeFrontPlan blocking = blockingExcavationFront(world, plan, infrastructure, runtime);
+            if (blocking != null) {
+                infrastructure.deferredAtSlice = blocking.sliceIndex;
+                infrastructure.deferredByFrontId = blocking.frontId;
+                return stopped(MinerWorkController.Readiness.DEFERRED);
+            }
+            if (runtime.infrastructurePlacementIndex >= runtime.resolvedInfrastructure.placements().size()) {
+                if (infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE
+                    && !bridgeDeckComplete(world, infrastructure)) return stopped(MinerWorkController.Readiness.UNRESOLVABLE);
+                return stopped(MinerWorkController.Readiness.COMPLETE);
+            }
+            return work("placement", runtime.resolvedInfrastructure.workTarget(),
+                MinerWorkController.Operation.PLACE, INFRASTRUCTURE_SECONDS_PER_BLOCK, List.of(), 0, Set.of());
+        }
+        @Override public boolean available(BlockPosition block) { return isAvailableWorkBlock(world, mine, block); }
+        @Override public void working(MinerWorkController.Task task, MinerWorkController.Operation operation) {
+            boolean digging = operation == MinerWorkController.Operation.EXCAVATE;
+            if (digging) stopBuildingAnimation(ref, store, runtime);
+            else stopMiningAnimation(ref, store, runtime);
+            workerTaskStarted(mine.id(), ref, worker, runtime, operation.name(), task.id(),
+                controller.workerCount(task), task.capacity());
+            workerState(mine.id(), ref, worker, runtime, digging ? WorkerDebugState.WORKING : WorkerDebugState.BUILDING,
+                "WORK_TARGET_REACHED");
+            if (digging && !runtime.animationStarted) {
+                AnimationUtils.playAnimation(ref, AnimationSlot.Action, MINING_ITEM_ANIMATIONS, MINING_ANIMATION, store);
+                runtime.animationStarted = true;
+            } else if (!digging && !runtime.buildingAnimationStarted) {
+                AnimationUtils.playAnimation(ref, AnimationSlot.Action, BUILDING_ITEM_ANIMATIONS, BUILDING_ANIMATION, store);
+                runtime.buildingAnimationStarted = true;
+            }
+        }
+        @Override public MinerWorkController.Result perform(MinerWorkController.WorkIntent intent) {
+            if (intent.operation() == MinerWorkController.Operation.EXCAVATE) {
+                BlockPosition block = intent.block(); runtime.claimedBlock = block;
+                BlockType type = loadedBlockType(world, block);
+                if (type == null) return MinerWorkController.Result.RETRY;
+                if (isEmpty(type)) return MinerWorkController.Result.SUCCESS;
+                if (!safeBlock(world, mine, block)) return MinerWorkController.Result.UNSAFE;
+                BlockHarvestUtils.performBlockBreak(ref, null,
+                    List.of(new Vector3i(block.x(),block.y(),block.z())), 0, store, world.getChunkStore().getStore());
+                if (!isEmpty(loadedBlockType(world, block)) && runtime.frontId != null) {
+                    WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(block.x(),block.z()));
+                    if (chunk == null || !safeBlock(world, mine, block)
+                        || !chunk.breakBlock(block.x(),block.y(),block.z(),0,0)) return MinerWorkController.Result.RETRY;
+                }
+                return isEmpty(loadedBlockType(world, block))
+                    ? MinerWorkController.Result.SUCCESS : MinerWorkController.Result.RETRY;
+            }
+            if (intent.operation() == MinerWorkController.Operation.BUILD_SECTION) {
+                MineRoom room = currentRoom(world.getWorldConfig().getUuid(), mine.id(), intent.taskId());
+                if (room == null) return MinerWorkController.Result.UNSAFE;
+                runtime.roomBuildSection = intent.section();
+                if (!MineRoomPrefabService.placeSection(world, room, intent.section(), commandBuffer))
+                    return MinerWorkController.Result.RETRY;
+                persistRoom(world, mine, room.completeBuildSection(intent.section(), MineRoomPrefabService.sectionCount(room)));
+                return MinerWorkController.Result.SUCCESS;
+            }
+            RuntimeInfrastructureTask infrastructure = plan.infrastructureTasks.get(intent.taskId());
+            // The complete observation is repeated immediately before every native placement.
+            if (blockingExcavationFront(world, plan, infrastructure, runtime) != null)
+                return MinerWorkController.Result.RETRY;
+            var placement = runtime.resolvedInfrastructure.placements().get(runtime.infrastructurePlacementIndex);
+            BlockType occupied = loadedBlockType(world, placement.position());
+            if (infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE
+                && occupied != null && !placement.blockId().equals(occupied.getId())
+                && MineBlockPlacement.isDeco(world, placement.position())) {
+                WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(placement.position().x(),placement.position().z()));
+                if (chunk != null && chunk.breakBlock(placement.position().x(),placement.position().y(),placement.position().z(),0,0))
+                    decisionSink.record(mine.id(),intent.taskId(),MineDecisionCategory.ADAPTER,"BRIDGE_DECO_REPLACED",
+                        "position", placement.position());
+            }
+            var result = MineBlockPlacement.placeDetailed(world, placement.position(), placement.blockId(),
+                placement.rotation(), placement.placedAgainst(), placement.markDeco());
+            if (!result.success()) {
+                int attempts = controller.snapshot(worker).retries()+1;
+                decisionSink.record(mine.id(), intent.taskId(), MineDecisionCategory.ADAPTER,
+                    attempts == 1 ? "BLOCK_PLACEMENT_FAILED" : "BLOCK_PLACEMENT_FAILURE_REPEATED",
+                    "npc", workerLabel(ref,worker), "position", placement.position(), "reason", result.failureReason(),
+                    "repeatCount", attempts, "workTarget", formatTarget(runtime.resolvedInfrastructure.workTarget()),
+                    "minerPosition", formatTarget(position));
+                if (attempts == 3) decisionSink.record(mine.id(),intent.taskId(),MineDecisionCategory.ADAPTER,
+                    "PLACEMENT_RETRY_LOOP_DETECTED", "repeatCount", attempts);
+                return MinerWorkController.Result.RETRY;
+            }
+            runtime.infrastructurePlacementIndex++;
+            return MinerWorkController.Result.SUCCESS;
+        }
+        @Override public WorldPosition retryTarget(MinerWorkController.Task task, MinerWorkController.Work work, int attempt) {
+            if (work.operation() == MinerWorkController.Operation.EXCAVATE) return work.target();
+            int start = task.kind() == MineNormalTaskSelector.Kind.ROOM ? runtime.roomProbeIndex : runtime.infrastructureProbeIndex;
+            for (int i = start; i < BUILD_PROBE_OFFSETS.length; i++) {
+                if (task.kind() == MineNormalTaskSelector.Kind.ROOM) runtime.roomProbeIndex = i+1;
+                else runtime.infrastructureProbeIndex = i+1;
+                Vector3d candidate = safeBuildProbe(world, vector(work.target()), BUILD_PROBE_OFFSETS[i]);
+                if (candidate != null) return point(candidate);
+            }
+            return null;
+        }
+        @Override public WorldPosition restTarget() {
+            MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
+            if (network == null) return null;
+            MineRoom selected = MineIdleDestinationSelector.select(network.rooms(), position.x,position.y,position.z,
+                runtime.idleRoomId, runtime.failedIdleRooms, room -> {
+                    BlockType observed = loadedBlockType(world, room.position());
+                    return observed == null || observed == BlockType.EMPTY;
+                });
+            if (selected == null) return null;
+            runtime.idleRoomId = selected.id();
+            return new WorldPosition(selected.position().x()+.5, selected.position().y(),selected.position().z()+.5);
+        }
+        @Override public void idle(boolean atCapacity) {
+            runtime.waitingForCapacity = atCapacity;
+            workerState(mine.id(),ref,worker,runtime,WorkerDebugState.IDLE,atCapacity ? "WAIT_CAPACITY" : "NO_AVAILABLE_TASK");
+            String fingerprint = atCapacity + ":" + plan.fronts.size() + ":" + plan.rooms.size();
+            if (!fingerprint.equals(runtime.lastNoTaskFingerprint)) {
+                runtime.lastNoTaskFingerprint = fingerprint;
+                decisionSink.record(mine.id(),null,MineDecisionCategory.WORKER, "NO_AVAILABLE_TASK",
+                    "npc",workerLabel(ref,worker), "atCapacity",atCapacity);
+            }
+        }
+        @Override public void restFailed(WorldPosition target) {
+            if (runtime.idleRoomId != null) runtime.failedIdleRooms.add(runtime.idleRoomId);
+            runtime.idleRoomId = null;
+        }
+        @Override public void ended(MinerWorkController.Task task, MinerWorkController.End reason) {
+            var disposition = MinerWorkController.disposition(task, reason);
+            stopMiningAnimation(ref, store, runtime); stopBuildingAnimation(ref, store, runtime);
+            workerTaskEnded(mine.id(), ref, worker, runtime, reason.name());
+            if (task.kind() == MineNormalTaskSelector.Kind.TUNNEL_FRONT) {
+                RuntimeFrontPlan front = plan.fronts.get(task.id());
+                if (front != null && !front.complete && disposition == MinerWorkController.Disposition.ADVANCE
+                    && sliceComplete(world, front.slices.get(front.sliceIndex))) completeCurrentSlice(world, mine, plan, front);
+                else if (front != null && disposition == MinerWorkController.Disposition.BLOCK_FRONT) {
+                    if (!scheduleNearbyRecoveryStep(world, mine, plan, front))
+                        failFront(world,mine,front,currentFront(world.getWorldConfig().getUuid(),mine.id(),front.frontId),
+                            MineObstaclePolicy.FailureKind.NAVIGATION_UNREACHABLE,"NATIVE_NAVIGATION_UNREACHABLE");
+                } else if (front != null && disposition == MinerWorkController.Disposition.ABANDON_FRONT)
+                    failFront(world,mine,front,currentFront(world.getWorldConfig().getUuid(),mine.id(),front.frontId),
+                        MineObstaclePolicy.FailureKind.UNSAFE_GEOMETRY,reason.name());
+            } else if (task.kind() == MineNormalTaskSelector.Kind.ROOM) {
+                RuntimeRoomPlan roomPlan = plan.rooms.get(task.id());
+                MineRoom room = currentRoom(world.getWorldConfig().getUuid(),mine.id(),task.id());
+                if (room != null && roomPlan != null && disposition == MinerWorkController.Disposition.ADVANCE) {
+                    if (room.state() == MineRoom.State.EXCAVATING)
+                        completeRoomExcavationUnit(world,mine,room,roomPlan,room.excavationWorkUnitIndex(),runtime,ref,store);
+                    else if (room.state() == MineRoom.State.BUILT) clearNormalTaskAge(world,mine,room.id());
+                } else if (roomPlan != null && disposition == MinerWorkController.Disposition.DISABLE_ROOM) roomPlan.unavailable = true;
+            } else {
+                RuntimeInfrastructureTask infrastructure = plan.infrastructureTasks.get(task.id());
+                if (infrastructure != null && disposition == MinerWorkController.Disposition.ADVANCE)
+                    completeInfrastructureTask(world,mine,infrastructure,worker,runtime,ref,store,"COMPLETED");
+                else if (infrastructure != null && disposition != MinerWorkController.Disposition.KEEP) {
+                    if (disposition == MinerWorkController.Disposition.SKIP_OPTIONAL) completeInfrastructureTask(world,mine,infrastructure,worker,runtime,ref,store,"SKIPPED_"+reason);
+                    else {
+                        RuntimeFrontPlan front = frontForTunnel(plan,infrastructure.task.tunnelId());
+                        if (front != null) failFront(world,mine,front,currentFront(world.getWorldConfig().getUuid(),mine.id(),front.frontId),
+                            disposition == MinerWorkController.Disposition.BLOCK_FRONT ? MineObstaclePolicy.FailureKind.NAVIGATION_UNREACHABLE
+                                : MineObstaclePolicy.FailureKind.MANDATORY_INFRASTRUCTURE_UNRESOLVABLE,reason.name());
+                    }
+                }
+            }
+            runtime.clearWorkAssignment();
+        }
     }
 
     private void refreshBridgeTasks(
@@ -960,431 +1033,6 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         return fluid != null && fluid.hasEffect(ShaderType.Lava);
     }
 
-    private RuntimeInfrastructureTask selectMandatoryInfrastructureTask(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        RuntimeMinePlan minePlan,
-        Vector3d workerPosition,
-        CivUnitRegistry.UnitKey workerKey,
-        WorkerRuntime runtime
-    ) {
-        RuntimeInfrastructureTask best = null;
-        double bestDistance = Double.POSITIVE_INFINITY;
-
-        for (RuntimeInfrastructureTask candidate : minePlan.infrastructureTasks.values()) {
-            if (candidate.completed || !candidate.task.mandatory()) continue;
-
-            RuntimeFrontPlan front = frontForTunnel(minePlan, candidate.task.tunnelId());
-            if (front == null || front.unavailable || !infrastructureAvailable(candidate.task, front)) {
-                continue;
-            }
-
-            CivUnitRegistry.UnitKey reserved = infrastructureReservations.get(candidate.task.id());
-            if (reserved != null && !reserved.equals(workerKey)) continue;
-
-            double distance = squaredDistance(workerPosition, candidate.task.anchor());
-            if (best == null
-                || distance < bestDistance
-                || (distance == bestDistance
-                    && candidate.task.id().compareTo(best.task.id()) < 0)) {
-                best = candidate;
-                bestDistance = distance;
-            }
-        }
-
-        if (best == null) return null;
-        if (runtime.infrastructureTaskId != null
-            && !runtime.infrastructureTaskId.equals(best.task.id())) {
-            infrastructureReservations.remove(runtime.infrastructureTaskId, workerKey);
-            runtime.clearInfrastructureAssignment();
-        }
-        CivUnitRegistry.UnitKey existing =
-            infrastructureReservations.putIfAbsent(best.task.id(), workerKey);
-        if (existing != null && !existing.equals(workerKey)) return null;
-
-        runtime.infrastructureTaskId = best.task.id();
-        runtime.selectedTaskKey = best.task.type() + ":" + best.task.id();
-        runtime.resolvedInfrastructure = null;
-        runtime.infrastructurePlacementIndex = 0;
-        runtime.workElapsed = 0.0;
-        runtime.navigationArrived();
-        decisionSink.record(
-            mine.id(), best.task.id(), MineDecisionCategory.WORKER, "TASK_SELECTED",
-            "npc", workerLabel(null, workerKey),
-            "taskType", best.task.type(),
-            "reservation", "JOINED",
-            "workers", 1,
-            "capacity", 1,
-            "tunnel", best.task.tunnelId(),
-            "priority", best.task.priority()
-        );
-        return best;
-    }
-
-    private RuntimeInfrastructureTask selectInfrastructureTaskById(
-        BuildingPlacementRegistry.BuildingInstance mine,
-        RuntimeMinePlan minePlan,
-        UUID taskId,
-        CivUnitRegistry.UnitKey workerKey,
-        WorkerRuntime runtime
-    ) {
-        RuntimeInfrastructureTask selected = minePlan.infrastructureTasks.get(taskId);
-        if (selected == null || selected.completed || selected.task.mandatory()) return null;
-
-        CivUnitRegistry.UnitKey existing =
-            infrastructureReservations.putIfAbsent(selected.task.id(), workerKey);
-        if (existing != null && !existing.equals(workerKey)) return null;
-
-        runtime.infrastructureTaskId = selected.task.id();
-        runtime.selectedTaskKey = selected.task.type() + ":" + selected.task.id();
-        runtime.resolvedInfrastructure = null;
-        runtime.infrastructurePlacementIndex = 0;
-        runtime.workElapsed = 0.0;
-        runtime.navigationArrived();
-        decisionSink.record(
-            mine.id(), selected.task.id(), MineDecisionCategory.WORKER, "TASK_SELECTED",
-            "npc", workerLabel(null, workerKey),
-            "taskType", selected.task.type(),
-            "reservation", "JOINED",
-            "workers", 1,
-            "capacity", 1,
-            "tunnel", selected.task.tunnelId(),
-            "priority", selected.task.priority(),
-            "decoration", selected.task.decorationKind()
-        );
-        return selected;
-    }
-
-    private void executeInfrastructure(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        RuntimeMinePlan minePlan,
-        RuntimeInfrastructureTask infrastructure,
-        Ref<EntityStore> ref,
-        Store<EntityStore> store,
-        Vector3d workerPosition,
-        CivUnitRegistry.UnitKey workerKey,
-        WorkerRuntime runtime
-    ) {
-        stopMiningAnimation(ref, store, runtime);
-
-        if (runtime.resolvedInfrastructure == null) {
-            MineInfrastructurePlacementResolver.DecorationResolution decorationResolution = null;
-            if (infrastructure.task.decoration()) {
-                decorationResolution = MineInfrastructurePlacementResolver.resolveDecorationDetailed(
-                    world,
-                    infrastructure.task,
-                    infrastructure.tunnelKind,
-                    infrastructure.geometry
-                );
-                runtime.resolvedInfrastructure = decorationResolution.resolvedTask();
-            } else {
-                runtime.resolvedInfrastructure = MineInfrastructurePlacementResolver.resolve(
-                    world,
-                    infrastructure.task,
-                    infrastructure.tunnelKind,
-                    infrastructure.geometry
-                );
-            }
-            runtime.infrastructurePlacementIndex = 0;
-            runtime.workElapsed = 0.0;
-
-            if (runtime.resolvedInfrastructure != null) {
-                Vector3d resolvedTarget = runtime.resolvedInfrastructure.workTarget();
-                decisionSink.record(
-                    mine.id(), infrastructure.task.id(), MineDecisionCategory.WORKER,
-                    "INFRASTRUCTURE_WORK_TARGET",
-                    "npc", workerLabel(ref, workerKey),
-                    "taskType", infrastructure.task.type(),
-                    "target", formatTarget(resolvedTarget),
-                    "minerPosition", formatTarget(workerPosition),
-                    "distance", Math.sqrt(workerPosition.distanceSquared(resolvedTarget)),
-                    "placements", runtime.resolvedInfrastructure.placements().size()
-                );
-            }
-
-            if (runtime.resolvedInfrastructure == null) {
-                // A pending bridge can become unnecessary after another worker
-                // fills its deck. No remaining placements is success only if
-                // the entire planned walking floor is now present.
-                if (infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE
-                    && bridgeDeckComplete(world, infrastructure)) {
-                    completeInfrastructureTask(
-                        world, mine, infrastructure, workerKey, runtime, ref, store,
-                        "BRIDGE_DECK_ALREADY_COMPLETE"
-                    );
-                    return;
-                }
-                if (decorationResolution != null) {
-                    decisionSink.record(
-                        mine.id(), infrastructure.task.id(), MineDecisionCategory.ADAPTER,
-                        "DECORATION_SKIPPED_RUNTIME",
-                        "npc", workerLabel(ref, workerKey),
-                        "kind", infrastructure.task.decorationKind(),
-                        "plannedSlice", infrastructure.task.startSliceIndex(),
-                        "triedSlices", decorationResolution.triedSlices(),
-                        "reasons", decorationResolution.reasons(),
-                        "minerPosition", formatTarget(workerPosition)
-                    );
-                }
-                decisionSink.record(
-                    mine.id(), infrastructure.task.id(), MineDecisionCategory.ADAPTER,
-                    "INFRASTRUCTURE_RESOLVE_FAILED",
-                    "npc", workerLabel(ref, workerKey),
-                    "taskType", infrastructure.task.type(),
-                    "anchor", infrastructure.task.anchor(),
-                    "minerPosition", formatTarget(workerPosition)
-                );
-                unitRegistry.clearMoveTarget(ref);
-                stopBuildingAnimation(ref, store, runtime);
-                if (infrastructure.task.mandatory()) {
-                    RuntimeFrontPlan affected =
-                        frontForTunnel(minePlan, infrastructure.task.tunnelId());
-                    MineWorkFront front = affected == null ? null : currentFront(
-                        world.getWorldConfig().getUuid(), mine.id(), affected.frontId
-                    );
-                    if (affected != null && front != null) {
-                        failFront(
-                            world,
-                            mine,
-                            affected,
-                            front,
-                            MineObstaclePolicy.FailureKind.MANDATORY_INFRASTRUCTURE_UNRESOLVABLE,
-                            "MANDATORY_INFRASTRUCTURE_UNRESOLVABLE"
-                        );
-                    }
-                    workerTaskEnded(
-                        mine.id(), ref, workerKey, runtime, "MANDATORY_INFRASTRUCTURE_UNRESOLVABLE"
-                    );
-                    infrastructureReservations.remove(infrastructure.task.id(), workerKey);
-                    runtime.clearInfrastructureAssignment();
-                } else {
-                    completeInfrastructureTask(
-                        world, mine, infrastructure, workerKey, runtime, ref, store,
-                        "SKIPPED_UNRESOLVABLE"
-                    );
-                }
-                return;
-            }
-        }
-
-        // Defer optional placements when the target overlaps the 1-block safety envelope
-        // of still-solid authored excavation. Mandatory steps/bridges use their own policy.
-        RuntimeFrontPlan blockingFront = blockingExcavationFront(world, minePlan, infrastructure, runtime);
-        if (blockingFront != null) {
-            deferInfrastructureNearExcavation(
-                mine, infrastructure, blockingFront, ref, store, workerKey, runtime
-            );
-            return;
-        }
-
-        Vector3d target = runtime.infrastructureProbeTarget == null
-            ? runtime.resolvedInfrastructure.workTarget() : runtime.infrastructureProbeTarget;
-        if (!arrived(workerPosition, target)) {
-            navigateTo(ref, target, runtime);
-            stopBuildingAnimation(ref, store, runtime);
-            return;
-        }
-
-        runtime.navigationArrived();
-        unitRegistry.clearMoveTarget(ref);
-        workerTaskStarted(
-            mine.id(), ref, workerKey, runtime, infrastructure.task.type().name(),
-            infrastructure.task.id(), 1, 1
-        );
-        workerState(
-            mine.id(), ref, workerKey, runtime, WorkerDebugState.BUILDING, "WORK_TARGET_REACHED"
-        );
-        if (!runtime.buildingAnimationStarted) {
-            AnimationUtils.playAnimation(
-                ref, AnimationSlot.Action, BUILDING_ITEM_ANIMATIONS, BUILDING_ANIMATION, store
-            );
-            runtime.buildingAnimationStarted = true;
-        }
-
-        runtime.workElapsed += TICK_INTERVAL_SECONDS;
-        while (runtime.workElapsed + 1.0e-9 >= INFRASTRUCTURE_SECONDS_PER_BLOCK) {
-            runtime.workElapsed -= INFRASTRUCTURE_SECONDS_PER_BLOCK;
-            if (runtime.infrastructurePlacementIndex
-                >= runtime.resolvedInfrastructure.placements().size()) {
-                completeInfrastructureTask(
-                    world, mine, infrastructure, workerKey, runtime, ref, store, "COMPLETED"
-                );
-                return;
-            }
-
-            MineInfrastructurePlacementResolver.PlacementStep placement =
-                runtime.resolvedInfrastructure.placements().get(
-                    runtime.infrastructurePlacementIndex
-                );
-            // Recheck immediately before each native block placement: the world may
-            // have changed while the miner was navigating or animating.
-            blockingFront = blockingExcavationFront(world, minePlan, infrastructure, runtime);
-            if (blockingFront != null) {
-                deferInfrastructureNearExcavation(
-                    mine, infrastructure, blockingFront, ref, store, workerKey, runtime
-                );
-                return;
-            }
-            BlockType occupiedBridgeVoxel = loadedBlockType(world, placement.position());
-            if (infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE
-                && occupiedBridgeVoxel != null
-                && !placement.blockId().equals(occupiedBridgeVoxel.getId())
-                && MineBlockPlacement.isDeco(world, placement.position())) {
-                // Native Deco metadata identifies player-like placements, not only
-                // Civ ownership. Never remove a non-Deco natural voxel.
-                WorldChunk decoChunk = world.getChunkIfLoaded(
-                    ChunkUtil.indexChunkFromBlock(
-                        placement.position().x(), placement.position().z()
-                    )
-                );
-                if (decoChunk != null && decoChunk.breakBlock(
-                    placement.position().x(), placement.position().y(),
-                    placement.position().z(), 0, 0
-                )) {
-                    decisionSink.record(
-                        mine.id(), infrastructure.task.id(), MineDecisionCategory.ADAPTER,
-                        "BRIDGE_DECO_REPLACED", "position", placement.position()
-                    );
-                }
-            }
-            MineBlockPlacement.PlacementResult placementResult =
-                MineBlockPlacement.placeDetailed(
-                    world,
-                    placement.position(),
-                    placement.blockId(),
-                    placement.rotation(),
-                    placement.placedAgainst(),
-                    placement.markDeco()
-                );
-            if (!placementResult.success()) {
-                String failureKey = placement.blockId() + "@" + placement.position()
-                    + ":" + placementResult.failureReason()
-                    + ":" + placementResult.existingBlockId();
-                if (failureKey.equals(infrastructure.lastPlacementFailureKey)) {
-                    infrastructure.repeatedPlacementFailures++;
-                } else {
-                    infrastructure.lastPlacementFailureKey = failureKey;
-                    infrastructure.repeatedPlacementFailures = 1;
-                }
-
-                String event = infrastructure.repeatedPlacementFailures == 1
-                    ? "BLOCK_PLACEMENT_FAILED"
-                    : "BLOCK_PLACEMENT_FAILURE_REPEATED";
-                if (infrastructure.repeatedPlacementFailures == 1
-                    || infrastructure.repeatedPlacementFailures == 2
-                    || infrastructure.repeatedPlacementFailures == 3
-                    || infrastructure.repeatedPlacementFailures % 5 == 0) {
-                    decisionSink.record(
-                        mine.id(), infrastructure.task.id(), MineDecisionCategory.ADAPTER, event,
-                        "npc", workerLabel(ref, workerKey),
-                        "taskType", infrastructure.task.type(),
-                        "blockId", placement.blockId(),
-                        "position", placement.position(),
-                        "placedAgainst", placement.placedAgainst(),
-                        "reason", placementResult.failureReason(),
-                        "existingBlockId", placementResult.existingBlockId(),
-                        "repeatCount", infrastructure.repeatedPlacementFailures,
-                        "workTarget", formatTarget(runtime.resolvedInfrastructure.workTarget()),
-                        "minerPosition", formatTarget(workerPosition)
-                    );
-                }
-                if (infrastructure.repeatedPlacementFailures == 3) {
-                    decisionSink.record(
-                        mine.id(), infrastructure.task.id(), MineDecisionCategory.ADAPTER,
-                        "PLACEMENT_RETRY_LOOP_DETECTED",
-                        "npc", workerLabel(ref, workerKey),
-                        "taskType", infrastructure.task.type(),
-                        "blockId", placement.blockId(),
-                        "position", placement.position(),
-                        "reason", placementResult.failureReason(),
-                        "repeatCount", infrastructure.repeatedPlacementFailures
-                    );
-                }
-
-                // Try one reachable, safe alternative standing position in each compass
-                // direction before giving up this particular infrastructure task.
-                if (advanceInfrastructureProbe(world, runtime)) {
-                    runtime.resolvedInfrastructure = null;
-                    runtime.infrastructurePlacementIndex = 0;
-                    runtime.workElapsed = 0.0;
-                    stopBuildingAnimation(ref, store, runtime);
-                    return;
-                }
-                // A fixed occupied block cannot be solved by endlessly retrying placement
-                // from the same position. Release optional work so miners can make progress.
-                // Mandatory passability work must instead close its unsafe front.
-                if (runtime.infrastructureProbeIndex >= BUILD_PROBE_OFFSETS.length) {
-                    if (infrastructure.task.mandatory()) {
-                        RuntimeFrontPlan affected =
-                            frontForTunnel(minePlan, infrastructure.task.tunnelId());
-                        MineWorkFront front = affected == null ? null : currentFront(
-                            world.getWorldConfig().getUuid(), mine.id(), affected.frontId
-                        );
-                        if (affected != null && front != null) {
-                            failFront(
-                                world, mine, affected, front,
-                                MineObstaclePolicy.FailureKind.MANDATORY_INFRASTRUCTURE_UNRESOLVABLE,
-                                "MANDATORY_PLACEMENT_FAILED"
-                            );
-                        }
-                        workerTaskEnded(
-                            mine.id(), ref, workerKey, runtime, "MANDATORY_PLACEMENT_FAILED"
-                        );
-                        infrastructureReservations.remove(infrastructure.task.id(), workerKey);
-                        unitRegistry.clearMoveTarget(ref);
-                        stopBuildingAnimation(ref, store, runtime);
-                        runtime.clearInfrastructureAssignment();
-                    } else {
-                        completeInfrastructureTask(
-                            world, mine, infrastructure, workerKey, runtime, ref, store,
-                            "SKIPPED_BLOCKED_POSITION"
-                        );
-                    }
-                    return;
-                }
-                runtime.resolvedInfrastructure = null;
-                runtime.infrastructurePlacementIndex = 0;
-                runtime.workElapsed = 0.0;
-                stopBuildingAnimation(ref, store, runtime);
-                return;
-            }
-            infrastructure.lastPlacementFailureKey = null;
-            infrastructure.repeatedPlacementFailures = 0;
-            runtime.infrastructurePlacementIndex++;
-        }
-
-        if (runtime.infrastructurePlacementIndex
-            >= runtime.resolvedInfrastructure.placements().size()) {
-            if (infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE
-                && !bridgeDeckComplete(world, infrastructure)) {
-                // Re-resolve once the world has changed; never mark a partial
-                // walking deck as finished or release mining past the gap.
-                runtime.resolvedInfrastructure = null;
-                runtime.infrastructurePlacementIndex = 0;
-                runtime.workElapsed = 0.0;
-                return;
-            }
-            completeInfrastructureTask(
-                world, mine, infrastructure, workerKey, runtime, ref, store, "COMPLETED"
-            );
-        }
-    }
-
-    private boolean advanceInfrastructureProbe(World world, WorkerRuntime runtime) {
-        if (runtime.resolvedInfrastructure == null) return false;
-        Vector3d anchor = runtime.resolvedInfrastructure.workTarget();
-        while (runtime.infrastructureProbeIndex < BUILD_PROBE_OFFSETS.length) {
-            Vector3d candidate = safeBuildProbe(
-                world, anchor, BUILD_PROBE_OFFSETS[runtime.infrastructureProbeIndex++]
-            );
-            if (candidate == null) continue;
-            runtime.infrastructureProbeTarget = candidate;
-            return true;
-        }
-        return false;
-    }
-
     private static Vector3d safeBuildProbe(World world, Vector3d anchor, int[] offset) {
             int y = (int) Math.floor(anchor.y);
             int x = (int) Math.floor(anchor.x) + offset[0];
@@ -1425,33 +1073,6 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             }
         }
         return null;
-    }
-
-    private void deferInfrastructureNearExcavation(
-        BuildingPlacementRegistry.BuildingInstance mine,
-        RuntimeInfrastructureTask infrastructure,
-        RuntimeFrontPlan blockingFront,
-        Ref<EntityStore> ref,
-        Store<EntityStore> store,
-        CivUnitRegistry.UnitKey workerKey,
-        WorkerRuntime runtime
-    ) {
-        infrastructure.deferredByFrontId = blockingFront.frontId;
-        infrastructure.deferredAtSlice = blockingFront.sliceIndex;
-        decisionSink.record(
-            mine.id(), infrastructure.task.id(), MineDecisionCategory.PLANNING,
-            "INFRASTRUCTURE_DELAYED",
-            "npc", workerLabel(ref, workerKey),
-            "taskType", infrastructure.task.type(),
-            "reason", "NEAR_PENDING_EXCAVATION",
-            "blockingFront", blockingFront.frontId,
-            "untilSliceChanges", infrastructure.deferredAtSlice
-        );
-        workerTaskEnded(mine.id(), ref, workerKey, runtime, "DELAYED_NEAR_EXCAVATION");
-        infrastructureReservations.remove(infrastructure.task.id(), workerKey);
-        unitRegistry.clearMoveTarget(ref);
-        stopBuildingAnimation(ref, store, runtime);
-        runtime.clearInfrastructureAssignment();
     }
 
     private void completeInfrastructureTask(
@@ -1545,7 +1166,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         runtime.clearInfrastructureAssignment();
     }
 
-    private MineNormalTaskSelector.Candidate selectNormalCandidate(
+    private List<MineNormalTaskSelector.Candidate> normalCandidates(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
         RuntimeMinePlan minePlan,
@@ -1554,7 +1175,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         WorkerRuntime runtime
     ) {
         MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
-        if (network == null) return null;
+        if (network == null) return List.of();
 
         int totalFronts = minePlan.fronts.size();
         int totalRooms = minePlan.rooms.size();
@@ -1648,151 +1269,23 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             ));
         }
 
-        MineNormalTaskSelector.Selection selection = MineNormalTaskSelector.selectWithAging(
-            candidates,
-            blockPosition(position),
-            network.normalTaskPriorityBonuses()
-        );
-        if (!selection.updatedPriorityBonuses().equals(network.normalTaskPriorityBonuses())) {
-            MineNetwork updated = network.withNormalTaskPriorityBonuses(
-                selection.updatedPriorityBonuses()
-            );
-            tunnelRegistry.putNetwork(world, updated);
-            network = updated;
-        }
-
-        MineNormalTaskSelector.Candidate selected = selection.selected();
-        RuntimeInfrastructureTask selectedInfrastructure = selected == null
-            || selected.kind() != MineNormalTaskSelector.Kind.INFRASTRUCTURE
-            ? null
-            : minePlan.infrastructureTasks.get(selected.id());
-        if (selectedInfrastructure != null
-            && selectedInfrastructure.task.type() == MineInfrastructureTask.Type.BUILD_SUPPORT) {
-            runtime.lastSupportDecisionFingerprint = null;
-            decisionSink.record(
-                mine.id(), selected.id(), MineDecisionCategory.WORKER, "BUILD_SUPPORT_TASK_SELECTED",
-                "npc", workerLabel(null, workerKey),
-                "priority", selected.priority(),
-                "effectivePriority", MineNormalTaskSelector.effectivePriority(
-                    selected, network.normalTaskPriorityBonuses()
-                ),
-                "workers", selected.workerCount(),
-                "capacity", selected.capacity(),
-                "anchor", selected.position()
-            );
-        } else if (!supportSkipReasons.isEmpty()) {
-            String supportFingerprint = supportSkipReasons.toString()
-                + "|selected=" + (selected == null ? "-" : selected.kind() + ":" + selected.id());
-            if (!supportFingerprint.equals(runtime.lastSupportDecisionFingerprint)) {
-                runtime.lastSupportDecisionFingerprint = supportFingerprint;
-                decisionSink.record(
-                    mine.id(), null, MineDecisionCategory.WORKER, "BUILD_SUPPORT_TASK_SKIPPED",
-                    "npc", workerLabel(null, workerKey),
-                    "reasons", supportSkipReasons,
-                    "selectedInstead", selected == null ? "-" : selected.kind() + ":" + selected.id()
-                );
+        if (!decorationSkipReasons.isEmpty()) {
+            String fingerprint = decorationSkipReasons.toString();
+            if (!fingerprint.equals(runtime.lastDecorationDecisionFingerprint)) {
+                runtime.lastDecorationDecisionFingerprint = fingerprint;
+                decisionSink.record(mine.id(),null,MineDecisionCategory.WORKER,"DECORATION_TASK_SKIPPED",
+                    "reasons",decorationSkipReasons);
             }
         }
-        boolean selectedDecoration = selectedInfrastructure != null
-            && selectedInfrastructure.task.decoration();
-        if (selectedDecoration) {
-            runtime.lastDecorationDecisionFingerprint = null;
-            decisionSink.record(
-                mine.id(), selected.id(), MineDecisionCategory.WORKER, "DECORATION_TASK_SELECTED",
-                "npc", workerLabel(null, workerKey),
-                "kind", selectedInfrastructure.task.decorationKind(),
-                "priority", selected.priority(),
-                "effectivePriority", MineNormalTaskSelector.effectivePriority(
-                    selected, network.normalTaskPriorityBonuses()
-                ),
-                "anchor", selected.position()
-            );
-        } else {
-            if (!availableDecorations.isEmpty()) {
-                decorationSkipReasons.merge(
-                    "AVAILABLE_NOT_SELECTED", availableDecorations.size(), Integer::sum
-                );
-            }
-            if (!decorationSkipReasons.isEmpty()) {
-                String decorationFingerprint = decorationSkipReasons.toString()
-                    + "|selected=" + (selected == null ? "-" : selected.kind() + ":" + selected.id());
-                if (!decorationFingerprint.equals(runtime.lastDecorationDecisionFingerprint)) {
-                    runtime.lastDecorationDecisionFingerprint = decorationFingerprint;
-                    decisionSink.record(
-                        mine.id(), null, MineDecisionCategory.WORKER, "DECORATION_TASK_SKIPPED",
-                        "npc", workerLabel(null, workerKey),
-                        "reasons", decorationSkipReasons,
-                        "selectedInstead",
-                        selected == null ? "-" : selected.kind() + ":" + selected.id()
-                    );
-                }
+        if (!supportSkipReasons.isEmpty()) {
+            String fingerprint = supportSkipReasons.toString();
+            if (!fingerprint.equals(runtime.lastSupportDecisionFingerprint)) {
+                runtime.lastSupportDecisionFingerprint = fingerprint;
+                decisionSink.record(mine.id(),null,MineDecisionCategory.WORKER,"BUILD_SUPPORT_TASK_SKIPPED",
+                    "reasons",supportSkipReasons);
             }
         }
-
-        runtime.waitingForCapacity = selected == null
-            && MineNormalTaskSelector.allWorkAtCapacity(candidates);
-        if (selected == null) {
-            String fingerprint = totalFronts + ":" + totalRooms + ":" + totalInfrastructure
-                + ":" + candidates.size();
-            if (!fingerprint.equals(runtime.lastNoTaskFingerprint)) {
-                runtime.lastNoTaskFingerprint = fingerprint;
-                decisionSink.record(
-                    mine.id(), null, MineDecisionCategory.WORKER, "NO_AVAILABLE_TASK",
-                    "npc", workerLabel(null, workerKey),
-                    "fronts", totalFronts,
-                    "rooms", totalRooms,
-                    "infrastructure", totalInfrastructure,
-                    "executableCandidates", candidates.size()
-                );
-            }
-        } else {
-            runtime.lastNoTaskFingerprint = null;
-        }
-        if (selected != null) {
-            decisionSink.record(
-                mine.id(), selected.id(), MineDecisionCategory.PLANNING, "NORMAL_TASK_SELECTED",
-                "kind", selected.kind(),
-                "basePriority", selected.priority(),
-                "effectivePriority", MineNormalTaskSelector.effectivePriority(
-                    selected, network.normalTaskPriorityBonuses()
-                ),
-                "openedWaitingWork", selection.openedWaitingWork()
-            );
-        }
-        return selected;
-    }
-
-    private RuntimeRoomPlan selectRoom(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        RuntimeMinePlan minePlan,
-        UUID roomId,
-        CivUnitRegistry.UnitKey workerKey,
-        WorkerRuntime runtime
-    ) {
-        MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
-        RuntimeRoomPlan plan = minePlan.rooms.get(roomId);
-        MineRoom room = network == null ? null : roomById(network, roomId);
-        if (plan == null || room == null || !roomCoordinator.tryJoin(roomId, workerKey, roomCapacity(room))) {
-            return null;
-        }
-        runtime.roomId = roomId;
-        runtime.roomBuildSection = null;
-        runtime.selectedTaskKey = (room.state() == MineRoom.State.READY_TO_BUILD
-            ? "BUILD_ROOM:" : "EXCAVATE_ROOM:") + roomId;
-        runtime.navigationArrived();
-        decisionSink.record(
-            mine.id(), roomId, MineDecisionCategory.WORKER, "TASK_SELECTED",
-            "npc", workerLabel(null, workerKey),
-            "taskType", room.state() == MineRoom.State.READY_TO_BUILD ? "BUILD_ROOM" : "EXCAVATE_ROOM",
-            "reservation", "JOINED",
-            "workers", roomCoordinator.workerCount(roomId),
-            "capacity", roomCapacity(room),
-            "priority", MineRoomPlanner.ROOM_PRIORITY,
-            "roomType", room.type(),
-            "tunnel", room.tunnelId()
-        );
-        return plan;
+        return candidates;
     }
 
     private boolean roomExecutable(
@@ -1831,278 +1324,6 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             : MineRoomPlanner.EXCAVATION_CAPACITY;
     }
 
-    private void executeRoom(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        RuntimeMinePlan minePlan,
-        RuntimeRoomPlan plan,
-        MineRoom room,
-        Ref<EntityStore> ref,
-        Store<EntityStore> store,
-        CommandBuffer<EntityStore> commandBuffer,
-        Vector3d workerPosition,
-        CivUnitRegistry.UnitKey workerKey,
-        WorkerRuntime runtime
-    ) {
-        if (room.state() == MineRoom.State.PLANNED) {
-            room = room.withState(MineRoom.State.EXCAVATING);
-            persistRoom(world, mine, room);
-        }
-
-        if (room.state() == MineRoom.State.EXCAVATING) {
-            executeRoomExcavation(world, mine, plan, room, ref, store, workerPosition, workerKey, runtime);
-            return;
-        }
-
-        if (room.state() != MineRoom.State.READY_TO_BUILD) {
-            workerTaskEnded(mine.id(), ref, workerKey, runtime, "TASK_NO_LONGER_EXECUTABLE");
-            roomCoordinator.releaseWorker(workerKey);
-            runtime.clearRoomAssignment();
-            return;
-        }
-
-        stopMiningAnimation(ref, store, runtime);
-        int sectionCount = MineRoomPrefabService.sectionCount(room);
-        if (sectionCount <= 0) {
-            plan.unavailable = true;
-            workerTaskEnded(mine.id(), ref, workerKey, runtime, "INVALID_ROOM_PREFAB");
-            roomCoordinator.releaseWorker(workerKey);
-            runtime.clearRoomAssignment();
-            return;
-        }
-        if (room.completedBuildSections().size() >= sectionCount) {
-            MineRoom built = room.withState(MineRoom.State.BUILT);
-            persistRoom(world, mine, built);
-            clearNormalTaskAge(world, mine, room.id());
-            roomCoordinator.releaseRoom(room.id());
-            runtime.clearRoomAssignment();
-            decisionSink.record(
-                mine.id(), room.id(), MineDecisionCategory.ROOM, "ROOM_BUILT",
-                "roomType", room.type()
-            );
-            return;
-        }
-
-        if (!roomCoordinator.tryJoin(room.id(), workerKey, MineRoomPlanner.BUILD_CAPACITY)) {
-            workerTaskEnded(mine.id(), ref, workerKey, runtime, "CAPACITY_UNAVAILABLE");
-            runtime.clearRoomAssignment();
-            return;
-        }
-
-        Integer section = runtime.roomBuildSection;
-        if (section == null || room.completedBuildSections().contains(section)) {
-            section = roomCoordinator.claimNextBuildSection(
-                room.id(),
-                workerKey,
-                MineRoomPlanner.BUILD_CAPACITY,
-                sectionCount,
-                room.completedBuildSections()
-            );
-            runtime.roomBuildSection = section;
-        }
-        if (section == null) return;
-
-        Vector3d target = new Vector3d(
-            room.position().x() + 0.5,
-            room.position().y(),
-            room.position().z() + 0.5
-        );
-        if (runtime.roomProbeTarget != null) target = runtime.roomProbeTarget;
-        if (!arrived(workerPosition, target)) {
-            navigateTo(ref, target, runtime);
-            stopBuildingAnimation(ref, store, runtime);
-            return;
-        }
-
-        runtime.navigationArrived();
-        unitRegistry.clearMoveTarget(ref);
-        workerTaskStarted(
-            mine.id(), ref, workerKey, runtime, "BUILD_ROOM", room.id(),
-            roomCoordinator.workerCount(room.id()), MineRoomPlanner.BUILD_CAPACITY
-        );
-        workerState(
-            mine.id(), ref, workerKey, runtime, WorkerDebugState.BUILDING, "WORK_TARGET_REACHED"
-        );
-        if (!runtime.buildingAnimationStarted) {
-            AnimationUtils.playAnimation(
-                ref, AnimationSlot.Action, BUILDING_ITEM_ANIMATIONS, BUILDING_ANIMATION, store
-            );
-            runtime.buildingAnimationStarted = true;
-        }
-
-        runtime.workElapsed += TICK_INTERVAL_SECONDS;
-        if (runtime.workElapsed + 1.0e-9 < ROOM_BUILD_SECONDS_PER_SECTION) return;
-        runtime.workElapsed = 0.0;
-
-        if (!MineRoomPrefabService.placeSection(world, room, section, commandBuffer)) {
-            Vector3d anchor = new Vector3d(
-                room.position().x() + 0.5, room.position().y(), room.position().z() + 0.5
-            );
-            while (runtime.roomProbeIndex < BUILD_PROBE_OFFSETS.length) {
-                Vector3d candidate = safeBuildProbe(
-                    world, anchor, BUILD_PROBE_OFFSETS[runtime.roomProbeIndex++]
-                );
-                if (candidate == null) continue;
-                runtime.roomProbeTarget = candidate;
-                stopBuildingAnimation(ref, store, runtime);
-                return;
-            }
-            plan.unavailable = true;
-            workerTaskEnded(mine.id(), ref, workerKey, runtime, "ROOM_PREFAB_PLACEMENT_FAILED");
-            roomCoordinator.releaseWorker(workerKey);
-            stopBuildingAnimation(ref, store, runtime);
-            runtime.clearRoomAssignment();
-            return;
-        }
-
-        int completedCount = room.completedBuildSections().contains(section)
-            ? room.completedBuildSections().size()
-            : room.completedBuildSections().size() + 1;
-        MineRoom.State nextState = completedCount >= sectionCount
-            ? MineRoom.State.BUILT
-            : MineRoom.State.READY_TO_BUILD;
-        MineRoom updated = room.withBuildSectionCompleted(section, nextState);
-        persistRoom(world, mine, updated);
-        clearNormalTaskAge(world, mine, room.id());
-        roomCoordinator.completeBuildSection(room.id(), workerKey, section);
-        roomCoordinator.releaseWorker(workerKey);
-        workerTaskEnded(
-            mine.id(), ref, workerKey, runtime,
-            nextState == MineRoom.State.BUILT ? "TASK_COMPLETED" : "WORK_UNIT_COMPLETED"
-        );
-        stopBuildingAnimation(ref, store, runtime);
-        runtime.clearRoomAssignment();
-        decisionSink.record(
-            mine.id(), room.id(), MineDecisionCategory.ROOM, "WORK_UNIT_COMPLETED",
-            "type", "BUILD_ROOM",
-            "section", section,
-            "state", nextState
-        );
-    }
-
-    private void executeRoomExcavation(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        RuntimeRoomPlan plan,
-        MineRoom room,
-        Ref<EntityStore> ref,
-        Store<EntityStore> store,
-        Vector3d workerPosition,
-        CivUnitRegistry.UnitKey workerKey,
-        WorkerRuntime runtime
-    ) {
-        MineRoomGeometry geometry = plan.geometry;
-        int unitIndex = room.excavationWorkUnitIndex();
-        if (unitIndex >= geometry.excavationWorkUnits().size()) {
-            MineRoom ready = room.withState(MineRoom.State.READY_TO_BUILD);
-            persistRoom(world, mine, ready);
-            clearNormalTaskAge(world, mine, room.id());
-            roomCoordinator.releaseRoom(room.id());
-            runtime.clearRoomAssignment();
-            return;
-        }
-
-        List<BlockPosition> workUnit = geometry.excavationWorkUnits().get(unitIndex);
-        if (roomWorkUnitComplete(world, workUnit)) {
-            completeRoomExcavationUnit(world, mine, room, plan, unitIndex, runtime, ref, store);
-            return;
-        }
-        if (containsBlockedSolid(world, mine, workUnit)) {
-            plan.unavailable = true;
-            workerTaskEnded(mine.id(), ref, workerKey, runtime, "UNSAFE_GEOMETRY");
-            roomCoordinator.releaseRoom(room.id());
-            stopMiningAnimation(ref, store, runtime);
-            runtime.clearRoomAssignment();
-            return;
-        }
-
-        if (!roomCoordinator.tryJoin(room.id(), workerKey, MineRoomPlanner.EXCAVATION_CAPACITY)) {
-            workerTaskEnded(mine.id(), ref, workerKey, runtime, "CAPACITY_UNAVAILABLE");
-            runtime.clearRoomAssignment();
-            return;
-        }
-
-        BlockPosition work = geometry.workTargetForUnit(unitIndex);
-        Vector3d target = new Vector3d(work.x() + 0.5, work.y(), work.z() + 0.5);
-        if (!arrived(workerPosition, target)) {
-            navigateTo(ref, target, runtime);
-            stopMiningAnimation(ref, store, runtime);
-            return;
-        }
-
-        runtime.navigationArrived();
-        unitRegistry.clearMoveTarget(ref);
-        workerTaskStarted(
-            mine.id(), ref, workerKey, runtime, "EXCAVATE_ROOM", room.id(),
-            roomCoordinator.workerCount(room.id()), MineRoomPlanner.EXCAVATION_CAPACITY
-        );
-        workerState(
-            mine.id(), ref, workerKey, runtime, WorkerDebugState.WORKING, "WORK_TARGET_REACHED"
-        );
-        stopBuildingAnimation(ref, store, runtime);
-        if (!runtime.animationStarted) {
-            AnimationUtils.playAnimation(
-                ref, AnimationSlot.Action, MINING_ITEM_ANIMATIONS, MINING_ANIMATION, store
-            );
-            runtime.animationStarted = true;
-        }
-
-        runtime.workElapsed += TICK_INTERVAL_SECONDS;
-        while (runtime.workElapsed >= MineTuning.secondsPerBlock()) {
-            runtime.workElapsed -= MineTuning.secondsPerBlock();
-            if (!workOneRoomBlock(world, ref, store, mine, room, workUnit, workerKey, runtime)) break;
-            if (roomWorkUnitComplete(world, workUnit)) {
-                completeRoomExcavationUnit(world, mine, room, plan, unitIndex, runtime, ref, store);
-                return;
-            }
-        }
-    }
-
-    private boolean workOneRoomBlock(
-        World world,
-        Ref<EntityStore> worker,
-        Store<EntityStore> entityStore,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        MineRoom room,
-        List<BlockPosition> workUnit,
-        CivUnitRegistry.UnitKey workerKey,
-        WorkerRuntime runtime
-    ) {
-        BlockPosition target = roomCoordinator.claimNextBlock(
-            room.id(),
-            workerKey,
-            MineRoomPlanner.EXCAVATION_CAPACITY,
-            workUnit,
-            block -> isAvailableWorkBlock(world, mine, block)
-        );
-        runtime.claimedBlock = target;
-        if (target == null) return false;
-
-        BlockType type = loadedBlockType(world, target);
-        if (type == null) return false;
-        if (isEmpty(type)) {
-            roomCoordinator.completeBlock(room.id(), workerKey, target);
-            runtime.claimedBlock = null;
-            return true;
-        }
-        if (!safeBlock(world, mine, target)) return false;
-
-        Store<ChunkStore> chunkStore = world.getChunkStore().getStore();
-        BlockHarvestUtils.performBlockBreak(
-            worker,
-            null,
-            List.of(new Vector3i(target.x(), target.y(), target.z())),
-            0,
-            entityStore,
-            chunkStore
-        );
-        if (!isEmpty(loadedBlockType(world, target))) return false;
-
-        roomCoordinator.completeBlock(room.id(), workerKey, target);
-        runtime.claimedBlock = null;
-        return true;
-    }
-
     private void completeRoomExcavationUnit(
         World world,
         BuildingPlacementRegistry.BuildingInstance mine,
@@ -2113,11 +1334,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         Ref<EntityStore> ref,
         Store<EntityStore> store
     ) {
-        int next = completedUnit + 1;
-        MineRoom.State nextState = next >= plan.geometry.excavationWorkUnits().size()
-            ? MineRoom.State.READY_TO_BUILD
-            : MineRoom.State.EXCAVATING;
-        MineRoom updated = room.withExcavationProgress(next, nextState);
+        MineRoom updated = room.completeExcavationUnit(plan.geometry.excavationWorkUnits().size());
+        MineRoom.State nextState = updated.state();
         persistRoom(world, mine, updated);
         clearNormalTaskAge(world, mine, room.id());
         roomCoordinator.releaseRoom(room.id());
@@ -2171,121 +1389,6 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     ) {
         MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
         if (network != null) tunnelRegistry.putNetwork(world, network.withRoom(room));
-    }
-
-    private RuntimeFrontPlan selectFrontById(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        RuntimeMinePlan minePlan,
-        UUID frontId,
-        CivUnitRegistry.UnitKey workerKey,
-        WorkerRuntime runtime
-    ) {
-        MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
-        RuntimeFrontPlan selectedPlan = minePlan.fronts.get(frontId);
-        MineWorkFront selected = network == null ? null : workFrontById(network, frontId);
-        if (selectedPlan == null
-            || selectedPlan.complete
-            || !available(selected)
-            || !frontExecutable(world, minePlan, selectedPlan)
-            || !frontCoordinator.tryJoin(frontId, workerKey, MineFrontCoordinator.capacityFor(selectedPlan.tunnelKind))) {
-            return null;
-        }
-
-        runtime.frontId = selected.id();
-        runtime.sliceIndex = selectedPlan.sliceIndex;
-        runtime.selectedTaskKey = "EXCAVATE_FRONT:" + selected.id();
-        runtime.navigationArrived();
-        decisionSink.record(
-            mine.id(), selected.id(), MineDecisionCategory.WORKER, "TASK_SELECTED",
-            "npc", workerLabel(null, workerKey),
-            "taskType", "EXCAVATE_FRONT",
-            "reservation", "JOINED",
-            "workers", frontCoordinator.workerCount(selected.id()),
-            "capacity", MineFrontCoordinator.capacityFor(selectedPlan.tunnelKind),
-            "tunnel", selected.tunnelId(),
-            "kind", selected.tunnelId().equals(minePlan.mainTunnelId) ? "MAIN" : "BRANCH",
-            "slice", selectedPlan.sliceIndex,
-            "priority", MineNormalTaskSelector.effectivePriority(
-                new MineNormalTaskSelector.Candidate(
-                    selected.id(),
-                    MineNormalTaskSelector.Kind.TUNNEL_FRONT,
-                    selectedPlan.tunnelKind == MineTunnel.Kind.BRANCH
-                        ? MineFrontTaskScheduler.BRANCH_TUNNEL_PRIORITY
-                        : MineFrontTaskScheduler.MAIN_TUNNEL_PRIORITY,
-                    frontCoordinator.workerCount(selected.id()),
-                    MineFrontCoordinator.capacityFor(selectedPlan.tunnelKind),
-                    selected.position()
-                ),
-                network.normalTaskPriorityBonuses()
-            )
-        );
-        return selectedPlan;
-    }
-
-    private boolean workOneBlock(
-        World world,
-        Ref<EntityStore> worker,
-        Store<EntityStore> entityStore,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        RuntimeFrontPlan plan,
-        CivUnitRegistry.UnitKey workerKey,
-        WorkerRuntime runtime
-    ) {
-        var claim = MineFrontWorkDecision.choose(
-            frontCoordinator,
-            plan.frontId,
-            workerKey,
-            MineFrontCoordinator.capacityFor(plan.tunnelKind),
-            plan.orderedBlocks.get(plan.sliceIndex),
-            block -> isAvailableWorkBlock(world, mine, block)
-        );
-        BlockPosition target = claim.block();
-        runtime.claimedBlock = target;
-        if (target == null) return false;
-
-        BlockType type = loadedBlockType(world, target);
-        if (type == null) return false;
-        if (isEmpty(type)) {
-            frontCoordinator.completeClaim(plan.frontId, workerKey, target);
-            runtime.claimedBlock = null;
-            return true;
-        }
-        if (!safeBlock(world, mine, target)) return false;
-
-        Store<ChunkStore> chunkStore = world.getChunkStore().getStore();
-        BlockHarvestUtils.performBlockBreak(
-            worker,
-            null,
-            List.of(new Vector3i(target.x(), target.y(), target.z())),
-            0,
-            entityStore,
-            chunkStore
-        );
-        if (!isEmpty(loadedBlockType(world, target))) {
-            // The player-like break path does not clear every decoration or future
-            // infrastructure asset (some have no Gathering.Breaking definition).
-            // Use Hytale's native chunk break as a bounded fallback, but only for
-            // this already-authorized voxel in the authored tunnel excavation.
-            WorldChunk chunk = world.getChunkIfLoaded(
-                ChunkUtil.indexChunkFromBlock(target.x(), target.z())
-            );
-            if (chunk == null || !safeBlock(world, mine, target)
-                || !chunk.breakBlock(target.x(), target.y(), target.z(), 0, 0)) {
-                return false;
-            }
-            decisionSink.record(
-                mine.id(), plan.frontId, MineDecisionCategory.ADAPTER,
-                "TUNNEL_NONSTANDARD_BLOCK_REMOVED",
-                "block", target,
-                "blockId", type.getId()
-            );
-        }
-        if (!isEmpty(loadedBlockType(world, target))) return false;
-
-        frontCoordinator.completeClaim(plan.frontId, workerKey, target);
-        runtime.claimedBlock = null;
-        return true;
     }
 
     /** Debug-only immediate horizon refresh, no NPC restart or plan reset. */
@@ -3009,86 +2112,6 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         );
     }
 
-    private void handleTerminalNavigationFailure(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        RuntimeMinePlan minePlan,
-        Ref<EntityStore> ref,
-        Store<EntityStore> store,
-        CivUnitRegistry.UnitKey workerKey,
-        WorkerRuntime runtime
-    ) {
-        if (runtime.roomId != null) {
-            UUID failedRoomId = runtime.roomId;
-            RuntimeRoomPlan room = minePlan.rooms.get(failedRoomId);
-            if (room != null) room.unavailable = true;
-            workerTaskEnded(
-                mine.id(), ref, workerKey, runtime, "NATIVE_NAVIGATION_UNREACHABLE"
-            );
-            decisionSink.record(
-                mine.id(), failedRoomId, MineDecisionCategory.NAVIGATION, "ROOM_UNREACHABLE",
-                "reason", "NATIVE_NAVIGATION_UNREACHABLE"
-            );
-            clearNormalTaskAge(world, mine, failedRoomId);
-            roomCoordinator.releaseWorker(workerKey);
-            unitRegistry.clearMoveTarget(ref);
-            stopMiningAnimation(ref, store, runtime);
-            stopBuildingAnimation(ref, store, runtime);
-            runtime.clearRoomAssignment();
-            runtime.navigationArrived();
-            return;
-        }
-
-        RuntimeFrontPlan affected = null;
-        RuntimeInfrastructureTask infrastructure = runtime.infrastructureTaskId == null
-            ? null
-            : minePlan.infrastructureTasks.get(runtime.infrastructureTaskId);
-
-        if (runtime.frontId != null) {
-            affected = minePlan.fronts.get(runtime.frontId);
-        } else if (infrastructure != null && infrastructure.task.mandatory()) {
-            affected = frontForTunnel(minePlan, infrastructure.task.tunnelId());
-        }
-
-        if (affected != null) {
-            boolean repairPlanned = runtime.frontId != null
-                && scheduleNearbyRecoveryStep(world, mine, minePlan, affected);
-            if (!repairPlanned) {
-                MineWorkFront front = currentFront(
-                    world.getWorldConfig().getUuid(), mine.id(), affected.frontId
-                );
-                failFront(
-                    world,
-                    mine,
-                    affected,
-                    front,
-                    MineObstaclePolicy.FailureKind.NAVIGATION_UNREACHABLE,
-                    "NATIVE_NAVIGATION_UNREACHABLE"
-                );
-            }
-        } else if (infrastructure != null) {
-            completeInfrastructureTask(
-                world,
-                mine,
-                infrastructure,
-                workerKey,
-                runtime,
-                ref,
-                store,
-                "SKIPPED_UNREACHABLE"
-            );
-        }
-
-        frontCoordinator.releaseWorker(workerKey);
-        roomCoordinator.releaseWorker(workerKey);
-        releaseInfrastructureReservation(workerKey, runtime);
-        unitRegistry.clearMoveTarget(ref);
-        stopMiningAnimation(ref, store, runtime);
-        stopBuildingAnimation(ref, store, runtime);
-        runtime.clearWorkAssignment();
-        runtime.navigationArrived();
-    }
-
     /**
      * Only a previously excavated authored elevation transition can become an
      * automatic repair. The normal mine steps feature stays disabled; this is
@@ -3266,80 +2289,6 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     }
 
     /** No idle simulation: a finished accommodation is simply a preferred waiting destination. */
-    private void handleIdle(
-        World world,
-        BuildingPlacementRegistry.BuildingInstance mine,
-        PrefabPlacementService.PlacedMarker connector,
-        Vector3d position,
-        Ref<EntityStore> ref,
-        WorkerRuntime runtime
-    ) {
-        MineNetwork network = tunnelRegistry.networkForMine(world.getWorldConfig().getUuid(), mine.id());
-        if (network == null) return;
-        CivUnitRegistry.UnitKey workerKey = unitRegistry.keyOf(ref);
-        workerState(mine.id(), ref, workerKey, runtime, WorkerDebugState.IDLE, "NO_AVAILABLE_TASK");
-
-        // All executable tasks are busy: avoid an unnecessary round trip to the entrance.
-        if (runtime.waitingForCapacity && runtime.reachedConnector) {
-            runtime.idleDestination = null;
-            runtime.idleRoomId = null;
-            unitRegistry.clearMoveTarget(ref);
-            runtime.navigationArrived();
-            return;
-        }
-
-        MineRoom selected = MineIdleDestinationSelector.select(
-            network.rooms(), position.x, position.y, position.z,
-            runtime.idleRoomId, runtime.failedIdleRooms,
-            room -> { // Unloaded distant rooms are not automatically unsafe.
-                BlockType observed = loadedBlockType(world, room.position());
-                return observed == null || observed == BlockType.EMPTY;
-            }
-        );
-        if (selected != null) {
-            runtime.idleReachedConnector = false;
-            runtime.idleRoomId = selected.id();
-            Vector3d destination = new Vector3d(
-                selected.position().x() + 0.5, selected.position().y(),
-                selected.position().z() + 0.5
-            );
-            runtime.idleDestination = destination;
-            if (!arrived(position, destination)) {
-                navigateTo(ref, destination, runtime);
-            } else {
-                unitRegistry.clearMoveTarget(ref);
-                runtime.navigationArrived();
-            }
-            return;
-        }
-
-        // Return through the same connector as ordinary mine travel, then walk to the entrance.
-        runtime.idleRoomId = null;
-        if (runtime.idleEntranceFailed) {
-            unitRegistry.clearMoveTarget(ref);
-            runtime.navigationArrived();
-            return;
-        }
-        Vector3d tunnelExit = center(connector.bounds(), connector.bounds().minY());
-        PrefabPlacementService.PlacedMarker access = marker(world, mine, WORKPLACE_ACCESS);
-        if (access == null || access.bounds() == null) {
-            runtime.idleDestination = tunnelExit;
-            if (!arrived(position, tunnelExit)) navigateTo(ref, tunnelExit, runtime);
-            else { unitRegistry.clearMoveTarget(ref); runtime.navigationArrived(); }
-            return;
-        }
-        Vector3d outside = center(access.bounds(), access.bounds().minY());
-        if (!runtime.idleReachedConnector && !arrived(position, tunnelExit)) {
-            runtime.idleDestination = tunnelExit;
-            navigateTo(ref, tunnelExit, runtime);
-            return;
-        }
-        runtime.idleReachedConnector = true;
-        runtime.idleDestination = outside;
-        if (!arrived(position, outside)) navigateTo(ref, outside, runtime);
-        else { unitRegistry.clearMoveTarget(ref); runtime.navigationArrived(); }
-    }
-
     private static boolean restoredInsideMine(World world, RuntimeMinePlan minePlan, Vector3d position) {
         BlockPosition feet = blockPosition(position);
         return MineRestartPositionPolicy.alreadyInsideMine(
@@ -3566,8 +2515,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             stopBuildingAnimation(ref, store, runtime);
             releaseInfrastructureReservation(key, runtime);
         }
-        frontCoordinator.releaseWorker(key);
-        roomCoordinator.releaseWorker(key);
+        controller.forget(key);
         navigationFailures.forget(key);
     }
 
@@ -3826,13 +2774,11 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         private int infrastructurePlacementIndex;
         private int infrastructureProbeIndex;
         private int roomProbeIndex;
-        private Vector3d roomProbeTarget;
-        private Vector3d infrastructureProbeTarget;
         private boolean enteredMine;
         private boolean reachedConnector;
+        private boolean restorePosition = true;
         private boolean animationStarted;
         private boolean buildingAnimationStarted;
-        private double workElapsed;
         private Vector3d navigationTarget;
         private UUID idleRoomId;
         private Vector3d idleDestination;
@@ -3857,6 +2803,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         private void interruptForManualMove() {
+            restorePosition = false;
             clearIdle();
             enteredMine = false;
             reachedConnector = false;
@@ -3875,23 +2822,19 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             clearInfrastructureAssignment();
             selectedTaskKey = null;
             startedTaskKey = null;
-            workElapsed = 0.0;
         }
 
         private void clearFrontAssignment() {
             frontId = null;
             sliceIndex = -1;
             claimedBlock = null;
-            workElapsed = 0.0;
         }
 
         private void clearRoomAssignment() {
             roomId = null;
             roomBuildSection = null;
             roomProbeIndex = 0;
-            roomProbeTarget = null;
             claimedBlock = null;
-            workElapsed = 0.0;
         }
 
         private void clearInfrastructureAssignment() {
@@ -3899,8 +2842,6 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             resolvedInfrastructure = null;
             infrastructurePlacementIndex = 0;
             infrastructureProbeIndex = 0;
-            infrastructureProbeTarget = null;
-            workElapsed = 0.0;
         }
 
         private void navigationArrived() {
@@ -3908,6 +2849,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
 
         private void reset(UUID nextMineId, int nextMinePhase) {
+            restorePosition = true;
             clearIdle();
             mineId = nextMineId;
             minePhase = nextMinePhase;

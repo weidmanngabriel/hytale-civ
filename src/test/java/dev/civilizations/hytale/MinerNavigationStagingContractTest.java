@@ -15,19 +15,13 @@ final class MinerNavigationStagingContractTest {
             Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
         );
 
-        int connectorGate = source.indexOf("MineWorkerRouteDecision.next(runtime.enteredMine, runtime.reachedConnector)",
-            source.indexOf("RuntimeMinePlan minePlan = ensureRuntimePlan"));
-        int planResolution = source.indexOf("RuntimeMinePlan minePlan = ensureRuntimePlan");
-        int workExecution = source.indexOf("if (navigationFailures.consumeIfMatches");
-
-        assertTrue(connectorGate >= 0, "miner must gate autonomous work on the tunnel connector");
-        assertTrue(planResolution >= 0 && planResolution < connectorGate,
-            "restart recovery must resolve mine geometry before the connector gate");
-        assertTrue(workExecution > connectorGate,
-            "task execution must start only after the connector gate");
-        assertTrue(source.contains("MineWorkerRouteDecision.Destination.WORK_FRONT"),
-            "miner must only work after the shared access/connector decision");
-        assertTrue(source.contains("reachedConnector = false;"),
-            "manual interruption/reset must require the connector again");
+        String core = Files.readString(Path.of("src/main/java/dev/civilizations/core/MinerWorkController.java"));
+        int connectorGate = core.indexOf("State.ENTERING_CONNECTOR");
+        int workExecution = core.indexOf("execute(worker, s, dt, engine, observed)");
+        assertTrue(connectorGate >= 0 && workExecution > connectorGate);
+        assertTrue(source.indexOf("RuntimeMinePlan minePlan = ensureRuntimePlan") < source.indexOf("controller.tick(workerKey"));
+        assertTrue(source.contains("controller.interrupt(workerKey)"));
+        assertTrue(core.contains("Worker s = new Worker(); s.state = State.INTERRUPTED"));
+        assertTrue(source.contains("restorePosition = false;"));
     }
 }

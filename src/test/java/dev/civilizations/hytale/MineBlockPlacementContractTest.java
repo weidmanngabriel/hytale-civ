@@ -45,8 +45,8 @@ class MineBlockPlacementContractTest {
         assertTrue(miner.contains("\"BLOCK_PLACEMENT_FAILURE_REPEATED\""));
         assertTrue(miner.contains("\"PLACEMENT_RETRY_LOOP_DETECTED\""));
         assertTrue(miner.contains("\"workTarget\", formatTarget("));
-        assertTrue(miner.contains("\"minerPosition\", formatTarget(workerPosition)"));
-        assertTrue(miner.contains("repeatedPlacementFailures == 3"));
+        assertTrue(miner.contains("\"minerPosition\", formatTarget(position)"));
+        assertTrue(miner.contains("attempts == 3"));
     }
 
     @Test

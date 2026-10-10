@@ -325,3 +325,11 @@ Die UI-/API-Tests für das Mine Simulation Lab prüfen den begrenzten `/sim`-Par
 Der API-Regressionstest für Terrain-Deltas kontrolliert nun zusätzlich den monotonen `terrainEpoch`-Wechsel nach Reset. Ein vollständiger Browser-Snapshot wird beim Austausch des Weltobjekts auch bei identischem Revisionszähler angefordert.
 
 `web-viewer/test/console-commands.test.mjs` testet den read-only Befehl `/sim worker <id>` und lehnt ungültige und pfadähnliche IDs ab. Die angezeigten Diagnosewerte stammen aus `/api/debug` und `/api/state` des lokalen Simulators.
+
+## Phase 5B: gemeinsamer Miner-Lifecycle
+
+`MinerWorkControllerTest` prüft die gemeinsame Engine-Grenze: Zugang → Connector → Arbeit → Connector → Zugang, Kapazität und exklusive Claims für drei Miner, Unterbrechung mit Freigabe, Wiederaufnahme, veraltete Claims/Arbeitsrevisionen, terminale Navigation, begrenzte Retries, Priority-10-Kontinuität, Platzierung und verschiedene Raum-Bauabschnitte. Golden-Historien vergleichen die produktive Coordinator-Verdrahtung mit der unabhängigen Headless-Verdrahtung bei identischen Beobachtungen/Ergebnissen. Ein weiterer Test vergleicht Arbeitsbudgets bei 500-ms- und 50-ms-Ticks.
+
+`MineRoomProgressTest` prüft gemeinsamen Raumfortschritt und wiederholte Bauabschnitt-Ergebnisse. `AutonomousMineWorldTest` führt den echten `SimulationRuntime.MineLab` mit drei Minern, manueller Unterbrechung, Voxelabbau und Rückkehr aus; kontrollierte Wasser-/Lavafälle stoppen Arbeit und erlauben nach expliziter Recovery einen neuen Versuch ohne Verlust abgeschlossener Arbeit. Die Hytale-Quellvertragsprüfungen folgen der verschobenen Core-Grenze und schützen weiterhin native Block-/Prefab-Operationen, Gebäudegrenzen, Fluidprüfungen und Diagnostik.
+
+Diese Tests beweisen die gemeinsame Ablaufsteuerung. Sie beweisen keine nativen Hytale-Wege, Blockmodelle oder Teleport-Semantik. Das Lab quittiert Infrastruktur und drei Raum-Bauabschnitte synthetisch; es kopiert weder native Asset-Auflösung noch Placementphysik. Der historische Replay-Exporter liefert geskriptete Bildfolgen und zählt nicht als Paritätstest.

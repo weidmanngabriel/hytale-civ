@@ -12,20 +12,24 @@ import dev.civilizations.core.WorldPosition;
 import dev.civilizations.simulation.world.VoxelWorld;
 import dev.civilizations.simulation.world.WorldArchive;
 import dev.civilizations.core.MineFrontCoordinator;
-import dev.civilizations.core.MineFrontWorkDecision;
 import dev.civilizations.core.MineNormalTaskSelector;
-import dev.civilizations.core.MineFrontTaskScheduler;
 import dev.civilizations.core.MineHeading;
 import dev.civilizations.core.MineNetworkGrowthPlanner;
 import dev.civilizations.core.MineTunnelGeometry;
 import dev.civilizations.core.MineTunnel;
-import dev.civilizations.core.MineWorkerRouteDecision;
+import dev.civilizations.core.MinerWorkController;
+import dev.civilizations.core.MineInfrastructureAvailability;
 import dev.civilizations.core.MineInfrastructurePlanner;
 import dev.civilizations.core.MineInfrastructureTask;
 import dev.civilizations.core.MineTuning;
+import dev.civilizations.core.MineRoom;
+import dev.civilizations.core.MineRoomPlanner;
+import dev.civilizations.core.MineRoomGeometry;
+import dev.civilizations.core.MineDecisionSink;
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.Set;
+import java.util.HashSet;
 import java.util.UUID;
 
 import java.util.ArrayList;
@@ -102,7 +106,8 @@ public final class SimulationRuntime {
             .map(r->Map.of("id", (Object)r.id, "state", stateName(r),
                 "route", r.route.stream().skip(Math.min(r.routeIndex,r.route.size())).limit(96).toList(),
                 "target", r.routeTarget == null ? r.position : r.routeTarget,
-                "reason", r.navigationBlocked ? "SIMULATED_PATH_UNREACHABLE" : ""))
+                "reason", r.navigationBlocked ? "SIMULATED_PATH_UNREACHABLE" : "",
+                "core", mineLab.controller.snapshot(r.id)))
             .toList();
         return Map.of("loaded",true,"access",mineLab.access,"connector",mineLab.home,
             "sliceIndex",mineLab.sliceIndex,"sliceCount",mineLab.slices.size(),
@@ -112,10 +117,21 @@ public final class SimulationRuntime {
             "excavatedBlocks",mineLab.excavated,"workers",workerPaths,
             "infrastructureTasks",mineLab.infrastructure.stream().map(task->Map.of(
                 "type",task.type().name(),"anchor",task.anchor(),
-                "slice",task.startSliceIndex(),"status","PLANNED_ONLY")).toList());
+                "slice",task.startSliceIndex(),"status",mineLab.completedInfrastructure.contains(task.id()) ? "SIMULATED_COMPLETE" : "PENDING")).toList());
     }
 
     public int excavatedMineBlocks() { return mineLab == null ? 0 : mineLab.excavated; }
+
+    /** Explicit diagnostic retry preserves already excavated terrain and semantic completions. */
+    public void recoverMineLab() {
+        if (mineLab == null) return;
+        mineLab.failed.clear();
+        for (Resident resident : residents.values()) if (resident.profession == Profession.MINER) {
+            mineLab.controller.forget(resident.id);
+            clearMovement(resident);
+            resident.routeTarget = null;
+        }
+    }
 
     public void addMiner(String id, WorldPosition position) {
         addResident(Resident.miner(id, position));
@@ -320,7 +336,6 @@ public final class SimulationRuntime {
         if (manual != null) {
             if (mineLab != null && resident.profession == Profession.MINER && !resident.minerSuspended) {
                 mineLab.releaseWorker(resident.id);
-                resident.minerWorkTicks = 0;
                 resident.minerSuspended = true;
             }
             if (advanceMovement(resident, manual.destination())) {
@@ -707,10 +722,15 @@ public final class SimulationRuntime {
     private final class MineLab {
         private final BlockPosition home;
         private final BlockPosition access;
-        private final Map<String, Integer> entryProgress = new LinkedHashMap<>();
         private final List<MineTunnelGeometry.Slice> slices;
         private final List<MineInfrastructureTask> infrastructure;
-        private final MineFrontCoordinator<String> claims = new MineFrontCoordinator<>();
+        private final MinerWorkController<String> controller = new MinerWorkController<>();
+        private final Set<UUID> completedInfrastructure = new HashSet<>();
+        private final Set<UUID> failed = new HashSet<>();
+        private final Map<UUID,MineRoom> rooms = new LinkedHashMap<>();
+        private final Map<UUID,MineRoomGeometry> roomGeometry = new LinkedHashMap<>();
+        private static final int SYNTHETIC_ROOM_SECTIONS = 3;
+        private Map<UUID,Integer> bonuses = Map.of();
         private int sliceIndex;
         private int excavated;
 
@@ -718,83 +738,139 @@ public final class SimulationRuntime {
             this.home = home;
             this.access = access;
             var mineId = UUID.nameUUIDFromBytes(("headless-mine:" + seed).getBytes(StandardCharsets.UTF_8));
-            var main = MineNetworkGrowthPlanner.plan(mineId, home, heading, length, 1, seed)
-                .mainTunnel();
+            var planned = MineNetworkGrowthPlanner.plan(mineId, home, heading, length, 1, seed);
+            var main = planned.mainTunnel();
+            for (var room : MineRoomPlanner.plan(planned,MineDecisionSink.NONE)) {
+                rooms.put(room.id(),room);
+                roomGeometry.put(room.id(),MineRoomGeometry.generate(room,main.geometry()));
+            }
             this.slices = main.geometry().slices();
             this.infrastructure = MineInfrastructurePlanner.plan(main.tunnel().id(), main.geometry());
         }
-
         void tick(Resident resident) {
-            int entry = entryProgress.getOrDefault(resident.id,0);
-            var next = MineWorkerRouteDecision.next(entry>=1,entry>=2);
-            if (next != MineWorkerRouteDecision.Destination.WORK_FRONT) {
-                BlockPosition goal = next == MineWorkerRouteDecision.Destination.WORKPLACE_ACCESS ? access : home;
-                resident.minerState = next == MineWorkerRouteDecision.Destination.WORKPLACE_ACCESS
-                    ? "MOVING_TO_ACCESS" : "MOVING_TO_CONNECTOR";
-                if (advanceMovement(resident,new WorldPosition(goal.x()+.5,goal.y(),goal.z()+.5)))
-                    entryProgress.put(resident.id,entry+1);
-                return;
-            }
-            if (sliceIndex >= slices.size()) {
-                resident.minerState = "RETURNING";
-                WorldPosition destination = new WorldPosition(home.x() + .5, home.y(), home.z() + .5);
-                if (advanceMovement(resident, destination)) {
-                    resident.minerState = "COMPLETE";
-                    clearMovement(resident);
-                }
-                return;
-            }
-            var slice = slices.get(sliceIndex);
-            var candidates = slice.excavationBlocks().stream()
-                .sorted(Comparator.comparingInt(BlockPosition::x)
-                    .thenComparingInt(BlockPosition::y).thenComparingInt(BlockPosition::z))
-                .toList();
-            if (candidates.stream().anyMatch(p -> voxelWorld.material(p) == null)) {
-                resident.minerState = "REGION_BOUNDARY";
-                clearMovement(resident);
-                return;
-            }
-            if (candidates.stream().allMatch(p -> voxelWorld.material(p) != WorldArchive.Material.SOLID)) {
-                claims.releaseFront(frontId(sliceIndex));
-                sliceIndex++;
-                resident.minerState = "NEXT_SLICE";
-                return;
-            }
-            var staging = sliceIndex == 0 ? home : slices.get(sliceIndex-1).floorCenter();
-            WorldPosition workPoint = new WorldPosition(staging.x()+.5,staging.y(),staging.z()+.5);
-            if (distanceSquared(resident.position, workPoint) > 2.25) {
-                resident.minerState = "MOVING_TO_FRONT";
-                advanceMovement(resident, workPoint);
-                return;
-            }
-            UUID id = frontId(sliceIndex);
-            int capacity = MineFrontCoordinator.capacityFor(MineTunnel.Kind.MAIN);
-            // The shared Core work decision retains membership for workers already at capacity.
-            // Filtering the front as fully occupied here would strand its own miners.
-            var claim = MineFrontWorkDecision.choose(claims, id, resident.id, capacity, candidates,
-                p -> voxelWorld.material(p) == WorldArchive.Material.SOLID);
-            if (claim.result() != MineFrontWorkDecision.Result.CLAIMED) {
-                resident.minerState = claim.result() == MineFrontWorkDecision.Result.FRONT_FULL
-                    ? "WAIT_FRONT_CAPACITY" : "WAIT_BLOCK";
-                return;
-            }
-            BlockPosition block = claim.block();
-            resident.minerState = "EXCAVATING";
-            if (++resident.minerWorkTicks >= Math.ceil(MineTuning.secondsPerBlock()/tickSeconds)) {
-                resident.minerWorkTicks = 0;
-                voxelWorld.set(block, WorldArchive.Material.AIR);
-                excavated++;
-                claims.completeClaim(id,resident.id,block);
-            }
+            controller.tick(resident.id, tickSeconds, new LabEngine(resident));
+            var snapshot = controller.snapshot(resident.id);
+            resident.minerState = snapshot.state() == MinerWorkController.State.RESTING
+                ? (failed.isEmpty() ? "COMPLETE" : "BLOCKED") : snapshot.state().name();
         }
-
-        void releaseWorker(String residentId) {
-            claims.releaseWorker(residentId);
-            entryProgress.remove(residentId);
-        }
-
+        void releaseWorker(String residentId) { controller.interrupt(residentId); }
         private UUID frontId(int index) {
             return UUID.nameUUIDFromBytes(("headless-front:" + index).getBytes(StandardCharsets.UTF_8));
+        }
+        private WorldPosition point(BlockPosition block) { return new WorldPosition(block.x()+.5,block.y(),block.z()+.5); }
+        private final class LabEngine implements MinerWorkController.Engine {
+            private final Resident resident;
+            LabEngine(Resident resident) { this.resident = resident; }
+            @Override public WorldPosition access() { return point(access); }
+            @Override public WorldPosition connector() { return point(home); }
+            @Override public BlockPosition position() { return blockAt(resident.position); }
+            @Override public MinerWorkController.Navigation navigate(WorldPosition target) {
+                if (advanceMovement(resident,target)) return MinerWorkController.Navigation.ARRIVED;
+                return resident.navigationBlocked ? MinerWorkController.Navigation.FAILED : MinerWorkController.Navigation.MOVING;
+            }
+            @Override public void stop() { clearMovement(resident); }
+            @Override public Map<UUID,Integer> priorityBonuses() { return bonuses; }
+            @Override public void priorityBonuses(Map<UUID,Integer> updated) { bonuses = updated; }
+            @Override public List<MinerWorkController.Task> tasks() {
+                List<MinerWorkController.Task> tasks = new ArrayList<>();
+                if (sliceIndex < slices.size() && !failed.contains(frontId(sliceIndex))) {
+                    tasks.add(new MinerWorkController.Task(frontId(sliceIndex), MineNormalTaskSelector.Kind.TUNNEL_FRONT,
+                        4, MineFrontCoordinator.capacityFor(MineTunnel.Kind.MAIN), slices.get(sliceIndex).floorCenter(), false));
+                }
+                long activeRooms = rooms.values().stream().filter(room -> room.state() == MineRoom.State.EXCAVATING
+                    || room.state() == MineRoom.State.READY_TO_BUILD).count();
+                for (var room : rooms.values()) {
+                    if (!room.terminal() && !failed.contains(room.id()) && room.attachmentSliceIndex() < sliceIndex
+                        && (room.state() != MineRoom.State.PLANNED || activeRooms < MineRoomPlanner.MAX_ACTIVE_ROOMS))
+                        tasks.add(new MinerWorkController.Task(room.id(),MineNormalTaskSelector.Kind.ROOM,8,
+                            room.state() == MineRoom.State.READY_TO_BUILD ? MineRoomPlanner.BUILD_CAPACITY : MineRoomPlanner.EXCAVATION_CAPACITY,
+                            room.position(),false));
+                }
+                for (var task : infrastructure) {
+                    if (!completedInfrastructure.contains(task.id()) && !failed.contains(task.id())
+                        && MineInfrastructureAvailability.isAvailable(task.type(), task.startSliceIndex(), task.endSliceIndex(),
+                            sliceIndex, sliceIndex >= slices.size()))
+                        tasks.add(new MinerWorkController.Task(task.id(),MineNormalTaskSelector.Kind.INFRASTRUCTURE,
+                            task.priority(),1,task.anchor(),task.mandatory()));
+                }
+                return tasks;
+            }
+            @Override public MinerWorkController.Work observe(MinerWorkController.Task task) {
+                if (failed.contains(task.id())) return MinerWorkController.Work.stopped(MinerWorkController.Readiness.DEFERRED);
+                if (task.kind() == MineNormalTaskSelector.Kind.ROOM) {
+                    MineRoom room = rooms.get(task.id()).beginExcavation();
+                    rooms.put(room.id(),room);
+                    if (room.terminal()) return MinerWorkController.Work.stopped(MinerWorkController.Readiness.COMPLETE);
+                    if (room.state() == MineRoom.State.EXCAVATING) {
+                        var geometry = roomGeometry.get(task.id());
+                        int index = room.excavationWorkUnitIndex();
+                        if (index >= geometry.excavationWorkUnits().size())
+                            return MinerWorkController.Work.stopped(MinerWorkController.Readiness.COMPLETE);
+                        var blocks = geometry.excavationWorkUnits().get(index);
+                        if (blocks.stream().anyMatch(this::unsafe)) return MinerWorkController.Work.stopped(MinerWorkController.Readiness.UNSAFE);
+                        if (blocks.stream().noneMatch(this::available)) return MinerWorkController.Work.stopped(MinerWorkController.Readiness.COMPLETE);
+                        return new MinerWorkController.Work(MinerWorkController.Readiness.READY,"room:"+index,
+                            point(geometry.workTargetForUnit(index)),MinerWorkController.Operation.EXCAVATE,
+                            MineTuning.secondsPerBlock(),blocks,0,Set.of());
+                    }
+                    return new MinerWorkController.Work(MinerWorkController.Readiness.READY,"build",point(room.position()),
+                        MinerWorkController.Operation.BUILD_SECTION,1,List.of(),SYNTHETIC_ROOM_SECTIONS,room.completedBuildSections());
+                }
+                if (task.kind() == MineNormalTaskSelector.Kind.INFRASTRUCTURE) {
+                    if (completedInfrastructure.contains(task.id())) return MinerWorkController.Work.stopped(MinerWorkController.Readiness.COMPLETE);
+                    // Synthetic placement acknowledgement: this fixture does not reproduce native block assets.
+                    return new MinerWorkController.Work(MinerWorkController.Readiness.READY,"placement",point(task.position()),
+                        MinerWorkController.Operation.PLACE,.5,List.of(),0,Set.of());
+                }
+                if (sliceIndex >= slices.size() || !task.id().equals(frontId(sliceIndex)))
+                    return MinerWorkController.Work.stopped(MinerWorkController.Readiness.DEFERRED);
+                var slice = slices.get(sliceIndex);
+                var blocks = slice.excavationBlocks().stream().sorted(Comparator.comparingInt(BlockPosition::x)
+                    .thenComparingInt(BlockPosition::y).thenComparingInt(BlockPosition::z)).toList();
+                if (blocks.stream().anyMatch(p -> voxelWorld.material(p) == null
+                    || voxelWorld.material(p) == WorldArchive.Material.LAVA || voxelWorld.material(p) == WorldArchive.Material.WATER))
+                    return MinerWorkController.Work.stopped(MinerWorkController.Readiness.UNSAFE);
+                if (blocks.stream().noneMatch(this::available))
+                    return MinerWorkController.Work.stopped(MinerWorkController.Readiness.COMPLETE);
+                BlockPosition staging = sliceIndex == 0 ? home : slices.get(sliceIndex-1).floorCenter();
+                return new MinerWorkController.Work(MinerWorkController.Readiness.READY,"slice:"+sliceIndex,point(staging),
+                    MinerWorkController.Operation.EXCAVATE,MineTuning.secondsPerBlock(),blocks,0,Set.of());
+            }
+            private boolean unsafe(BlockPosition p) {
+                var material = voxelWorld.material(p);
+                return material == null || material == WorldArchive.Material.LAVA || material == WorldArchive.Material.WATER;
+            }
+            @Override public boolean available(BlockPosition block) { return voxelWorld.material(block) == WorldArchive.Material.SOLID; }
+            @Override public MinerWorkController.Result perform(MinerWorkController.WorkIntent intent) {
+                if (intent.operation() == MinerWorkController.Operation.PLACE) {
+                    completedInfrastructure.add(intent.taskId()); return MinerWorkController.Result.SUCCESS;
+                }
+                if (intent.operation() == MinerWorkController.Operation.BUILD_SECTION) {
+                    var room = rooms.get(intent.taskId());
+                    rooms.put(room.id(),room.completeBuildSection(intent.section(),SYNTHETIC_ROOM_SECTIONS));
+                    return MinerWorkController.Result.SUCCESS;
+                }
+                var material = voxelWorld.material(intent.block());
+                if (material == null || material == WorldArchive.Material.LAVA || material == WorldArchive.Material.WATER)
+                    return MinerWorkController.Result.UNSAFE;
+                if (material == WorldArchive.Material.SOLID) {
+                    voxelWorld.set(intent.block(),WorldArchive.Material.AIR); excavated++;
+                }
+                return MinerWorkController.Result.SUCCESS;
+            }
+            @Override public void ended(MinerWorkController.Task task, MinerWorkController.End reason) {
+                if (reason == MinerWorkController.End.UNIT_COMPLETE && task.kind() == MineNormalTaskSelector.Kind.TUNNEL_FRONT
+                    && sliceIndex < slices.size() && task.id().equals(frontId(sliceIndex))) sliceIndex++;
+                var disposition = MinerWorkController.disposition(task,reason);
+                if (disposition == MinerWorkController.Disposition.ADVANCE && task.kind() == MineNormalTaskSelector.Kind.ROOM) {
+                    var room = rooms.get(task.id());
+                    if (room.state() == MineRoom.State.EXCAVATING)
+                        rooms.put(room.id(),room.completeExcavationUnit(roomGeometry.get(room.id()).excavationWorkUnits().size()));
+                }
+                if (disposition == MinerWorkController.Disposition.SKIP_OPTIONAL) completedInfrastructure.add(task.id());
+                if (disposition == MinerWorkController.Disposition.BLOCK_FRONT || disposition == MinerWorkController.Disposition.ABANDON_FRONT
+                    || disposition == MinerWorkController.Disposition.DISABLE_ROOM) failed.add(task.id());
+            }
         }
     }
 
@@ -817,7 +893,6 @@ public final class SimulationRuntime {
         private int routeIndex;
         private boolean navigationBlocked;
         private String minerState = "IDLE";
-        private int minerWorkTicks;
         private boolean minerSuspended;
 
         private Resident(
