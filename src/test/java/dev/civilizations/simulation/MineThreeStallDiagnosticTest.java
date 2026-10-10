@@ -66,4 +66,40 @@ class MineThreeStallDiagnosticTest {
             "Three miners did not finish the planned tunnel: excavated=" + lastProgress +
             " longestStall=" + longestStall + " snapshot=" + state);
     }
+    @Test
+    void threeMinersWithSeparatedSurfaceAccessKeepDiggingSouth() {
+        var cells = new ArrayList<WorldArchive.Cell>();
+        for (int x = 0; x < 48; x++) for (int y = 0; y < 32; y++) for (int z = 0; z < 48; z++) {
+            boolean openShaft = x >= 22 && x <= 26 && z >= 15 && z <= 20 && y >= 10 && y <= 14;
+            String material = (openShaft || y >= 20) ? "air" : "native:stone";
+            cells.add(new WorldArchive.Cell(x, y, z, material, 0, 0, "NONE"));
+        }
+        var world = new VoxelWorld(new WorldArchive(WorldArchive.VERSION,
+            "south-surface-access-diagnostic", new WorldArchive.Bounds(0, 0, 0, 48, 32, 48), cells));
+        var runtime = new SimulationRuntime();
+        runtime.setVoxelWorld(world);
+        var connector = new BlockPosition(24, 10, 18);
+        var access = new BlockPosition(24, 10, 16);
+        assertTrue(world.canStand(connector) && world.canStand(access));
+        runtime.addMiner("miner-1", new WorldPosition(24.5, 10, 16.5));
+        runtime.addMiner("miner-2", new WorldPosition(25.5, 10, 16.5));
+        runtime.addMiner("miner-3", new WorldPosition(23.5, 10, 16.5));
+        runtime.configureMineLab(connector, access, MineHeading.SOUTH, 8, 99112233L);
+
+        for (int tick = 1; tick <= 4500; tick++) {
+            runtime.tick();
+            if (tick % 200 == 0) {
+                var debug = runtime.mineDebugSnapshot();
+                System.out.println("MINE_THREE_SOUTH tick=" + tick +
+                    " excavated=" + runtime.excavatedMineBlocks() +
+                    " slice=" + debug.get("sliceIndex") + "/" + debug.get("sliceCount") +
+                    " workers=" + debug.get("workers"));
+            }
+        }
+        var debug = runtime.mineDebugSnapshot();
+        assertTrue(((Number)debug.get("sliceIndex")).intValue() ==
+                ((Number)debug.get("sliceCount")).intValue(),
+            "South-heading miners stopped: " + debug);
+    }
+
 }
