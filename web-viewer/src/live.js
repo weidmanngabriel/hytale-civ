@@ -16,6 +16,8 @@ let world, running = false, currentScenario;
 const keys = new Set();
 const voxelGroup = new THREE.Group(), terrainGroup = new THREE.Group(), residentsGroup = new THREE.Group();
 let importedTerrain = false;
+let lastTerrainRevision = -1;
+let selectedResident = "";
 scene.add(terrainGroup,voxelGroup,residentsGroup);
 const voxelMaterials = [0x64748b,0x9cb2c2,0xd19d50,0x618d62];
 const material = voxelMaterials.map(c=>new THREE.MeshLambertMaterial({color:c,side:THREE.FrontSide}));
@@ -57,6 +59,7 @@ function drawWorld(data) {
 function drawImportedTerrain(data) {
   if (!data.loaded) return;
   importedTerrain = true;
+  for (const mesh of [...terrainGroup.children]) { terrainGroup.remove(mesh); mesh.geometry?.dispose(); mesh.material?.dispose(); }
   const map = new Map(data.cells.map(([x,y,z,id])=>[`${x},${y},${z}`,id]));
   const colors = [0,0x657182,0x3184b7,0xdb6642,0x5ca5a0].map(x=>new THREE.Color(x));
   const positions = [], normals = [], vertexColors = [];
@@ -76,9 +79,12 @@ function drawImportedTerrain(data) {
   const mesh = new THREE.Mesh(geom,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.FrontSide}));
   terrainGroup.add(mesh);
   const [minX,minY,minZ,maxX,maxY,maxZ] = data.bounds;
-  camera.position.set((minX+maxX)/2,maxY+10,maxZ+15);
-  pitch=-.5; yaw=0;look();
-  flightSpeed=Math.max(2,Math.min(15,(maxX-minX)/8));
+  if (!drawImportedTerrain.initialized) {
+    camera.position.set((minX+maxX)/2,maxY+10,maxZ+15);
+    pitch=-.5; yaw=0;look();
+    flightSpeed=Math.max(2,Math.min(15,(maxX-minX)/8));
+    drawImportedTerrain.initialized = true;
+  }
 }
 function drawResidents(list) {
   const current=new Set(list.map(x=>x.id));
@@ -104,9 +110,26 @@ async function update() {
     const sig=JSON.stringify([data.world.trees,data.world.constructionSites]);
     if(sig!==update.prevSig){update.prevSig=sig;drawWorld(data.world);}
     drawResidents(data.world.residents);
+    const ids=data.world.residents.map(r=>r.id);
+    if(!ids.includes(selectedResident))selectedResident=ids[0]||'';
+    const selector=$('resident');
+    if([...selector.options].map(o=>o.value).join(',')!==ids.join(',')){
+      selector.replaceChildren(...ids.map(id=>{const o=document.createElement('option');o.value=id;o.textContent=id;return o;}));
+    }
+    selector.value=selectedResident;
+    if (data.worldRevision !== lastTerrainRevision) {
+      lastTerrainRevision = data.worldRevision;
+      const terrain=await request('terrain');
+      drawImportedTerrain(terrain);
+    }
     $('message').textContent='';
   } catch(e){showError(e);}
 }
+$('resident').onchange=()=>{selectedResident=$('resident').value;};
+$('move').onclick=()=>send('move',{
+  id:$('resident').value,
+  x:Number($('target-x').value),y:Number($('target-y').value),z:Number($('target-z').value)
+});
 $('configure').onclick=()=>send('configure',{woodcutters:Number($('woodcutters').value),builders:Number($('builders').value)});
 $('play').onclick=()=>send(running?'pause':'play');
 $('step').onclick=()=>send('step');
@@ -117,8 +140,6 @@ async function setup() {
   try {
     const scenarios=await request('scenarios');
     for(const s of scenarios){const opt=document.createElement('option');opt.value=s.id;opt.textContent=s.title;$('scenario').append(opt);}
-    const terrain=await request('terrain');
-    drawImportedTerrain(terrain);
     await update();
   } catch(e){showError(e);}
 }
