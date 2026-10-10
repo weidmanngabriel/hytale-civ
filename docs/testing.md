@@ -323,3 +323,5 @@ Bei Fehlersuche am lokalen Live-Start sind die `[CIV STARTUP]`-Zeilen und die Me
 Die UI-/API-Tests für das Mine Simulation Lab prüfen den begrenzten `/sim`-Parser und die Ablehnung nativer Fremdcommands. `MineWorkerRouteDecisionTest` prüft den von Hytale und Headless genutzten semantischen Zugangspfad. `MineSandboxPrefabTest` validiert die authored Phase-1-Marker und das Platzierungs-Bounds-Handling; tatsächliche komplexe prefab-interne Wegfindung bleibt eine explizite Headless-Einschränkung. Die CI führt keine zusätzlichen echten Hytale-Läufe aus.
 
 Der API-Regressionstest für Terrain-Deltas kontrolliert nun zusätzlich den monotonen `terrainEpoch`-Wechsel nach Reset. Ein vollständiger Browser-Snapshot wird beim Austausch des Weltobjekts auch bei identischem Revisionszähler angefordert.
+
+`web-viewer/test/console-commands.test.mjs` testet den read-only Befehl `/sim worker <id>` und lehnt ungültige und pfadähnliche IDs ab. Die angezeigten Diagnosewerte stammen aus `/api/debug` und `/api/state` des lokalen Simulators.
