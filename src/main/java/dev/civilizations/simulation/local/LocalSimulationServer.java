@@ -172,6 +172,7 @@ public final class LocalSimulationServer implements AutoCloseable {
                         ticksPerFrame = value;
                     }
                     case "configure" -> {
+                        if (sourceArchive != null) throw new IllegalArgumentException("Use configureMiners with an imported world");
                         int woodcutters = data.path("woodcutters").asInt(-1);
                         int builders = data.path("builders").asInt(-1);
                         if (woodcutters < 0 || woodcutters > 12 || builders < 0 || builders > 12)
