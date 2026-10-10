@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { adjustFlightSpeed } from './flight-speed.js';
 import { indexTerrain, changedChunks, chunkKey, meshChunk } from './terrain-chunks.js';
 import { PerformanceRecorder, downloadPerformance } from './performance-recorder.js';
+import { parseSimulationCommand, simulationCommandHelp } from './sim-commands.js';
 const profiler = new PerformanceRecorder();
 let lastState = null, lastTerrainStats = {cells:0, triangles:0};
 let indexedTerrain=new Map();
@@ -21,10 +22,12 @@ let yaw = 0, pitch = -.25, flightSpeed = 8;
 let world, running = false, currentScenario;
 const keys = new Set();
 const voxelGroup = new THREE.Group(), terrainGroup = new THREE.Group(), residentsGroup = new THREE.Group();
+const debugGroup = new THREE.Group();
 let importedTerrain = false;
 let lastTerrainRevision = -1;
+let lastTerrainEpoch = -1;
 let selectedResident = "";
-scene.add(terrainGroup,voxelGroup,residentsGroup);
+scene.add(terrainGroup,voxelGroup,residentsGroup,debugGroup);
 const voxelMaterials = [0x64748b,0x9cb2c2,0xd19d50,0x618d62];
 const material = voxelMaterials.map(c=>new THREE.MeshLambertMaterial({color:c,side:THREE.FrontSide}));
 const cube = new THREE.BoxGeometry(1,1,1);
@@ -127,6 +130,67 @@ function drawResidents(list) {
     mesh.position.set(r.position.x,r.position.y+.8,r.position.z);
   }
 }
+function debugSphere(position,color,size=.34) {
+  const shape=new THREE.Mesh(new THREE.SphereGeometry(size,9,6),
+    new THREE.MeshBasicMaterial({color,depthTest:false}));
+  shape.position.set(position.x,position.y,position.z);
+  debugGroup.add(shape);
+}
+function debugLine(positions,color) {
+  if(positions.length<2)return;
+  const geometry=new THREE.BufferGeometry().setFromPoints(
+    positions.map(p=>new THREE.Vector3(p.x,p.y,p.z)));
+  debugGroup.add(new THREE.Line(geometry,new THREE.LineBasicMaterial({color,depthTest:false})));
+}
+function redrawDebug(data) {
+  for(const obj of [...debugGroup.children]) {
+    debugGroup.remove(obj);
+    obj.geometry?.dispose();obj.material?.dispose();
+  }
+  const placement=data.mine?.placement;
+  if($('show-markers').checked&&placement){
+    for(const marker of placement.markers||[]){
+      const b=marker.bounds;
+      const colors={workplace_access:0x31e8a4,mine_tunnel_connector:0x22bbff,building_bounds:0xffd26c};
+      const color=colors[marker.type]||0xb3a4f3;
+      const helper=new THREE.Box3Helper(new THREE.Box3(
+        new THREE.Vector3(b.minX,b.minY,b.minZ),
+        new THREE.Vector3(b.maxX,b.maxY,b.maxZ)),color);
+      debugGroup.add(helper);
+      debugSphere({x:(b.minX+b.maxX)/2,y:(b.minY+b.maxY)/2,z:(b.minZ+b.maxZ)/2},color,.25);
+    }
+    if(data.mineWork?.front) {
+      const p=data.mineWork.front;
+      debugSphere({x:p.x+.5,y:p.y+.6,z:p.z+.5},0xff4141,.65);
+    }
+    const centers=(data.mineWork?.plannedCenters||[]).slice(0,96);
+    debugLine(centers.map(p=>({x:p.x+.5,y:p.y+.4,z:p.z+.5})),0xc48cff);
+  }
+  if($('show-paths').checked) {
+    const residents=new Map((data.world?.residents||[]).map(r=>[r.id,r]));
+    for(const n of data.navigation||[]) {
+      const resident=residents.get(n.id);
+      if(!resident)continue;
+      const pos=resident.position;
+      const points=[{x:pos.x,y:pos.y+.55,z:pos.z},
+        ...(n.remainingPath||[]).map(p=>({x:p.x+.5,y:p.y+.5,z:p.z+.5}))];
+      if(n.movementTarget)points.push({x:n.movementTarget.x,y:n.movementTarget.y+.5,z:n.movementTarget.z});
+      debugLine(points,n.blocked?0xff3838:0x4bd5f8);
+      if(n.movementTarget)debugSphere({x:n.movementTarget.x,y:n.movementTarget.y+.6,
+        z:n.movementTarget.z},n.blocked?0xff3838:0x49d8ff,.22);
+    }
+  }
+  const info=data.mineWork?.totalSlices
+    ? 'Mine: '+(data.mine?.placement?.origin?.x??'?')+' / '+(data.mine?.placement?.origin?.y??'?')
+      +' / '+(data.mine?.placement?.origin?.z??'?')
+      +'\\nTunnel: '+data.mineWork.sliceIndex+'/'+data.mineWork.totalSlices
+      +' · abgebaute Blöcke: '+data.mineWork.excavatedBlocks
+    : 'Noch keine Mine platziert.';
+  $('debug-info').textContent=info+'\\n'+(data.navigation||[]).map(n=>
+    n.id+': '+n.activity+(n.blocked?' [BLOCKED]':'')+
+    ' · Wegpunkte: '+(n.remainingPath||[]).length).join('\\n');
+}
+
 async function update() {
   if(abort)return;
   try {
@@ -144,6 +208,7 @@ async function update() {
     const sig=JSON.stringify([data.world.trees,data.world.constructionSites]);
     if(sig!==update.prevSig){update.prevSig=sig;drawWorld(data.world);}
     drawResidents(data.world.residents);
+    redrawDebug(data);
     const ids=data.world.residents.map(r=>r.id);
     if(!ids.includes(selectedResident))selectedResident=ids[0]||'';
     const selector=$('resident');
@@ -151,6 +216,10 @@ async function update() {
       selector.replaceChildren(...ids.map(id=>{const o=document.createElement('option');o.value=id;o.textContent=id;return o;}));
     }
     selector.value=selectedResident;
+    if(data.terrainEpoch!==lastTerrainEpoch) {
+      lastTerrainEpoch=data.terrainEpoch;
+      lastTerrainRevision=-1;
+    }
     if (data.worldRevision !== lastTerrainRevision) {
       const previousRevision=lastTerrainRevision;
       lastTerrainRevision = data.worldRevision;
@@ -169,6 +238,35 @@ $('move').onclick=()=>send('move',{
 });
 $('configure').onclick=()=>send('configure',{woodcutters:Number($('woodcutters').value),builders:Number($('builders').value)});
 $('configureMiners').onclick=()=>send('configureMiners',{miners:Number($('miners').value)});
+$('place-mine').onclick=()=>send('placeMine',{
+ x:Number($('mine-x').value),y:Number($('mine-y').value),z:Number($('mine-z').value)});
+$('mine-camera').onclick=()=>{
+ $('mine-x').value=Math.floor(camera.position.x);
+ $('mine-y').value=Math.floor(camera.position.y)-16;
+ $('mine-z').value=Math.floor(camera.position.z);
+};
+for(const id of ['show-markers','show-paths'])$(id).onchange=()=>{if(lastState)redrawDebug(lastState);};
+$('console-form').onsubmit=async e=>{
+ e.preventDefault();
+ const raw=$('console-input').value.trim(), parsed=parseSimulationCommand(raw);
+ const output=$('console-output');
+ if(parsed.kind==='error'){output.textContent=parsed.message;return;}
+ if(parsed.kind==='control') {
+   try {
+     await request('control',{command:parsed.command,...parsed.args});
+     await update();
+     output.textContent=raw+'\\nOK';
+   }catch(error){output.textContent=String(error.message||error);}
+   return;
+ }
+ if(parsed.name==='markers'){$('show-markers').checked=parsed.value;if(lastState)redrawDebug(lastState);}
+ if(parsed.name==='paths'){$('show-paths').checked=parsed.value;if(lastState)redrawDebug(lastState);}
+ output.textContent=parsed.name==='help'?simulationCommandHelp
+   :parsed.name==='mines'?JSON.stringify(lastState?.mine||{},null,2)
+   :parsed.name==='mineInfo'?JSON.stringify(lastState?.mineWork||{},null,2)
+   :parsed.name==='npcs'?JSON.stringify(lastState?.navigation||[],null,2)
+   :'Debugansicht: '+parsed.name+' '+parsed.value;
+};
 $('play').onclick=()=>send(running?'pause':'play');
 $('step').onclick=()=>send('step');
 $('reset').onclick=()=>send('reset');
@@ -181,6 +279,7 @@ async function setup() {
     const terrain=await request('terrain');
     $('worker-controls').hidden=!!terrain.loaded;
     $('miner-controls').hidden=!terrain.loaded;
+    $('mine-placement').hidden=!terrain.loaded;
     await update();
   } catch(e){showError(e);}
 }
