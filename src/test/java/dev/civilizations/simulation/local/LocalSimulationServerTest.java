@@ -115,6 +115,26 @@ class LocalSimulationServerTest {
         }
     }
 
+    @Test
+    void minersStartInSameReachableCavernInsteadOfIsolatedPockets() throws Exception {
+        var cells = new ArrayList<WorldArchive.Cell>();
+        for (int x=0;x<9;x++) for (int y=0;y<4;y++) for (int z=0;z<4;z++) {
+            // No ground under x=3 separates both otherwise walkable plateaus.
+            String type = y==0 && x!=3 ? "native:stone" : "air";
+            cells.add(new WorldArchive.Cell(x,y,z,type,0,0,"NONE"));
+        }
+        var archive = new WorldArchive(WorldArchive.VERSION,"split-caverns",
+            new WorldArchive.Bounds(0,0,0,9,4,4),cells);
+        try (var server = new LocalSimulationServer(0,archive)) {
+            server.start();
+            String url = "http://localhost:" + server.port() + "/api/";
+            var residents = get(url+"state").path("world").path("residents");
+            assertEquals(3,residents.size());
+            // Largest component is x=4..8, not the other side of the gap.
+            for (var miner:residents) assertTrue(miner.path("position").path("x").asDouble() >= 4);
+        }
+    }
+
     private JsonNode get(String url) throws Exception {
         var request = HttpRequest.newBuilder(URI.create(url)).GET().build();
         var response = client.send(request, HttpResponse.BodyHandlers.ofString());

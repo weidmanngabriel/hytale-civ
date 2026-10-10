@@ -246,7 +246,30 @@ public final class LocalSimulationServer implements AutoCloseable {
                         .thenComparingInt(p -> -p.y())
                         .thenComparingInt(BlockPosition::x)
                         .thenComparingInt(BlockPosition::z));
-                    if(candidates.size()<count) throw new IllegalArgumentException("Insufficient standable positions");
+                    // A standable block in a separate cave is not a reachable worker spawn.
+                    // Use a single traversable component; prefer the largest connected region.
+                    var remaining = new java.util.HashSet<>(candidates);
+                    java.util.Set<BlockPosition> bestComponent = java.util.Set.of();
+                    for (var seed : candidates) {
+                        if (!remaining.remove(seed)) continue;
+                        var component = new java.util.HashSet<BlockPosition>();
+                        var queue = new java.util.ArrayDeque<BlockPosition>();
+                        component.add(seed);
+                        queue.add(seed);
+                        while (!queue.isEmpty()) {
+                            for (var next : voxelWorld.walkableNeighbors(queue.removeFirst())) {
+                                if (remaining.remove(next)) {
+                                    component.add(next);
+                                    queue.addLast(next);
+                                }
+                            }
+                        }
+                        if (component.size() > bestComponent.size()) bestComponent = component;
+                    }
+                    var connected = bestComponent;
+                    candidates.removeIf(p -> !connected.contains(p));
+                    if(candidates.size()<count) throw new IllegalArgumentException(
+                        "Only " + candidates.size() + " connected standable positions for " + count + " miners");
                     for(int i=0;i<count;i++){
                         var p=candidates.get(i);
                         sim.addMiner("miner-"+(i+1),new WorldPosition(p.x()+.5,p.y(),p.z()+.5));
