@@ -134,6 +134,7 @@ $('move').onclick=()=>send('move',{
   x:Number($('target-x').value),y:Number($('target-y').value),z:Number($('target-z').value)
 });
 $('configure').onclick=()=>send('configure',{woodcutters:Number($('woodcutters').value),builders:Number($('builders').value)});
+$('configureMiners').onclick=()=>send('configureMiners',{miners:Number($('miners').value)});
 $('play').onclick=()=>send(running?'pause':'play');
 $('step').onclick=()=>send('step');
 $('reset').onclick=()=>send('reset');
@@ -143,6 +144,9 @@ async function setup() {
   try {
     const scenarios=await request('scenarios');
     for(const s of scenarios){const opt=document.createElement('option');opt.value=s.id;opt.textContent=s.title;$('scenario').append(opt);}
+    const terrain=await request('terrain');
+    $('worker-controls').hidden=!!terrain.loaded;
+    $('miner-controls').hidden=!terrain.loaded;
     await update();
   } catch(e){showError(e);}
 }
