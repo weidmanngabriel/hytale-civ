@@ -393,3 +393,12 @@ Importierte Weltarchive starten den lokalen HTTP-Viewer zunächst **ohne Miner**
 Der lokale Java-Sandbox-Start protokolliert Phasen (Archiv lesen/decodieren, Voxelindex/HTTP-Server erstellen, Listener starten), kumulierte Zeit und JVM-Heapnutzung als `[CIV STARTUP]` auf stdout; Ausnahmen werden sichtbar ausgegeben. Gradles Prozentanzeige ist bei einem dauerhaft aktiven `JavaExec`-Task kein Status der HTTP-Bereitschaft.
 
 Das importierte `VoxelWorld` speichert klassifizierte Blockmaterialien nun als dichtes byte-Array mit Weltkoordinaten-Offset statt als `Map<BlockPosition,Material>` für jede Zelle. Damit entfällt beim Serverstart das doppelte Klassifizieren/HashMap-Kopieren aller Zellen. Roharchivdaten und Revisionsjournal bleiben unverändert; das Byte-Modell ist auf die bereits begrenzten, vollständig gefüllten quaderförmigen Archive ausgelegt.
+
+
+## Headless Mine_01 fixture and diagnostics
+
+The imported-world live sandbox can explicitly place the repository's authored `Mine_01.prefab.json` block snapshot. `MinePrefabPlacement` combines the existing `PrefabSimulationLoader` marker model with authored empty/nonempty blocks and reads the connector heading from `civ.direction`. Placement is bounded to the exported region; entities, prefab physics and trigger volumes are **not** instantiated as Hytale objects. Block edits and reset/epoch changes flow through the existing terrain endpoint.
+
+`MineWorkerEntryPolicy` is now shared by native `MinerWorkSystem` and headless `SimulationRuntime` for semantic entry sequencing: workplace access, tunnel connector, work front. The headless adapter uses abstract straight-line transit for the prefab interior (not Hytale navmesh or native Seek) and still uses its voxel A* for tunnel travel. The simulator uses shared `MineNetworkGrowthPlanner`, `MineFrontWorkDecision` and `MineFrontCoordinator` for its limited front work. It **does not yet** run the complete production `MinerWorkSystem` task state machine: room/infrastructure selection, restarts, dynamic growth and full task parity are future Phase 5B work, not claims of this fixture.
+
+Read-only `/api/state` fields `mine`, `mineWork`, `navigation` and `terrainEpoch` power browser debug boxes, planned centerline, work-front position, target lines and bounded pending paths. The browser's allowlisted local `/sim` console translates to existing commands and read-only snapshots, and never executes arbitrary native Hytale commands.
