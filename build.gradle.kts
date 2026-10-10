@@ -134,6 +134,7 @@ tasks.register<JavaExec>("localSimulationServer") {
     description = "Runs the endless localhost-only headless Civ simulation API for web-viewer/live.html."
     classpath = sourceSets["main"].runtimeClasspath
     mainClass.set("dev.civilizations.simulation.local.LocalSimulationServer")
+    providers.gradleProperty("simWorldArchive").orNull?.let { args(it) }
 }
 
 tasks.register<JavaExec>("simulationViewer") {
