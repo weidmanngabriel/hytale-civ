@@ -105,7 +105,6 @@ async function update() {
     $('play').textContent=running?'Pause':'Start';
     $('tick').textContent='Tick '+data.world.tickCount;
     $('info').textContent='Szenario: '+data.scenario+'\nZeit: '+data.world.elapsedSeconds.toFixed(2)+' s\nTempo: '+data.speed+'×';
-    $('events').textContent=(data.events||[]).slice(-20).map(item=>'Tick '+item.tick+' '+item.resident+': '+item.from+' to '+item.to).join('\n') || 'Keine Ereignisse';
     $('events').textContent=(data.events||[]).slice(-30).map(e=>`#${e.tick} ${e.kind}: ${e.message}`).join('\n') || 'Noch keine Ereignisse.';
     $('workers').textContent=data.world.residents.map(r=>r.id+' · '+r.profession+'\n'+r.state+' · '+[r.position.x,r.position.y,r.position.z].map(x=>x.toFixed(1)).join(', ')).join('\n\n');
     // Rebuild only when the fixture geometry changes.
