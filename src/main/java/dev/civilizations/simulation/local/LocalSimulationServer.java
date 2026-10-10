@@ -31,7 +31,9 @@ public final class LocalSimulationServer implements AutoCloseable {
     private volatile boolean running;
     private volatile int ticksPerFrame = 1;
     private SimulationScenario scenario = SimulationScenarios.DEMO_SETTLEMENT;
-    private SimulationRuntime runtime = scenario.createRuntime();
+    private SimulationRuntime runtime = newRuntime();
+    private int additionalWoodcutters;
+    private int additionalBuilders;
     private final WorldArchive sourceArchive;
     private VoxelWorld voxelWorld;
 
@@ -54,6 +56,15 @@ public final class LocalSimulationServer implements AutoCloseable {
         }, 50, 50, TimeUnit.MILLISECONDS);
     }
 
+    private SimulationRuntime newRuntime() {
+        SimulationRuntime result = scenario.createRuntime();
+        for (int i = 0; i < additionalWoodcutters; i++)
+            result.addWoodcutter("configured-woodcutter-" + i, new dev.civilizations.core.WorldPosition(-12, 0, -12 - i));
+        for (int i = 0; i < additionalBuilders; i++)
+            result.addConstructionWorker("configured-builder-" + i, new dev.civilizations.core.WorldPosition(-12, 0, 12 + i));
+        return result;
+    }
+
     public void start() { server.start(); }
 
     public int port() { return server.getAddress().getPort(); }
@@ -70,6 +81,7 @@ public final class LocalSimulationServer implements AutoCloseable {
         synchronized (lock) {
             respond(exchange, 200, Map.of(
                 "scenario", scenario.id(), "running", running, "speed", ticksPerFrame,
+                "additionalWoodcutters", additionalWoodcutters, "additionalBuilders", additionalBuilders,
                 "world", runtime.worldSnapshot()
             ));
         }
@@ -117,6 +129,16 @@ public final class LocalSimulationServer implements AutoCloseable {
                         int value = data.path("value").asInt(0);
                         if (value != 1 && value != 5 && value != 20) throw new IllegalArgumentException("Invalid speed");
                         ticksPerFrame = value;
+                    }
+                    case "configure" -> {
+                        int woodcutters = data.path("woodcutters").asInt(-1);
+                        int builders = data.path("builders").asInt(-1);
+                        if (woodcutters < 0 || woodcutters > 12 || builders < 0 || builders > 12)
+                            throw new IllegalArgumentException("Worker counts must be between 0 and 12");
+                        additionalWoodcutters = woodcutters;
+                        additionalBuilders = builders;
+                        running = false;
+                        runtime = newRuntime();
                     }
                     case "scenario" -> {
                         String id = data.path("id").asText("");
