@@ -20,6 +20,9 @@ import dev.civilizations.core.MineNetworkGrowthPlanner;
 import dev.civilizations.core.MineTunnelGeometry;
 import dev.civilizations.core.MineTunnel;
 import dev.civilizations.core.MineWorkerRouteDecision;
+import dev.civilizations.core.MineInfrastructurePlanner;
+import dev.civilizations.core.MineInfrastructureTask;
+import dev.civilizations.core.MineTuning;
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.Set;
@@ -106,7 +109,10 @@ public final class SimulationRuntime {
             "workFront",mineLab.sliceIndex<mineLab.slices.size()
                 ? mineLab.slices.get(mineLab.sliceIndex).floorCenter() : mineLab.home,
             "plannedSlices",mineLab.slices.stream().map(MineTunnelGeometry.Slice::floorCenter).toList(),
-            "excavatedBlocks",mineLab.excavated,"workers",workerPaths);
+            "excavatedBlocks",mineLab.excavated,"workers",workerPaths,
+            "infrastructureTasks",mineLab.infrastructure.stream().map(task->Map.of(
+                "type",task.type().name(),"anchor",task.anchor(),
+                "slice",task.startSliceIndex(),"status","PLANNED_ONLY")).toList());
     }
 
     public int excavatedMineBlocks() { return mineLab == null ? 0 : mineLab.excavated; }
@@ -703,6 +709,7 @@ public final class SimulationRuntime {
         private final BlockPosition access;
         private final Map<String, Integer> entryProgress = new LinkedHashMap<>();
         private final List<MineTunnelGeometry.Slice> slices;
+        private final List<MineInfrastructureTask> infrastructure;
         private final MineFrontCoordinator<String> claims = new MineFrontCoordinator<>();
         private int sliceIndex;
         private int excavated;
@@ -711,8 +718,10 @@ public final class SimulationRuntime {
             this.home = home;
             this.access = access;
             var mineId = UUID.nameUUIDFromBytes(("headless-mine:" + seed).getBytes(StandardCharsets.UTF_8));
-            this.slices = MineNetworkGrowthPlanner.plan(mineId, home, heading, length, 1, seed)
-                .mainTunnel().geometry().slices();
+            var main = MineNetworkGrowthPlanner.plan(mineId, home, heading, length, 1, seed)
+                .mainTunnel();
+            this.slices = main.geometry().slices();
+            this.infrastructure = MineInfrastructurePlanner.plan(main.tunnel().id(), main.geometry());
         }
 
         void tick(Resident resident) {
@@ -771,7 +780,7 @@ public final class SimulationRuntime {
             }
             BlockPosition block = claim.block();
             resident.minerState = "EXCAVATING";
-            if (++resident.minerWorkTicks >= 5) {
+            if (++resident.minerWorkTicks >= Math.ceil(MineTuning.secondsPerBlock()/tickSeconds)) {
                 resident.minerWorkTicks = 0;
                 voxelWorld.set(block, WorldArchive.Material.AIR);
                 excavated++;
