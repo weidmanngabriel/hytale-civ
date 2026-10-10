@@ -13,3 +13,9 @@ test('local overlays and civdev summary do not forward arbitrary native commands
   assert.throws(()=>parse('/hytale_command something'),/Nur \/sim/);
   assert.throws(()=>parse('/sim miners 100'),/Ungültiger/);
 });
+
+test('worker diagnostics are read-only and reject unbounded identifiers',()=>{
+  assert.deepEqual(parse('/sim worker miner-2'),{type:'worker',id:'miner-2'});
+  assert.throws(()=>parse('/sim worker ../../secret'),/Ungültiger/);
+  assert.throws(()=>parse('/sim worker'),/Ungültiger/);
+});
