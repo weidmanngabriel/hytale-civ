@@ -129,6 +129,13 @@ tasks.named("build") {
     dependsOn(releaseBundle)
 }
 
+tasks.register<JavaExec>("localSimulationServer") {
+    group = "development"
+    description = "Runs the endless localhost-only headless Civ simulation API for web-viewer/live.html."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("dev.civilizations.simulation.local.LocalSimulationServer")
+}
+
 tasks.register<JavaExec>("simulationViewer") {
     group = "development"
     description = "Starts the Hytale-independent desktop simulation viewer."
