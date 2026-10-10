@@ -28,7 +28,7 @@ final class CivWorldArchiveExport {
                 int fluidLevel=Byte.toUnsignedInt(chunk.getFluidLevel(x,y,z));
                 String blockKey=type==BlockType.EMPTY||type.getMaterial()==BlockMaterial.Empty?"air":type.getId();
                 Fluid fluid=Fluid.getAssetMap().getAssetOrDefault(fluidId,Fluid.UNKNOWN);
-                String category=fluidId==Fluid.EMPTY_ID?"NONE":fluid!=null&&fluid.hasEffect(ShaderType.Lava)?"LAVA":"OTHER";
+                String category=fluidId==Fluid.EMPTY_ID?"NONE":fluid!=null&&fluid.hasEffect(ShaderType.Lava)?"LAVA":fluid!=null&&fluid.hasEffect(ShaderType.Water)?"WATER":"OTHER";
                 cells.add(new WorldArchive.Cell(x,y,z,blockKey,fluidId,fluidLevel,category));
             }
         }
