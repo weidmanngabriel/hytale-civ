@@ -42,6 +42,36 @@ class LocalSimulationServerTest {
     }
 
     @Test
+    void realPrefabScenarioShowsMarkersAndNavigationBeforeAndAfterReset() throws Exception {
+        var cells = new ArrayList<WorldArchive.Cell>();
+        for(int x=-15;x<16;x++) for(int y=0;y<58;y++) for(int z=-15;z<31;z++)
+            cells.add(new WorldArchive.Cell(x,y,z,y<28?"native:stone":"air",0,0,"NONE"));
+        var archive = new WorldArchive(WorldArchive.VERSION,"mine-lab",
+            new WorldArchive.Bounds(-15,0,-15,16,58,31),cells);
+        try(var server=new LocalSimulationServer(0,archive)) {
+            server.start();
+            String url="http://localhost:"+server.port()+"/api/";
+            assertFalse(get(url+"state").path("mine").path("placed").asBoolean());
+            post(url+"control","{\\"command\\":\\"placeMine\\",\\"x\\":0,\\"y\\":12,\\"z\\":0}");
+            var state=get(url+"state");
+            assertTrue(state.path("mine").path("placed").asBoolean());
+            assertTrue(state.path("mine").path("placement").path("markers").size()>=3);
+            assertTrue(state.path("mineWork").path("totalSlices").asInt()>0);
+            post(url+"control","{\\"command\\":\\"configureMiners\\",\\"miners\\":3}");
+            state=get(url+"state");
+            assertEquals(3,state.path("world").path("residents").size());
+            assertEquals(3,state.path("navigation").size());
+            post(url+"control","{\\"command\\":\\"step\\"}");
+            assertEquals("ENTERING_WORKPLACE",get(url+"state").path("world")
+                .path("residents").get(0).path("autonomousState").asText());
+            post(url+"control","{\\"command\\":\\"reset\\"}");
+            state=get(url+"state");
+            assertTrue(state.path("mine").path("placed").asBoolean());
+            assertEquals(3,state.path("world").path("residents").size());
+        }
+    }
+
+    @Test
     void archivedTerrainAndConfiguredStartsAreReusable() throws Exception {
         var cells = new ArrayList<WorldArchive.Cell>();
         for (int x=0;x<3;x++) for(int y=0;y<3;y++) for(int z=0;z<3;z++)
