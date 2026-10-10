@@ -64,10 +64,38 @@ public final class LocalSimulationServer implements AutoCloseable {
     private void control(HttpExchange exchange) throws IOException {
         if (!exchange.getRequestMethod().equals("POST")) { respond(exchange, 405, Map.of("error", "POST required")); return; }
         if (!isLocalOrigin(exchange)) { respond(exchange, 403, Map.of("error", "Only local clients")); return; }
-        if (exchange.getRequestBody().readNBytes(2049).length > 2048) { respond(exchange, 413, Map.of("error", "Request too large")); return; }
-        // Request body must be decoded once; the control commands themselves are intentionally small.
-        // The request is buffered by the caller only for a single bounded JSON object.
-        respond(exchange, 400, Map.of("error", "Missing command"));
+        byte[] body = exchange.getRequestBody().readNBytes(2049);
+        if (body.length > 2048) { respond(exchange, 413, Map.of("error", "Request too large")); return; }
+        try {
+            var data = JSON.readTree(body);
+            String command = data.path("command").asText("");
+            synchronized (lock) {
+                switch (command) {
+                    case "play" -> running = true;
+                    case "pause" -> running = false;
+                    case "step" -> { running = false; runtime.tick(); }
+                    case "reset" -> { running = false; runtime = scenario.createRuntime(); }
+                    case "speed" -> {
+                        int value = data.path("value").asInt(0);
+                        if (value != 1 && value != 5 && value != 20) throw new IllegalArgumentException("Invalid speed");
+                        ticksPerFrame = value;
+                    }
+                    case "scenario" -> {
+                        String id = data.path("id").asText("");
+                        scenario = SimulationScenarios.all().stream().filter(s -> s.id().equals(id)).findFirst()
+                            .orElseThrow(() -> new IllegalArgumentException("Unknown scenario"));
+                        running = false;
+                        runtime = scenario.createRuntime();
+                    }
+                    default -> throw new IllegalArgumentException("Unknown command");
+                }
+                respond(exchange, 200, Map.of("ok", true));
+            }
+        } catch (IllegalArgumentException ex) {
+            respond(exchange, 400, Map.of("error", ex.getMessage()));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+            respond(exchange, 400, Map.of("error", "Invalid JSON"));
+        }
     }
 
     private static boolean isLocalOrigin(HttpExchange exchange) {
