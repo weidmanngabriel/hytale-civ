@@ -34,6 +34,24 @@ public final class VoxelWorld {
             && material(ground)==WorldArchive.Material.SOLID;
     }
 
+    /** Traversable adjacent standing cells; shared by A* and spawn-component selection. */
+    public List<BlockPosition> walkableNeighbors(BlockPosition p) {
+        var result = new ArrayList<BlockPosition>(4);
+        if (!canStand(p)) return result;
+        for (int[] offset : OFFSETS) {
+            int x = p.x() + offset[0], z = p.z() + offset[1];
+            for (int y : new int[]{p.y(), p.y() + 1, p.y() - 1}) {
+                var n = new BlockPosition(x, y, z);
+                if (!canStand(n)) continue;
+                if (y > p.y() && material(new BlockPosition(p.x(), p.y() + 2, p.z())) != WorldArchive.Material.AIR) continue;
+                if (y < p.y() && material(new BlockPosition(x, p.y() + 1, z)) != WorldArchive.Material.AIR) continue;
+                result.add(n);
+                break;
+            }
+        }
+        return result;
+    }
+
     public List<BlockPosition> path(BlockPosition start, BlockPosition destination) {
         if(!canStand(start)||!canStand(destination))return List.of();
         record Node(BlockPosition pos,double f) {}
@@ -50,21 +68,12 @@ public final class VoxelWorld {
                 for(BlockPosition v=p;v!=null;v=previous.get(v))result.addFirst(v);
                 return List.copyOf(result);
             }
-            for(int[] offset:OFFSETS) {
-                int x=p.x()+offset[0],z=p.z()+offset[1];
-                for(int y:new int[]{p.y(),p.y()+1,p.y()-1}) {
-                    BlockPosition n=new BlockPosition(x,y,z);
-                    if(!canStand(n))continue;
-                    // Do not allow stepping up through a solid overhang at current head height.
-                    if(y>p.y()&&material(new BlockPosition(p.x(),p.y()+2,p.z()))!=WorldArchive.Material.AIR)continue;
-                    // Crossing into a lower cell first requires headroom at the upper height.
-                    if(y<p.y()&&material(new BlockPosition(x,p.y()+1,z))!=WorldArchive.Material.AIR)continue;
-                    double candidate=cost.get(p)+(y==p.y()?1:1.25);
-                    if(candidate<cost.getOrDefault(n,Double.POSITIVE_INFINITY)) {
-                        cost.put(n,candidate);previous.put(n,p);
-                        open.add(new Node(n,candidate+heuristic(n,destination)));
-                    }
-                    break;
+            for (BlockPosition n : walkableNeighbors(p)) {
+                double candidate = cost.get(p) + (n.y() == p.y() ? 1 : 1.25);
+                if (candidate < cost.getOrDefault(n, Double.POSITIVE_INFINITY)) {
+                    cost.put(n, candidate);
+                    previous.put(n, p);
+                    open.add(new Node(n, candidate + heuristic(n, destination)));
                 }
             }
         }
