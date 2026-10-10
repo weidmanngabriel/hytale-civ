@@ -16,7 +16,7 @@ Diese Schritte testen ausschließlich die Headless-Simulation. Das echte Hytale-
 3. Im Browser `http://localhost:5173/` aufrufen. Auf der Startseite sollte **CIV LIVE SANDBOX** stehen. Szenario auswählen, **Start** drücken. Der Tick-Zähler läuft; **Pause** stoppt ihn; **Einzelschritt** erhöht ihn genau einmal; **Reset** beginnt beim gleichen Startzustand.
 4. Auf das 3D-Bild klicken, um die Maussteuerung zu aktivieren. Mit WASD fliegen, Maus drehen, Leertaste aufwärts und Shift abwärts. Mit dem Mausrad einige Rastungen scrollen: Das angezeigte Flugtempo soll nur leicht steigen oder sinken (je Rastung ca. 5 %). **Escape** gibt die Maus wieder frei.
 5. Im rechten Inspector einen Arbeiter wählen. Die Szenario-Parameter verändern, **Startzustand übernehmen**, dann laufen lassen und kontrollieren, dass die NPC-Zahl stimmt. Die Ereignisliste muss reale Zustandswechsel zeigen, sobald Arbeit anfällt.
-6. Für eine echte Weltregion zunächst mit installierter Civ-Mod im geladenen Hytale-Server `/worldexport x y z width height depth` ausführen (maximal 250.000 Zellen). Die Serverantwort enthält einen `.civworld.gz`-Pfad. Diesen unveränderten Snapshot auf dem Entwicklungs-PC bereithalten.
+6. Für eine echte Weltregion zunächst mit installierter Civ-Mod im geladenen Hytale-Server `/worldexport x y z width height depth` ausführen (maximal 2.000.000 Zellen; sehr große Exporte können den laufenden Server vorübergehend belasten). Die Serverantwort enthält einen `.civworld.gz`-Pfad. Diesen unveränderten Snapshot auf dem Entwicklungs-PC bereithalten.
 7. Den Java-Server mit **Strg+C** beenden und mit Weltdatei erneut starten:
    ```powershell
    .\gradlew.bat localSimulationServer -PsimWorldArchive="C:\Pfad\zur\region.civworld.gz"

@@ -19,6 +19,8 @@ import java.util.zip.GZIPOutputStream;
  */
 public record WorldArchive(int formatVersion, String worldId, Bounds bounds, List<Cell> cells) {
     public static final int VERSION = 2;
+    /** Conservative initial big-region export limit; runtime memory/latency must be tested. */
+    public static final int MAX_EXPORT_CELLS = 2_000_000;
     private static final ObjectMapper JSON = new ObjectMapper();
 
     public WorldArchive {

@@ -28,8 +28,8 @@ final class CivWorldExportCommand extends AbstractAsyncCommand {
         }
         int sx=context.get(x),sy=context.get(y),sz=context.get(z);
         int w=context.get(width),h=context.get(height),d=context.get(depth);
-        if(w<1||h<1||d<1||(long)w*h*d>250000) {
-            context.sendMessage(Message.raw("CIV_WORLD_EXPORT_ERROR invalid dimensions"));
+        if(w<1||h<1||d<1||(long)w*h*d>WorldArchive.MAX_EXPORT_CELLS) {
+            context.sendMessage(Message.raw("CIV_WORLD_EXPORT_ERROR dimensions must be positive; maximum " + WorldArchive.MAX_EXPORT_CELLS + " cells"));
             return CompletableFuture.completedFuture(null);
         }
         var bounds=new WorldArchive.Bounds(sx,sy,sz,sx+w,sy+h,sz+d);
