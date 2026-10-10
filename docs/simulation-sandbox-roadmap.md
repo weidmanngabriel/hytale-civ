@@ -1,13 +1,13 @@
 # Civ Simulation Sandbox – Implementierungs- und Abnahmecheckliste
 
-Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenommen**. Ein Punkt wird erst abgeschlossen, wenn die technische Abnahme vorliegt. Der zugehörige PR ist [#323](https://github.com/weidmanngabriel/hytale-civ/pull/323). Ein nicht gemergter Branch bedeutet nicht „fertig“.
+Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenommen**. Ein Punkt wird erst abgeschlossen, wenn die technische Abnahme vorliegt. Der zugehörige PR ist [#323](https://github.com/weidmanngabriel/hytale-civ/pull/323). PR #323 wurde am 10. Oktober 2026 in `main` integriert; die Main-CI war erfolgreich (Run 38029485309). Eine Implementierung zählt erst als abgenommen, wenn ihr passender automatischer oder manueller Test bestätigt wurde.
 
 ## Phase 1 – Lokaler 3D-Viewer
 
 - [x] Vorhandenen Three.js-Viewer und Spectator-Oberflächenregel wiederverwenden (bereits im Repository).
 - [x] WASD, Mausblick und fein abgestuftes Mausrad mit 5-%-Tempoänderung (PR #322, bereits in main).
 - [x] Java-HTTP-Live-Service und separate Live-Ansicht implementiert (Branch #323).
-- [ ] End-to-End-Start und 3D-Browserinteraktion lokal geprüft.
+- [x] End-to-End-Start und 3D-Browserinteraktion am 10. Oktober 2026 durch Nutzer getestet (9/9 Live-Viewer-Checks bestanden).
 
 ## Phase 2 – Dynamische Szenarien
 
@@ -37,7 +37,8 @@ Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenomme
 - [x] Automatisierte Mine-Fixture mit drei Minern sowie manuellem Unterbrechen und Rückkehrtest implementiert.
 - [ ] CI bestätigt den kompletten Ablauf und zusätzliche reale Höhlen-/Wasser-/Lavafälle.
 - [x] Diagnostische, begrenzte Ereignislisten und zusätzliche Assertions implementiert.
-- [ ] Browser-Event- und Renderingverhalten manuell geprüft.
+- [x] Browser-Event-Anzeige, NPC-Arbeit und 3D-Kamerasteuerung manuell bestätigt (9/9 Nutzerchecks).
+- [ ] Höhlen-/Voxeldarstellung mit real exportierter Welt manuell geprüft.
 - [x] Alle aktuell im CI ausgeführten 281 Java-Tests und Browser-/MCP-Prüfungen erfolgreich (Feature-Commit `b14fe7c`).
 - [ ] Offene Paritäts- und Integrationsprüfungen aus Phase 5B ergänzen.
 
@@ -45,9 +46,10 @@ Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenomme
 
 - [x] Actions-Workflows für Replay-Vorberechnung und GitHub-Pages-Veröffentlichung entfernt (Feature-Branch).
 - [x] Entwicklungs-, Architektur-, Test- und Produktdokumentation auf lokale Live-Nutzung aktualisiert.
-- [ ] GitHub CI vollständig grün, PR per Squash nach main integriert und main-CI geprüft.
+- [x] PR #323 per Squash in `main` integriert (Commit `a877215`); Main-CI erfolgreich (Workflow 38029485309).
 - [x] Manuelle Schritt-für-Schritt-Testanleitung verfasst: [simulation-sandbox-manual-test.md](simulation-sandbox-manual-test.md).
-- [ ] Lokale Browser-/Ingame-Abnahme anhand dieser Anleitung durchgeführt.
+- [x] Lokale Standard-Browser-Abnahme (ohne importierte Hytale-Welt) vom Nutzer bestätigt: alle neun Bedienungsschritte erfolgreich.
+- [ ] Ingame-Weltexport und anschließender Import mit echten Voxel-/Höhlendaten manuell geprüft.
 
 ## Phase 5B – Gemeinsame Miner-Core-Logik (Option B, ausdrücklich beauftragt)
 
