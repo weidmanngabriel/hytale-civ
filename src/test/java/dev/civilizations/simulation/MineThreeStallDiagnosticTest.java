@@ -102,4 +102,42 @@ class MineThreeStallDiagnosticTest {
             "South-heading miners stopped: " + debug);
     }
 
+    @Test
+    void threeMinersExcavateInRealImportedTerrain() {
+        var world = RealRegionMineFixture.load();
+        var runtime = new SimulationRuntime();
+        runtime.setVoxelWorld(world);
+
+        // Carve only the prefab-equivalent entrance in the original terrain.
+        // All tunnel surroundings remain as imported from region.civworld.gz.
+        for (int x = 116; x <= 120; x++)
+            for (int z = 2; z <= 5; z++)
+                for (int y = 110; y <= 112; y++)
+                    if (world.material(new BlockPosition(x, y, z)) != WorldArchive.Material.AIR)
+                        world.set(new BlockPosition(x, y, z), WorldArchive.Material.AIR);
+        var home = new BlockPosition(118, 110, 5);
+        var access = new BlockPosition(118, 110, 2);
+        assertTrue(world.canStand(home) && world.canStand(access),
+            "Prefab-style entrance must be traversable on the imported terrain");
+        runtime.addMiner("miner-1", new WorldPosition(118.5, 110, 2.5));
+        runtime.addMiner("miner-2", new WorldPosition(119.5, 110, 2.5));
+        runtime.addMiner("miner-3", new WorldPosition(117.5, 110, 2.5));
+        runtime.configureMineLab(home, access, MineHeading.SOUTH, 8, 99112233L);
+        int start = runtime.excavatedMineBlocks();
+        for (int tick = 1; tick <= 4500; tick++) {
+            runtime.tick();
+            if (tick % 200 == 0) {
+                var debug = runtime.mineDebugSnapshot();
+                System.out.println("REAL_REGION_MINE3 tick=" + tick + " excavated=" +
+                    runtime.excavatedMineBlocks() + " slice=" + debug.get("sliceIndex") +
+                    "/" + debug.get("sliceCount") + " workers=" + debug.get("workers"));
+            }
+        }
+        var debug = runtime.mineDebugSnapshot();
+        assertTrue(runtime.excavatedMineBlocks() > start, "No excavation on actual terrain: " + debug);
+        assertTrue(((Number)debug.get("sliceIndex")).intValue() ==
+                ((Number)debug.get("sliceCount")).intValue(),
+            "Real terrain miners did not complete the tunnel: " + debug);
+    }
+
 }
