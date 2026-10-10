@@ -29,7 +29,7 @@ final class CivWorldArchiveExport {
                 String blockKey=type==BlockType.EMPTY||type.getMaterial()==BlockMaterial.Empty?"air":type.getId();
                 Fluid fluid=Fluid.getAssetMap().getAssetOrDefault(fluidId,Fluid.UNKNOWN);
                 String category=fluidId==Fluid.EMPTY_ID?"NONE":fluid!=null&&fluid.hasEffect(ShaderType.Lava)?"LAVA":fluid!=null&&fluid.hasEffect(ShaderType.Water)?"WATER":"OTHER";
-                cells.add(new WorldArchive.Cell(x,y,z,blockKey,fluidId,fluidLevel,category));
+                cells.add(new WorldArchive.Cell(x,y,z,blockKey,chunk.getBlock(x,y,z),chunk.getRotationIndex(x,y,z),fluidId,fluidLevel,category));
             }
         }
         WorldArchive archive=new WorldArchive(WorldArchive.VERSION,world.getName(),bounds,cells);
