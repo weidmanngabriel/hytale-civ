@@ -202,6 +202,21 @@ async function executeConsole() {
   try {
     const parsed=parseSimulationCommand(source);
     if(parsed.type==='help')consoleLog(CONSOLE_HELP);
+    else if(parsed.type==='worker'){
+      const detail=await request('debug');
+      const worker=detail.mine?.workers?.find(w=>w.id===parsed.id);
+      const resident=(lastState?.world?.residents||[]).find(r=>r.id===parsed.id);
+      if(!worker && !resident)throw new Error('Unbekannter NPC: '+parsed.id);
+      consoleLog([
+        'NPC: '+parsed.id,
+        'Position: '+JSON.stringify(resident?.position||'unbekannt'),
+        'Aktueller Zustand: '+(worker?.state||resident?.state||'unbekannt'),
+        'Bewegungsziel: '+JSON.stringify(worker?.target||resident?.movementTarget||null),
+        'Wegpunkte verbleibend: '+(worker?.route?.length||0),
+        'Navigationsdiagnose: '+(worker?.reason||'kein Fehler gemeldet'),
+        'Autonom: '+(resident?.autonomousState||'unbekannt')
+      ].join('\n'));
+    }
     else if(parsed.type==='overlay'){
       $(parsed.name==='markers'?'show-markers':'show-paths').checked=parsed.enabled;
       drawDebug(lastDebug);consoleLog(parsed.name+' '+(parsed.enabled?'AN':'AUS'));
