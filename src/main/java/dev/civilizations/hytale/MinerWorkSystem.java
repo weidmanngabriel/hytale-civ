@@ -49,6 +49,7 @@ import dev.civilizations.core.MineBuildingTypes;
 import dev.civilizations.core.DwarvenMinePlanner;
 import dev.civilizations.core.DwarvenMineFinishPlan;
 import dev.civilizations.core.MineNormalTaskSelector;
+import dev.civilizations.core.MineWorkerEntryPolicy;
 import dev.civilizations.core.MineObstaclePolicy;
 import dev.civilizations.core.MinePathPlanner;
 import dev.civilizations.core.MineRoom;
@@ -278,7 +279,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             runtime.enteredMine = true;
             runtime.reachedConnector = true;
         }
-        if (!runtime.enteredMine && entrance != null && entrance.bounds() != null) {
+        if (MineWorkerEntryPolicy.next(entrance != null && entrance.bounds() != null,
+            runtime.enteredMine, runtime.reachedConnector)
+            == MineWorkerEntryPolicy.Destination.WORKPLACE_ACCESS) {
             Vector3d target = center(entrance.bounds(), entrance.bounds().minY());
             if (!arrived(position, target)) {
                 navigateTo(ref, target, runtime);
@@ -289,7 +292,9 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             runtime.navigationArrived();
         }
 
-        if (!runtime.reachedConnector) {
+        if (MineWorkerEntryPolicy.next(entrance != null && entrance.bounds() != null,
+            runtime.enteredMine, runtime.reachedConnector)
+            == MineWorkerEntryPolicy.Destination.TUNNEL_CONNECTOR) {
             Vector3d target = center(connector.bounds(), connector.bounds().minY());
             if (!arrived(position, target)) {
                 navigateTo(ref, target, runtime);
