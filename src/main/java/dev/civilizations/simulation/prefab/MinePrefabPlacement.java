@@ -54,8 +54,20 @@ public final class MinePrefabPlacement {
         }
         var access = markerFeet(world, markers,"workplace_access");
         var connector = markerFeet(world, markers,"mine_tunnel_connector");
-        // The authored Mine_01 connector points South, matching Civ's current human-mine prefab.
-        return new Placement(origin,access,connector,MineHeading.SOUTH,changes.size(),List.copyOf(markers));
+        MineHeading heading = null;
+        for (var entity : tree.path("entities")) {
+            var tags = entity.path("Components").path("TriggerVolume").path("Tags");
+            if ("mine_tunnel_connector".equals(tags.path("civ.type").asText(""))) {
+                var direction = tags.path("civ.direction").asText("").toUpperCase(java.util.Locale.ROOT);
+                try { heading = MineHeading.valueOf(direction); }
+                catch (IllegalArgumentException ex) {
+                    throw new IllegalArgumentException("Unsupported authored mine heading: " + direction,ex);
+                }
+                break;
+            }
+        }
+        if (heading == null) throw new IllegalArgumentException("Missing authored connector heading");
+        return new Placement(origin,access,connector,heading,changes.size(),List.copyOf(markers));
     }
 
     private static BlockPosition markerFeet(VoxelWorld world,List<Marker> markers,String type) {
