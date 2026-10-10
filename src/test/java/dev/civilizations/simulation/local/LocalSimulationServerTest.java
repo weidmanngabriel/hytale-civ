@@ -176,7 +176,7 @@ class LocalSimulationServerTest {
             assertTrue(diagnostic.path("prefab").path("markers").size()>=4);
             post(url+"control","{\"command\":\"configureMiners\",\"miners\":3}");
             assertEquals(3,get(url+"state").path("world").path("residents").size());
-            assertEquals(8,get(url+"debug").path("mine").path("sliceCount").asInt());
+            assertEquals(9,get(url+"debug").path("mine").path("sliceCount").asInt());
             post(url+"control","{\"command\":\"step\"}");
             assertTrue(get(url+"debug").path("mine").path("workers").isArray());
             post(url+"control","{\"command\":\"reset\"}");
