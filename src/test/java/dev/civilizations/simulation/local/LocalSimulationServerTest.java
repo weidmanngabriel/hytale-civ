@@ -2,6 +2,8 @@ package dev.civilizations.simulation.local;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.civilizations.simulation.world.WorldArchive;
+import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -36,6 +38,41 @@ class LocalSimulationServerTest {
             assertTrue(get(url + "state").path("world").path("tickCount").asLong() > 0);
             post(url + "control", "{\"command\":\"reset\"}");
             assertEquals(0, get(url + "state").path("world").path("tickCount").asLong());
+        }
+    }
+
+    @Test
+    void archivedTerrainAndConfiguredStartsAreReusable() throws Exception {
+        var cells = new ArrayList<WorldArchive.Cell>();
+        for (int x=0;x<3;x++) for(int y=0;y<3;y++) for(int z=0;z<3;z++)
+            cells.add(new WorldArchive.Cell(x,y,z,y==0?"native:stone":"air",0,0,"NONE"));
+        var archive = new WorldArchive(1,"test-world",new WorldArchive.Bounds(0,0,0,3,3,3),cells);
+        try (var server = new LocalSimulationServer(0,archive)) {
+            server.start();
+            String url="http://localhost:"+server.port()+"/api/";
+            var terrain=get(url+"terrain");
+            assertTrue(terrain.path("loaded").asBoolean());
+            assertEquals("test-world",terrain.path("worldId").asText());
+            assertEquals(9,terrain.path("cells").size());
+            assertEquals(3,get(url+"state").path("world").path("residents").size());
+            post(url+"control","{\"command\":\"configureMiners\",\"miners\":2}");
+            assertEquals(2,get(url+"state").path("world").path("residents").size());
+            post(url+"control","{\"command\":\"reset\"}");
+            assertEquals(2,get(url+"state").path("world").path("residents").size());
+            assertEquals(9,get(url+"terrain").path("cells").size());
+        }
+    }
+
+    @Test
+    void resetPreservesParameterizedWorkerCounts() throws Exception {
+        try(var server=new LocalSimulationServer(0)) {
+            server.start();
+            String url="http://localhost:"+server.port()+"/api/";
+            post(url+"control","{\"command\":\"configure\",\"woodcutters\":2,\"builders\":1}");
+            var original=get(url+"state").path("world").path("residents").size();
+            post(url+"control","{\"command\":\"reset\"}");
+            assertEquals(original,get(url+"state").path("world").path("residents").size());
+            assertEquals(2,get(url+"state").path("additionalWoodcutters").asInt());
         }
     }
 
