@@ -9,6 +9,7 @@ import dev.civilizations.simulation.SimulationScenarios;
 import dev.civilizations.simulation.world.WorldArchive;
 import dev.civilizations.simulation.world.VoxelWorld;
 import dev.civilizations.core.BlockPosition;
+import dev.civilizations.core.WorldPosition;
 import java.nio.file.Path;
 import java.util.ArrayList;
 
@@ -42,6 +43,7 @@ public final class LocalSimulationServer implements AutoCloseable {
     public LocalSimulationServer(int port, WorldArchive archive) throws IOException {
         sourceArchive = archive;
         voxelWorld = archive == null ? null : new VoxelWorld(archive);
+        if (archive != null) { scenario = customMiners(3); runtime = scenario.createRuntime(); }
         server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), port), 0);
         server.createContext("/api/scenarios", this::scenarios);
         server.createContext("/api/state", this::state);
@@ -71,7 +73,9 @@ public final class LocalSimulationServer implements AutoCloseable {
 
     private void scenarios(HttpExchange exchange) throws IOException {
         if (!exchange.getRequestMethod().equals("GET")) { respond(exchange, 405, Map.of("error", "GET required")); return; }
-        respond(exchange, 200, SimulationScenarios.all().stream().map(s -> Map.of(
+        var all = new ArrayList<SimulationScenario>(SimulationScenarios.all());
+        if (sourceArchive != null) all.add(customMiners(3));
+        respond(exchange, 200, all.stream().map(s -> Map.of(
             "id", s.id(), "title", s.displayName(), "description", s.description()
         )).toList());
     }
@@ -124,7 +128,11 @@ public final class LocalSimulationServer implements AutoCloseable {
                     case "play" -> running = true;
                     case "pause" -> running = false;
                     case "step" -> { running = false; runtime.tick(); }
-                    case "reset" -> { running = false; runtime = scenario.createRuntime(); voxelWorld=sourceArchive==null?null:new VoxelWorld(sourceArchive); }
+                    case "reset" -> {
+                        running = false;
+                        voxelWorld = sourceArchive == null ? null : new VoxelWorld(sourceArchive);
+                        runtime = scenario.createRuntime();
+                    }
                     case "speed" -> {
                         int value = data.path("value").asInt(0);
                         if (value != 1 && value != 5 && value != 20) throw new IllegalArgumentException("Invalid speed");
@@ -139,6 +147,13 @@ public final class LocalSimulationServer implements AutoCloseable {
                         additionalBuilders = builders;
                         running = false;
                         runtime = newRuntime();
+                    }
+                    case "configure" -> {
+                        int miners = data.path("miners").asInt(0);
+                        if (miners < 1 || miners > 20) throw new IllegalArgumentException("miners must be 1..20");
+                        running = false;
+                        scenario = customMiners(miners);
+                        runtime = scenario.createRuntime();
                     }
                     case "scenario" -> {
                         String id = data.path("id").asText("");
@@ -156,6 +171,30 @@ public final class LocalSimulationServer implements AutoCloseable {
         } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
             respond(exchange, 400, Map.of("error", "Invalid JSON"));
         }
+    }
+
+    private SimulationScenario customMiners(int count) {
+        return new SimulationScenario("custom-miners","Configured Miners",
+            "Dynamic miner start state (navigation lab; excavation work is not yet enabled).",
+            () -> {
+                var sim = new SimulationRuntime();
+                if (voxelWorld != null) {
+                    sim.setVoxelWorld(voxelWorld);
+                    int placed = 0;
+                    var bounds = sourceArchive.bounds();
+                    for (int y = bounds.maxY() - 2; y >= bounds.minY() + 1 && placed < count; y--)
+                        for (int x = bounds.minX(); x < bounds.maxX() && placed < count; x++)
+                            for (int z = bounds.minZ(); z < bounds.maxZ() && placed < count; z++) {
+                                var feet = new BlockPosition(x,y,z);
+                                if (!voxelWorld.canStand(feet)) continue;
+                                sim.addMiner("miner-"+(++placed),new WorldPosition(x+0.5,y,z+0.5));
+                            }
+                    if (placed != count) throw new IllegalArgumentException("Insufficient standable positions");
+                } else {
+                    for (int i=0;i<count;i++) sim.addMiner("miner-"+(i+1),new WorldPosition(i*2,0,0));
+                }
+                return sim;
+            });
     }
 
     private static String allowedOrigin(HttpExchange exchange) {
