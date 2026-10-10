@@ -61,3 +61,13 @@ Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenomme
 - [ ] Headless-Simulator über dieselbe Ablaufmaschine ausführen und Engine-Ergebnisse künstlich melden.
 - [ ] Paritätstests über identische Befehls-/Ergebnisfolgen, einschließlich Mehrfach-Miner, Rückweg, Hindernis, Abbruch und Retry.
 - [ ] Integrations- und CI-Abnahme grün; erst dann diesen Teil als abgeschlossen markieren.
+
+
+## Erweiterung A–C: Prefab, gemeinsame Sequenz und Diagnose
+
+- [x] Echte `Mine_01`-Blockdatei samt authored Markern und Richtung im importierten Voxelmodell platzierbar.
+- [x] Shared Core-`MineWorkerEntryPolicy` in Headless und Produktion für Eintrittsreihenfolge.
+- [x] Read-only Front-/NPC-Navigationsdiagnose, farbige Debugmarker und Routen im Browser.
+- [x] Eingeschränkte `/sim`-Konsole und lesende `/civdev`-/`/civdebug`-Befehle.
+- [ ] Vollständige Core-Ablaufmaschine für Taskauswahl, Blockarbeit, Raum-/Infrastrukturarbeit, Navigationsergebnisse und Retry in beiden Adaptern (Phase 5B) – weiter offen.
+- [ ] Großwelt-/Prefab-Praxistest auf dem Nutzer-PC; keine Behauptung über identische native Hytale-Navigation.
