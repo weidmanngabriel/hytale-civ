@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { adjustFlightSpeed } from './flight-speed.js';
 import { surfaceFaces } from './replay.js';
+import { PerformanceRecorder, downloadPerformance } from './performance-recorder.js';
+const profiler = new PerformanceRecorder();
+let lastState = null, lastTerrainStats = {cells:0, triangles:0};
+
 
 const $ = id => document.getElementById(id);
 const canvas = $('canvas');
@@ -27,11 +31,14 @@ let abort = false;
 function look() { camera.rotation.set(pitch,yaw,0,'YXZ'); }
 function showError(error) { $('message').textContent=error.message||String(error); }
 async function request(path, value) {
+  const started=performance.now();
   const response=await fetch('http://localhost:8765/api/'+path,{
     method:value?'POST':'GET',headers:value?{'Content-Type':'application/json'}:{},body:value?JSON.stringify(value):undefined,cache:'no-store'
   });
   if(!response.ok)throw new Error('API '+response.status+': '+(await response.text()));
-  return response.json();
+  const data=await response.json();
+  profiler.measure('api:'+path,performance.now()-started);
+  return data;
 }
 async function send(command,more={}) {
   try {await request('control',{command,...more}); await update();} catch(e) {showError(e);}
@@ -58,12 +65,16 @@ function drawWorld(data) {
 }
 function drawImportedTerrain(data) {
   if (!data.loaded) return;
+  const begun=performance.now();
   importedTerrain = true;
   for (const mesh of [...terrainGroup.children]) { terrainGroup.remove(mesh); mesh.geometry?.dispose(); mesh.material?.dispose(); }
   const map = new Map(data.cells.map(([x,y,z,id])=>[`${x},${y},${z}`,id]));
   const colors = [0,0x657182,0x3184b7,0xdb6642,0x5ca5a0].map(x=>new THREE.Color(x));
   const positions = [], normals = [], vertexColors = [];
-  for(const face of surfaceFaces(map)){
+  const faces=surfaceFaces(map);
+  profiler.measure('terrain:faces',performance.now()-begun);
+  const meshStarted=performance.now();
+  for(const face of faces){
     const color = colors[face.material];
     for(const index of [0,1,2,0,2,3]){
       const corner = face.corners[index];
@@ -78,6 +89,8 @@ function drawImportedTerrain(data) {
   geom.setAttribute('color',new THREE.Float32BufferAttribute(vertexColors,3));
   const mesh = new THREE.Mesh(geom,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.FrontSide}));
   terrainGroup.add(mesh);
+  lastTerrainStats={cells:data.cells.length,triangles:faces.length*2};
+  profiler.measure('terrain:geometry',performance.now()-meshStarted);
   const [minX,minY,minZ,maxX,maxY,maxZ] = data.bounds;
   if (!drawImportedTerrain.initialized) {
     camera.position.set((minX+maxX)/2,maxY+10,maxZ+15);
@@ -99,6 +112,7 @@ async function update() {
   if(abort)return;
   try {
     const data=await request('state');
+    lastState=data;
     const changed=!world||data.scenario!==currentScenario;
     world=data.world; running=data.running;currentScenario=data.scenario;
     if(changed)$('scenario').value=currentScenario;
@@ -171,12 +185,35 @@ function frame(time) {
   if(move.lengthSq()>1)move.normalize();
   camera.position.addScaledVector(move,dt*flightSpeed);
   const rect=canvas.parentElement.getBoundingClientRect();
-  renderer.setSize(rect.width,rect.height,false);
-  camera.aspect=rect.width/Math.max(1,rect.height);camera.updateProjectionMatrix();
+  const w=Math.max(1,Math.floor(rect.width)),h=Math.max(1,Math.floor(rect.height));
+  if(renderer.domElement.width!==Math.floor(w*renderer.getPixelRatio())||renderer.domElement.height!==Math.floor(h*renderer.getPixelRatio())) {
+    renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
+  }
   $('camera').textContent='Kamera '+camera.position.toArray().map(x=>x.toFixed(1)).join(' / ')+' · Tempo '+flightSpeed.toFixed(1);
+  const renderStart=performance.now();
   renderer.render(scene,camera);
+  profiler.measure('render:three',performance.now()-renderStart);
+  profiler.frame(time);
   requestAnimationFrame(frame);
 }
 look();requestAnimationFrame(frame);setup();
-setInterval(update,100);
+let updating=false;
+setInterval(async()=>{if(updating)return;updating=true;try{await update();}finally{updating=false;}},250);
+$('record').onclick=()=>{
+  if (!profiler.active) {
+    profiler.start({ userAgent:navigator.userAgent, viewport:[innerWidth,innerHeight],pixelRatio:renderer.getPixelRatio() });
+    $('record').textContent='Aufnahme stoppen & JSON speichern';
+  } else {
+    const report=profiler.stop({ticks:lastState?.world?.tickCount||0,...lastTerrainStats});
+    if(report)downloadPerformance(report);
+    $('record').textContent='Performance aufnehmen';
+  }
+};
+setInterval(()=>{
+ if(!profiler.active)return;
+ profiler.sample({ticks:lastState?.world?.tickCount||0,simulationRunning:!!lastState?.running,
+  residents:lastState?.world?.residents?.length||0,terrainRevision:lastState?.worldRevision||0,...lastTerrainStats,
+  drawCalls:renderer.info.render.calls,trianglesDrawn:renderer.info.render.triangles});
+ $('record-status').textContent=profiler.samples.length+' s erfasst';
+},1000);
 window.addEventListener('beforeunload',()=>abort=true);
