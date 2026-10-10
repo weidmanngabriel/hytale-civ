@@ -7,9 +7,9 @@ import dev.civilizations.simulation.world.VoxelWorld;
 import dev.civilizations.simulation.world.WorldArchive;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
+import java.util.ArrayList;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /** Places authored Civ mine blocks and translates its existing trigger markers into world coordinates. */
 public final class MineSandboxPrefab {
@@ -17,9 +17,17 @@ public final class MineSandboxPrefab {
         Path.of("asset-pack/Server/Prefabs/Civilizations/Mine/Mine_01.prefab.json");
 
     private final PrefabSimulationModel prefab;
+    private final List<RawBlock> authoredBlocks;
 
     public MineSandboxPrefab(Path source) throws IOException {
         prefab = new PrefabSimulationLoader().load(source);
+        var raw = new ObjectMapper().readTree(source.toFile());
+        var parsed = new ArrayList<RawBlock>();
+        for (var block : raw.path("blocks")) {
+            parsed.add(new RawBlock(block.path("x").asInt(),block.path("y").asInt(),
+                block.path("z").asInt(),block.path("name").asText()));
+        }
+        authoredBlocks = List.copyOf(parsed);
         prefab.requireMarker("workplace_access");
         prefab.requireMarker("mine_tunnel_connector");
     }
@@ -31,16 +39,13 @@ public final class MineSandboxPrefab {
         if (!region.contains(origin.x()+bounds.minX(),origin.y()+bounds.minY(),origin.z()+bounds.minZ())
             || !region.contains(origin.x()+bounds.maxX(),origin.y()+bounds.maxY(),origin.z()+bounds.maxZ()))
             throw new IllegalArgumentException("Prefab would extend beyond imported world; choose a different anchor.");
-        for (var cell : prefab.cells().entrySet()) {
-            BlockPosition local=cell.getKey();
-            BlockPosition actual=new BlockPosition(origin.x()+local.x(),origin.y()+local.y(),origin.z()+local.z());
-            WorldArchive.Material material=cell.getValue()==PrefabSimulationModel.Cell.DOOR
+        for (var block : authoredBlocks) {
+            BlockPosition actual=new BlockPosition(origin.x()+block.x(),origin.y()+block.y(),origin.z()+block.z());
+            WorldArchive.Material material=block.name().equalsIgnoreCase("Empty")
+                || block.name().toLowerCase(java.util.Locale.ROOT).contains("door")
                 ? WorldArchive.Material.AIR : WorldArchive.Material.SOLID;
             if (world.material(actual)!=material) world.set(actual,material);
         }
-        // The authored prefab uses explicit Empty cells to clear its footprint.
-        // This reduced loader only retains nonempty blocks, so navigation through pre-existing
-        // terrain is not guaranteed until empty-cell placement is supported explicitly.
         List<Marker> markers=prefab.markers().stream().map(m->new Marker(m.name(),m.type(),
             new Box(m.bounds().minX()+origin.x(),m.bounds().minY()+origin.y(),m.bounds().minZ()+origin.z(),
                 m.bounds().maxX()+origin.x(),m.bounds().maxY()+origin.y(),m.bounds().maxZ()+origin.z()))).toList();
@@ -70,6 +75,7 @@ public final class MineSandboxPrefab {
         return result;
     }
 
+    private record RawBlock(int x,int y,int z,String name) {}
     public record Box(double minX,double minY,double minZ,double maxX,double maxY,double maxZ) {}
     public record Marker(String name,String type,Box bounds) {}
     public record Placement(BlockPosition origin,BlockPosition access,BlockPosition connector,List<Marker> markers) {}
