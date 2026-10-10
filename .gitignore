@@ -21,3 +21,6 @@ web-viewer/dist/
 web-viewer/public/data/
 .hytale-dev/
 .hytale-dev.json
+
+# Locally exported Hytale world regions (not source assets)
+civ-world-archives/
