@@ -31,6 +31,7 @@ import dev.civilizations.core.MineCavePolicy;
 import dev.civilizations.core.MineDecisionCategory;
 import dev.civilizations.core.MineDecisionSink;
 import dev.civilizations.core.MineFrontCoordinator;
+import dev.civilizations.core.MineFrontWorkDecision;
 import dev.civilizations.core.MineFrontTaskScheduler;
 import dev.civilizations.core.MineHeading;
 import dev.civilizations.core.MineInfrastructurePlanner;
@@ -2227,13 +2228,15 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         CivUnitRegistry.UnitKey workerKey,
         WorkerRuntime runtime
     ) {
-        BlockPosition target = frontCoordinator.claimNext(
+        var claim = MineFrontWorkDecision.choose(
+            frontCoordinator,
             plan.frontId,
             workerKey,
             MineFrontCoordinator.capacityFor(plan.tunnelKind),
             plan.orderedBlocks.get(plan.sliceIndex),
             block -> isAvailableWorkBlock(world, mine, block)
         );
+        BlockPosition target = claim.block();
         runtime.claimedBlock = target;
         if (target == null) return false;
 

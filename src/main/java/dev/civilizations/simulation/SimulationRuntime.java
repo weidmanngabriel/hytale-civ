@@ -9,6 +9,20 @@ import dev.civilizations.core.Profession;
 import dev.civilizations.core.WoodcutterJob;
 import dev.civilizations.core.WorkDecisionSchedule;
 import dev.civilizations.core.WorldPosition;
+import dev.civilizations.simulation.world.VoxelWorld;
+import dev.civilizations.simulation.world.WorldArchive;
+import dev.civilizations.core.MineFrontCoordinator;
+import dev.civilizations.core.MineFrontWorkDecision;
+import dev.civilizations.core.MineNormalTaskSelector;
+import dev.civilizations.core.MineFrontTaskScheduler;
+import dev.civilizations.core.MineHeading;
+import dev.civilizations.core.MineNetworkGrowthPlanner;
+import dev.civilizations.core.MineTunnelGeometry;
+import dev.civilizations.core.MineTunnel;
+import java.nio.charset.StandardCharsets;
+import java.util.Comparator;
+import java.util.Set;
+import java.util.UUID;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -40,6 +54,8 @@ public final class SimulationRuntime {
     private final Map<String, List<WorldPosition>> farmFields = new LinkedHashMap<>();
 
     private long tickCount;
+    private VoxelWorld voxelWorld;
+    private MineLab mineLab;
 
     public SimulationRuntime() {
         this(DEFAULT_TICK_SECONDS, DEFAULT_MOVE_SPEED);
@@ -54,6 +70,25 @@ public final class SimulationRuntime {
         }
         this.tickSeconds = tickSeconds;
         this.moveSpeed = moveSpeed;
+    }
+
+    /** Enables realistic pathfinding for this runtime; not used by live Hytale adapters. */
+    public void setVoxelWorld(VoxelWorld world) {
+        voxelWorld = Objects.requireNonNull(world);
+        for (Resident resident : residents.values()) resident.route = List.of();
+    }
+
+    /** Starts deterministic Core-planned excavation against the optional imported voxel adapter. */
+    public void configureMineLab(BlockPosition anchor, MineHeading heading, int length, long seed) {
+        if (voxelWorld == null) throw new IllegalStateException("Mine lab requires imported voxel terrain");
+        if (!voxelWorld.canStand(anchor)) throw new IllegalArgumentException("Mine anchor is not standable");
+        mineLab = new MineLab(anchor, heading, length, seed);
+    }
+
+    public int excavatedMineBlocks() { return mineLab == null ? 0 : mineLab.excavated; }
+
+    public void addMiner(String id, WorldPosition position) {
+        addResident(Resident.miner(id, position));
     }
 
     public void addWoodcutter(String id, WorldPosition position) {
@@ -253,12 +288,18 @@ public final class SimulationRuntime {
 
         MovementIntent manual = resident.activity.manualMovementIntent();
         if (manual != null) {
+            if (mineLab != null && resident.profession == Profession.MINER && !resident.minerSuspended) {
+                mineLab.releaseWorker(resident.id);
+                resident.minerWorkTicks = 0;
+                resident.minerSuspended = true;
+            }
             if (advanceMovement(resident, manual.destination())) {
                 resident.activity.completeManualMove();
             }
             return;
         }
 
+        if (manual == null) resident.minerSuspended = false;
         if (!resident.activity.autonomousWorkAllowed()) {
             clearMovement(resident);
             return;
@@ -268,7 +309,8 @@ public final class SimulationRuntime {
             case WOODCUTTER -> tickWoodcutter(resident);
             case CONSTRUCTION_WORKER -> tickBuilder(resident);
             case FARMER -> tickFarmer(resident);
-            case MINER, SOLDIER, UNEMPLOYED -> clearMovement(resident);
+            case MINER -> { if (mineLab == null) clearMovement(resident); else mineLab.tick(resident); }
+            case SOLDIER, UNEMPLOYED -> clearMovement(resident);
         }
     }
 
@@ -468,6 +510,51 @@ public final class SimulationRuntime {
     }
 
     private boolean advanceMovement(Resident resident, WorldPosition target) {
+        if (voxelWorld == null) return advanceStraightMovement(resident, target);
+        BlockPosition current = blockAt(resident.position);
+        BlockPosition goal = blockAt(target);
+        if (!target.equals(resident.routeTarget) || resident.routeRevision != voxelWorld.revision()) {
+            resident.route = voxelWorld.path(current, goal);
+            resident.routeTarget = target;
+            resident.routeRevision = voxelWorld.revision();
+            resident.routeIndex = 0;
+        }
+        if (resident.route.isEmpty()) {
+            resident.navigationBlocked = true;
+            clearMovement(resident);
+            return false;
+        }
+        resident.navigationBlocked = false;
+        // Cell membership does not mean the waypoint center was reached. Reaching the
+        // center first prevents diagonal corner-cutting after a route is replanned.
+        // The movement result below is the only event advancing routeIndex.
+        if (resident.routeIndex < resident.route.size()) {
+            BlockPosition next = resident.route.get(resident.routeIndex);
+            WorldPosition waypoint = new WorldPosition(next.x() + 0.5, next.y(), next.z() + 0.5);
+            // A straight 3D line through a one-block step can intersect its
+            // supporting solid voxel. Climb before crossing; cross before descending.
+            WorldPosition here = resident.position;
+            if (waypoint.y() > here.y() + EPSILON) {
+                advanceStraightMovement(resident, new WorldPosition(here.x(), waypoint.y(), here.z()));
+                return false;
+            }
+            if (waypoint.y() < here.y() - EPSILON
+                && (Math.abs(here.x() - waypoint.x()) > EPSILON
+                    || Math.abs(here.z() - waypoint.z()) > EPSILON)) {
+                advanceStraightMovement(resident, new WorldPosition(waypoint.x(), here.y(), waypoint.z()));
+                return false;
+            }
+            if (advanceStraightMovement(resident, waypoint)) resident.routeIndex++;
+            return false;
+        }
+        return advanceStraightMovement(resident, target);
+    }
+
+    private static BlockPosition blockAt(WorldPosition p) {
+        return new BlockPosition((int)Math.floor(p.x()),(int)Math.floor(p.y()),(int)Math.floor(p.z()));
+    }
+
+    private boolean advanceStraightMovement(Resident resident, WorldPosition target) {
         if (!target.equals(resident.movementTarget)) {
             resident.movementTarget = target;
             metrics.recordMovementRequest();
@@ -524,6 +611,7 @@ public final class SimulationRuntime {
 
     private static String stateName(Resident resident) {
         InhabitantActivity.ActivityMode activityMode = resident.activity.snapshot().mode();
+        if (resident.navigationBlocked) return "NAVIGATION_BLOCKED";
         if (activityMode == InhabitantActivity.ActivityMode.MANUAL_MOVE) return "MANUAL_MOVE";
         if (activityMode == InhabitantActivity.ActivityMode.RESUME_DELAY) return "RESUME_DELAY";
         return autonomousStateName(resident);
@@ -534,7 +622,8 @@ public final class SimulationRuntime {
             case WOODCUTTER -> resident.woodcutterJob.state().name();
             case CONSTRUCTION_WORKER -> resident.constructionJob.state().name();
             case FARMER -> resident.farm.workState().name();
-            case MINER, SOLDIER, UNEMPLOYED -> "IDLE";
+            case MINER -> resident.minerState;
+            case SOLDIER, UNEMPLOYED -> "IDLE";
         };
     }
 
@@ -581,6 +670,87 @@ public final class SimulationRuntime {
     public record FarmFieldSnapshot(String farmId, WorldPosition position) {
     }
 
+    /**
+     * Simulates engine execution of the Core-produced tunnel slices. This is an
+     * integration fixture, not an alternative to Hytale's actual miner adapter.
+     */
+    private final class MineLab {
+        private final BlockPosition home;
+        private final List<MineTunnelGeometry.Slice> slices;
+        private final MineFrontCoordinator<String> claims = new MineFrontCoordinator<>();
+        private int sliceIndex;
+        private int excavated;
+
+        MineLab(BlockPosition home, MineHeading heading, int length, long seed) {
+            this.home = home;
+            var mineId = UUID.nameUUIDFromBytes(("headless-mine:" + seed).getBytes(StandardCharsets.UTF_8));
+            this.slices = MineNetworkGrowthPlanner.plan(mineId, home, heading, length, 1, seed)
+                .mainTunnel().geometry().slices();
+        }
+
+        void tick(Resident resident) {
+            if (sliceIndex >= slices.size()) {
+                resident.minerState = "RETURNING";
+                WorldPosition destination = new WorldPosition(home.x() + .5, home.y(), home.z() + .5);
+                if (advanceMovement(resident, destination)) {
+                    resident.minerState = "COMPLETE";
+                    clearMovement(resident);
+                }
+                return;
+            }
+            var slice = slices.get(sliceIndex);
+            var candidates = slice.excavationBlocks().stream()
+                .sorted(Comparator.comparingInt(BlockPosition::x)
+                    .thenComparingInt(BlockPosition::y).thenComparingInt(BlockPosition::z))
+                .toList();
+            if (candidates.stream().anyMatch(p -> voxelWorld.material(p) == null)) {
+                resident.minerState = "REGION_BOUNDARY";
+                clearMovement(resident);
+                return;
+            }
+            if (candidates.stream().allMatch(p -> voxelWorld.material(p) != WorldArchive.Material.SOLID)) {
+                claims.releaseFront(frontId(sliceIndex));
+                sliceIndex++;
+                resident.minerState = "NEXT_SLICE";
+                return;
+            }
+            var staging = sliceIndex == 0 ? home : slices.get(sliceIndex-1).floorCenter();
+            WorldPosition workPoint = new WorldPosition(staging.x()+.5,staging.y(),staging.z()+.5);
+            if (distanceSquared(resident.position, workPoint) > 2.25) {
+                resident.minerState = "MOVING_TO_FRONT";
+                advanceMovement(resident, workPoint);
+                return;
+            }
+            UUID id = frontId(sliceIndex);
+            int capacity = MineFrontCoordinator.capacityFor(MineTunnel.Kind.MAIN);
+            // The shared Core work decision retains membership for workers already at capacity.
+            // Filtering the front as fully occupied here would strand its own miners.
+            var claim = MineFrontWorkDecision.choose(claims, id, resident.id, capacity, candidates,
+                p -> voxelWorld.material(p) == WorldArchive.Material.SOLID);
+            if (claim.result() != MineFrontWorkDecision.Result.CLAIMED) {
+                resident.minerState = claim.result() == MineFrontWorkDecision.Result.FRONT_FULL
+                    ? "WAIT_FRONT_CAPACITY" : "WAIT_BLOCK";
+                return;
+            }
+            BlockPosition block = claim.block();
+            resident.minerState = "EXCAVATING";
+            if (++resident.minerWorkTicks >= 5) {
+                resident.minerWorkTicks = 0;
+                voxelWorld.set(block, WorldArchive.Material.AIR);
+                excavated++;
+                claims.completeClaim(id,resident.id,block);
+            }
+        }
+
+        void releaseWorker(String residentId) {
+            claims.releaseWorker(residentId);
+        }
+
+        private UUID frontId(int index) {
+            return UUID.nameUUIDFromBytes(("headless-front:" + index).getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
     private static final class Resident {
         private final String id;
         private final Profession profession;
@@ -594,6 +764,14 @@ public final class SimulationRuntime {
         private WorldPosition movementTarget;
         private WorldPosition fieldTarget;
         private double cropGrowthElapsedSeconds;
+        private List<BlockPosition> route = List.of();
+        private WorldPosition routeTarget;
+        private long routeRevision = -1;
+        private int routeIndex;
+        private boolean navigationBlocked;
+        private String minerState = "IDLE";
+        private int minerWorkTicks;
+        private boolean minerSuspended;
 
         private Resident(
             String id,
@@ -610,6 +788,10 @@ public final class SimulationRuntime {
             this.woodcutterJob = woodcutterJob;
             this.constructionJob = constructionJob;
             this.farm = farm;
+        }
+
+        static Resident miner(String id, WorldPosition position) {
+            return new Resident(id, Profession.MINER, position, null, null, null);
         }
 
         static Resident woodcutter(String id, WorldPosition position) {

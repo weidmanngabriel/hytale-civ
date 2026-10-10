@@ -323,7 +323,7 @@ Die Minenansicht trennt drei Verantwortlichkeiten. `Mine · Geometry` isoliert L
 
 `web-viewer/` ist eine eigenständige Vite-/Three.js-Präsentation außerhalb des Plugin-Classpaths. `Replay` rekonstruiert ausschließlich die aufgezeichneten Änderungen. Große Minen speichern den Felsquader kompakt als implizite `rockBounds`; der Renderer erzeugt nur die Grenzflächen ausgegrabener Hohlräume und nicht die äußere Quaderoberfläche. Dadurch bleibt die freie X-Ray-Spectator-Kamera möglich, ohne den kompletten Fels als Einzelvoxels zu serialisieren. Kamera und Playback besitzen keine Gameplay-Regeln. Die allgemeinen Szenarien verwenden jeweils 600 feste 50-ms-Ticks; Mine-Frames sind semantische Schritte und keine Hytale-Laufzeit.
 
-Die Actions-/Pages-Grenze und die begrenzte Aufbewahrung sind in [ADR 0010](decisions/0010-browser-simulation-recordings.md) beschrieben. Der veröffentlichte Viewer stammt aus `main`; Branch-Aufzeichnungen identifizieren ihren exakten Quellcode-Commit und Run-Attempt. Der Browser benötigt keine GitHub-Zugangsdaten.
+Die frühere Veröffentlichung über GitHub Actions/Pages wird nur noch historisch durch [ADR 0010](decisions/0010-browser-simulation-recordings.md) erklärt; sie wird nicht mehr ausgeführt. Für laufende Szenarien ist der lokale Java-HTTP-Server mit dem Three.js-Live-Viewer maßgeblich. Der separate Replay-Exporter bleibt als optionales lokales Diagnosewerkzeug erhalten.
 
 ### Mine persistence hotpaths (Layer 10)
 
@@ -377,3 +377,7 @@ Hytale Live kann mehrere bereits zugelassene Bridge-Aktionen als versionierten J
 `CivPerformanceRecorder` ist ein gemeinsamer, nur auf ausdrückliche Anforderung aktivierter Messkern für das Hytale-Adapter-Layer. Die bestehenden Worker-Systeme umgeben autoritative Tick-/Suchpfade mit sehr kurzen Timern; deaktiviert findet nur eine Referenzprüfung statt. Aggregierte Atomic-Zähler, approximative Histogramm-p95, und maximal 900 sekündliche Snapshots vermeiden unbegrenzte Rohereignisse. Die Messungen sind inklusiv (Kindoperationen stecken in Elternoperationen), daher dürfen Zeitwerte aus verschachtelten Kategorien nicht addiert werden. Der Report nennt die separat beobachtete Messbuchhaltung als approximativen Profiler-Eigenaufwand.
 
 `CivPerformanceHudSystem` benutzt einen nativen 1-s-`DelayedEntitySystem` auf Player-Entitäten, um Status-HUD und zusammengefasste World-Entity-Zahlen zu aktualisieren. Nur dieser Refresh erfragt native geladene Hytale-Entity-Zahlen. Start, Stop und Report benutzen UI wie Agent-Anbindung denselben Recorder. Es entstehen keine neuen Gameplay-Zustände, Weltabfragen für Diagnostik oder dauerhaften NPC-Indizes.
+
+## Lokale browserbasierte Live-Simulation
+
+`LocalSimulationServer` liefert die vorhandenen `SimulationRuntime`-Snapshots über eine nur auf Loopback gebundene HTTP-API (`/api/scenarios`, `/api/state`, `/api/control`). Das lokale `web-viewer/live.html` stellt die laufenden Zustände mit Three.js dar, ohne Gameplay-Logik zu besitzen. Für den aktuellen Slice zeigen geometrische Platzhalter Bäume und Baustellen; echte Blockwelten sind noch nicht integriert. Die bisherige Replay-UI bleibt vorerst unverändert.

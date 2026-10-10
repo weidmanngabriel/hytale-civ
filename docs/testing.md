@@ -224,7 +224,7 @@ Der fokussierte Hytale-Local-Test `mineatmosphere` baut eine künstliche Hauptst
 
 `MineTunnelVoxelizerTest` enthält zusätzlich visuelle Qualitätsinvarianten über viele deterministische Seeds: benachbarte Slice-Mittelpunkte dürfen nicht springen, Breite und Höhe ändern sich nur schrittweise, die gesamte Ausgrabungsmenge bleibt sechsfach zusammenhängend und organische Ausbuchtungen bleiben innerhalb einer begrenzten lokalen Hülle. Diese Checks sollen grobe optische Fehlformen bereits ohne Hytale erkennen; sie ersetzen keine Engine-/Asset-Verifikation.
 
-`npm test --prefix web-viewer` prüft Vor-/Rückwärtssprünge, inkompatible Daten, gerichtete Grenzflächen, den Blick von außen/im Fels/im Tunnel, implizite `rockBounds`, einen realen Three.js-Raycast sowie Publisher-Provenienz und Kataloggrenzen. Die Branch-Auswahl hält `main` immer oben und sortiert alle anderen Branches nach dem neuesten veröffentlichten Commit-Datum absteigend. Der Pages-Publisher führt diese Tests vor jeder Veröffentlichung aus.
+`npm test --prefix web-viewer` prüft weiterhin das historische Replay-Modell, die gerichteten Voxel-Grenzflächen, Spectator-Picking und die fein abgestufte Fluggeschwindigkeit. Der lokale Browser-Build ist Teil der normalen CI. Es gibt keinen Pages-Publisher und keinen automatischen Replay-Katalog mehr; das alte Recording bleibt ein optionaler Offline-Testpfad.
 
 Manueller Viewer-Check:
 
@@ -299,3 +299,7 @@ Das opt-in Hytale-Local-Szenario `deployment` verwendet ausschließlich eine fri
 **Phase 3/4:** `deploymentrollback` prüft per absichtlichem Fehler nach JAR-/Asset-Installation die SHA-256-Wiederherstellung und dass der gespeicherte NPC mit der vorherigen Version nach einem neuen Start geladen werden kann. `deploymentreal` prüft dagegen einen Neustart zwischen zwei commitgebundenen echten GitHub-CI-JAR-Artefakten und persistierte Civ-Daten. Beide Tests laufen nur in einer isolierten Hytale-Local-Instanz, ersetzen keine Rollback-Validierung für echte Spielerwelten und garantieren keine automatisierte Produktionsfreigabe.
 
 **Phase 5 – vereinfachte Bedienung:** Der GitHub-Issue-Befehl `/hytale-deploy <commit-sha>` ist ein autorisierter Alias für das vorhandene Szenario `deploymentreal` und unterliegt denselben CI-Artefakt-, Runner- und Isolationsgrenzen. Der Alias verändert keine Installationslogik und benötigt keine zusätzliche Gameplay-Probe; seine Autorisierung und die Befehlsauswertung sind Teil des Hytale-Local-Workflows.
+
+## Lokaler Live-Server
+
+`LocalSimulationServerTest` startet die API auf einem temporären Loopback-Port, verifiziert Szenarioauswahl, Tick-Schritt, Start/Pause, Reset und Live-Zustand ohne vorberechnete Replay-Dateien. Die Browseroberfläche wird weiterhin über den `web-viewer`-Build und Node-Tests validiert; echtes Rendering und Pointer-Lock erfordern ergänzend einen manuellen Browsercheck.
