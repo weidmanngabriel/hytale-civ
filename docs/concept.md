@@ -327,3 +327,7 @@ Der vorhandene opt-in-Civ-Profiler zeichnet nun Systemkosten pro Messintervall s
 Die Performance-Aufzeichnung ist direkt im Spiel über `/civdebug perf start`, `stop`, `status` und `report` zugänglich. Der Bericht zeigt die fünf teuersten gemessenen Civ-Systeme mit Laufzeit, Häufigkeit und maximaler Einzeldauer. Die Aufnahme läuft serverweit und höchstens 15 Minuten. Client-FPS stehen weiterhin nicht zur Verfügung; für JSON-Export wird die lokale Entwicklungsbrücke verwendet.
 
 Der lokale 3D-Viewer bietet die Schaltfläche **Performance aufnehmen**. Nach erneutem Klick wird eine JSON-Datei heruntergeladen, die Browser-FPS, Framezeit, Mesh-Aufbauzeiten, API-Latenzen, Welt-/NPC-Größe sowie Tick- und Revisionszahlen enthält. Die Aufnahme ist standardmäßig aus und auf maximal 900 Sekunden-Samples begrenzt. Ein echter Server-Profiler wird dadurch nicht ersetzt.
+
+## Lokales Minen-Labor (Browser)
+
+Nach Weltimport kann eine echte authored Phase-1-Mine automatisch oder per Weltkoordinaten platziert werden. Der Viewer zeigt deren Volumenmarker, Zugang, Tunnelanschluss, geplante Haupt-Tunnelslices, aktuelle Arbeitsfront sowie simulierte NPC-Ziele und Wege. Die Simulator-Konsole kennt einen bewusst begrenzten `/sim`-Befehlssatz und lesende lokale Alias-Befehle `/civdev mines`/`mine-info`; sie ist keine vollständige Ingame-Konsole. Headless-Wegfindung ist ein vereinfachtes Testmodell. Unbegehbare simulierte Wege sind nicht automatisch Hytale-Navigationsfehler. Die umfassende gemeinsame Miner-Gameplay-Ablaufsteuerung bleibt weiter auszubauen.

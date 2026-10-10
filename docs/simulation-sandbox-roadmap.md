@@ -61,3 +61,11 @@ Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenomme
 - [ ] Headless-Simulator über dieselbe Ablaufmaschine ausführen und Engine-Ergebnisse künstlich melden.
 - [ ] Paritätstests über identische Befehls-/Ergebnisfolgen, einschließlich Mehrfach-Miner, Rückweg, Hindernis, Abbruch und Retry.
 - [ ] Integrations- und CI-Abnahme grün; erst dann diesen Teil als abgeschlossen markieren.
+
+## Lab A–C – ergänzender Stand
+
+- [x] Shared Core `MineWorkerRouteDecision` für Zugang → Anschluss → Arbeitsfront in produktivem und Headless-Miner referenziert.
+- [x] Authored Mine_01-Prefab mit Block-/Empty-Daten und semantischen Markern für importierte Welt visualisierbar und platzierbar.
+- [x] Lokales Debug-API, Weg-/Arbeitsfront-/Marker-Overlays und begrenzte Simulator-Konsole.
+- [ ] Vollständige produktive Miner-Task-State-Machine für alle Arbeitsarten als Core-Laufzeit geteilt und Golden-Paritätstests implementiert.
+- [ ] End-to-End auf echtem großen Weltarchiv mit Platzierung, drei Minern und deren vollständigem Rückweg vom Nutzer abgenommen.

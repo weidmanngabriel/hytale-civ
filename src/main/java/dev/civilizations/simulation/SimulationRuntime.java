@@ -19,6 +19,10 @@ import dev.civilizations.core.MineHeading;
 import dev.civilizations.core.MineNetworkGrowthPlanner;
 import dev.civilizations.core.MineTunnelGeometry;
 import dev.civilizations.core.MineTunnel;
+import dev.civilizations.core.MineWorkerRouteDecision;
+import dev.civilizations.core.MineInfrastructurePlanner;
+import dev.civilizations.core.MineInfrastructureTask;
+import dev.civilizations.core.MineTuning;
 import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.Set;
@@ -80,9 +84,35 @@ public final class SimulationRuntime {
 
     /** Starts deterministic Core-planned excavation against the optional imported voxel adapter. */
     public void configureMineLab(BlockPosition anchor, MineHeading heading, int length, long seed) {
+        configureMineLab(anchor, anchor, heading, length, seed);
+    }
+
+    /** Real prefab marker positions; movement physics remains the simplified headless adapter. */
+    public void configureMineLab(BlockPosition connector, BlockPosition access, MineHeading heading, int length, long seed) {
         if (voxelWorld == null) throw new IllegalStateException("Mine lab requires imported voxel terrain");
-        if (!voxelWorld.canStand(anchor)) throw new IllegalArgumentException("Mine anchor is not standable");
-        mineLab = new MineLab(anchor, heading, length, seed);
+        if (!voxelWorld.canStand(connector)) throw new IllegalArgumentException("Mine connector is not standable");
+        if (!voxelWorld.canStand(access)) throw new IllegalArgumentException("Mine access is not standable");
+        mineLab = new MineLab(connector, access, heading, length, seed);
+    }
+
+    public Map<String,Object> mineDebugSnapshot() {
+        if (mineLab == null) return Map.of("loaded",false,"workers",List.of());
+        var workerPaths = residents.values().stream()
+            .filter(r->r.profession==Profession.MINER)
+            .map(r->Map.of("id", (Object)r.id, "state", stateName(r),
+                "route", r.route.stream().skip(Math.min(r.routeIndex,r.route.size())).limit(96).toList(),
+                "target", r.routeTarget == null ? r.position : r.routeTarget,
+                "reason", r.navigationBlocked ? "SIMULATED_PATH_UNREACHABLE" : ""))
+            .toList();
+        return Map.of("loaded",true,"access",mineLab.access,"connector",mineLab.home,
+            "sliceIndex",mineLab.sliceIndex,"sliceCount",mineLab.slices.size(),
+            "workFront",mineLab.sliceIndex<mineLab.slices.size()
+                ? mineLab.slices.get(mineLab.sliceIndex).floorCenter() : mineLab.home,
+            "plannedSlices",mineLab.slices.stream().map(MineTunnelGeometry.Slice::floorCenter).toList(),
+            "excavatedBlocks",mineLab.excavated,"workers",workerPaths,
+            "infrastructureTasks",mineLab.infrastructure.stream().map(task->Map.of(
+                "type",task.type().name(),"anchor",task.anchor(),
+                "slice",task.startSliceIndex(),"status","PLANNED_ONLY")).toList());
     }
 
     public int excavatedMineBlocks() { return mineLab == null ? 0 : mineLab.excavated; }
@@ -676,19 +706,35 @@ public final class SimulationRuntime {
      */
     private final class MineLab {
         private final BlockPosition home;
+        private final BlockPosition access;
+        private final Map<String, Integer> entryProgress = new LinkedHashMap<>();
         private final List<MineTunnelGeometry.Slice> slices;
+        private final List<MineInfrastructureTask> infrastructure;
         private final MineFrontCoordinator<String> claims = new MineFrontCoordinator<>();
         private int sliceIndex;
         private int excavated;
 
-        MineLab(BlockPosition home, MineHeading heading, int length, long seed) {
+        MineLab(BlockPosition home, BlockPosition access, MineHeading heading, int length, long seed) {
             this.home = home;
+            this.access = access;
             var mineId = UUID.nameUUIDFromBytes(("headless-mine:" + seed).getBytes(StandardCharsets.UTF_8));
-            this.slices = MineNetworkGrowthPlanner.plan(mineId, home, heading, length, 1, seed)
-                .mainTunnel().geometry().slices();
+            var main = MineNetworkGrowthPlanner.plan(mineId, home, heading, length, 1, seed)
+                .mainTunnel();
+            this.slices = main.geometry().slices();
+            this.infrastructure = MineInfrastructurePlanner.plan(main.tunnel().id(), main.geometry());
         }
 
         void tick(Resident resident) {
+            int entry = entryProgress.getOrDefault(resident.id,0);
+            var next = MineWorkerRouteDecision.next(entry>=1,entry>=2);
+            if (next != MineWorkerRouteDecision.Destination.WORK_FRONT) {
+                BlockPosition goal = next == MineWorkerRouteDecision.Destination.WORKPLACE_ACCESS ? access : home;
+                resident.minerState = next == MineWorkerRouteDecision.Destination.WORKPLACE_ACCESS
+                    ? "MOVING_TO_ACCESS" : "MOVING_TO_CONNECTOR";
+                if (advanceMovement(resident,new WorldPosition(goal.x()+.5,goal.y(),goal.z()+.5)))
+                    entryProgress.put(resident.id,entry+1);
+                return;
+            }
             if (sliceIndex >= slices.size()) {
                 resident.minerState = "RETURNING";
                 WorldPosition destination = new WorldPosition(home.x() + .5, home.y(), home.z() + .5);
@@ -734,7 +780,7 @@ public final class SimulationRuntime {
             }
             BlockPosition block = claim.block();
             resident.minerState = "EXCAVATING";
-            if (++resident.minerWorkTicks >= 5) {
+            if (++resident.minerWorkTicks >= Math.ceil(MineTuning.secondsPerBlock()/tickSeconds)) {
                 resident.minerWorkTicks = 0;
                 voxelWorld.set(block, WorldArchive.Material.AIR);
                 excavated++;
@@ -744,6 +790,7 @@ public final class SimulationRuntime {
 
         void releaseWorker(String residentId) {
             claims.releaseWorker(residentId);
+            entryProgress.remove(residentId);
         }
 
         private UUID frontId(int index) {

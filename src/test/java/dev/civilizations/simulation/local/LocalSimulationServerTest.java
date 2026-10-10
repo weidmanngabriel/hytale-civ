@@ -160,6 +160,31 @@ class LocalSimulationServerTest {
         }
     }
 
+    @Test
+    void authoredPrefabPlacementCreatesRealMineMarkersAndLocalWorkerRoutes() throws Exception {
+        var cells=new ArrayList<WorldArchive.Cell>();
+        for(int x=0;x<50;x++)for(int y=0;y<35;y++)for(int z=0;z<50;z++)
+            cells.add(new WorldArchive.Cell(x,y,z,y<=16?"native:stone":"air",0,0,"NONE"));
+        var archive=new WorldArchive(WorldArchive.VERSION,"authored-mine-fixture",
+            new WorldArchive.Bounds(0,0,0,50,35,50),cells);
+        try(var server=new LocalSimulationServer(0,archive)) {
+            server.start();
+            String url="http://localhost:"+server.port()+"/api/";
+            post(url+"control","{\"command\":\"placeMine\",\"x\":25,\"y\":0,\"z\":25}");
+            var diagnostic=get(url+"debug");
+            assertTrue(diagnostic.path("prefab").path("placed").asBoolean());
+            assertTrue(diagnostic.path("prefab").path("markers").size()>=4);
+            post(url+"control","{\"command\":\"configureMiners\",\"miners\":3}");
+            assertEquals(3,get(url+"state").path("world").path("residents").size());
+            assertEquals(9,get(url+"debug").path("mine").path("sliceCount").asInt());
+            post(url+"control","{\"command\":\"step\"}");
+            assertTrue(get(url+"debug").path("mine").path("workers").isArray());
+            post(url+"control","{\"command\":\"reset\"}");
+            assertTrue(get(url+"debug").path("prefab").path("placed").asBoolean());
+            assertEquals(3,get(url+"state").path("world").path("residents").size());
+        }
+    }
+
     private JsonNode get(String url) throws Exception {
         var request = HttpRequest.newBuilder(URI.create(url)).GET().build();
         var response = client.send(request, HttpResponse.BodyHandlers.ofString());
