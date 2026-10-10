@@ -8,6 +8,17 @@ public final class VoxelWorld {
     private static final int[][] OFFSETS={{1,0},{-1,0},{0,1},{0,-1}};
     private final WorldArchive.Bounds bounds;
     private long revision;
+    private static final int MAX_CHANGE_HISTORY = 4096;
+    private final ArrayDeque<Change> changeHistory = new ArrayDeque<>();
+    public record Change(long revision, BlockPosition position, WorldArchive.Material material) {}
+
+    /** Null indicates the requested revision predates the bounded delta history. */
+    public List<Change> changesSince(long oldRevision) {
+        if (oldRevision < 0 || oldRevision > revision) return null;
+        if (oldRevision == revision) return List.of();
+        if (changeHistory.isEmpty() || oldRevision < changeHistory.getFirst().revision() - 1) return null;
+        return changeHistory.stream().filter(change -> change.revision() > oldRevision).toList();
+    }
     public long revision() { return revision; }
     private final Map<BlockPosition, WorldArchive.Material> cells;
 
@@ -24,6 +35,8 @@ public final class VoxelWorld {
         if(!bounds.contains(p.x(),p.y(),p.z()))throw new IllegalArgumentException("Outside imported region");
         cells.put(p, Objects.requireNonNull(material));
         revision++;
+        changeHistory.addLast(new Change(revision,p,material));
+        if (changeHistory.size() > MAX_CHANGE_HISTORY) changeHistory.removeFirst();
     }
 
     public boolean canStand(BlockPosition feet) {
