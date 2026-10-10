@@ -81,8 +81,7 @@ public final class LocalSimulationServer implements AutoCloseable {
 
     private void scenarios(HttpExchange exchange) throws IOException {
         if (!exchange.getRequestMethod().equals("GET")) { respond(exchange, 405, Map.of("error", "GET required")); return; }
-        var all = new ArrayList<SimulationScenario>(SimulationScenarios.all());
-        if (sourceArchive != null) all.add(customMiners(3));
+        var all = sourceArchive == null ? SimulationScenarios.all() : List.of(customMiners(3));
         respond(exchange, 200, all.stream().map(s -> Map.of(
             "id", s.id(), "title", s.displayName(), "description", s.description()
         )).toList());
@@ -193,9 +192,11 @@ public final class LocalSimulationServer implements AutoCloseable {
                     }
                     case "scenario" -> {
                         String id = data.path("id").asText("");
-                        scenario = id.equals("custom-miners") ? customMiners(3) : SimulationScenarios.all().stream()
-                            .filter(s -> s.id().equals(id)).findFirst()
-                            .orElseThrow(() -> new IllegalArgumentException("Unknown scenario"));
+                        scenario = sourceArchive != null && id.equals("custom-miners") ? customMiners(3)
+                            : sourceArchive == null ? SimulationScenarios.all().stream()
+                                .filter(s -> s.id().equals(id)).findFirst()
+                                .orElseThrow(() -> new IllegalArgumentException("Unknown scenario"))
+                            : throwUnknownScenario();
                         running = false;
                         runtime = scenario.createRuntime();
                         journal.reset();
@@ -216,6 +217,10 @@ public final class LocalSimulationServer implements AutoCloseable {
         if (!value.isNumber() || !Double.isFinite(value.asDouble()) || Math.abs(value.asDouble()) > 100000)
             throw new IllegalArgumentException("Invalid coordinate: " + field);
         return value.asDouble();
+    }
+
+    private static SimulationScenario throwUnknownScenario() {
+        throw new IllegalArgumentException("Only custom miners are available on imported worlds");
     }
 
     private SimulationScenario customMiners(int count) {
