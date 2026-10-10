@@ -62,6 +62,7 @@ public final class LocalSimulationServer implements AutoCloseable {
     }
 
     private void control(HttpExchange exchange) throws IOException {
+        if (exchange.getRequestMethod().equals("OPTIONS")) { preflight(exchange); return; }
         if (!exchange.getRequestMethod().equals("POST")) { respond(exchange, 405, Map.of("error", "POST required")); return; }
         if (!isLocalOrigin(exchange)) { respond(exchange, 403, Map.of("error", "Only local clients")); return; }
         byte[] body = exchange.getRequestBody().readNBytes(2049);
@@ -96,6 +97,15 @@ public final class LocalSimulationServer implements AutoCloseable {
         } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
             respond(exchange, 400, Map.of("error", "Invalid JSON"));
         }
+    }
+
+    private static void preflight(HttpExchange exchange) throws IOException {
+        if (!isLocalOrigin(exchange)) { exchange.sendResponseHeaders(403, -1); return; }
+        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "http://localhost:5173");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type");
+        exchange.sendResponseHeaders(204, -1);
+        exchange.close();
     }
 
     private static boolean isLocalOrigin(HttpExchange exchange) {
