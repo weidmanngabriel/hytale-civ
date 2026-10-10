@@ -105,12 +105,6 @@ public final class MineFrontCoordinator<W> {
         if (frontId != null) fronts.remove(frontId);
     }
 
-    /** A member remains eligible to claim another block at a full front. */
-    public synchronized boolean containsWorker(UUID frontId, W worker) {
-        FrontState<W> state = fronts.get(frontId);
-        return state != null && state.workers.contains(worker);
-    }
-
     public synchronized int workerCount(UUID frontId) {
         FrontState<W> state = fronts.get(frontId);
         return state == null ? 0 : state.workers.size();
