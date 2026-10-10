@@ -21,7 +21,7 @@ class AutonomousMineWorldTest {
             String block=(y>=20||cave)?"air":"native:stone";
             cells.add(new WorldArchive.Cell(x,y,z,block,0,0,"NONE"));
         }
-        var archive=new WorldArchive(1,"mine-fixture",new WorldArchive.Bounds(0,0,0,32,32,32),cells);
+        var archive=new WorldArchive(WorldArchive.VERSION,"mine-fixture",new WorldArchive.Bounds(0,0,0,32,32,32),cells);
         var world=new VoxelWorld(archive);
         var runtime=new SimulationRuntime();
         runtime.setVoxelWorld(world);
