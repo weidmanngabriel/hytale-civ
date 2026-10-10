@@ -46,3 +46,8 @@ lab. That is **not yet** full behavioral parity.
 
 The full rollout remains an open Phase 5B item in
 `docs/simulation-sandbox-roadmap.md`.
+
+
+## Implemented increment: semantic mine-entry policy
+
+`MineWorkerEntryPolicy` now determines the ordered semantic destinations (workplace access, tunnel connector, work front) in both the real `MinerWorkSystem` and the headless `SimulationRuntime`. The browser's authored `Mine_01` fixture consumes the same trigger-volume markers. This is a deliberately limited shared policy, **not** the full shared task controller described in rollout steps 1–4. Native Hytale Seek still owns physical movement, and headless prefab transit uses abstract movement. The full task lifecycle, production rooms/infrastructure and golden-history parity remain open.
