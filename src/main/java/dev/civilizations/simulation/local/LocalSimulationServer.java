@@ -86,7 +86,7 @@ public final class LocalSimulationServer implements AutoCloseable {
 
     private void scenarios(HttpExchange exchange) throws IOException {
         if (!exchange.getRequestMethod().equals("GET")) { respond(exchange, 405, Map.of("error", "GET required")); return; }
-        var all = sourceArchive == null ? SimulationScenarios.all() : List.of(customMiners(0));
+        var all = sourceArchive == null ? SimulationScenarios.all() : List.of(customMiners(0), threeMinerScenario());
         respond(exchange, 200, all.stream().map(s -> Map.of(
             "id", s.id(), "title", s.displayName(), "description", s.description()
         )).toList());
@@ -158,6 +158,21 @@ public final class LocalSimulationServer implements AutoCloseable {
                 }
         }
         throw new IllegalArgumentException("No suitable mine site near world center; specify /sim mine place X Y Z");
+    }
+
+    /** A repeatable authored surface mine fixture for the imported world. */
+    private SimulationScenario threeMinerScenario() {
+        return new SimulationScenario("mine-three", "Miner – 3 Workers",
+            "Mine_01 auf der Oberfläche, drei Miner und fester Planungsseed.",
+            () -> customMiners(3).createRuntime());
+    }
+
+    private void seedThreeMiners() throws IOException {
+        placeMine(findMineOrigin());
+        scenario = threeMinerScenario();
+        runtime = scenario.createRuntime();
+        journal.reset();
+        eventLog.record(0, "MINE", "Deterministic three-miner fixture seeded");
     }
 
     private void terrain(HttpExchange exchange) throws IOException {
@@ -271,6 +286,7 @@ public final class LocalSimulationServer implements AutoCloseable {
                             data.path("y").asInt(Integer.MIN_VALUE),data.path("z").asInt(Integer.MIN_VALUE)));
                     }
                     case "placeMineAuto" -> { placeMine(findMineOrigin()); }
+                    case "seedThreeMiners" -> { seedThreeMiners(); }
                     case "configureMiners" -> {
                         int miners = data.path("miners").asInt(0);
                         if (miners < 1 || miners > 20) throw new IllegalArgumentException("miners must be 1..20");
@@ -281,7 +297,8 @@ public final class LocalSimulationServer implements AutoCloseable {
                     }
                     case "scenario" -> {
                         String id = data.path("id").asText("");
-                        scenario = sourceArchive != null && id.equals("custom-miners") ? customMiners(0)
+                        scenario = sourceArchive != null && id.equals("mine-three") ? seedScenarioAndGet()
+                            : sourceArchive != null && id.equals("custom-miners") ? customMiners(0)
                             : sourceArchive == null ? SimulationScenarios.all().stream()
                                 .filter(s -> s.id().equals(id)).findFirst()
                                 .orElseThrow(() -> new IllegalArgumentException("Unknown scenario"))
@@ -306,6 +323,11 @@ public final class LocalSimulationServer implements AutoCloseable {
         if (!value.isNumber() || !Double.isFinite(value.asDouble()) || Math.abs(value.asDouble()) > 100000)
             throw new IllegalArgumentException("Invalid coordinate: " + field);
         return value.asDouble();
+    }
+
+    private SimulationScenario seedScenarioAndGet() throws IOException {
+        seedThreeMiners();
+        return scenario;
     }
 
     private static SimulationScenario throwUnknownScenario() {
