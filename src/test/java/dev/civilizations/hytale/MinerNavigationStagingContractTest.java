@@ -15,7 +15,8 @@ final class MinerNavigationStagingContractTest {
             Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
         );
 
-        int connectorGate = source.indexOf("if (!runtime.reachedConnector)");
+        int connectorGate = source.indexOf("MineWorkerRouteDecision.next(runtime.enteredMine, runtime.reachedConnector)",
+            source.indexOf("RuntimeMinePlan minePlan = ensureRuntimePlan"));
         int planResolution = source.indexOf("RuntimeMinePlan minePlan = ensureRuntimePlan");
         int workExecution = source.indexOf("if (navigationFailures.consumeIfMatches");
 
@@ -24,6 +25,8 @@ final class MinerNavigationStagingContractTest {
             "restart recovery must resolve mine geometry before the connector gate");
         assertTrue(workExecution > connectorGate,
             "task execution must start only after the connector gate");
+        assertTrue(source.contains("MineWorkerRouteDecision.Destination.WORK_FRONT"),
+            "miner must only work after the shared access/connector decision");
         assertTrue(source.contains("reachedConnector = false;"),
             "manual interruption/reset must require the connector again");
     }
