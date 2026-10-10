@@ -50,6 +50,24 @@ class WorldArchiveTest {
         assertTrue(new WorldArchive.Bounds(0,0,0,200,200,100).volume() > WorldArchive.MAX_EXPORT_CELLS);
     }
 
+    @Test void denseVoxelIndexPreservesAbsoluteBoundsAndFluidCategories() {
+        var cells = new ArrayList<WorldArchive.Cell>();
+        for (int x=-3;x<0;x++) for (int y=12;y<15;y++) for (int z=7;z<10;z++) {
+            String fluid=x==-3&&y==13&&z==7?"WATER":"NONE";
+            cells.add(new WorldArchive.Cell(x,y,z,y==12?"native:stone":"air",0,0,fluid));
+        }
+        var archive = new WorldArchive(WorldArchive.VERSION,"offset-cave",
+            new WorldArchive.Bounds(-3,12,7,0,15,10),cells);
+        var voxel=new VoxelWorld(archive);
+        assertEquals(WorldArchive.Material.WATER,voxel.material(new BlockPosition(-3,13,7)));
+        assertEquals(WorldArchive.Material.SOLID,voxel.material(new BlockPosition(-1,12,9)));
+        assertNull(voxel.material(new BlockPosition(0,13,7)));
+        assertTrue(voxel.canStand(new BlockPosition(-2,13,8)));
+        voxel.set(new BlockPosition(-2,13,8),WorldArchive.Material.LAVA);
+        assertEquals(WorldArchive.Material.LAVA,voxel.material(new BlockPosition(-2,13,8)));
+        assertEquals(1,voxel.changesSince(0).size());
+    }
+
     @Test void navigationOnlyUsesFourDirectionsAndOneStepHeight() {
         var world=new VoxelWorld(fixture());
         var start=new BlockPosition(0,1,0);

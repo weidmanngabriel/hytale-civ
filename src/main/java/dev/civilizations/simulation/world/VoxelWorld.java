@@ -5,6 +5,7 @@ import java.util.*;
 
 /** Geometric A* for a two-block-tall test NPC on a saved voxel world. */
 public final class VoxelWorld {
+    private static final WorldArchive.Material[] MATERIALS = WorldArchive.Material.values();
     private static final int[][] OFFSETS={{1,0},{-1,0},{0,1},{0,-1}};
     private final WorldArchive.Bounds bounds;
     private long revision;
@@ -20,20 +21,37 @@ public final class VoxelWorld {
         return changeHistory.stream().filter(change -> change.revision() > oldRevision).toList();
     }
     public long revision() { return revision; }
-    private final Map<BlockPosition, WorldArchive.Material> cells;
+    private final byte[] cells;
+    private final int height, depth;
 
     public VoxelWorld(WorldArchive archive) {
         this.bounds=archive.bounds();
-        this.cells=new HashMap<>(archive.classify());
+        this.height=bounds.maxY()-bounds.minY();
+        this.depth=bounds.maxZ()-bounds.minZ();
+        this.cells=new byte[Math.toIntExact(bounds.volume())];
+        for (var cell : archive.cells()) {
+            WorldArchive.Material material = switch (cell.fluidCategory()) {
+                case "LAVA" -> WorldArchive.Material.LAVA;
+                case "WATER" -> WorldArchive.Material.WATER;
+                case "OTHER" -> WorldArchive.Material.OTHER_FLUID;
+                default -> cell.blockKey().equals("air") ? WorldArchive.Material.AIR : WorldArchive.Material.SOLID;
+            };
+            cells[index(cell.x(),cell.y(),cell.z())]=(byte)material.ordinal();
+        }
+    }
+
+    private int index(int x,int y,int z) {
+        return ((x-bounds.minX())*height+(y-bounds.minY()))*depth+(z-bounds.minZ());
     }
 
     public WorldArchive.Material material(BlockPosition p) {
-        return cells.get(p); // null means outside known region, not air
+        if (!bounds.contains(p.x(),p.y(),p.z())) return null;
+        return MATERIALS[cells[index(p.x(),p.y(),p.z())]];
     }
 
     public void set(BlockPosition p, WorldArchive.Material material) {
         if(!bounds.contains(p.x(),p.y(),p.z()))throw new IllegalArgumentException("Outside imported region");
-        cells.put(p, Objects.requireNonNull(material));
+        cells[index(p.x(),p.y(),p.z())]=(byte)Objects.requireNonNull(material).ordinal();
         revision++;
         changeHistory.addLast(new Change(revision,p,material));
         if (changeHistory.size() > MAX_CHANGE_HISTORY) changeHistory.removeFirst();

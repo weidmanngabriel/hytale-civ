@@ -317,3 +317,5 @@ Der Regressionstest `minersStartInSameReachableCavernInsteadOfIsolatedPockets` p
 Ein importiertes Archiv liefert beim Start sofort einen leeren NPC-Zustand; `LocalSimulationServerTest` prüft danach die ausdrücklich angeforderte Miner-Konfiguration. Das verhindert die bisherige synchrone Spawnsuche beim initialen Viewer-Start. Das erstmalige Einlesen einer sehr großen gzip-JSON-Datei ist dabei noch nicht unabhängig asynchronisiert.
 
 Bei Fehlersuche am lokalen Live-Start sind die `[CIV STARTUP]`-Zeilen und die Meldung `READY http://localhost:8765/api/state` maßgeblich. Sie unterscheiden teures gzip-JSON-Decoding von der Voxelindex-Erstellung und Listener-Problemen; die Gradle-Anzeige `75% EXECUTING` ist kein Server-Readiness-Signal.
+
+`denseVoxelIndexPreservesAbsoluteBoundsAndFluidCategories` verifiziert die kompakte Voxel-Speicherung für negative absolute X-Koordinaten, Flüssigkeit, Standfähigkeit, Änderungen und Out-of-Bounds-Abfragen. Die tatsächliche Laufzeit und Heap-Spitze bei 1,87 Millionen Blöcken bleibt durch `[CIV STARTUP]` und den Nutzer-PC zu prüfen.
