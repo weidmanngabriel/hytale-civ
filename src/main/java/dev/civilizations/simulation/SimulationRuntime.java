@@ -522,10 +522,9 @@ public final class SimulationRuntime {
             return false;
         }
         resident.navigationBlocked = false;
-        while (resident.routeIndex < resident.route.size()
-            && resident.route.get(resident.routeIndex).equals(blockAt(resident.position))) {
-            resident.routeIndex++;
-        }
+        // Cell membership does not mean the waypoint center was reached. Reaching the
+        // center first prevents diagonal corner-cutting after a route is replanned.
+        // The movement result below is the only event advancing routeIndex.
         if (resident.routeIndex < resident.route.size()) {
             BlockPosition next = resident.route.get(resident.routeIndex);
             WorldPosition waypoint = new WorldPosition(next.x() + 0.5, next.y(), next.z() + 0.5);
