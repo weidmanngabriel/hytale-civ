@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { adjustFlightSpeed } from './flight-speed.js';
+import { surfaceFaces } from './replay.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('canvas');
@@ -13,8 +14,9 @@ camera.position.set(8, 10, 20);
 let yaw = 0, pitch = -.25, flightSpeed = 8;
 let world, running = false, currentScenario;
 const keys = new Set();
-const voxelGroup = new THREE.Group(), residentsGroup = new THREE.Group();
-scene.add(voxelGroup,residentsGroup);
+const voxelGroup = new THREE.Group(), terrainGroup = new THREE.Group(), residentsGroup = new THREE.Group();
+let importedTerrain = false;
+scene.add(terrainGroup,voxelGroup,residentsGroup);
 const voxelMaterials = [0x64748b,0x9cb2c2,0xd19d50,0x618d62];
 const material = voxelMaterials.map(c=>new THREE.MeshLambertMaterial({color:c,side:THREE.FrontSide}));
 const cube = new THREE.BoxGeometry(1,1,1);
@@ -37,8 +39,10 @@ function drawWorld(data) {
   // For the initial live slice, trees/sites become geometric landmarks.
   // Terrain snapshots will replace/extend this via the future world-import path.
   clear(voxelGroup);
-  const terrain = new THREE.Mesh(new THREE.BoxGeometry(60,1,60),new THREE.MeshLambertMaterial({color:0x455a4c,side:THREE.FrontSide}));
-  terrain.position.set(0,-1,0);voxelGroup.add(terrain);
+  if (!importedTerrain) {
+    const terrain = new THREE.Mesh(new THREE.BoxGeometry(60,1,60),new THREE.MeshLambertMaterial({color:0x455a4c,side:THREE.FrontSide}));
+    terrain.position.set(0,-1,0);voxelGroup.add(terrain);
+  }
   for(const tree of data.trees||[]) {
     const p=tree.position;
     const trunk=new THREE.Mesh(new THREE.BoxGeometry(.8,3,.8),material[2]);
@@ -49,6 +53,32 @@ function drawWorld(data) {
     const mesh=new THREE.Mesh(new THREE.BoxGeometry(2,.6,2),material[1]);
     mesh.position.set(p.x,.3,p.z);voxelGroup.add(mesh);
   }
+}
+function drawImportedTerrain(data) {
+  if (!data.loaded) return;
+  importedTerrain = true;
+  const map = new Map(data.cells.map(([x,y,z,id])=>[`${x},${y},${z}`,id]));
+  const colors = [0,0x657182,0x3184b7,0xdb6642,0x5ca5a0].map(x=>new THREE.Color(x));
+  const positions = [], normals = [], vertexColors = [];
+  for(const face of surfaceFaces(map)){
+    const color = colors[face.material];
+    for(const index of [0,1,2,0,2,3]){
+      const corner = face.corners[index];
+      positions.push(face.x+corner[0],face.y+corner[1],face.z+corner[2]);
+      normals.push(...face.normal);
+      vertexColors.push(color.r,color.g,color.b);
+    }
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geom.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
+  geom.setAttribute('color',new THREE.Float32BufferAttribute(vertexColors,3));
+  const mesh = new THREE.Mesh(geom,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.FrontSide}));
+  terrainGroup.add(mesh);
+  const [minX,minY,minZ,maxX,maxY,maxZ] = data.bounds;
+  camera.position.set((minX+maxX)/2,maxY+10,maxZ+15);
+  pitch=-.5; yaw=0;look();
+  flightSpeed=Math.max(2,Math.min(15,(maxX-minX)/8));
 }
 function drawResidents(list) {
   const current=new Set(list.map(x=>x.id));
@@ -86,6 +116,8 @@ async function setup() {
   try {
     const scenarios=await request('scenarios');
     for(const s of scenarios){const opt=document.createElement('option');opt.value=s.id;opt.textContent=s.title;$('scenario').append(opt);}
+    const terrain=await request('terrain');
+    drawImportedTerrain(terrain);
     await update();
   } catch(e){showError(e);}
 }
