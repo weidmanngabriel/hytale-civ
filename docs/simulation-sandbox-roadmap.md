@@ -47,3 +47,13 @@ Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenomme
 - [ ] GitHub CI vollständig grün, PR per Squash nach main integriert und main-CI geprüft.
 - [x] Manuelle Schritt-für-Schritt-Testanleitung verfasst: [simulation-sandbox-manual-test.md](simulation-sandbox-manual-test.md).
 - [ ] Lokale Browser-/Ingame-Abnahme anhand dieser Anleitung durchgeführt.
+
+## Phase 5B – Gemeinsame Miner-Core-Logik (Option B, ausdrücklich beauftragt)
+
+- [x] Bestandsaufnahme: Produktions-Miner verwendet bereits `MineNormalTaskSelector` und `MineFrontCoordinator` aus dem Core.
+- [x] Headless-Miner verwendet nun dieselbe Core-Auswahlregel für Tunnel-Task-Kapazität statt einer rein eigenen Auswahl.
+- [ ] Gemeinsame Miner-Ablaufmaschine für Auswahl, Navigation-Intent, Engine-Rückmeldung, Blockclaim, Unterbrechung und Wiederaufnahme extrahieren.
+- [ ] Bestehenden Hytale-`MinerWorkSystem` auf diese Ablaufmaschine als Engine-Adapter umstellen (nicht nur parallele Simulation bauen).
+- [ ] Headless-Simulator über dieselbe Ablaufmaschine ausführen und Engine-Ergebnisse künstlich melden.
+- [ ] Paritätstests über identische Befehls-/Ergebnisfolgen, einschließlich Mehrfach-Miner, Rückweg, Hindernis, Abbruch und Retry.
+- [ ] Integrations- und CI-Abnahme grün; erst dann diesen Teil als abgeschlossen markieren.
