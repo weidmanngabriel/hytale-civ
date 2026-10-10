@@ -100,6 +100,21 @@ class LocalSimulationServerTest {
         }
     }
 
+    @Test
+    void liveControlHistoryIsBoundedAndResettable() throws Exception {
+        try (var server = new LocalSimulationServer(0)) {
+            server.start();
+            String url = "http://localhost:" + server.port() + "/api/";
+            post(url + "control", "{\"command\":\"step\"}");
+            var events = get(url + "state").path("events");
+            assertEquals(1, events.size());
+            assertEquals(1, events.get(0).path("tick").asLong());
+            assertEquals("CONTROL", events.get(0).path("kind").asText());
+            post(url + "control", "{\"command\":\"reset\"}");
+            assertEquals(0, get(url + "state").path("events").size());
+        }
+    }
+
     private JsonNode get(String url) throws Exception {
         var request = HttpRequest.newBuilder(URI.create(url)).GET().build();
         var response = client.send(request, HttpResponse.BodyHandlers.ofString());
