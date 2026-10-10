@@ -12,6 +12,8 @@ import dev.civilizations.core.WorldPosition;
 import dev.civilizations.simulation.world.VoxelWorld;
 import dev.civilizations.simulation.world.WorldArchive;
 import dev.civilizations.core.MineFrontCoordinator;
+import dev.civilizations.core.MineNormalTaskSelector;
+import dev.civilizations.core.MineFrontTaskScheduler;
 import dev.civilizations.core.MineHeading;
 import dev.civilizations.core.MineNetworkGrowthPlanner;
 import dev.civilizations.core.MineTunnelGeometry;
@@ -706,7 +708,20 @@ public final class SimulationRuntime {
                 return;
             }
             UUID id = frontId(sliceIndex);
-            if (!claims.tryJoin(id,resident.id,MineFrontCoordinator.capacityFor(MineTunnel.Kind.MAIN))) {
+            int capacity = MineFrontCoordinator.capacityFor(MineTunnel.Kind.MAIN);
+            // The same Core candidate selection and capacity policy is authoritative
+            // for the real Hytale miner and the headless mine lab.
+            var task = new MineNormalTaskSelector.Candidate(
+                id, MineNormalTaskSelector.Kind.TUNNEL_FRONT,
+                MineFrontTaskScheduler.MAIN_TUNNEL_PRIORITY,
+                claims.workerCount(id), capacity, slice.floorCenter()
+            );
+            if (MineNormalTaskSelector.select(List.of(task), blockAt(resident.position)) == null
+                && claims.claimOf(id, resident.id) == null) {
+                resident.minerState = "WAIT_FRONT_CAPACITY";
+                return;
+            }
+            if (!claims.tryJoin(id, resident.id, capacity)) {
                 resident.minerState = "WAIT_FRONT_CAPACITY";
                 return;
             }
