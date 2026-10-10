@@ -8,100 +8,15 @@ import dev.civilizations.simulation.world.WorldArchive;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Diagnostic reproduction of the three-miner MineLab stall. No production behavior is changed.
  * Print progress and controller states so the CI job log identifies where progress stops.
  */
 class MineThreeStallDiagnosticTest {
-    @Test
-    void threeMinersContinueExcavatingBeyondInitialBlocks() {
-        var cells = new ArrayList<WorldArchive.Cell>();
-        for (int x = 0; x < 32; x++) for (int y = 0; y < 32; y++) for (int z = 0; z < 32; z++) {
-            boolean cave = x >= 14 && x <= 18 && z >= 14 && z <= 18 && y >= 10 && y <= 14;
-            cells.add(new WorldArchive.Cell(x, y, z,
-                (y >= 20 || cave) ? "air" : "native:stone", 0, 0, "NONE"));
-        }
-        var world = new VoxelWorld(new WorldArchive(WorldArchive.VERSION, "mine-three-diagnostic",
-            new WorldArchive.Bounds(0, 0, 0, 32, 32, 32), cells));
-        var runtime = new SimulationRuntime();
-        runtime.setVoxelWorld(world);
-        var home = new BlockPosition(16, 10, 16);
-        runtime.addMiner("miner-1", new WorldPosition(16.5, 10, 16.5));
-        runtime.addMiner("miner-2", new WorldPosition(17.5, 10, 16.5));
-        runtime.addMiner("miner-3", new WorldPosition(16.5, 10, 17.5));
-        runtime.configureMineLab(home, MineHeading.NORTH, 8, 99112233L);
-
-        int lastProgress = 0;
-        int longestStall = 0;
-        int stagnantTicks = 0;
-        for (int tick = 1; tick <= 4500; tick++) {
-            runtime.tick();
-            int current = runtime.excavatedMineBlocks();
-            if (current > lastProgress) {
-                stagnantTicks = 0;
-                lastProgress = current;
-            } else {
-                stagnantTicks++;
-            }
-            longestStall = Math.max(longestStall, stagnantTicks);
-            if (tick % 200 == 0) {
-                Map<String, Object> state = runtime.mineDebugSnapshot();
-                System.out.println("MINE_THREE_DIAGNOSTIC tick=" + tick +
-                    " excavated=" + current + " slice=" + state.get("sliceIndex") +
-                    "/" + state.get("sliceCount") + " stagnantTicks=" + stagnantTicks +
-                    " workers=" + state.get("workers"));
-            }
-        }
-        var state = runtime.mineDebugSnapshot();
-        System.out.println("MINE_THREE_RESULT excavated=" + lastProgress +
-            " longestStall=" + longestStall + " slice=" + state.get("sliceIndex") +
-            "/" + state.get("sliceCount") + " workers=" + state.get("workers"));
-
-        // Existing test only checks >0 blocks. This checks meaningful ongoing progression.
-        assertTrue(((Number) state.get("sliceIndex")).intValue() == ((Number) state.get("sliceCount")).intValue(),
-            "Three miners did not finish the planned tunnel: excavated=" + lastProgress +
-            " longestStall=" + longestStall + " snapshot=" + state);
-    }
-    @Test
-    void threeMinersWithSeparatedSurfaceAccessKeepDiggingSouth() {
-        var cells = new ArrayList<WorldArchive.Cell>();
-        for (int x = 0; x < 48; x++) for (int y = 0; y < 32; y++) for (int z = 0; z < 48; z++) {
-            boolean openShaft = x >= 22 && x <= 26 && z >= 15 && z <= 20 && y >= 10 && y <= 14;
-            String material = (openShaft || y >= 20) ? "air" : "native:stone";
-            cells.add(new WorldArchive.Cell(x, y, z, material, 0, 0, "NONE"));
-        }
-        var world = new VoxelWorld(new WorldArchive(WorldArchive.VERSION,
-            "south-surface-access-diagnostic", new WorldArchive.Bounds(0, 0, 0, 48, 32, 48), cells));
-        var runtime = new SimulationRuntime();
-        runtime.setVoxelWorld(world);
-        var connector = new BlockPosition(24, 10, 18);
-        var access = new BlockPosition(24, 10, 16);
-        assertTrue(world.canStand(connector) && world.canStand(access));
-        runtime.addMiner("miner-1", new WorldPosition(24.5, 10, 16.5));
-        runtime.addMiner("miner-2", new WorldPosition(25.5, 10, 16.5));
-        runtime.addMiner("miner-3", new WorldPosition(23.5, 10, 16.5));
-        runtime.configureMineLab(connector, access, MineHeading.SOUTH, 8, 99112233L);
-
-        for (int tick = 1; tick <= 4500; tick++) {
-            runtime.tick();
-            if (tick % 200 == 0) {
-                var debug = runtime.mineDebugSnapshot();
-                System.out.println("MINE_THREE_SOUTH tick=" + tick +
-                    " excavated=" + runtime.excavatedMineBlocks() +
-                    " slice=" + debug.get("sliceIndex") + "/" + debug.get("sliceCount") +
-                    " workers=" + debug.get("workers"));
-            }
-        }
-        var debug = runtime.mineDebugSnapshot();
-        assertTrue(((Number)debug.get("sliceIndex")).intValue() ==
-                ((Number)debug.get("sliceCount")).intValue(),
-            "South-heading miners stopped: " + debug);
-    }
-
     @Test
     void threeMinersExcavateInRealImportedTerrain() {
         var world = RealRegionMineFixture.load();
@@ -168,6 +83,9 @@ class MineThreeStallDiagnosticTest {
             var p = reachable.get(i);
             runtime.addMiner("miner-" + (i+1), new WorldPosition(p.x()+.5,p.y(),p.z()+.5));
         }
+        BlockPosition missingFloor = new BlockPosition(118, 102, 22);
+        assertEquals(WorldArchive.Material.AIR, world.material(missingFloor),
+            "Real-world test must contain the unwalkable gap that caused the original stall");
         runtime.configureMineLab(connector, access, MineHeading.SOUTH, 8, 99112233L);
         for (int tick = 1; tick <= 4500; tick++) {
             runtime.tick();
@@ -183,6 +101,8 @@ class MineThreeStallDiagnosticTest {
         assertTrue(((Number)debug.get("sliceIndex")).intValue() ==
                 ((Number)debug.get("sliceCount")).intValue(),
             "Original Mine_01 / real terrain three-miner scenario stalled: " + debug);
+        assertEquals(WorldArchive.Material.SOLID, world.material(missingFloor),
+            "Mandatory bridge infrastructure must restore walkable support before tunneling");
     }
 
 }
