@@ -52,6 +52,7 @@ Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenomme
 
 - [x] Bestandsaufnahme: Produktions-Miner verwendet bereits `MineNormalTaskSelector` und `MineFrontCoordinator` aus dem Core.
 - [x] Headless-Miner verwendet nun dieselbe Core-Auswahlregel für Tunnel-Task-Kapazität statt einer rein eigenen Auswahl.
+- [x] Gemeinsam verwendeter Core-Entscheider für Front-Beitritt und Blockclaim in Hytale-Miner und Headless-Lab verdrahtet; separater Regressionstest.
 - [ ] Gemeinsame Miner-Ablaufmaschine für Auswahl, Navigation-Intent, Engine-Rückmeldung, Blockclaim, Unterbrechung und Wiederaufnahme extrahieren.
 - [ ] Bestehenden Hytale-`MinerWorkSystem` auf diese Ablaufmaschine als Engine-Adapter umstellen (nicht nur parallele Simulation bauen).
 - [ ] Headless-Simulator über dieselbe Ablaufmaschine ausführen und Engine-Ergebnisse künstlich melden.
