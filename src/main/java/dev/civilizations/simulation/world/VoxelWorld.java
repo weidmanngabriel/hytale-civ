@@ -57,6 +57,8 @@ public final class VoxelWorld {
                     if(!canStand(n))continue;
                     // Do not allow stepping up through a solid overhang at current head height.
                     if(y>p.y()&&material(new BlockPosition(p.x(),p.y()+2,p.z()))!=WorldArchive.Material.AIR)continue;
+                    // Crossing into a lower cell first requires headroom at the upper height.
+                    if(y<p.y()&&material(new BlockPosition(x,p.y()+1,z))!=WorldArchive.Material.AIR)continue;
                     double candidate=cost.get(p)+(y==p.y()?1:1.25);
                     if(candidate<cost.getOrDefault(n,Double.POSITIVE_INFINITY)) {
                         cost.put(n,candidate);previous.put(n,p);
