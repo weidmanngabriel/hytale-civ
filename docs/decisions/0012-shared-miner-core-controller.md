@@ -47,7 +47,10 @@ engine-specific behavior: native arrival uses 1.6-block horizontal and 1.0-block
 vertical tolerance, and its bridge assessment excludes shallow drops with solid
 ground a level or two below. MineLab approximates the same reachable staging
 radius and conservative bridge eligibility, instead of filling every missing floor
-block. Neither voxel A* nor the simulator's synthetic bridge blocks prove native
+block. To keep voxel A* from starting a new route in mid-air on a stepped
+descent, the simulated worker is settled onto a valid lower standing voxel
+when a new destination replaces its previous route; this is adapter physics,
+not a Core task or native Hytale movement change. Neither voxel A* nor the simulator's synthetic bridge blocks prove native
 Seek or physical placement parity; native bridge rules remain unchanged. Its room fixture uses three synthetic build
 sections, not native prefab section counts. Shared control does not imply
 identical geometry availability or native physics. The legacy offline recording
