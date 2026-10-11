@@ -13,7 +13,7 @@ final class RealRegionMineFixture {
 
     static VoxelWorld load() {
         try {
-            var resource = RealRegionMineFixture.class.getResourceAsStream("/fixtures/real-region-miner-materials.b64");
+            var resource = RealRegionMineFixture.class.getResourceAsStream("/fixtures/full-region-materials.b64");
             if (resource == null) throw new IllegalStateException("Missing real terrain fixture");
             byte[] packed;
             try (resource) {
@@ -23,8 +23,8 @@ final class RealRegionMineFixture {
             try (var in = new GZIPInputStream(new java.io.ByteArrayInputStream(packed))) {
                 materials = in.readAllBytes();
             }
-            var bounds = new WorldArchive.Bounds(88, 88, -12, 136, 136, 36);
-            if (materials.length != bounds.volume()) throw new IllegalStateException("Corrupt real terrain fixture");
+            var bounds = new WorldArchive.Bounds(56, 8, -41, 181, 148, 66);
+            if (materials.length != bounds.volume()) throw new IllegalStateException("Corrupt full-region terrain fixture");
             return VoxelWorld.fromMaterialCodes(bounds, materials);
         } catch (IOException exception) {
             throw new IllegalStateException("Could not read real terrain fixture", exception);
