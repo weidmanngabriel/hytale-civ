@@ -829,7 +829,8 @@ public final class SimulationRuntime {
             // between ticks. Resolve the physical fall before replanning; otherwise
             // a new work order sees mid-air feet and falsely reports no route.
             BlockPosition feet = blockAt(resident.position);
-            if (!voxelWorld.canStand(feet) && voxelWorld.material(feet) == WorldArchive.Material.AIR) {
+            if (!target.equals(resident.routeTarget)
+                && !voxelWorld.canStand(feet) && voxelWorld.material(feet) == WorldArchive.Material.AIR) {
                 for (int depth = 1; depth <= 3; depth++) {
                     BlockPosition lower = new BlockPosition(feet.x(), feet.y() - depth, feet.z());
                     if (voxelWorld.canStand(lower)) {
