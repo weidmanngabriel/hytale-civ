@@ -101,8 +101,8 @@ class MineThreeStallDiagnosticTest {
         assertTrue(((Number)debug.get("sliceIndex")).intValue() ==
                 ((Number)debug.get("sliceCount")).intValue(),
             "Original Mine_01 / real terrain three-miner scenario stalled: " + debug);
-        assertEquals(WorldArchive.Material.SOLID, world.material(missingFloor),
-            "Mandatory bridge infrastructure must restore walkable support before tunneling");
+        assertEquals(WorldArchive.Material.AIR, world.material(missingFloor),
+            "Shallow gaps remain untouched, matching native Hytale's conservative bridge rule");
     }
 
 }
