@@ -722,6 +722,7 @@ public final class SimulationRuntime {
     private final class MineLab {
         private final BlockPosition home;
         private final BlockPosition access;
+        private final UUID tunnelId;
         private final List<MineTunnelGeometry.Slice> slices;
         private final List<MineInfrastructureTask> infrastructure;
         private final MinerWorkController<String> controller = new MinerWorkController<>();
@@ -740,6 +741,7 @@ public final class SimulationRuntime {
             var mineId = UUID.nameUUIDFromBytes(("headless-mine:" + seed).getBytes(StandardCharsets.UTF_8));
             var planned = MineNetworkGrowthPlanner.plan(mineId, home, heading, length, 1, seed);
             var main = planned.mainTunnel();
+            this.tunnelId = main.tunnel().id();
             for (var room : MineRoomPlanner.plan(planned,MineDecisionSink.NONE)) {
                 rooms.put(room.id(),room);
                 roomGeometry.put(room.id(),MineRoomGeometry.generate(room,main.geometry()));
@@ -754,6 +756,19 @@ public final class SimulationRuntime {
                 ? (failed.isEmpty() ? "COMPLETE" : "BLOCKED") : snapshot.state().name();
         }
         void releaseWorker(String residentId) { controller.interrupt(residentId); }
+
+        /** Repair a missing walking floor before assigning miners to the next front.
+         *  The Core controller performs this mandatory infrastructure task; MineLab
+         *  merely observes terrain and executes the voxel placement.
+         */
+        private MineInfrastructureTask pendingBridge() {
+            if (sliceIndex < 1 || sliceIndex >= slices.size()) return null;
+            BlockPosition staging = slices.get(sliceIndex - 1).floorCenter();
+            BlockPosition floor = new BlockPosition(staging.x(), staging.y() - 1, staging.z());
+            if (voxelWorld.material(floor) != WorldArchive.Material.AIR) return null;
+            return MineInfrastructurePlanner.bridgeTask(tunnelId,
+                sliceIndex - 1, sliceIndex - 1, staging);
+        }
         private UUID frontId(int index) {
             return UUID.nameUUIDFromBytes(("headless-front:" + index).getBytes(StandardCharsets.UTF_8));
         }
@@ -773,7 +788,13 @@ public final class SimulationRuntime {
             @Override public void priorityBonuses(Map<UUID,Integer> updated) { bonuses = updated; }
             @Override public List<MinerWorkController.Task> tasks() {
                 List<MinerWorkController.Task> tasks = new ArrayList<>();
-                if (sliceIndex < slices.size() && !failed.contains(frontId(sliceIndex))) {
+                MineInfrastructureTask bridge = pendingBridge();
+                if (bridge != null && !failed.contains(bridge.id())) {
+                    tasks.add(new MinerWorkController.Task(bridge.id(),
+                        MineNormalTaskSelector.Kind.INFRASTRUCTURE, 10, 1, bridge.anchor(), true));
+                }
+                // A gap must be repaired before anybody can enter the next work front.
+                if (bridge == null && sliceIndex < slices.size() && !failed.contains(frontId(sliceIndex))) {
                     tasks.add(new MinerWorkController.Task(frontId(sliceIndex), MineNormalTaskSelector.Kind.TUNNEL_FRONT,
                         4, MineFrontCoordinator.capacityFor(MineTunnel.Kind.MAIN), slices.get(sliceIndex).floorCenter(), false));
                 }
@@ -818,6 +839,14 @@ public final class SimulationRuntime {
                 }
                 if (task.kind() == MineNormalTaskSelector.Kind.INFRASTRUCTURE) {
                     if (completedInfrastructure.contains(task.id())) return MinerWorkController.Work.stopped(MinerWorkController.Readiness.COMPLETE);
+                    MineInfrastructureTask bridge = pendingBridge();
+                    if (bridge != null && bridge.id().equals(task.id())) {
+                        BlockPosition approach = sliceIndex > 1
+                            ? slices.get(sliceIndex - 2).floorCenter() : home;
+                        return new MinerWorkController.Work(MinerWorkController.Readiness.READY,
+                            "bridge:" + sliceIndex, point(approach),
+                            MinerWorkController.Operation.PLACE, 0.5, List.of(), 0, Set.of());
+                    }
                     // Synthetic placement acknowledgement: this fixture does not reproduce native block assets.
                     return new MinerWorkController.Work(MinerWorkController.Readiness.READY,"placement",point(task.position()),
                         MinerWorkController.Operation.PLACE,.5,List.of(),0,Set.of());
@@ -843,6 +872,14 @@ public final class SimulationRuntime {
             @Override public boolean available(BlockPosition block) { return voxelWorld.material(block) == WorldArchive.Material.SOLID; }
             @Override public MinerWorkController.Result perform(MinerWorkController.WorkIntent intent) {
                 if (intent.operation() == MinerWorkController.Operation.PLACE) {
+                    MineInfrastructureTask bridge = pendingBridge();
+                    if (bridge != null && bridge.id().equals(intent.taskId())) {
+                        BlockPosition staging = bridge.anchor();
+                        BlockPosition floor = new BlockPosition(staging.x(), staging.y() - 1, staging.z());
+                        if (voxelWorld.material(floor) != WorldArchive.Material.AIR)
+                            return MinerWorkController.Result.UNSAFE;
+                        voxelWorld.set(floor, WorldArchive.Material.SOLID);
+                    }
                     completedInfrastructure.add(intent.taskId()); return MinerWorkController.Result.SUCCESS;
                 }
                 if (intent.operation() == MinerWorkController.Operation.BUILD_SECTION) {

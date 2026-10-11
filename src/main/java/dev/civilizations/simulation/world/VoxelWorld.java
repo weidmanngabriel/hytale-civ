@@ -40,6 +40,29 @@ public final class VoxelWorld {
         }
     }
 
+    /**
+     * Build a simulation world directly from a compact material map, without
+     * allocating WorldArchive.Cell objects. The byte order is x, then y, then z.
+     */
+    public static VoxelWorld fromMaterialCodes(WorldArchive.Bounds bounds, byte[] codes) {
+        Objects.requireNonNull(bounds, "bounds");
+        Objects.requireNonNull(codes, "codes");
+        if (bounds.volume() != codes.length)
+            throw new IllegalArgumentException("Material data length does not match world bounds");
+        for (byte code : codes) {
+            if (Byte.toUnsignedInt(code) >= MATERIALS.length)
+                throw new IllegalArgumentException("Invalid material code " + Byte.toUnsignedInt(code));
+        }
+        return new VoxelWorld(bounds, codes);
+    }
+
+    private VoxelWorld(WorldArchive.Bounds bounds, byte[] materialCodes) {
+        this.bounds = bounds;
+        this.height = bounds.maxY() - bounds.minY();
+        this.depth = bounds.maxZ() - bounds.minZ();
+        this.cells = materialCodes.clone();
+    }
+
     private int index(int x,int y,int z) {
         return ((x-bounds.minX())*height+(y-bounds.minY()))*depth+(z-bounds.minZ());
     }
