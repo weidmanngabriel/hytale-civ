@@ -779,7 +779,7 @@ public final class SimulationRuntime {
         private MineBridgeWorkPolicy.Decision bridgeDecision() {
             if (voxelWorld == null) return MineBridgeWorkPolicy.Decision.none();
             return MineBridgeWorkPolicy.assess(tunnelId, slices, sliceIndex,
-                terrain, dev.civilizations.core.MineBridgeSpanPolicy.MAX_SPAN, 3);
+                terrain, MineBridgeWorkPolicy.MAX_SPAN, MineBridgeWorkPolicy.LANDING_OVERLAP);
         }
 
         private MineInfrastructureTask pendingBridge() { return bridgeDecision().task(); }
