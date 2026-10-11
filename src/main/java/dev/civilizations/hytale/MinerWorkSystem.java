@@ -28,7 +28,6 @@ import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.BuildingBounds;
 import dev.civilizations.core.MineCaveObservation;
 import dev.civilizations.core.MineCavePolicy;
-import dev.civilizations.core.MineBridgeWorkPolicy;
 import dev.civilizations.core.MineDecisionCategory;
 import dev.civilizations.core.MineDecisionSink;
 import dev.civilizations.core.MineFrontCoordinator;
@@ -103,6 +102,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     private static final int[][] BUILD_PROBE_OFFSETS = {
         {0, -2}, {2, -2}, {2, 0}, {2, 2}, {0, 2}, {-2, 2}, {-2, 0}, {-2, -2}
     };
+    private static final int MAX_FLUID_BRIDGE_SPAN = MineBridgeSpanPolicy.MAX_SPAN;
     private static final double ARRIVAL_HORIZONTAL_DISTANCE = 1.6;
     private static final double ARRIVAL_VERTICAL_TOLERANCE = 1.0;
     private static final int MAIN_PLAN_LENGTH_BLOCKS = MinePathPlanner.FOOTPRINT_SIZE_BLOCKS;
@@ -742,6 +742,18 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 continue;
             }
 
+            if (hasFluidInNavigationCorridor(world, front.slices.get(front.sliceIndex))) {
+                failFront(
+                    world,
+                    mine,
+                    front,
+                    persistedFront,
+                    MineObstaclePolicy.FailureKind.HAZARDOUS_FLUID,
+                    "FLUID_IN_NAVIGATION_CORRIDOR"
+                );
+                continue;
+            }
+
             // Several fronts may point into the same tunnel. A bridge already being
             // built for the current slice must finish before another front inspects
             // its intermediate floor state or creates a conflicting overlapping task.
@@ -755,10 +767,8 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 );
             if (bridgeInProgress) continue;
 
-            MineBridgeWorkPolicy.Decision assessment = MineBridgeWorkPolicy.assess(
-                front.tunnelId, front.slices, front.sliceIndex,
-                new LoadedTerrain(world), MAX_BRIDGE_SPAN, BRIDGE_LANDING_OVERLAP_SLICES);
-            if (assessment.failureReason() != null) {
+            BridgeAssessment assessment = assessBridge(world, front);
+            if (assessment.abandonReason() != null) {
                 failFront(
                     world,
                     mine,
@@ -767,7 +777,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                     assessment.hazardousFluid()
                         ? MineObstaclePolicy.FailureKind.HAZARDOUS_FLUID
                         : MineObstaclePolicy.FailureKind.UNSAFE_GEOMETRY,
-                    assessment.failureReason()
+                    assessment.abandonReason()
                 );
                 continue;
             }
@@ -803,22 +813,128 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         }
     }
 
-    /** Read-only Hytale observation adapter; all bridge choices live in the Core. */
-    private static final class LoadedTerrain implements MineBridgeWorkPolicy.Terrain {
-        private final World world;
-        LoadedTerrain(World world) { this.world = world; }
-        @Override public MineBridgeWorkPolicy.Block block(BlockPosition p) {
-            BlockType type = loadedBlockType(world, p);
-            if (type == null) return MineBridgeWorkPolicy.Block.UNKNOWN;
-            return isEmpty(type) ? MineBridgeWorkPolicy.Block.EMPTY : MineBridgeWorkPolicy.Block.SOLID;
+    private BridgeAssessment assessBridge(World world, RuntimeFrontPlan front) {
+        int start = front.sliceIndex;
+        if (start <= 0 || start >= front.slices.size() - 2) {
+            return BridgeAssessment.none();
         }
-        @Override public MineBridgeWorkPolicy.Fluid fluid(BlockPosition p) {
-            WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(p.x(), p.z()));
-            if (chunk == null) return MineBridgeWorkPolicy.Fluid.UNKNOWN;
-            int id = chunk.getFluidId(p.x(), p.y(), p.z());
-            if (id == Fluid.EMPTY_ID) return MineBridgeWorkPolicy.Fluid.NONE;
-            return isLavaFluid(id) ? MineBridgeWorkPolicy.Fluid.LAVA : MineBridgeWorkPolicy.Fluid.WATER;
+        // A missing support voxel inside still-solid rock is not yet an
+        // actionable bridge. Clear the authored walking cell through normal
+        // excavation first; otherwise bridge beams can be placed in stone.
+        BlockType currentWalkCell = loadedBlockType(
+            world, front.slices.get(start).floorCenter()
+        );
+        if (currentWalkCell == null || !isEmpty(currentWalkCell)) {
+            return BridgeAssessment.none();
         }
+        if (!floorMissing(world, front.slices.get(start))) return BridgeAssessment.none();
+        if (front.slices.get(start - 1).floorCenter().y()
+            != front.slices.get(start).floorCenter().y()) {
+            return BridgeAssessment.none();
+        }
+        // A one-block empty support at the authored floor can be ordinary stepped
+        // terrain, not a chasm. Never turn a shallow drop into mandatory bridge work.
+        if (hasShallowSolidGround(world, front.slices.get(start))) {
+            return BridgeAssessment.none();
+        }
+        if (floorMissing(world, front.slices.get(start - 1))) {
+            return BridgeAssessment.abandon("UNSAFE_GAP_WITHOUT_APPROACH", false);
+        }
+
+        int end = start;
+        boolean fluid = hasFluidBelow(world, front.slices.get(start));
+        boolean lava = hasLavaBelow(world, front.slices.get(start));
+        while (end + 1 < front.slices.size()
+            && floorMissing(world, front.slices.get(end + 1))) {
+            end++;
+            if (front.slices.get(end - 1).floorCenter().y()
+                != front.slices.get(end).floorCenter().y()) {
+                return BridgeAssessment.none();
+            }
+            if (hasShallowSolidGround(world, front.slices.get(end))) {
+                return BridgeAssessment.none();
+            }
+            fluid |= hasFluidBelow(world, front.slices.get(end));
+            lava |= hasLavaBelow(world, front.slices.get(end));
+            if (end - start + 1 > MAX_BRIDGE_SPAN) {
+                return BridgeAssessment.abandon("GAP_EXCEEDS_BRIDGE_RANGE", lava);
+            }
+        }
+
+        if (lava) return BridgeAssessment.abandon("LAVA_GAP", true);
+
+        int span = end - start + 1;
+        int maxSpan = fluid ? MAX_FLUID_BRIDGE_SPAN : MAX_BRIDGE_SPAN;
+        if (span <= 0 || span > maxSpan) {
+            return BridgeAssessment.abandon("GAP_EXCEEDS_SAFE_BRIDGE_RANGE", false);
+        }
+
+        int landing = end + 1;
+        // Bridge beams and deck follow a single walk elevation. Stepped authored
+        // slices cannot be solved by this structure, even with a solid far landing.
+        if (!MineBridgeTerrainPolicy.isLevelAcross(
+            front.slices.stream().mapToInt(slice -> slice.floorCenter().y()).toArray(),
+            Math.max(0, start - 1),
+            Math.min(front.slices.size() - 1, landing + 1)
+        )) {
+            return BridgeAssessment.none();
+        }
+
+        if (landing >= front.slices.size()
+            || !hasSafeOppositeLanding(world, front.slices.get(landing))) {
+            return BridgeAssessment.abandon("GAP_WITHOUT_SAFE_LANDING", false);
+        }
+        if (landing + 1 >= front.slices.size()) {
+            return BridgeAssessment.abandon("GAP_WITHOUT_PLANNED_CONTINUATION", false);
+        }
+
+        // Extend the actual construction footprint across both landings; only
+        // empty/deco voxels are placed into, existing natural terrain stays.
+        int buildStart = Math.max(1, start - BRIDGE_LANDING_OVERLAP_SLICES);
+        int buildEnd = Math.min(front.slices.size() - 1,
+            landing + BRIDGE_LANDING_OVERLAP_SLICES);
+        return BridgeAssessment.bridge(MineInfrastructurePlanner.bridgeTask(
+            front.tunnelId,
+            buildStart,
+            buildEnd,
+            front.slices.get(start).floorCenter()
+        ));
+    }
+
+    private static boolean hasSafeOppositeLanding(
+        World world,
+        MineTunnelGeometry.Slice slice
+    ) {
+        int walkY = slice.floorCenter().y();
+        Set<String> safeColumns = new HashSet<>();
+        Set<String> requiredColumns = new HashSet<>();
+
+        for (BlockPosition block : slice.navigationCoreBlocks()) {
+            if (block.y() != walkY) continue;
+            String column = block.x() + ":" + block.z();
+            if (!requiredColumns.add(column)) continue;
+
+            BlockType walkType = loadedBlockType(world, block);
+            BlockPosition below = new BlockPosition(block.x(), block.y() - 1, block.z());
+            BlockType floorType = loadedBlockType(world, below);
+            WorldChunk chunk = world.getChunkIfLoaded(
+                ChunkUtil.indexChunkFromBlock(block.x(), block.z())
+            );
+            // The landing belongs to the next authored excavation slice. Its
+            // walk column may still be solid rock, which the miner will clear.
+            // Require an actual solid floor and no fluid, but do not require
+            // the future tunnel air space to have already been excavated.
+            if (walkType != null
+                && floorType != null
+                && !isEmpty(floorType)
+                && chunk != null
+                && chunk.getFluidId(block.x(), block.y(), block.z()) == Fluid.EMPTY_ID) {
+                safeColumns.add(column);
+            }
+        }
+
+        int required = Math.min(3, requiredColumns.size());
+        return required > 0 && safeColumns.size() >= required;
     }
 
     private static boolean bridgeDeckComplete(
@@ -843,6 +959,72 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             if (!foundWalkColumn) return false;
         }
         return true;
+    }
+
+    private static boolean floorMissing(World world, MineTunnelGeometry.Slice slice) {
+        BlockPosition center = slice.floorCenter();
+        BlockPosition floor = new BlockPosition(center.x(), center.y() - 1, center.z());
+        BlockType type = loadedBlockType(world, floor);
+        return type != null && isEmpty(type);
+    }
+
+    private static boolean hasShallowSolidGround(
+        World world,
+        MineTunnelGeometry.Slice slice
+    ) {
+        BlockPosition center = slice.floorCenter();
+        // A one- or two-block depression is terrain to navigate/excavate, not an
+        // actual deep span needing a mandatory bridge.
+        for (int depth = 2; depth <= 3; depth++) {
+            BlockType ground = loadedBlockType(world, new BlockPosition(
+                center.x(), center.y() - depth, center.z()
+            ));
+            if (ground == null) return true; // unknown world state is not a proven gap
+            if (!isEmpty(ground)) return true;
+        }
+        return false;
+    }
+
+    private static boolean hasFluidBelow(World world, MineTunnelGeometry.Slice slice) {
+        BlockPosition center = slice.floorCenter();
+        WorldChunk chunk = world.getChunkIfLoaded(
+            ChunkUtil.indexChunkFromBlock(center.x(), center.z())
+        );
+        if (chunk == null) return false;
+        for (int depth = 1; depth <= 4; depth++) {
+            if (chunk.getFluidId(center.x(), center.y() - depth, center.z()) != Fluid.EMPTY_ID) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasLavaBelow(World world, MineTunnelGeometry.Slice slice) {
+        BlockPosition center = slice.floorCenter();
+        WorldChunk chunk = world.getChunkIfLoaded(
+            ChunkUtil.indexChunkFromBlock(center.x(), center.z())
+        );
+        if (chunk == null) return false;
+        for (int depth = 1; depth <= 4; depth++) {
+            if (isLavaFluid(chunk.getFluidId(center.x(), center.y() - depth, center.z()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasFluidInNavigationCorridor(
+        World world,
+        MineTunnelGeometry.Slice slice
+    ) {
+        for (BlockPosition block : slice.navigationCoreBlocks()) {
+            WorldChunk chunk = world.getChunkIfLoaded(
+                ChunkUtil.indexChunkFromBlock(block.x(), block.z())
+            );
+            if (chunk == null) continue;
+            if (chunk.getFluidId(block.x(), block.y(), block.z()) != Fluid.EMPTY_ID) return true;
+        }
+        return false;
     }
 
     private static boolean isLavaFluid(int fluidId) {
@@ -2458,6 +2640,24 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     }
 
     private record WorldMineKey(UUID worldId, UUID mineId) {
+    }
+
+    private record BridgeAssessment(
+        MineInfrastructureTask task,
+        String abandonReason,
+        boolean hazardousFluid
+    ) {
+        private static BridgeAssessment none() {
+            return new BridgeAssessment(null, null, false);
+        }
+
+        private static BridgeAssessment bridge(MineInfrastructureTask task) {
+            return new BridgeAssessment(task, null, false);
+        }
+
+        private static BridgeAssessment abandon(String reason, boolean hazardousFluid) {
+            return new BridgeAssessment(null, reason, hazardousFluid);
+        }
     }
 
     private static final class RuntimeMinePlan {
