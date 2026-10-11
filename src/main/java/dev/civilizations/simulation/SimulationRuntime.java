@@ -104,6 +104,7 @@ public final class SimulationRuntime {
         var workerPaths = residents.values().stream()
             .filter(r->r.profession==Profession.MINER)
             .map(r->Map.of("id", (Object)r.id, "state", stateName(r),
+                "position", r.position, "canStand", voxelWorld.canStand(blockAt(r.position)),
                 "route", r.route.stream().skip(Math.min(r.routeIndex,r.route.size())).limit(96).toList(),
                 "target", r.routeTarget == null ? r.position : r.routeTarget,
                 "reason", r.navigationBlocked ? "SIMULATED_PATH_UNREACHABLE" : "",
