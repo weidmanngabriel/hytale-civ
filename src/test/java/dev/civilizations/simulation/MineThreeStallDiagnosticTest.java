@@ -87,8 +87,14 @@ class MineThreeStallDiagnosticTest {
         assertEquals(WorldArchive.Material.AIR, world.material(missingFloor),
             "Real-world test must contain the unwalkable gap that caused the original stall");
         runtime.configureMineLab(connector, access, MineHeading.SOUTH, 8, 99112233L);
+        String firstBlocked = null;
         for (int tick = 1; tick <= 4500; tick++) {
             runtime.tick();
+            if (firstBlocked == null) {
+                var trace = runtime.mineDebugSnapshot();
+                if (trace.toString().contains("state=BLOCKED") || trace.toString().contains("NAVIGATION_BLOCKED"))
+                    firstBlocked = "tick " + tick + ": " + trace;
+            }
             if (tick % 200 == 0) {
                 var debug = runtime.mineDebugSnapshot();
                 System.out.println("MINE_THREE_ORIGINAL tick=" + tick +
@@ -100,7 +106,8 @@ class MineThreeStallDiagnosticTest {
         var debug = runtime.mineDebugSnapshot();
         assertTrue(((Number)debug.get("sliceIndex")).intValue() ==
                 ((Number)debug.get("sliceCount")).intValue(),
-            "Original Mine_01 / real terrain three-miner scenario stalled: " + debug);
+            "Original Mine_01 / real terrain three-miner scenario stalled: " + debug
+                + " firstBlocked=" + firstBlocked);
         assertEquals(WorldArchive.Material.AIR, world.material(missingFloor),
             "Shallow gaps remain untouched, matching native Hytale's conservative bridge rule");
     }
