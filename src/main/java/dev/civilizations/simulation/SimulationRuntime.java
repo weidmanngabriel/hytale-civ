@@ -104,6 +104,7 @@ public final class SimulationRuntime {
         var workerPaths = residents.values().stream()
             .filter(r->r.profession==Profession.MINER)
             .map(r->Map.of("id", (Object)r.id, "state", stateName(r),
+                "position", r.position, "canStand", voxelWorld.canStand(blockAt(r.position)),
                 "route", r.route.stream().skip(Math.min(r.routeIndex,r.route.size())).limit(96).toList(),
                 "target", r.routeTarget == null ? r.position : r.routeTarget,
                 "reason", r.navigationBlocked ? "SIMULATED_PATH_UNREACHABLE" : "",
@@ -757,17 +758,126 @@ public final class SimulationRuntime {
         }
         void releaseWorker(String residentId) { controller.interrupt(residentId); }
 
-        /** Repair a missing walking floor before assigning miners to the next front.
-         *  The Core controller performs this mandatory infrastructure task; MineLab
-         *  merely observes terrain and executes the voxel placement.
-         */
+        // Mirror Hytale's conservative assessBridge contract. A single missing
+        // floor voxel with solid ground 1-2 levels lower is shallow terrain,
+        // not mandatory bridge construction. Native placement still stays in Hytale.
         private MineInfrastructureTask pendingBridge() {
-            if (sliceIndex < 1 || sliceIndex >= slices.size()) return null;
-            BlockPosition staging = slices.get(sliceIndex - 1).floorCenter();
-            BlockPosition floor = new BlockPosition(staging.x(), staging.y() - 1, staging.z());
-            if (voxelWorld.material(floor) != WorldArchive.Material.AIR) return null;
+            if (sliceIndex <= 0 || sliceIndex >= slices.size() - 2) return null;
+            BlockPosition center = slices.get(sliceIndex).floorCenter();
+            if (voxelWorld.material(center) != WorldArchive.Material.AIR
+                || !floorMissing(center)) return null;
+            if (slices.get(sliceIndex - 1).floorCenter().y() != center.y()
+                || shallowGround(center) || floorMissing(slices.get(sliceIndex - 1).floorCenter()))
+                return null;
+            int end = sliceIndex;
+            while (end + 1 < slices.size() && floorMissing(slices.get(end + 1).floorCenter())) {
+                end++;
+                if (slices.get(end - 1).floorCenter().y() != slices.get(end).floorCenter().y()
+                    || shallowGround(slices.get(end).floorCenter())
+                    || end - sliceIndex + 1 > 50) return null;
+            }
+            int landing = end + 1;
+            if (landing + 1 >= slices.size()) return null;
+            int elevation = slices.get(sliceIndex - 1).floorCenter().y();
+            for (int i = sliceIndex - 1; i <= Math.min(slices.size() - 1, landing + 1); i++)
+                if (slices.get(i).floorCenter().y() != elevation) return null;
+            if (!hasSafeLanding(slices.get(landing))) return null;
+            for (int i = sliceIndex; i <= end; i++) {
+                BlockPosition p = slices.get(i).floorCenter();
+                for (int depth = 1; depth <= 4; depth++) {
+                    var m = voxelWorld.material(new BlockPosition(p.x(), p.y() - depth, p.z()));
+                    if (m == WorldArchive.Material.LAVA || m == WorldArchive.Material.WATER
+                        || m == WorldArchive.Material.OTHER_FLUID) return null;
+                }
+            }
             return MineInfrastructurePlanner.bridgeTask(tunnelId,
-                sliceIndex - 1, sliceIndex - 1, staging);
+                Math.max(1, sliceIndex - 3), Math.min(slices.size() - 1, landing + 3),
+                center);
+        }
+
+        private boolean floorMissing(BlockPosition p) {
+            return voxelWorld.material(new BlockPosition(p.x(), p.y() - 1, p.z()))
+                == WorldArchive.Material.AIR;
+        }
+
+        private boolean shallowGround(BlockPosition p) {
+            for (int depth = 2; depth <= 3; depth++)
+                if (voxelWorld.material(new BlockPosition(p.x(), p.y() - depth, p.z()))
+                    != WorldArchive.Material.AIR) return true;
+            return false;
+        }
+
+        private boolean hasSafeLanding(MineTunnelGeometry.Slice slice) {
+            int count = 0;
+            var columns = new HashSet<String>();
+            for (BlockPosition p : slice.navigationCoreBlocks()) {
+                if (p.y() != slice.floorCenter().y() || !columns.add(p.x() + ":" + p.z())) continue;
+                if (voxelWorld.material(p) != null
+                    && voxelWorld.material(new BlockPosition(p.x(), p.y() - 1, p.z())) == WorldArchive.Material.SOLID)
+                    count++;
+            }
+            return !columns.isEmpty() && count >= Math.min(3, columns.size());
+        }
+
+        /** Native miners use a 1.6 horizontal / 1.0 vertical arrival tolerance.
+         *  MineLab A* needs a reachable standing cell near an authored work anchor,
+         *  not an impossible demand that an air-floor target itself be standable.
+         */
+        private boolean advanceMinerMovement(Resident resident, WorldPosition target) {
+            if (voxelWorld == null) return advanceMovement(resident, target);
+            // The A* adapter can cross the edge of a step at the old elevation
+            // between ticks. Resolve the physical fall before replanning; otherwise
+            // a new work order sees mid-air feet and falsely reports no route.
+            BlockPosition feet = blockAt(resident.position);
+            if (!target.equals(resident.routeTarget)
+                && !voxelWorld.canStand(feet) && voxelWorld.material(feet) == WorldArchive.Material.AIR) {
+                for (int depth = 1; depth <= 3; depth++) {
+                    BlockPosition lower = new BlockPosition(feet.x(), feet.y() - depth, feet.z());
+                    if (voxelWorld.canStand(lower)) {
+                        resident.position = new WorldPosition(resident.position.x(), lower.y(), resident.position.z());
+                        resident.route = List.of();
+                        resident.routeTarget = null;
+                        resident.routeRevision = -1;
+                        resident.routeIndex = 0;
+                        break;
+                    }
+                }
+            }
+            if (nearNativeMinerTarget(resident.position, target)) {
+                resident.navigationBlocked = false;
+                clearMovement(resident);
+                return true;
+            }
+            BlockPosition goal = blockAt(target);
+            if (voxelWorld.canStand(goal)) {
+                advanceMovement(resident, target);
+            } else {
+                BlockPosition current = blockAt(resident.position);
+                BlockPosition best = null;
+                int bestLength = Integer.MAX_VALUE;
+                for (int dy = -1; dy <= 1; dy++)
+                    for (int dx = -1; dx <= 1; dx++)
+                        for (int dz = -1; dz <= 1; dz++) {
+                            BlockPosition candidate = new BlockPosition(goal.x()+dx, goal.y()+dy, goal.z()+dz);
+                            if (!voxelWorld.canStand(candidate)) continue;
+                            WorldPosition center = point(candidate);
+                            if (!nearNativeMinerTarget(center, target)) continue;
+                            var route = voxelWorld.path(current, candidate);
+                            if (!route.isEmpty() && route.size() < bestLength) {
+                                best = candidate;
+                                bestLength = route.size();
+                            }
+                        }
+                if (best == null) return advanceMovement(resident, target);
+                advanceMovement(resident, point(best));
+            }
+            return nearNativeMinerTarget(resident.position, target);
+        }
+
+        private boolean nearNativeMinerTarget(WorldPosition position, WorldPosition target) {
+            double dx = position.x() - target.x(), dz = position.z() - target.z();
+            return Math.abs(position.y() - target.y()) <= 1.0
+                && dx*dx + dz*dz <= 1.6*1.6;
         }
         private UUID frontId(int index) {
             return UUID.nameUUIDFromBytes(("headless-front:" + index).getBytes(StandardCharsets.UTF_8));
@@ -780,7 +890,7 @@ public final class SimulationRuntime {
             @Override public WorldPosition connector() { return point(home); }
             @Override public BlockPosition position() { return blockAt(resident.position); }
             @Override public MinerWorkController.Navigation navigate(WorldPosition target) {
-                if (advanceMovement(resident,target)) return MinerWorkController.Navigation.ARRIVED;
+                if (advanceMinerMovement(resident,target)) return MinerWorkController.Navigation.ARRIVED;
                 return resident.navigationBlocked ? MinerWorkController.Navigation.FAILED : MinerWorkController.Navigation.MOVING;
             }
             @Override public void stop() { clearMovement(resident); }
@@ -841,8 +951,8 @@ public final class SimulationRuntime {
                     if (completedInfrastructure.contains(task.id())) return MinerWorkController.Work.stopped(MinerWorkController.Readiness.COMPLETE);
                     MineInfrastructureTask bridge = pendingBridge();
                     if (bridge != null && bridge.id().equals(task.id())) {
-                        BlockPosition approach = sliceIndex > 1
-                            ? slices.get(sliceIndex - 2).floorCenter() : home;
+                        BlockPosition approach = bridge.startSliceIndex() > 0
+                            ? slices.get(bridge.startSliceIndex() - 1).floorCenter() : home;
                         return new MinerWorkController.Work(MinerWorkController.Readiness.READY,
                             "bridge:" + sliceIndex, point(approach),
                             MinerWorkController.Operation.PLACE, 0.5, List.of(), 0, Set.of());
@@ -874,11 +984,12 @@ public final class SimulationRuntime {
                 if (intent.operation() == MinerWorkController.Operation.PLACE) {
                     MineInfrastructureTask bridge = pendingBridge();
                     if (bridge != null && bridge.id().equals(intent.taskId())) {
-                        BlockPosition staging = bridge.anchor();
-                        BlockPosition floor = new BlockPosition(staging.x(), staging.y() - 1, staging.z());
-                        if (voxelWorld.material(floor) != WorldArchive.Material.AIR)
-                            return MinerWorkController.Result.UNSAFE;
-                        voxelWorld.set(floor, WorldArchive.Material.SOLID);
+                        for (int i = bridge.startSliceIndex(); i <= bridge.endSliceIndex(); i++) {
+                            BlockPosition p = slices.get(i).floorCenter();
+                            BlockPosition floor = new BlockPosition(p.x(), p.y()-1, p.z());
+                            if (voxelWorld.material(floor) == WorldArchive.Material.AIR)
+                                voxelWorld.set(floor, WorldArchive.Material.SOLID);
+                        }
                     }
                     completedInfrastructure.add(intent.taskId()); return MinerWorkController.Result.SUCCESS;
                 }
