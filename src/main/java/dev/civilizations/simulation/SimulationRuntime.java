@@ -20,6 +20,7 @@ import dev.civilizations.core.MineTunnel;
 import dev.civilizations.core.MinerWorkController;
 import dev.civilizations.core.MineInfrastructureAvailability;
 import dev.civilizations.core.MineInfrastructurePlanner;
+import dev.civilizations.core.MineBridgeWorkPolicy;
 import dev.civilizations.core.MineInfrastructureTask;
 import dev.civilizations.core.MineTuning;
 import dev.civilizations.core.MineRoom;
@@ -757,18 +758,31 @@ public final class SimulationRuntime {
         }
         void releaseWorker(String residentId) { controller.interrupt(residentId); }
 
-        /** Repair a missing walking floor before assigning miners to the next front.
-         *  The Core controller performs this mandatory infrastructure task; MineLab
-         *  merely observes terrain and executes the voxel placement.
-         */
-        private MineInfrastructureTask pendingBridge() {
-            if (sliceIndex < 1 || sliceIndex >= slices.size()) return null;
-            BlockPosition staging = slices.get(sliceIndex - 1).floorCenter();
-            BlockPosition floor = new BlockPosition(staging.x(), staging.y() - 1, staging.z());
-            if (voxelWorld.material(floor) != WorldArchive.Material.AIR) return null;
-            return MineInfrastructurePlanner.bridgeTask(tunnelId,
-                sliceIndex - 1, sliceIndex - 1, staging);
+        private final MineBridgeWorkPolicy.Terrain terrain = new MineBridgeWorkPolicy.Terrain() {
+            @Override public MineBridgeWorkPolicy.Block block(BlockPosition p) {
+                WorldArchive.Material m = voxelWorld.material(p);
+                if (m == null) return MineBridgeWorkPolicy.Block.UNKNOWN;
+                return m == WorldArchive.Material.AIR
+                    ? MineBridgeWorkPolicy.Block.EMPTY : MineBridgeWorkPolicy.Block.SOLID;
+            }
+            @Override public MineBridgeWorkPolicy.Fluid fluid(BlockPosition p) {
+                WorldArchive.Material m = voxelWorld.material(p);
+                if (m == null) return MineBridgeWorkPolicy.Fluid.UNKNOWN;
+                return switch (m) {
+                    case WATER, OTHER_FLUID -> MineBridgeWorkPolicy.Fluid.WATER;
+                    case LAVA -> MineBridgeWorkPolicy.Fluid.LAVA;
+                    default -> MineBridgeWorkPolicy.Fluid.NONE;
+                };
+            }
+        };
+
+        private MineBridgeWorkPolicy.Decision bridgeDecision() {
+            if (voxelWorld == null) return MineBridgeWorkPolicy.Decision.none();
+            return MineBridgeWorkPolicy.assess(tunnelId, slices, sliceIndex,
+                terrain, dev.civilizations.core.MineBridgeSpanPolicy.MAX_SPAN, 3);
         }
+
+        private MineInfrastructureTask pendingBridge() { return bridgeDecision().task(); }
         private UUID frontId(int index) {
             return UUID.nameUUIDFromBytes(("headless-front:" + index).getBytes(StandardCharsets.UTF_8));
         }
@@ -788,12 +802,15 @@ public final class SimulationRuntime {
             @Override public void priorityBonuses(Map<UUID,Integer> updated) { bonuses = updated; }
             @Override public List<MinerWorkController.Task> tasks() {
                 List<MinerWorkController.Task> tasks = new ArrayList<>();
-                MineInfrastructureTask bridge = pendingBridge();
-                if (bridge != null && !failed.contains(bridge.id())) {
+                MineBridgeWorkPolicy.Decision assessment = bridgeDecision();
+                MineInfrastructureTask bridge = assessment.task();
+                if (assessment.failureReason() != null && sliceIndex < slices.size())
+                    failed.add(frontId(sliceIndex));
+                if (bridge != null && !failed.contains(bridge.id()) && !completedInfrastructure.contains(bridge.id())) {
                     tasks.add(new MinerWorkController.Task(bridge.id(),
                         MineNormalTaskSelector.Kind.INFRASTRUCTURE, 10, 1, bridge.anchor(), true));
                 }
-                // A gap must be repaired before anybody can enter the next work front.
+                // The same Core terrain assessment gates excavation in Hytale and MineLab.
                 if (bridge == null && sliceIndex < slices.size() && !failed.contains(frontId(sliceIndex))) {
                     tasks.add(new MinerWorkController.Task(frontId(sliceIndex), MineNormalTaskSelector.Kind.TUNNEL_FRONT,
                         4, MineFrontCoordinator.capacityFor(MineTunnel.Kind.MAIN), slices.get(sliceIndex).floorCenter(), false));
@@ -841,8 +858,8 @@ public final class SimulationRuntime {
                     if (completedInfrastructure.contains(task.id())) return MinerWorkController.Work.stopped(MinerWorkController.Readiness.COMPLETE);
                     MineInfrastructureTask bridge = pendingBridge();
                     if (bridge != null && bridge.id().equals(task.id())) {
-                        BlockPosition approach = sliceIndex > 1
-                            ? slices.get(sliceIndex - 2).floorCenter() : home;
+                        BlockPosition approach = bridge.startSliceIndex() > 0
+                            ? slices.get(bridge.startSliceIndex() - 1).floorCenter() : home;
                         return new MinerWorkController.Work(MinerWorkController.Readiness.READY,
                             "bridge:" + sliceIndex, point(approach),
                             MinerWorkController.Operation.PLACE, 0.5, List.of(), 0, Set.of());
@@ -874,11 +891,16 @@ public final class SimulationRuntime {
                 if (intent.operation() == MinerWorkController.Operation.PLACE) {
                     MineInfrastructureTask bridge = pendingBridge();
                     if (bridge != null && bridge.id().equals(intent.taskId())) {
-                        BlockPosition staging = bridge.anchor();
-                        BlockPosition floor = new BlockPosition(staging.x(), staging.y() - 1, staging.z());
-                        if (voxelWorld.material(floor) != WorldArchive.Material.AIR)
-                            return MinerWorkController.Result.UNSAFE;
-                        voxelWorld.set(floor, WorldArchive.Material.SOLID);
+                        for (int i = bridge.startSliceIndex(); i <= bridge.endSliceIndex(); i++) {
+                            BlockPosition center = slices.get(i).floorCenter();
+                            BlockPosition floor = new BlockPosition(center.x(), center.y() - 1, center.z());
+                            var existing = voxelWorld.material(floor);
+                            if (existing == null || existing == WorldArchive.Material.LAVA
+                                || existing == WorldArchive.Material.WATER)
+                                return MinerWorkController.Result.UNSAFE;
+                            if (existing == WorldArchive.Material.AIR)
+                                voxelWorld.set(floor, WorldArchive.Material.SOLID);
+                        }
                     }
                     completedInfrastructure.add(intent.taskId()); return MinerWorkController.Result.SUCCESS;
                 }
