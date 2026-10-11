@@ -12,6 +12,8 @@ import java.util.UUID;
  * they never independently decide whether a front needs that mandatory task.
  */
 public final class MineBridgeWorkPolicy {
+    public static final int MAX_SPAN = 50;
+    public static final int LANDING_OVERLAP = 3;
     private MineBridgeWorkPolicy() {}
 
     public enum Block { UNKNOWN, EMPTY, SOLID }
