@@ -60,3 +60,11 @@ Sobald eine Änderung neben Dokumentation auch Code, Assets, Konfiguration oder 
 ## Keine Ersatzimplementierung ohne Prüfung
 
 Bevor Civ eigene Navigation, UI-Primitive, Interaktionslogik, Assettypen, Game-Mode-Verhalten, Farming-, Container- oder Weltmechanik baut, zuerst prüfen, ob Hytale eine passende native Funktion bereitstellt. Native Engine-Fähigkeiten werden bevorzugt adaptiert, solange sie die Produktanforderung erfüllen.
+
+## Hytale 0.7.2: verifizierte API-Migrationsgrenze (17. Oktober 2026)
+
+Die aktuelle Projekt-JAR meldet Hytale 0.7.2 (Java 25). Das offizielle Release-Maven-Repository lieferte in einem GitHub-hosted Actions-Test die Versionsliste `0.5.10,0.6.9,0.7.0,0.7.1,0.7.2`; sowohl Metadata als auch die POM zu `com.hypixel.hytale:Server:0.7.2` waren per `curl` (HTTP 200) abrufbar. Der zuvor verwendete reine Python-`urllib`-Abruf lieferte HTTP 403; daraus darf nicht auf einen generellen Maven-Ausfall geschlossen werden.
+
+Der erste Java-25-Kompilierlauf gegen 0.7.2 scheitert an geänderten Hytale-APIs, u. a. in `PrefabPlacementService`, `MinerWorkSystem`, `MineInfrastructurePlacementResolver` und verschiedenen Diagnosekommandos. Konkret besitzt `WorldChunk` in der 0.7.2-JAR nicht mehr die zuvor direkt verwendeten Methoden `getBlock(x,y,z)`, `getFluidId(x,y,z)` und ähnliche Blockzugriffe. Über `World.getChunkStore()` ist weiterhin `ChunkStore` erreichbar; `ChunkGrid` stellt `getChunkReference(long)`, `getChunkReferenceAsync(long)`, `getChunkComponent(long, ComponentType)` und `getStore()` bereit. Für die Blockdaten besteht die neue Komponente `BlockChunk` (mit `getComponentType()`), aber die passende sichere Block-Lese-/Schreibsequenz muss noch anhand weiterer Signaturen und Call-Sites geprüft werden. **Kein** bloßes Umbenennen der Methoden ohne Prüfung von Threading, ECS-Ref-Lebensdauer und Weltzugriffen.
+
+Die Umstellung auf 0.7.2 ist damit ein echter Hytale-Adapter-Migrationsschritt. Der Headless-Simulator mit Java 21 ist unabhängig davon.
