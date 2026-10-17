@@ -595,8 +595,7 @@ public final class MinerNavigationSystem extends DelayedEntitySystem<EntityStore
     }
 
     private static BlockType loadedBlockType(World world, BlockPosition block) {
-        WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(block.x(), block.z()));
-        return chunk == null ? null : chunk.getBlockType(block.x(), block.y(), block.z());
+        return HytaleLoadedBlocks.blockType(world, block.x(), block.y(), block.z());
     }
 
     private static BlockPosition blockPosition(Vector3d position) {
