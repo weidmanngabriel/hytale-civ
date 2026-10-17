@@ -1,0 +1,31 @@
+name: Hytale Maven Version Probe
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/hytale-maven-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect current stable Maven metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from urllib.request import urlopen
+          import xml.etree.ElementTree as ET
+          url = 'https://maven.hytale.com/release/com/hypixel/hytale/Server/maven-metadata.xml'
+          with urlopen(url, timeout=30) as response:
+              xml = response.read()
+          root = ET.fromstring(xml)
+          versions = [v.text for v in root.findall('./versioning/versions/version') if v.text]
+          print('RELEASE_METADATA_VERSIONS=' + ','.join(versions[-20:]))
+          print('RELEASE_METADATA_LATEST=' + str(root.findtext('./versioning/latest')))
+          print('RELEASE_METADATA_RELEASE=' + str(root.findtext('./versioning/release')))
+          PY
