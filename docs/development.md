@@ -46,7 +46,7 @@ Release-Repository: <code>https://maven.hytale.com/release</code>
 
 Abhängigkeit: <code>com.hypixel.hytale:Server</code>
 
-<code>hytaleServerVersion</code> wird zentral und bewusst auf eine konkrete Version in <code>gradle.properties</code> festgesetzt. Aktuell ist das <code>0.6.8</code>. Dadurch kann ein neuer Hytale-Release den Build nicht unbemerkt verändern. Ein Upgrade erfolgt durch eine ausdrückliche Änderung dieser Eigenschaft und anschließende Build-/API-Prüfung. Vor Änderungen an der Hytale-API-Nutzung oder am Dependency-Selektor muss die aktuelle offizielle Dokumentation geprüft werden.
+<code>hytaleServerVersion</code> wird zentral und bewusst auf eine konkrete Version in <code>gradle.properties</code> festgesetzt. Aktuell ist das <code>0.7.2</code>. Dadurch kann ein neuer Hytale-Release den Build nicht unbemerkt verändern. Ein Upgrade erfolgt durch eine ausdrückliche Änderung dieser Eigenschaft und anschließende Build-/API-Prüfung. Vor Änderungen an der Hytale-API-Nutzung oder am Dependency-Selektor muss die aktuelle offizielle Dokumentation geprüft werden.
 
 ## Hytale-API-Inspektion
 
