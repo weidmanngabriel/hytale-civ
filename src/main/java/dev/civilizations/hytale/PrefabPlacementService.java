@@ -172,17 +172,32 @@ public final class PrefabPlacementService {
                 );
             }
             BlockPosition blockPosition = new BlockPosition(position.x, position.y, position.z);
-            int blockId = chunk.getBlock(position.x, position.y, position.z);
+            Integer blockId = HytaleLoadedBlocks.blockId(world, position.x, position.y, position.z);
+            Integer rotation = HytaleLoadedBlocks.rotationIndex(world, position.x, position.y, position.z);
+            Integer filler = HytaleLoadedBlocks.filler(world, position.x, position.y, position.z);
+            Integer support = HytaleLoadedBlocks.supportValue(world, position.x, position.y, position.z);
+            Integer fluidId = HytaleLoadedBlocks.fluidId(world, position.x, position.y, position.z);
+            Integer fluidLevel = HytaleLoadedBlocks.fluidLevel(world, position.x, position.y, position.z);
+            if (blockId == null || rotation == null || filler == null || support == null
+                || fluidId == null || fluidLevel == null) {
+                return PlacementCandidate.invalid(
+                    definition,
+                    anchor,
+                    footprint,
+                    "Die Baufläche ist noch nicht vollständig geladen.",
+                    orientation
+                );
+            }
             replacedBlocks.put(blockPosition, blockId);
             terrainSnapshot.put(
                 blockPosition,
                 new TerrainBlockSnapshot(
                     blockId,
-                    chunk.getRotationIndex(position.x, position.y, position.z),
-                    chunk.getFiller(position.x, position.y, position.z),
-                    chunk.getSupportValue(position.x, position.y, position.z),
-                    chunk.getFluidId(position.x, position.y, position.z),
-                    chunk.getFluidLevel(position.x, position.y, position.z)
+                    rotation,
+                    filler,
+                    support,
+                    fluidId,
+                    (byte) (int) fluidLevel
                 )
             );
         }
