@@ -738,7 +738,7 @@ public final class MineInfrastructurePlacementResolver {
             // Avoid creating work that would overwrite unexcavated stone or
             // any existing player block. Already-installed matching pieces are fine.
             if (!isEmpty(world, position)) {
-                var chunk = world.getChunkIfLoaded(
+                var chunk = HytaleLoadedBlocks.loadedChunk(world, 
                     com.hypixel.hytale.math.util.ChunkUtil.indexChunkFromBlock(
                         position.x(), position.z()
                     )
@@ -776,7 +776,7 @@ public final class MineInfrastructurePlacementResolver {
     }
 
     private static boolean isEmpty(World world, BlockPosition position) {
-        var chunk = world.getChunkIfLoaded(
+        var chunk = HytaleLoadedBlocks.loadedChunk(world, 
             com.hypixel.hytale.math.util.ChunkUtil.indexChunkFromBlock(position.x(), position.z())
         );
         if (chunk == null) return false;
