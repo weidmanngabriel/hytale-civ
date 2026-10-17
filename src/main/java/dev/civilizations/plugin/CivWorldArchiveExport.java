@@ -1,5 +1,7 @@
 package dev.civilizations.plugin;
 
+import dev.civilizations.hytale.HytaleLoadedBlocks;
+
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.protocol.BlockMaterial;
 import com.hypixel.hytale.protocol.ShaderType;
@@ -19,7 +21,7 @@ final class CivWorldArchiveExport {
         if (bounds.volume() > WorldArchive.MAX_EXPORT_CELLS) throw new IllegalArgumentException("Region too large");
         var cells = new ArrayList<WorldArchive.Cell>((int) bounds.volume());
         for (int x=bounds.minX(); x<bounds.maxX(); x++) for (int z=bounds.minZ(); z<bounds.maxZ(); z++) {
-            WorldChunk chunk=world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(x,z));
+            WorldChunk chunk=HytaleLoadedBlocks.loadedChunk(world, ChunkUtil.indexChunkFromBlock(x,z));
             if (chunk==null) throw new IllegalStateException("Chunk not loaded: "+x+","+z);
             for (int y=bounds.minY(); y<bounds.maxY(); y++) {
                 BlockType type=chunk.getBlockType(x,y,z);
