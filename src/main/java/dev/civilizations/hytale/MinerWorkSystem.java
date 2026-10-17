@@ -928,7 +928,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 && floorType != null
                 && !isEmpty(floorType)
                 && chunk != null
-                && chunk.getFluidId(block.x(), block.y(), block.z()) == Fluid.EMPTY_ID) {
+                && HytaleLoadedBlocks.fluidId(world, block.x(), block.y(), block.z()) == Fluid.EMPTY_ID) {
                 safeColumns.add(column);
             }
         }
@@ -992,7 +992,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         );
         if (chunk == null) return false;
         for (int depth = 1; depth <= 4; depth++) {
-            if (chunk.getFluidId(center.x(), center.y() - depth, center.z()) != Fluid.EMPTY_ID) {
+            if (HytaleLoadedBlocks.fluidId(world, center.x(), center.y() - depth, center.z()) != Fluid.EMPTY_ID) {
                 return true;
             }
         }
@@ -1006,7 +1006,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         );
         if (chunk == null) return false;
         for (int depth = 1; depth <= 4; depth++) {
-            if (isLavaFluid(chunk.getFluidId(center.x(), center.y() - depth, center.z()))) {
+            if (isLavaFluid(HytaleLoadedBlocks.fluidId(world, center.x(), center.y() - depth, center.z()))) {
                 return true;
             }
         }
@@ -1022,7 +1022,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 ChunkUtil.indexChunkFromBlock(block.x(), block.z())
             );
             if (chunk == null) continue;
-            if (chunk.getFluidId(block.x(), block.y(), block.z()) != Fluid.EMPTY_ID) return true;
+            if (HytaleLoadedBlocks.fluidId(world, block.x(), block.y(), block.z()) != Fluid.EMPTY_ID) return true;
         }
         return false;
     }
@@ -2254,7 +2254,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
     private static BlockType loadedBlockType(World world, BlockPosition block) {
         WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, ChunkUtil.indexChunkFromBlock(block.x(), block.z()));
-        return chunk == null ? null : chunk.getBlockType(block.x(), block.y(), block.z());
+        return chunk == null ? null : HytaleLoadedBlocks.blockType(world, block.x(), block.y(), block.z());
     }
 
     private static boolean isEmpty(BlockType blockType) {
