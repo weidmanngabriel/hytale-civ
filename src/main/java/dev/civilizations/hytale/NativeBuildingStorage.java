@@ -5,7 +5,7 @@ import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.modules.block.components.ItemContainerBlock;
 import com.hypixel.hytale.server.core.universe.world.World;
-import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
+import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockComponentSection;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import org.joml.Vector3i;
 
@@ -30,9 +30,14 @@ public final class NativeBuildingStorage {
         for (int x = marker.x - SEARCH_RADIUS; x <= marker.x + SEARCH_RADIUS; x++) {
             for (int y = marker.y - 1; y <= marker.y + 1; y++) {
                 for (int z = marker.z - SEARCH_RADIUS; z <= marker.z + SEARCH_RADIUS; z++) {
-                    WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(x, z));
-                    if (chunk == null) continue;
-                    Ref<ChunkStore> ref = chunk.getBlockComponentEntity(x, y, z);
+                    Ref<ChunkStore> sectionRef = world.getChunkStore()
+                        .getChunkSectionReferenceAtBlock(x, y, z);
+                    if (sectionRef == null || !sectionRef.isValid()) continue;
+                    BlockComponentSection components = world.getChunkStore().getStore().getComponent(
+                        sectionRef, BlockComponentSection.getComponentType()
+                    );
+                    if (components == null) continue;
+                    Ref<ChunkStore> ref = components.getBlockReference(ChunkUtil.indexBlock(x, y, z));
                     if (ref == null || !ref.isValid()) continue;
                     ItemContainerBlock candidate = ref.getStore().getComponent(
                         ref, ItemContainerBlock.getComponentType()

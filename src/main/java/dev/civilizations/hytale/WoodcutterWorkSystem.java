@@ -498,21 +498,11 @@ public final class WoodcutterWorkSystem extends DelayedEntitySystem<EntityStore>
     }
 
     private static BlockType getLoadedBlockType(World world, int x, int y, int z) {
-        long chunkIndex = ChunkUtil.indexChunkFromBlock(x, z);
-        WorldChunk chunk = world.getChunkIfLoaded(chunkIndex);
-        if (chunk == null) {
-            return null;
-        }
-        return chunk.getBlockType(x, y, z);
+        return HytaleLoadedBlocks.blockType(world, x, y, z);
     }
 
     private static Integer getLoadedBlockId(World world, int x, int y, int z) {
-        long chunkIndex = ChunkUtil.indexChunkFromBlock(x, z);
-        WorldChunk chunk = world.getChunkIfLoaded(chunkIndex);
-        if (chunk == null) {
-            return null;
-        }
-        return chunk.getBlock(x, y, z);
+        return HytaleLoadedBlocks.blockId(world, x, y, z);
     }
 
     private static boolean isNaturalTreeTrunk(World world, int x, int y, int z) {
@@ -866,7 +856,7 @@ public final class WoodcutterWorkSystem extends DelayedEntitySystem<EntityStore>
                 ))) {
                 continue;
             }
-            WorldChunk chunk = world.getChunkIfLoaded(
+            WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, 
                 ChunkUtil.indexChunkFromBlock(position.x(), position.z())
             );
             if (chunk != null) {
