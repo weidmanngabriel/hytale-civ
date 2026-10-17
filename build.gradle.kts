@@ -22,6 +22,11 @@ repositories {
 }
 
 val hytaleServerVersion = providers.gradleProperty("hytaleServerVersion").get()
+// Optional trusted, locally provided pinned server JAR; never shipped inside the plugin.
+val hytaleServerJar = providers.gradleProperty("hytaleServerJar").orNull?.takeIf { it.isNotBlank() }?.let { file(it) }
+if (hytaleServerJar != null && !hytaleServerJar.isFile) {
+    throw GradleException("hytaleServerJar must point to an existing file")
+}
 val artifactBaseName = providers.gradleProperty("artifactBaseName").getOrElse("hytale-civ")
 val assetPackDir = layout.projectDirectory.dir("asset-pack")
 val hytaleServerRuntime = configurations.create("hytaleServerRuntime") {
@@ -31,8 +36,13 @@ val hytaleServerRuntime = configurations.create("hytaleServerRuntime") {
 }
 
 dependencies {
-    compileOnly("com.hypixel.hytale:Server:$hytaleServerVersion")
-    hytaleServerRuntime("com.hypixel.hytale:Server:$hytaleServerVersion")
+    if (hytaleServerJar != null) {
+        compileOnly(files(hytaleServerJar))
+        hytaleServerRuntime(files(hytaleServerJar))
+    } else {
+        compileOnly("com.hypixel.hytale:Server:$hytaleServerVersion")
+        hytaleServerRuntime("com.hypixel.hytale:Server:$hytaleServerVersion")
+    }
     implementation("com.fasterxml.jackson.core:jackson-databind:2.19.2")
 
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
@@ -40,7 +50,11 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     // Hytale remains compileOnly for the shipped plugin; tests need the same API at compile/runtime
     // to verify persistent PlayerSkin and CharacterCreator-backed configuration contracts.
-    testImplementation("com.hypixel.hytale:Server:$hytaleServerVersion")
+    if (hytaleServerJar != null) {
+        testImplementation(files(hytaleServerJar))
+    } else {
+        testImplementation("com.hypixel.hytale:Server:$hytaleServerVersion")
+    }
 }
 
 java {
