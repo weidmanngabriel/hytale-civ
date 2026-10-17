@@ -1043,7 +1043,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             if (feet == null || !isEmpty(feet) || head == null || !isEmpty(head)
                 || ground == null || isEmpty(ground)) return null;
             WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, ChunkUtil.indexChunkFromBlock(x, z));
-            if (chunk == null || chunk.getFluidId(x, y, z) != Fluid.EMPTY_ID) return null;
+            if (chunk == null || HytaleLoadedBlocks.fluidId(world, x, y, z) != Fluid.EMPTY_ID) return null;
             return new Vector3d(x + 0.5, y, z + 0.5);
     }
 
