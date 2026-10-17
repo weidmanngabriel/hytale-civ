@@ -3,7 +3,6 @@ name: Standalone Simulator Build
 on:
   push:
     branches: [main]
-  pull_request: # Temporary validation; remove before integration
 
 permissions:
   contents: read
