@@ -1,5 +1,7 @@
 package dev.civilizations.plugin;
 
+import dev.civilizations.hytale.HytaleLoadedBlocks;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hypixel.hytale.component.Ref;
@@ -290,7 +292,7 @@ final class CivAgentCommand extends AbstractCommandCollection {
         WorldChunk loaded(World world, CommandContext c) {
             if (Math.abs((long)x(c)) > 30000 || Math.abs((long)z(c)) > 30000
                 || Math.abs((long)y(c)) > 4096) throw new IllegalArgumentException("Coordinates out of bounds");
-            WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(x(c),z(c)));
+            WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, ChunkUtil.indexChunkFromBlock(x(c),z(c)));
             if (chunk == null) throw new IllegalArgumentException("Target chunk not loaded");
             return chunk;
         }
