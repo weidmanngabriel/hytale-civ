@@ -3,6 +3,7 @@ package dev.civilizations.hytale;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
+import com.hypixel.hytale.server.core.blocktype.component.BlockPhysics;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
@@ -40,6 +41,18 @@ public final class HytaleLoadedBlocks {
     public static BlockType blockType(World world, int x, int y, int z) {
         Integer id = blockId(world, x, y, z);
         return id == null ? null : BlockType.getAssetMap().getAssetOrDefault(id, BlockType.UNKNOWN);
+    }
+
+    public static Integer filler(World world, int x, int y, int z) {
+        BlockSection section = blockSection(world, x, y, z);
+        return section == null ? null : section.getFiller(x, y, z);
+    }
+
+    public static Integer supportValue(World world, int x, int y, int z) {
+        Ref<ChunkStore> ref = sectionRef(world, x, y, z);
+        if (ref == null || !ref.isValid()) return null;
+        BlockPhysics physics = world.getChunkStore().getStore().getComponent(ref, BlockPhysics.getComponentType());
+        return physics == null ? 0 : physics.get(x, y, z);
     }
 
     public static Integer rotationIndex(World world, int x, int y, int z) {
