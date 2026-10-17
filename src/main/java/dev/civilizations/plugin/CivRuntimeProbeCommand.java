@@ -1,5 +1,7 @@
 package dev.civilizations.plugin;
 
+import dev.civilizations.hytale.HytaleLoadedBlocks;
+
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Rotation3f;
@@ -75,29 +77,25 @@ final class CivRuntimeProbeCommand extends CommandBase {
     }
 
     private void loadArenaChunkAndStart(World world) {
-        try {
-            var spawn = world.getWorldConfig()
-                .getSpawnProvider()
-                .getSpawnPoint(world, UUID.randomUUID());
-            if (spawn == null) {
-                fail("world spawn provider returned no spawn point", null);
-                return;
-            }
-
-            Vector3d spawnPosition = spawn.getPosition();
-            long chunkIndex = ChunkUtil.indexChunkFromBlock(spawnPosition.x, spawnPosition.z);
-            world.getChunkAsync(chunkIndex).whenComplete((chunk, throwable) ->
-                world.execute(() -> {
-                    if (throwable != null || chunk == null) {
-                        fail("arena chunk could not be loaded", throwable);
-                        return;
-                    }
-                    prepareArenaAndScheduleProbe(world, chunk, spawn.getRotation());
-                })
-            );
-        } catch (Throwable throwable) {
-            fail("arena chunk setup threw an exception", throwable);
-        }
+        world.getWorldConfig().getSpawnProvider()
+            .getSpawnPointAsync(world, UUID.randomUUID())
+            .whenComplete((spawn, spawnError) -> world.execute(() -> {
+                if (spawnError != null || spawn == null) {
+                    fail("world spawn provider returned no spawn point", spawnError);
+                    return;
+                }
+                Vector3d spawnPosition = spawn.getPosition();
+                long chunkIndex = ChunkUtil.indexChunkFromBlock(spawnPosition.x, spawnPosition.z);
+                world.getChunkStore().getChunkReferenceAsync(chunkIndex)
+                    .whenComplete((ref, throwable) -> world.execute(() -> {
+                        WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, chunkIndex);
+                        if (throwable != null || ref == null || !ref.isValid() || chunk == null) {
+                            fail("arena chunk could not be loaded", throwable);
+                            return;
+                        }
+                        prepareArenaAndScheduleProbe(world, chunk, spawn.getRotation());
+                    }));
+            }));
     }
 
     private void prepareArenaAndScheduleProbe(
