@@ -29,6 +29,7 @@ public final class CivInhabitantStatusText {
         return switch (profession) {
             case UNEMPLOYED -> "Arbeitslos";
             case WOODCUTTER -> hasMoveTarget ? "Geht zum Baum" : "Holzfäller";
+            case FORESTER -> hasMoveTarget ? "Geht zum Pflanzort" : "Förster";
             case FARMER -> hasMoveTarget ? "Geht zur Farmarbeit" : "Bauer";
             case MINER -> hasMoveTarget ? "Geht zur Mine" : "Minenabbauer";
             case CONSTRUCTION_WORKER -> hasMoveTarget ? "Geht zur Baustelle" : "Bauarbeiter";

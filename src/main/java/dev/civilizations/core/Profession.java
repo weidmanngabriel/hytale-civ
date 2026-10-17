@@ -7,6 +7,7 @@ public enum Profession {
     UNEMPLOYED,
     FARMER,
     WOODCUTTER,
+    FORESTER,
     MINER,
     CONSTRUCTION_WORKER,
     SOLDIER

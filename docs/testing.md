@@ -349,3 +349,7 @@ Die reale Weltprobe platziert das unveränderte `Mine_01`-Prefab am aus dem Orig
 ### Vollständige reale Testregion
 
 Die standardmäßig genutzte `RealRegionMineFixture.load()` lädt die **gesamte** Materialklassifikation aus dem hochgeladenen `region.civworld.gz`, versioniert als `src/test/resources/fixtures/full-region-materials.b64`. Originalgrenzen: x=[56,181), y=[8,148), z=[-41,66), also 1.872.500 Zellen. Das GZIP-komprimierte Bytefeld wird erst nach einer exakten SHA-256-Integritätsprüfung (`34cc1622257266142e946dcd86583e4347928fd99a9e01d8d6c16867722aae35`) direkt über `VoxelWorld.fromMaterialCodes` geladen; dabei werden keine 1,87 Millionen `WorldArchive.Cell`-Objekte erstellt. Die Datei erhält die Kategorien AIR, SOLID, WATER, LAVA und OTHER_FLUID, nicht aber die vollständigen Hytale-Block-IDs. Die Mine-Tests verwenden weiterhin die tatsächliche `Mine_01`-Prefab-Platzierung und reproduzieren den Bodenlücken-Fix.
+
+### Forester flat-world headless checks
+
+`ForesterPlantingPlannerTest` checks deterministic seeded candidate selection, bounded work radius, exclusion and minimum spacing. `ForesterFlatWorldTest` runs two foresters on a 64 × 64 flat voxel world for 1200 simulation ticks, checks reproducible snapshots and tree-site uniqueness. This covers headless Core/adapter behavior, not Hytale engine terrain/block placement.
