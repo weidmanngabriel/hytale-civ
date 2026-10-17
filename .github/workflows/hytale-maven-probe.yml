@@ -17,6 +17,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          echo 'CURL_METADATA_STATUS:'
+          curl -L -sS -A 'Apache-Maven/3.9.9' -o /tmp/hytale-metadata.xml -w '%{http_code}\\n' 'https://maven.hytale.com/release/com/hypixel/hytale/Server/maven-metadata.xml' || true
+          echo 'CURL_POM_072_STATUS:'
+          curl -L -sS -A 'Gradle/9.0' -o /tmp/hytale-pom.xml -w '%{http_code}\\n' 'https://maven.hytale.com/release/com/hypixel/hytale/Server/0.7.2/Server-0.7.2.pom' || true
           python3 - <<'PY'
           from urllib.request import urlopen
           import xml.etree.ElementTree as ET
