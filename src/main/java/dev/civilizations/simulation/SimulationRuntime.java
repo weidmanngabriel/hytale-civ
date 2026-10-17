@@ -3,6 +3,7 @@ package dev.civilizations.simulation;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.ConstructionJob;
 import dev.civilizations.core.FarmBuilding;
+import dev.civilizations.core.ForesterPlantingPlanner;
 import dev.civilizations.core.InhabitantActivity;
 import dev.civilizations.core.MovementIntent;
 import dev.civilizations.core.Profession;
@@ -61,6 +62,8 @@ public final class SimulationRuntime {
     private final Map<String, ConstructionSiteState> constructionSites = new LinkedHashMap<>();
     private final Map<String, List<WorldPosition>> farmFields = new LinkedHashMap<>();
 
+    private final Map<String, ForesterState> foresters = new LinkedHashMap<>();
+    private final Map<BlockPosition, Double> growingTrees = new LinkedHashMap<>();
     private long tickCount;
     private VoxelWorld voxelWorld;
     private MineLab mineLab;
@@ -142,6 +145,15 @@ public final class SimulationRuntime {
         addResident(Resident.woodcutter(id, position));
     }
 
+    /** Assign a forester to a fixed home-centered working area. */
+    public void addForester(String id, WorldPosition position, BlockPosition home, long seed) {
+        requireAvailableResidentId(id);
+        residents.put(id, new Resident(id, Profession.FORESTER, position, null, null, null));
+        foresters.put(id, new ForesterState(new ForesterPlantingPlanner(home, 18, 4, seed)));
+    }
+
+    public int growingTreeCount() { return growingTrees.size(); }
+
     public void addConstructionWorker(String id, WorldPosition position) {
         addResident(Resident.builder(id, position));
     }
@@ -209,6 +221,13 @@ public final class SimulationRuntime {
     public void tick() {
         metrics.recordTick();
         tickCount++;
+        for (var entry : new ArrayList<>(growingTrees.entrySet())) {
+            double elapsed = entry.getValue() + tickSeconds;
+            if (elapsed >= 20.0) {
+                growingTrees.remove(entry.getKey());
+                addTree(entry.getKey());
+            } else growingTrees.put(entry.getKey(), elapsed);
+        }
         for (Resident resident : residents.values()) {
             tickResident(resident);
         }
@@ -353,11 +372,46 @@ public final class SimulationRuntime {
 
         switch (resident.profession) {
             case WOODCUTTER -> tickWoodcutter(resident);
+            case FORESTER -> tickForester(resident);
             case CONSTRUCTION_WORKER -> tickBuilder(resident);
             case FARMER -> tickFarmer(resident);
             case MINER -> { if (mineLab == null) clearMovement(resident); else mineLab.tick(resident); }
             case SOLDIER, UNEMPLOYED -> clearMovement(resident);
         }
+    }
+
+    private void tickForester(Resident resident) {
+        ForesterState forest = foresters.get(resident.id);
+        if (forest.target == null) {
+            if (resident.workDecisions.advance(tickSeconds) == WorkDecisionSchedule.DecisionKind.NONE) return;
+            Set<BlockPosition> occupied = new HashSet<>(trees.keySet());
+            occupied.addAll(growingTrees.keySet());
+            for (ForesterState other : foresters.values()) if (other.target != null) occupied.add(other.target);
+            BlockPosition candidate = forest.planner.choose(blockAt(resident.position), occupied,
+                Set.of(), p -> !trees.containsKey(p) && !growingTrees.containsKey(p)
+                    && (voxelWorld == null || voxelWorld.canStand(p)));
+            if (candidate == null) {
+                resident.workDecisions.scheduleRetry(DEFAULT_RETRY_SECONDS);
+                return;
+            }
+            forest.target = candidate;
+        }
+        if (advanceMovement(resident, blockCenter(forest.target))) {
+            BlockPosition planted = forest.target;
+            forest.target = null;
+            growingTrees.put(planted, 0.0);
+            clearMovement(resident);
+            resident.workDecisions.scheduleRetry(0.5);
+        } else if (resident.navigationBlocked) {
+            forest.target = null;
+            resident.workDecisions.scheduleRetry(DEFAULT_RETRY_SECONDS);
+        }
+    }
+
+    private static final class ForesterState {
+        final ForesterPlantingPlanner planner;
+        BlockPosition target;
+        ForesterState(ForesterPlantingPlanner planner) { this.planner = planner; }
     }
 
     private void tickWoodcutter(Resident resident) {
@@ -666,6 +720,7 @@ public final class SimulationRuntime {
     private static String autonomousStateName(Resident resident) {
         return switch (resident.profession) {
             case WOODCUTTER -> resident.woodcutterJob.state().name();
+            case FORESTER -> "PLANTING";
             case CONSTRUCTION_WORKER -> resident.constructionJob.state().name();
             case FARMER -> resident.farm.workState().name();
             case MINER -> resident.minerState;
