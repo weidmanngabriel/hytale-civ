@@ -856,7 +856,7 @@ public final class WoodcutterWorkSystem extends DelayedEntitySystem<EntityStore>
                 ))) {
                 continue;
             }
-            WorldChunk chunk = world.getChunkIfLoaded(
+            WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, 
                 ChunkUtil.indexChunkFromBlock(position.x(), position.z())
             );
             if (chunk != null) {
