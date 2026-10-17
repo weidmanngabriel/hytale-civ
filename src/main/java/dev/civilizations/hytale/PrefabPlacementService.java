@@ -605,7 +605,7 @@ public final class PrefabPlacementService {
     }
 
     private static WorldChunk loadedChunk(World world, int blockX, int blockZ) {
-        return world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(blockX, blockZ));
+        return HytaleLoadedBlocks.loadedChunk(world, ChunkUtil.indexChunkFromBlock(blockX, blockZ));
     }
 
     private static List<Integer> constructionLayers(BlockSelection source) {
