@@ -78,6 +78,7 @@ public final class NpcInfoProvider {
             case UNEMPLOYED -> "Arbeitslos";
             case FARMER -> "Bauer";
             case WOODCUTTER -> "Holzfäller";
+            case FORESTER -> "Förster";
             case MINER -> "Minenabbauer";
             case CONSTRUCTION_WORKER -> "Bauarbeiter";
             case SOLDIER -> "Soldat";
