@@ -860,7 +860,9 @@ public final class WoodcutterWorkSystem extends DelayedEntitySystem<EntityStore>
                 ChunkUtil.indexChunkFromBlock(position.x(), position.z())
             );
             if (chunk != null) {
-                chunk.setBlock(position.x(), position.y(), position.z(), fill.getValue());
+                HytaleBlockMutations.setBlock(
+                    world, position.x(), position.y(), position.z(), fill.getValue()
+                );
             }
         }
 
