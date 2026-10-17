@@ -744,7 +744,7 @@ public final class MineInfrastructurePlacementResolver {
                     )
                 );
                 var existing = chunk == null ? null
-                    : chunk.getBlockType(position.x(), position.y(), position.z());
+                    : HytaleLoadedBlocks.blockType(world, position.x(), position.y(), position.z());
                 if (existing == null || !placement.blockId().equals(existing.getId())) {
                     return false;
                 }
@@ -780,7 +780,7 @@ public final class MineInfrastructurePlacementResolver {
             com.hypixel.hytale.math.util.ChunkUtil.indexChunkFromBlock(position.x(), position.z())
         );
         if (chunk == null) return false;
-        var type = chunk.getBlockType(position.x(), position.y(), position.z());
+        var type = HytaleLoadedBlocks.blockType(world, position.x(), position.y(), position.z());
         return type == null
             || type == com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType.EMPTY
             || type.getMaterial() == com.hypixel.hytale.protocol.BlockMaterial.Empty;
