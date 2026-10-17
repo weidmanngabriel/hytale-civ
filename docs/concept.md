@@ -337,3 +337,7 @@ Das lokale Simulation Lab unterstützt zur Diagnose einzelner NPCs `/sim worker 
 ### Gemeinsame Miner-Steuerung in Mod und Lab
 
 Mod und lokales Lab verwenden dieselbe Ablaufsteuerung für Aufgaben, Arbeitsdauer, Reservierungen und Wiederaufnahme. Unterbrechungen geben Block- und Aufgabenclaims frei; bereits ausgegrabene Blöcke bleiben erhalten. Nach der Pause wird aktuell ausführbare Arbeit neu gewählt. Ohne freie Arbeit führt der Rückweg über Tunnel-Connector und Minenzugang beziehungsweise zu einer verfügbaren Ruhestelle. Fehlgeschlagene Arbeit wird begrenzt erneut versucht und anschließend entsprechend ihrer Sicherheits-/Pflichtklasse beendet; explizite Debug-Recovery prüft sie erneut. Das Lab bildet native Navigation und Gebäude-/Blockphysik weiterhin vereinfacht ab.
+
+### Forester planting MVP (headless preview)
+
+The initial forester has a fixed working area around its forestry home. Instead of methodically filling rows, it tries nearby random valid spots, with a bias towards shorter walking distances and at least four blocks between trunks. It does not return home after every planting. Saplings mature independently of a forester's immediate actions. This behavior is currently exposed only through the `forester-flat` headless simulation scenario and is not yet an in-game building or NPC command. Later upgrades may optimize search and planting routes.
