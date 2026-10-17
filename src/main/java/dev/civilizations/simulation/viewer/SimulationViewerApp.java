@@ -576,6 +576,7 @@ public final class SimulationViewerApp {
         private static Color professionColor(Profession profession) {
             return switch (profession) {
                 case WOODCUTTER -> new Color(120, 80, 45);
+                case FORESTER -> new Color(55, 135, 72);
                 case CONSTRUCTION_WORKER -> new Color(205, 135, 35);
                 case FARMER -> new Color(80, 130, 205);
                 case MINER -> new Color(100, 100, 110);
@@ -587,6 +588,7 @@ public final class SimulationViewerApp {
         private static String shortProfession(Profession profession) {
             return switch (profession) {
                 case WOODCUTTER -> "W";
+                case FORESTER -> "Fo";
                 case CONSTRUCTION_WORKER -> "B";
                 case FARMER -> "Fm";
                 case MINER -> "M";
