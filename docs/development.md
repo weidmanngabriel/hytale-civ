@@ -303,3 +303,14 @@ Nach dem Start von `localSimulationServer -PsimWorldArchive=...` und `npm run de
 ## Manuelle fokussierte Simulationstests
 
 Der separate Issue-Kommentar-Workflow für einzelne Java-Simulationsdiagnosen ist unter [Manuelle Simulationstests](manual-simulation-tests.md) dokumentiert. Er ersetzt keine PR-CI-Gates und startet keine Viewer-, MCP-, Release- oder Hytale-Runtime-Jobs.
+
+## Chat-basierter Simulator: bestätigte Transfergrenzen (17. Oktober 2026)
+
+Für einen headless Simulator-Test in der Chat-Ausführungsumgebung wurden folgende Wege praktisch geprüft:
+
+- Der GitHub-Connector kann Repository-Verzeichnisse auflisten und mehrere UTF-8-Quelldateien parallel abrufen. Die Rückgabe ist zunächst **Textinhalt im Connector**, kein automatisch angelegter lokaler Quellbaum; das Schreiben vieler Dateien in die Ausführungsumgebung ist ein separater, noch nicht durchgängig automatisierter Schritt.
+- Ein direkter `curl`-Download von `github.com` aus der Chat-Ausführungsumgebung schlug in diesem Test wegen DNS-Auflösung fehl. Das ist eine beobachtete Umgebungsgrenze, keine allgemeine GitHub-Einschränkung.
+- **Der Abruf eines bestehenden GitHub-Actions-Artefakts über `fetch_workflow_run_artifacts` und `download_workflow_artifact` funktioniert einschließlich lokaler Bereitstellung.** Ein Artefakt der Main-CI vom 10. Oktober 2026 (Run `38068322122`) wurde am 17. Oktober in der Chat-Umgebung als gültige ZIP-Datei mit der enthaltenen Plugin-JAR geöffnet. Somit ist die zuvor offene Frage, ob ein Connector-Artefakt tatsächlich lokal ankommt, für diesen Weg positiv beantwortet.
+- Dieses vorhandene Artefakt ist **noch kein eigenständiges Simulatorpaket**: Die darin enthaltene `SimulationRuntime`-Klasse hat Classfile-Version 69 (Java 25), während die untersuchte Chat-Umgebung Java 21 hat. Ein separater Java-21-Build beziehungsweise eine passende Laufzeit ist weiterhin erforderlich, bevor die vollständige Simulation dort ausführbar ist.
+
+Daraus folgt als nächster gezielter Test ein Java-21-kompatibles Headless-Simulator-Artefakt mit den benötigten Core-Klassen, Startkommando und Tests. Die bestehende Hytale-Mod und ihre Java-25-Anforderung sollen davon unberührt bleiben. Der erfolgreiche Artefakttransfer belegt **nicht** bereits eine erfolgreiche Ausführung des vollständigen Simulators.
