@@ -16,6 +16,8 @@ import com.hypixel.hytale.server.core.prefab.selection.standard.BlockSelection;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
+import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
+import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.NPCPlugin;
 import dev.civilizations.core.BlockPosition;
@@ -99,11 +101,11 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
             int minChunkZ = Math.floorDiv(bounds.minZ(), 32);
             int maxChunkZ = Math.floorDiv(bounds.maxZ(), 32);
 
-            List<CompletableFuture<WorldChunk>> futures = new ArrayList<>();
+            List<CompletableFuture<Ref<ChunkStore>>> futures = new ArrayList<>();
             for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
                 for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
                     long chunkIndex = ChunkUtil.indexChunkFromBlock(chunkX * 32, chunkZ * 32);
-                    futures.add(world.getChunkAsync(chunkIndex));
+                    futures.add(world.getChunkStore().getChunkReferenceAsync(chunkIndex));
                 }
             }
 
@@ -130,8 +132,8 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
                 return;
             }
 
-            BlockType ground = startChunk.getBlockType(startX, 0, startZ);
-            BlockType feet = startChunk.getBlockType(startX, 1, startZ);
+            BlockType ground = HytaleLoadedBlocks.blockType(world, startX, 0, startZ);
+            BlockType feet = HytaleLoadedBlocks.blockType(world, startX, 1, startZ);
             if (ground == null || ground == BlockType.EMPTY) {
                 fail("flat generator did not create ground at y=0", null);
                 return;
@@ -354,7 +356,7 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
 
     private static BlockType getLoadedBlockType(World world, int x, int y, int z) {
         WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, ChunkUtil.indexChunkFromBlock(x, z));
-        return chunk == null ? null : chunk.getBlockType(x, y, z);
+        return chunk == null ? null : HytaleLoadedBlocks.blockType(world, x, y, z);
     }
 
     private static boolean isWoodStructureBlock(BlockType blockType) {
