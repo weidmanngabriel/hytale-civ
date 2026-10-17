@@ -42,6 +42,18 @@ public final class HytaleLoadedBlocks {
         return id == null ? null : BlockType.getAssetMap().getAssetOrDefault(id, BlockType.UNKNOWN);
     }
 
+    public static Integer rotationIndex(World world, int x, int y, int z) {
+        BlockSection section = blockSection(world, x, y, z);
+        return section == null ? null : section.getRotationIndex(x, y, z);
+    }
+
+    public static Integer fluidLevel(World world, int x, int y, int z) {
+        Ref<ChunkStore> ref = sectionRef(world, x, y, z);
+        if (ref == null || !ref.isValid()) return null;
+        FluidSection fluids = world.getChunkStore().getStore().getComponent(ref, FluidSection.getComponentType());
+        return fluids == null ? 0 : Byte.toUnsignedInt(fluids.getFluidLevel(x, y, z));
+    }
+
     public static Integer fluidId(World world, int x, int y, int z) {
         Ref<ChunkStore> ref = sectionRef(world, x, y, z);
         if (ref == null || !ref.isValid()) return null;
