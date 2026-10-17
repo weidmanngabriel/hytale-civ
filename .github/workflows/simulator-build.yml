@@ -1,0 +1,43 @@
+name: Standalone Simulator Build
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  simulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build standalone simulator
+        working-directory: simulator
+        run: ../gradlew --project-dir . clean installDist --no-daemon --console=plain
+      - name: Smoke test
+        working-directory: simulator
+        run: ./build/install/civ-simulator/bin/civ-simulator woodcutter-basic 1000
+      - name: Package simulator source and runtime
+        run: |
+          mkdir -p build/simulator-package
+          cp -R simulator/build/install/civ-simulator build/simulator-package/
+          cp -R src/main/java/dev/civilizations/core build/simulator-package/core-source
+          cp -R src/main/java/dev/civilizations/simulation build/simulator-package/simulation-source
+          cp -R simulator/src/main/java build/simulator-package/cli-source
+          printf '%s\n' "${GITHUB_SHA}" > build/simulator-package/commit.txt
+          cd build && zip -qr "civ-simulator-${GITHUB_SHA}.zip" simulator-package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: civ-simulator-${{ github.sha }}
+          path: build/civ-simulator-${{ github.sha }}.zip
+          retention-days: 14
+          if-no-files-found: error

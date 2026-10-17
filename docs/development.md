@@ -303,3 +303,11 @@ Nach dem Start von `localSimulationServer -PsimWorldArchive=...` und `npm run de
 ## Manuelle fokussierte Simulationstests
 
 Der separate Issue-Kommentar-Workflow für einzelne Java-Simulationsdiagnosen ist unter [Manuelle Simulationstests](manual-simulation-tests.md) dokumentiert. Er ersetzt keine PR-CI-Gates und startet keine Viewer-, MCP-, Release- oder Hytale-Runtime-Jobs.
+
+## Eigenständiges Simulator-Artefakt
+
+Nach jedem Push auf `main` erstellt der unabhängige Workflow `.github/workflows/simulator-build.yml` ein Java-21-kompatibles Headless-Simulator-Paket. Er ist **kein** Job der Hytale-Haupt-CI und hängt nicht von deren Erfolg ab. Feature-Branches und Pull Requests starten diesen Export nicht. Der Export enthält den gemeinsamen Core, die Simulation, den kleinen CLI-Startpunkt, die benötigten Laufzeitbibliotheken, Quellcode und `commit.txt` mit dem exakten Commit.
+
+Das Actions-Artefakt heißt `civ-simulator-<commit-sha>` und enthält ein ZIP gleichen Namens. Nach dem Entpacken des inneren ZIP startet unter Linux `simulator-package/civ-simulator/bin/civ-simulator woodcutter-basic 1000` den Headless-Test. Unter Windows die gleichnamige `.bat`-Datei verwenden. Der zweite Parameter ist die Tickzahl; unterstützte Szenarien stammen aus `SimulationScenarios`. Das Paket benötigt Java 21, aber weder Hytale noch dessen Server-JAR.
+
+Der Export wird separat unter `simulator/` mit `../gradlew --project-dir . clean installDist` gebaut. Für die native Hytale-Mod verbleiben Java 25 und der bestehende Root-Build unverändert. Einen Simulator-Release nur als bestanden ansehen, wenn dessen eigener Smoke-Test und Artefakt-Upload erfolgreich waren; ein grüner Root-CI-Lauf allein bestätigt Java-21-Kompatibilität nicht.
