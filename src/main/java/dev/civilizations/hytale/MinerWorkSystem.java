@@ -595,7 +595,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 BlockHarvestUtils.performBlockBreak(ref, null,
                     List.of(new Vector3i(block.x(),block.y(),block.z())), 0, store, world.getChunkStore().getStore());
                 if (!isEmpty(loadedBlockType(world, block)) && runtime.frontId != null) {
-                    WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(block.x(),block.z()));
+                    WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, ChunkUtil.indexChunkFromBlock(block.x(),block.z()));
                     if (chunk == null || !safeBlock(world, mine, block)
                         || !chunk.breakBlock(block.x(),block.y(),block.z(),0,0)) return MinerWorkController.Result.RETRY;
                 }
@@ -620,7 +620,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             if (infrastructure.task.type() == MineInfrastructureTask.Type.BUILD_BRIDGE
                 && occupied != null && !placement.blockId().equals(occupied.getId())
                 && MineBlockPlacement.isDeco(world, placement.position())) {
-                WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(placement.position().x(),placement.position().z()));
+                WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, ChunkUtil.indexChunkFromBlock(placement.position().x(),placement.position().z()));
                 if (chunk != null && chunk.breakBlock(placement.position().x(),placement.position().y(),placement.position().z(),0,0))
                     decisionSink.record(mine.id(),intent.taskId(),MineDecisionCategory.ADAPTER,"BRIDGE_DECO_REPLACED",
                         "position", placement.position());
@@ -917,7 +917,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             BlockType walkType = loadedBlockType(world, block);
             BlockPosition below = new BlockPosition(block.x(), block.y() - 1, block.z());
             BlockType floorType = loadedBlockType(world, below);
-            WorldChunk chunk = world.getChunkIfLoaded(
+            WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, 
                 ChunkUtil.indexChunkFromBlock(block.x(), block.z())
             );
             // The landing belongs to the next authored excavation slice. Its
@@ -987,7 +987,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
     private static boolean hasFluidBelow(World world, MineTunnelGeometry.Slice slice) {
         BlockPosition center = slice.floorCenter();
-        WorldChunk chunk = world.getChunkIfLoaded(
+        WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, 
             ChunkUtil.indexChunkFromBlock(center.x(), center.z())
         );
         if (chunk == null) return false;
@@ -1001,7 +1001,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
 
     private static boolean hasLavaBelow(World world, MineTunnelGeometry.Slice slice) {
         BlockPosition center = slice.floorCenter();
-        WorldChunk chunk = world.getChunkIfLoaded(
+        WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, 
             ChunkUtil.indexChunkFromBlock(center.x(), center.z())
         );
         if (chunk == null) return false;
@@ -1018,7 +1018,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
         MineTunnelGeometry.Slice slice
     ) {
         for (BlockPosition block : slice.navigationCoreBlocks()) {
-            WorldChunk chunk = world.getChunkIfLoaded(
+            WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, 
                 ChunkUtil.indexChunkFromBlock(block.x(), block.z())
             );
             if (chunk == null) continue;
@@ -1042,7 +1042,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
             BlockType ground = loadedBlockType(world, new BlockPosition(x, y - 1, z));
             if (feet == null || !isEmpty(feet) || head == null || !isEmpty(head)
                 || ground == null || isEmpty(ground)) return null;
-            WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(x, z));
+            WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, ChunkUtil.indexChunkFromBlock(x, z));
             if (chunk == null || chunk.getFluidId(x, y, z) != Fluid.EMPTY_ID) return null;
             return new Vector3d(x + 0.5, y, z + 0.5);
     }
@@ -2253,7 +2253,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
     }
 
     private static BlockType loadedBlockType(World world, BlockPosition block) {
-        WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(block.x(), block.z()));
+        WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, ChunkUtil.indexChunkFromBlock(block.x(), block.z()));
         return chunk == null ? null : chunk.getBlockType(block.x(), block.y(), block.z());
     }
 
