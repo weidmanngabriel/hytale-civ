@@ -1,5 +1,7 @@
 package dev.civilizations.plugin;
 
+import dev.civilizations.hytale.HytaleLoadedBlocks;
+
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Rotation3f;
@@ -122,7 +124,7 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
         try {
             int startX = (int) Math.floor(WoodcutterBasicScenario.WOODCUTTER_START.x());
             int startZ = (int) Math.floor(WoodcutterBasicScenario.WOODCUTTER_START.z());
-            WorldChunk startChunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(startX, startZ));
+            WorldChunk startChunk = HytaleLoadedBlocks.loadedChunk(world, ChunkUtil.indexChunkFromBlock(startX, startZ));
             if (startChunk == null) {
                 fail("flat start chunk is not loaded", null);
                 return;
@@ -351,7 +353,7 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
     }
 
     private static BlockType getLoadedBlockType(World world, int x, int y, int z) {
-        WorldChunk chunk = world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(x, z));
+        WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, ChunkUtil.indexChunkFromBlock(x, z));
         return chunk == null ? null : chunk.getBlockType(x, y, z);
     }
 
