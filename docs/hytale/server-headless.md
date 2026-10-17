@@ -4,7 +4,7 @@ Diese Seite beschreibt den verifizierten Stand für automatisierte Hytale-Server
 
 ## Verifizierte Voraussetzungen
 
-Für Hytale Server `0.6.8` werden Java 25, `HytaleServer.jar` und die zugehörige `Assets.zip` benötigt.
+Für die aktuell angepinnte Hytale-Version `0.7.2` werden Java 25, `HytaleServer.jar` und die zugehörige `Assets.zip` benötigt. Frühere Verifikationsbefunde weiter unten, die ausdrücklich `0.6.8` nennen, sind historische Testergebnisse und nicht automatisch auf `0.7.2` übertragbar.
 
 Die Server-JAR unterstützt den CLI-Parameter `--assets`. Dieser akzeptiert einen Pfad zu einem Asset-Verzeichnis oder direkt zu einer ZIP-Datei. Für lokale Runtime-Tests verwendet Civ deshalb die vorhandene Hytale-Installation direkt:
 
