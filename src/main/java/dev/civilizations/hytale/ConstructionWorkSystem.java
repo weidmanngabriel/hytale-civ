@@ -487,7 +487,7 @@ public final class ConstructionWorkSystem extends DelayedEntitySystem<EntityStor
         int y,
         int z
     ) {
-        if (!isEmpty(world.getBlockType(x, y, z)) || !isEmpty(world.getBlockType(x, y + 1, z))) {
+        if (!isEmpty(HytaleLoadedBlocks.blockType(world, x, y, z)) || !isEmpty(HytaleLoadedBlocks.blockType(world, x, y + 1, z))) {
             return current;
         }
         Vector3d candidate = new Vector3d(x + 0.5, y, z + 0.5);
