@@ -77,29 +77,24 @@ final class CivPersistenceProbeCommand extends CommandBase {
     }
 
     private void prepare(World world) {
-        try {
-            var spawn = world.getWorldConfig()
-                .getSpawnProvider()
-                .getSpawnPoint(world, FIXED_SPAWN_PROBE_UUID);
-            if (spawn == null) {
-                fail("spawn provider returned no spawn point", null);
-                return;
-            }
-
-            Vector3d spawnPosition = new Vector3d(spawn.getPosition()).add(1.0, 0.0, 0.0);
-            long chunkIndex = ChunkUtil.indexChunkFromBlock(spawnPosition.x, spawnPosition.z);
-            world.getChunkAsync(chunkIndex).whenComplete((chunk, throwable) ->
-                world.execute(() -> {
-                    if (throwable != null || chunk == null) {
-                        fail("prepare chunk could not be loaded", throwable);
-                        return;
-                    }
-                    spawnPersistentInhabitant(world, spawnPosition, spawn.getRotation());
-                })
-            );
-        } catch (Throwable throwable) {
-            fail("prepare stage threw an exception", throwable);
-        }
+        world.getWorldConfig().getSpawnProvider()
+            .getSpawnPointAsync(world, FIXED_SPAWN_PROBE_UUID)
+            .whenComplete((spawn, spawnError) -> world.execute(() -> {
+                if (spawnError != null || spawn == null) {
+                    fail("spawn provider returned no spawn point", spawnError);
+                    return;
+                }
+                Vector3d spawnPosition = new Vector3d(spawn.getPosition()).add(1.0, 0.0, 0.0);
+                long chunkIndex = ChunkUtil.indexChunkFromBlock(spawnPosition.x, spawnPosition.z);
+                world.getChunkStore().getChunkReferenceAsync(chunkIndex)
+                    .whenComplete((chunk, throwable) -> world.execute(() -> {
+                        if (throwable != null || chunk == null || !chunk.isValid()) {
+                            fail("prepare chunk could not be loaded", throwable);
+                            return;
+                        }
+                        spawnPersistentInhabitant(world, spawnPosition, spawn.getRotation());
+                    }));
+            }));
     }
 
     private void spawnPersistentInhabitant(
@@ -205,33 +200,26 @@ final class CivPersistenceProbeCommand extends CommandBase {
             fail("restore stage received an invalid entity UUID: " + uuidValue, exception);
             return;
         }
-
-        try {
-            var spawn = world.getWorldConfig()
-                .getSpawnProvider()
-                .getSpawnPoint(world, FIXED_SPAWN_PROBE_UUID);
-            if (spawn == null) {
-                fail("spawn provider returned no spawn point during restore", null);
-                return;
-            }
-
-            Vector3d spawnPosition = new Vector3d(spawn.getPosition()).add(1.0, 0.0, 0.0);
-            long chunkIndex = ChunkUtil.indexChunkFromBlock(spawnPosition.x, spawnPosition.z);
-            long deadlineNanos = System.nanoTime()
-                + TimeUnit.MILLISECONDS.toNanos(RESTORE_TIMEOUT_MILLIS);
-
-            world.getChunkAsync(chunkIndex).whenComplete((chunk, throwable) ->
-                world.execute(() -> {
-                    if (throwable != null || chunk == null) {
-                        fail("restore chunk could not be loaded", throwable);
-                        return;
-                    }
-                    assertRestored(world, expectedUuid, deadlineNanos);
-                })
-            );
-        } catch (Throwable throwable) {
-            fail("restore stage threw an exception", throwable);
-        }
+        world.getWorldConfig().getSpawnProvider()
+            .getSpawnPointAsync(world, FIXED_SPAWN_PROBE_UUID)
+            .whenComplete((spawn, spawnError) -> world.execute(() -> {
+                if (spawnError != null || spawn == null) {
+                    fail("spawn provider returned no spawn point during restore", spawnError);
+                    return;
+                }
+                Vector3d spawnPosition = new Vector3d(spawn.getPosition()).add(1.0, 0.0, 0.0);
+                long chunkIndex = ChunkUtil.indexChunkFromBlock(spawnPosition.x, spawnPosition.z);
+                long deadlineNanos = System.nanoTime()
+                    + TimeUnit.MILLISECONDS.toNanos(RESTORE_TIMEOUT_MILLIS);
+                world.getChunkStore().getChunkReferenceAsync(chunkIndex)
+                    .whenComplete((chunk, throwable) -> world.execute(() -> {
+                        if (throwable != null || chunk == null || !chunk.isValid()) {
+                            fail("restore chunk could not be loaded", throwable);
+                            return;
+                        }
+                        assertRestored(world, expectedUuid, deadlineNanos);
+                    }));
+            }));
     }
 
     private void assertRestored(World world, UUID expectedUuid, long deadlineNanos) {

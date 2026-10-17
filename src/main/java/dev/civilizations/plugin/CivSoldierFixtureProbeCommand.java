@@ -14,7 +14,7 @@ import com.hypixel.hytale.server.core.modules.entitystats.EntityStatValue;
 import com.hypixel.hytale.server.core.modules.entitystats.asset.DefaultEntityStatTypes;
 import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.World;
-import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
+import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 import com.hypixel.hytale.server.npc.NPCPlugin;
 import com.hypixel.hytale.server.npc.util.InventoryHelper;
@@ -93,11 +93,11 @@ final class CivSoldierFixtureProbeCommand extends CommandBase {
 
     private void preloadFixtureChunks(World world) {
         try {
-            List<CompletableFuture<WorldChunk>> futures = new ArrayList<>();
+            List<CompletableFuture<Ref<ChunkStore>>> futures = new ArrayList<>();
             for (int chunkX = -1; chunkX <= 1; chunkX++) {
                 for (int chunkZ = -1; chunkZ <= 1; chunkZ++) {
                     long chunkIndex = ChunkUtil.indexChunkFromBlock(chunkX * 32, chunkZ * 32);
-                    futures.add(world.getChunkAsync(chunkIndex));
+                    futures.add(world.getChunkStore().getChunkReferenceAsync(chunkIndex));
                 }
             }
             CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))

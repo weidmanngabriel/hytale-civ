@@ -1,5 +1,7 @@
 package dev.civilizations.plugin;
 
+import dev.civilizations.hytale.HytaleLoadedBlocks;
+
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.protocol.BlockMaterial;
 import com.hypixel.hytale.protocol.ShaderType;
@@ -19,17 +21,22 @@ final class CivWorldArchiveExport {
         if (bounds.volume() > WorldArchive.MAX_EXPORT_CELLS) throw new IllegalArgumentException("Region too large");
         var cells = new ArrayList<WorldArchive.Cell>((int) bounds.volume());
         for (int x=bounds.minX(); x<bounds.maxX(); x++) for (int z=bounds.minZ(); z<bounds.maxZ(); z++) {
-            WorldChunk chunk=world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(x,z));
+            WorldChunk chunk=HytaleLoadedBlocks.loadedChunk(world, ChunkUtil.indexChunkFromBlock(x,z));
             if (chunk==null) throw new IllegalStateException("Chunk not loaded: "+x+","+z);
             for (int y=bounds.minY(); y<bounds.maxY(); y++) {
-                BlockType type=chunk.getBlockType(x,y,z);
+                BlockType type=HytaleLoadedBlocks.blockType(world,x,y,z);
                 if (type==null) throw new IllegalStateException("Block unavailable: "+x+","+y+","+z);
-                int fluidId=chunk.getFluidId(x,y,z);
-                int fluidLevel=Byte.toUnsignedInt(chunk.getFluidLevel(x,y,z));
+                Integer fluidId=HytaleLoadedBlocks.fluidId(world,x,y,z);
+                if (fluidId == null) throw new IllegalStateException("Fluid unavailable: "+x+","+y+","+z);
+                Integer fluidLevel=HytaleLoadedBlocks.fluidLevel(world,x,y,z);
+                if (fluidLevel == null) throw new IllegalStateException("Fluid level unavailable: "+x+","+y+","+z);
                 String blockKey=type==BlockType.EMPTY||type.getMaterial()==BlockMaterial.Empty?"air":type.getId();
                 Fluid fluid=Fluid.getAssetMap().getAssetOrDefault(fluidId,Fluid.UNKNOWN);
                 String category=fluidId==Fluid.EMPTY_ID?"NONE":fluid!=null&&fluid.hasEffect(ShaderType.Lava)?"LAVA":fluid!=null&&fluid.hasEffect(ShaderType.Water)?"WATER":"OTHER";
-                cells.add(new WorldArchive.Cell(x,y,z,blockKey,chunk.getBlock(x,y,z),chunk.getRotationIndex(x,y,z),fluidId,fluidLevel,category));
+                Integer block = HytaleLoadedBlocks.blockId(world,x,y,z);
+                Integer rotation = HytaleLoadedBlocks.rotationIndex(world,x,y,z);
+                if (block == null || rotation == null) throw new IllegalStateException("Block section unavailable: "+x+","+y+","+z);
+                cells.add(new WorldArchive.Cell(x,y,z,blockKey,block,rotation,fluidId,fluidLevel,category));
             }
         }
         WorldArchive archive=new WorldArchive(WorldArchive.VERSION,world.getName(),bounds,cells);

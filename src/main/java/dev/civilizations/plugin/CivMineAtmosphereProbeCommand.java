@@ -1,5 +1,9 @@
 package dev.civilizations.plugin;
 
+import dev.civilizations.hytale.HytaleBlockMutations;
+
+import dev.civilizations.hytale.HytaleLoadedBlocks;
+
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Rotation3f;
@@ -73,34 +77,36 @@ final class CivMineAtmosphereProbeCommand extends CommandBase {
     }
 
     private void loadChunk(World world) {
-        try {
-            var spawn = world.getWorldConfig().getSpawnProvider().getSpawnPoint(world, UUID.randomUUID());
-            if (spawn == null) {
-                fail("world spawn provider returned no spawn point", null);
-                return;
-            }
-            long chunkIndex = ChunkUtil.indexChunkFromBlock(
-                spawn.getPosition().x, spawn.getPosition().z
-            );
-            world.getChunkAsync(chunkIndex).whenComplete((chunk, throwable) ->
-                world.execute(() -> {
-                    if (throwable != null || chunk == null) {
-                        fail("fixture chunk could not be loaded", throwable);
-                        return;
-                    }
-                    prepareFixture(world, chunk, spawn.getRotation());
-                })
-            );
-        } catch (Throwable throwable) {
-            fail("fixture setup threw an exception", throwable);
-        }
+        world.getWorldConfig().getSpawnProvider()
+            .getSpawnPointAsync(world, UUID.randomUUID())
+            .whenComplete((spawn, spawnError) -> world.execute(() -> {
+                if (spawnError != null || spawn == null) {
+                    fail("world spawn provider returned no spawn point", spawnError);
+                    return;
+                }
+                long chunkIndex = ChunkUtil.indexChunkFromBlock(
+                    spawn.getPosition().x, spawn.getPosition().z
+                );
+                world.getChunkStore().getChunkReferenceAsync(chunkIndex)
+                    .whenComplete((ref, throwable) -> world.execute(() -> {
+                        WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, chunkIndex);
+                        if (throwable != null || ref == null || !ref.isValid() || chunk == null) {
+                            fail("fixture chunk could not be loaded", throwable);
+                            return;
+                        }
+                        prepareFixture(world, chunk, spawn.getRotation());
+                    }));
+            }));
     }
 
     private void prepareFixture(World world, WorldChunk chunk, Rotation3f spawnRotation) {
         try {
             int minWorldX = ChunkUtil.minBlock(chunk.getX());
             int minWorldZ = ChunkUtil.minBlock(chunk.getZ());
-            buildTunnelShell(chunk);
+            if (!buildTunnelShell(world, chunk)) {
+                fail("fixture terrain could not be placed", null);
+                return;
+            }
 
             MineTunnelGeometry geometry = geometry(minWorldX, minWorldZ);
             UUID tunnelId = UUID.fromString("00000000-0000-0000-0000-000000000808");
@@ -169,17 +175,26 @@ final class CivMineAtmosphereProbeCommand extends CommandBase {
         }
     }
 
-    private static void buildTunnelShell(WorldChunk chunk) {
+    private static boolean buildTunnelShell(World world, WorldChunk chunk) {
+        int minX = ChunkUtil.minBlock(chunk.getX());
+        int minZ = ChunkUtil.minBlock(chunk.getZ());
         for (int x = MIN_X; x <= MAX_X; x++) {
             for (int z = MIN_Z; z <= MAX_Z; z++) {
+                int worldX = minX + x;
+                int worldZ = minZ + z;
                 boolean wall = z == MIN_Z || z == MAX_Z;
-                chunk.setBlock(x, FLOOR_Y, z, BlockType.DEBUG_CUBE);
+                if (!HytaleBlockMutations.setBlock(world, worldX, FLOOR_Y, worldZ, BlockType.DEBUG_CUBE_ID))
+                    return false;
                 for (int y = WALK_Y; y < WALK_Y + TUNNEL_HEIGHT; y++) {
-                    chunk.setBlock(x, y, z, wall ? BlockType.DEBUG_CUBE : BlockType.EMPTY);
+                    int id = wall ? BlockType.DEBUG_CUBE_ID : BlockType.EMPTY_ID;
+                    if (!HytaleBlockMutations.setBlock(world, worldX, y, worldZ, id))
+                        return false;
                 }
-                chunk.setBlock(x, WALK_Y + TUNNEL_HEIGHT, z, BlockType.DEBUG_CUBE);
+                if (!HytaleBlockMutations.setBlock(world, worldX, WALK_Y + TUNNEL_HEIGHT,
+                    worldZ, BlockType.DEBUG_CUBE_ID)) return false;
             }
         }
+        return true;
     }
 
     private static MineTunnelGeometry geometry(int minWorldX, int minWorldZ) {

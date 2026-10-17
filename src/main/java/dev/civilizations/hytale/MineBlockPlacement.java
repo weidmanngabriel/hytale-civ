@@ -64,14 +64,14 @@ public final class MineBlockPlacement {
             return PlacementResult.failed(FailureReason.INVALID_BLOCK_INDEX);
         }
 
-        WorldChunk chunk = world.getChunkIfLoaded(
+        WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, 
             ChunkUtil.indexChunkFromBlock(position.x(), position.z())
         );
         if (chunk == null || chunk.getReference() == null) {
             return PlacementResult.failed(FailureReason.CHUNK_NOT_LOADED);
         }
 
-        BlockType existing = chunk.getBlockType(position.x(), position.y(), position.z());
+        BlockType existing = HytaleLoadedBlocks.blockType(world, position.x(), position.y(), position.z());
         if (existing != null && existing != BlockType.EMPTY
             && existing.getId() != null && existing.getId().equals(blockId)) {
             if (markDeco && blockType.canBePlacedAsDeco()) markDeco(world, position);
@@ -87,11 +87,6 @@ public final class MineBlockPlacement {
             );
         }
 
-        BlockSection blockSection = chunk.getBlockChunk().getSectionAtBlockY(position.y());
-        if (blockSection == null) {
-            return PlacementResult.failed(FailureReason.BLOCK_SECTION_UNAVAILABLE);
-        }
-
         ChunkStore chunkStore = world.getChunkStore();
         Store<ChunkStore> chunkComponents = chunkStore.getStore();
         // BlockOperations, BlockPhysics and connected-block updates require the SECTION
@@ -100,6 +95,13 @@ public final class MineBlockPlacement {
             position.x(), position.y(), position.z()
         );
         if (sectionRef == null || !sectionRef.isValid()) {
+            return PlacementResult.failed(FailureReason.BLOCK_SECTION_UNAVAILABLE);
+        }
+
+        BlockSection blockSection = chunkComponents.getComponent(
+            sectionRef, BlockSection.getComponentType()
+        );
+        if (blockSection == null) {
             return PlacementResult.failed(FailureReason.BLOCK_SECTION_UNAVAILABLE);
         }
 
@@ -176,7 +178,7 @@ public final class MineBlockPlacement {
 
     public static boolean isDeco(World world, BlockPosition position) {
         if (world == null || position == null) return false;
-        WorldChunk chunk = world.getChunkIfLoaded(
+        WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, 
             ChunkUtil.indexChunkFromBlock(position.x(), position.z())
         );
         if (chunk == null || chunk.getReference() == null) return false;
@@ -192,7 +194,7 @@ public final class MineBlockPlacement {
     }
 
     private static void markDeco(World world, BlockPosition position) {
-        WorldChunk chunk = world.getChunkIfLoaded(
+        WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, 
             ChunkUtil.indexChunkFromBlock(position.x(), position.z())
         );
         if (chunk == null || chunk.getReference() == null) return;

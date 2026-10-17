@@ -19,8 +19,8 @@ final class MineCaveScannerContractTest {
             Path.of("src/main/java/dev/civilizations/hytale/MinerWorkSystem.java")
         );
 
-        assertTrue(scanner.contains("getChunkIfLoaded"));
-        assertFalse(scanner.contains("getChunk("));
+        assertTrue(scanner.contains("getChunkSectionReferenceAtBlock"));
+        assertFalse(scanner.contains("getChunkReferenceAsync("));
         assertTrue(scanner.contains("MineCavePolicy.classify"));
         assertTrue(scanner.contains("excludedMine.contains"));
         assertTrue(scanner.contains("getFluidId"));

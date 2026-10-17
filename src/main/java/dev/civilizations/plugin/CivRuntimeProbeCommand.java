@@ -1,5 +1,9 @@
 package dev.civilizations.plugin;
 
+import dev.civilizations.hytale.HytaleBlockMutations;
+
+import dev.civilizations.hytale.HytaleLoadedBlocks;
+
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Rotation3f;
@@ -75,29 +79,25 @@ final class CivRuntimeProbeCommand extends CommandBase {
     }
 
     private void loadArenaChunkAndStart(World world) {
-        try {
-            var spawn = world.getWorldConfig()
-                .getSpawnProvider()
-                .getSpawnPoint(world, UUID.randomUUID());
-            if (spawn == null) {
-                fail("world spawn provider returned no spawn point", null);
-                return;
-            }
-
-            Vector3d spawnPosition = spawn.getPosition();
-            long chunkIndex = ChunkUtil.indexChunkFromBlock(spawnPosition.x, spawnPosition.z);
-            world.getChunkAsync(chunkIndex).whenComplete((chunk, throwable) ->
-                world.execute(() -> {
-                    if (throwable != null || chunk == null) {
-                        fail("arena chunk could not be loaded", throwable);
-                        return;
-                    }
-                    prepareArenaAndScheduleProbe(world, chunk, spawn.getRotation());
-                })
-            );
-        } catch (Throwable throwable) {
-            fail("arena chunk setup threw an exception", throwable);
-        }
+        world.getWorldConfig().getSpawnProvider()
+            .getSpawnPointAsync(world, UUID.randomUUID())
+            .whenComplete((spawn, spawnError) -> world.execute(() -> {
+                if (spawnError != null || spawn == null) {
+                    fail("world spawn provider returned no spawn point", spawnError);
+                    return;
+                }
+                Vector3d spawnPosition = spawn.getPosition();
+                long chunkIndex = ChunkUtil.indexChunkFromBlock(spawnPosition.x, spawnPosition.z);
+                world.getChunkStore().getChunkReferenceAsync(chunkIndex)
+                    .whenComplete((ref, throwable) -> world.execute(() -> {
+                        WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, chunkIndex);
+                        if (throwable != null || ref == null || !ref.isValid() || chunk == null) {
+                            fail("arena chunk could not be loaded", throwable);
+                            return;
+                        }
+                        prepareArenaAndScheduleProbe(world, chunk, spawn.getRotation());
+                    }));
+            }));
     }
 
     private void prepareArenaAndScheduleProbe(
@@ -106,7 +106,7 @@ final class CivRuntimeProbeCommand extends CommandBase {
         Rotation3f spawnRotation
     ) {
         try {
-            if (!buildArena(chunk)) {
+            if (!buildArena(world, chunk)) {
                 fail("deterministic movement arena could not be verified after block updates", null);
                 return;
             }
@@ -140,27 +140,30 @@ final class CivRuntimeProbeCommand extends CommandBase {
         }
     }
 
-    private static boolean buildArena(WorldChunk chunk) {
+    private static boolean buildArena(World world, WorldChunk chunk) {
+        int minX = ChunkUtil.minBlock(chunk.getX());
+        int minZ = ChunkUtil.minBlock(chunk.getZ());
         for (int localX = ARENA_MIN_LOCAL_X; localX <= ARENA_MAX_LOCAL_X; localX++) {
             for (int localZ = ARENA_MIN_LOCAL_Z; localZ <= ARENA_MAX_LOCAL_Z; localZ++) {
-                // setBlock returns whether the block changed, not whether the resulting state is valid.
-                // The arena may already contain empty cells, so always verify the final state below.
-                chunk.setBlock(localX, ARENA_FLOOR_Y, localZ, BlockType.DEBUG_CUBE);
+                int x = minX + localX;
+                int z = minZ + localZ;
+                if (!HytaleBlockMutations.setBlock(world, x, ARENA_FLOOR_Y, z, BlockType.DEBUG_CUBE_ID))
+                    return false;
                 for (int dy = 1; dy <= ARENA_CLEARANCE_BLOCKS; dy++) {
-                    chunk.setBlock(localX, ARENA_FLOOR_Y + dy, localZ, BlockType.EMPTY);
+                    if (!HytaleBlockMutations.setBlock(world, x, ARENA_FLOOR_Y + dy, z, BlockType.EMPTY_ID))
+                        return false;
                 }
             }
         }
-
         for (int localX = ARENA_MIN_LOCAL_X; localX <= ARENA_MAX_LOCAL_X; localX++) {
             for (int localZ = ARENA_MIN_LOCAL_Z; localZ <= ARENA_MAX_LOCAL_Z; localZ++) {
-                if (chunk.getBlock(localX, ARENA_FLOOR_Y, localZ) != BlockType.DEBUG_CUBE_ID) {
-                    return false;
-                }
+                int x = minX + localX;
+                int z = minZ + localZ;
+                Integer floor = HytaleLoadedBlocks.blockId(world, x, ARENA_FLOOR_Y, z);
+                if (floor == null || floor != BlockType.DEBUG_CUBE_ID) return false;
                 for (int dy = 1; dy <= ARENA_CLEARANCE_BLOCKS; dy++) {
-                    if (chunk.getBlock(localX, ARENA_FLOOR_Y + dy, localZ) != BlockType.EMPTY_ID) {
-                        return false;
-                    }
+                    Integer clear = HytaleLoadedBlocks.blockId(world, x, ARENA_FLOOR_Y + dy, z);
+                    if (clear == null || clear != BlockType.EMPTY_ID) return false;
                 }
             }
         }

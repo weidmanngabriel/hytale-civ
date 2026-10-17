@@ -1,12 +1,14 @@
 package dev.civilizations.hytale;
 
-import com.hypixel.hytale.math.util.ChunkUtil;
+import com.hypixel.hytale.component.Ref;
+import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
+import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
+import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
 import com.hypixel.hytale.protocol.BlockMaterial;
 import com.hypixel.hytale.protocol.ShaderType;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
 import com.hypixel.hytale.server.core.universe.world.World;
-import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.MineCaveObservation;
 import dev.civilizations.core.MineCavePolicy;
@@ -153,12 +155,12 @@ public final class MineCaveScanner {
             }
             if (excludedMine.contains(current)) continue;
 
-            WorldChunk chunk = loadedChunk(world, current);
+            BlockSection chunk = loadedBlockSection(world, current);
             if (chunk == null) {
                 complete = false;
                 continue;
             }
-            BlockType type = chunk.getBlockType(current.x(), current.y(), current.z());
+            BlockType type = blockType(chunk, current);
             if (!isEmpty(type)) continue;
 
             empty++;
@@ -173,19 +175,19 @@ public final class MineCaveScanner {
                 Math.max(max.z(), current.z())
             );
 
-            int fluidId = chunk.getFluidId(current.x(), current.y(), current.z());
+            int fluidId = loadedFluidId(world, current);
             if (fluidId != Fluid.EMPTY_ID) {
                 hasFluid = true;
                 hasLava |= isLava(fluidId);
             }
             BlockPosition below = new BlockPosition(current.x(), current.y() - 1, current.z());
-            WorldChunk belowChunk = loadedChunk(world, below);
+            BlockSection belowChunk = loadedBlockSection(world, below);
             if (belowChunk == null) {
                 complete = false;
             } else {
-                BlockType belowType = belowChunk.getBlockType(below.x(), below.y(), below.z());
+                BlockType belowType = blockType(belowChunk, below);
                 if (!isEmpty(belowType)
-                    && chunk.getFluidId(current.x(), current.y(), current.z()) == Fluid.EMPTY_ID) {
+                    && fluidId == Fluid.EMPTY_ID) {
                     usableFloor++;
                 }
             }
@@ -202,12 +204,12 @@ public final class MineCaveScanner {
                     complete = false;
                     continue;
                 }
-                WorldChunk nextChunk = loadedChunk(world, next);
+                BlockSection nextChunk = loadedBlockSection(world, next);
                 if (nextChunk == null) {
                     complete = false;
                     continue;
                 }
-                if (isEmpty(nextChunk.getBlockType(next.x(), next.y(), next.z()))) queue.addLast(next);
+                if (isEmpty(blockType(nextChunk, next))) queue.addLast(next);
             }
         }
 
@@ -246,13 +248,31 @@ public final class MineCaveScanner {
         );
     }
 
-    private static WorldChunk loadedChunk(World world, BlockPosition block) {
-        return world.getChunkIfLoaded(ChunkUtil.indexChunkFromBlock(block.x(), block.z()));
+    private static Ref<ChunkStore> loadedSection(World world, BlockPosition block) {
+        return world.getChunkStore().getChunkSectionReferenceAtBlock(block.x(), block.y(), block.z());
+    }
+
+    private static BlockSection loadedBlockSection(World world, BlockPosition block) {
+        Ref<ChunkStore> section = loadedSection(world, block);
+        if (section == null || !section.isValid()) return null;
+        return world.getChunkStore().getStore().getComponent(section, BlockSection.getComponentType());
+    }
+
+    private static int loadedFluidId(World world, BlockPosition block) {
+        Ref<ChunkStore> section = loadedSection(world, block);
+        if (section == null || !section.isValid()) return Fluid.EMPTY_ID;
+        FluidSection fluids = world.getChunkStore().getStore().getComponent(section, FluidSection.getComponentType());
+        return fluids == null ? Fluid.EMPTY_ID : fluids.getFluidId(block.x(), block.y(), block.z());
+    }
+
+    private static BlockType blockType(BlockSection section, BlockPosition block) {
+        int id = section.get(block.x(), block.y(), block.z());
+        return BlockType.getAssetMap().getAssetOrDefault(id, BlockType.UNKNOWN);
     }
 
     private static BlockType loadedBlockType(World world, BlockPosition block) {
-        WorldChunk chunk = loadedChunk(world, block);
-        return chunk == null ? null : chunk.getBlockType(block.x(), block.y(), block.z());
+        BlockSection section = loadedBlockSection(world, block);
+        return section == null ? null : blockType(section, block);
     }
 
     private static boolean isEmpty(BlockType type) {
