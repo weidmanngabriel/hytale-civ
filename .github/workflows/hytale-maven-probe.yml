@@ -25,7 +25,7 @@ jobs:
           from urllib.request import urlopen
           import xml.etree.ElementTree as ET
           url = 'https://maven.hytale.com/release/com/hypixel/hytale/Server/maven-metadata.xml'
-          with urlopen(url, timeout=30) as response:
+          with open('/tmp/hytale-metadata.xml', 'rb') as response:
               xml = response.read()
           root = ET.fromstring(xml)
           versions = [v.text for v in root.findall('./versioning/versions/version') if v.text]
