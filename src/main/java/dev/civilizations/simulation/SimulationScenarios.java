@@ -3,6 +3,8 @@ package dev.civilizations.simulation;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.FarmBuilding;
 import dev.civilizations.core.WorldPosition;
+import dev.civilizations.simulation.world.VoxelWorld;
+import dev.civilizations.simulation.world.WorldArchive;
 import dev.civilizations.scenario.WoodcutterBasicScenario;
 
 import java.util.List;
@@ -47,7 +49,13 @@ public final class SimulationScenarios {
         SimulationScenarios::createWaitingWorkers
     );
 
+    public static final SimulationScenario FORESTER_FLAT = new SimulationScenario(
+        "forester-flat", "Forester Flat World", "Two foresters on a 64x64 flat world.",
+        SimulationScenarios::createForesterFlat
+    );
+
     private static final List<SimulationScenario> ALL = List.of(
+        FORESTER_FLAT,
         DEMO_SETTLEMENT,
         WOODCUTTER_BASIC,
         BUILDER_BASIC,
@@ -60,6 +68,23 @@ public final class SimulationScenarios {
 
     public static List<SimulationScenario> all() {
         return ALL;
+    }
+
+    private static SimulationRuntime createForesterFlat() {
+        SimulationRuntime runtime = new SimulationRuntime();
+        var bounds = new WorldArchive.Bounds(-32, -1, -32, 32, 3, 32);
+        byte[] cells = new byte[Math.toIntExact(bounds.volume())];
+        int index = 0;
+        for (int x = bounds.minX(); x < bounds.maxX(); x++)
+            for (int y = bounds.minY(); y < bounds.maxY(); y++)
+                for (int z = bounds.minZ(); z < bounds.maxZ(); z++)
+                    cells[index++] = (byte)(y == -1
+                        ? WorldArchive.Material.SOLID.ordinal()
+                        : WorldArchive.Material.AIR.ordinal());
+        runtime.setVoxelWorld(VoxelWorld.fromMaterialCodes(bounds, cells));
+        runtime.addForester("forester-1", new WorldPosition(-2.5, 0, 0.5), new BlockPosition(0, 0, 0), 42L);
+        runtime.addForester("forester-2", new WorldPosition(2.5, 0, 0.5), new BlockPosition(0, 0, 0), 1337L);
+        return runtime;
     }
 
     private static SimulationRuntime createDemoSettlement() {
