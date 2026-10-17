@@ -597,7 +597,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 if (!isEmpty(loadedBlockType(world, block)) && runtime.frontId != null) {
                     WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, ChunkUtil.indexChunkFromBlock(block.x(),block.z()));
                     if (chunk == null || !safeBlock(world, mine, block)
-                        || !chunk.breakBlock(block.x(),block.y(),block.z(),0,0)) return MinerWorkController.Result.RETRY;
+                        || !HytaleBlockMutations.setBlock(world, block.x(), block.y(), block.z(), BlockType.EMPTY_ID)) return MinerWorkController.Result.RETRY;
                 }
                 return isEmpty(loadedBlockType(world, block))
                     ? MinerWorkController.Result.SUCCESS : MinerWorkController.Result.RETRY;
@@ -621,7 +621,7 @@ public final class MinerWorkSystem extends DelayedEntitySystem<EntityStore> {
                 && occupied != null && !placement.blockId().equals(occupied.getId())
                 && MineBlockPlacement.isDeco(world, placement.position())) {
                 WorldChunk chunk = HytaleLoadedBlocks.loadedChunk(world, ChunkUtil.indexChunkFromBlock(placement.position().x(),placement.position().z()));
-                if (chunk != null && chunk.breakBlock(placement.position().x(),placement.position().y(),placement.position().z(),0,0))
+                if (chunk != null && HytaleBlockMutations.setBlock(world, placement.position().x(), placement.position().y(), placement.position().z(), BlockType.EMPTY_ID))
                     decisionSink.record(mine.id(),intent.taskId(),MineDecisionCategory.ADAPTER,"BRIDGE_DECO_REPLACED",
                         "position", placement.position());
             }
