@@ -4,6 +4,7 @@ import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType;
 import com.hypixel.hytale.server.core.asset.type.fluid.Fluid;
 import com.hypixel.hytale.server.core.universe.world.World;
+import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.BlockSection;
 import com.hypixel.hytale.server.core.universe.world.chunk.section.FluidSection;
 import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
@@ -15,6 +16,11 @@ import com.hypixel.hytale.server.core.universe.world.storage.ChunkStore;
  */
 public final class HytaleLoadedBlocks {
     private HytaleLoadedBlocks() {}
+
+    /** Loaded column, without requesting any new chunk load. */
+    public static WorldChunk loadedChunk(World world, long index) {
+        return world.getChunkStore().getChunkComponent(index, WorldChunk.getComponentType());
+    }
 
     private static Ref<ChunkStore> sectionRef(World world, int x, int y, int z) {
         return world.getChunkStore().getChunkSectionReferenceAtBlock(x, y, z);
