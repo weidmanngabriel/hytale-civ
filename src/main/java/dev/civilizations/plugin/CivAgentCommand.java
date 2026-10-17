@@ -302,10 +302,10 @@ final class CivAgentCommand extends AbstractCommandCollection {
         BlockInspect() { super("block", "Inspect a block in an already-loaded chunk."); }
         @Override protected void run(CommandContext context, World world) {
             WorldChunk chunk = loaded(world, context);
-            BlockType block = chunk.getBlockType(x(context),y(context),z(context));
+            BlockType block = HytaleLoadedBlocks.blockType(world, x(context),y(context),z(context));
             result(context, "block", Map.of("position", List.of(x(context), y(context), z(context)),
                 "block", block == null ? "unknown" : block.getId(),
-                "index", chunk.getBlock(x(context),y(context),z(context))));
+                "index", HytaleLoadedBlocks.blockId(world, x(context),y(context),z(context))));
         }
     }
 
@@ -326,8 +326,8 @@ final class CivAgentCommand extends AbstractCommandCollection {
             BlockType next = BlockType.getAssetMap().getAsset(assetId);
             int index = BlockType.getAssetMap().getIndex(assetId);
             if (next == null || index < 0) throw new IllegalArgumentException("Unknown block asset ID");
-            String before = chunk.getBlockType(x(context),y(context),z(context)) == null
-                ? "unknown" : chunk.getBlockType(x(context),y(context),z(context)).getId();
+            String before = HytaleLoadedBlocks.blockType(world, x(context),y(context),z(context)) == null
+                ? "unknown" : HytaleLoadedBlocks.blockType(world, x(context),y(context),z(context)).getId();
             ChunkStore store = world.getChunkStore();
             Ref<ChunkStore> section = store.getChunkSectionReferenceAtBlock(
                 x(context),y(context),z(context));
@@ -336,7 +336,7 @@ final class CivAgentCommand extends AbstractCommandCollection {
             boolean changed = BlockOperations.setBlock(store, section,
                 x(context),y(context),z(context),index,next,0,0,256);
             if (!changed) throw new IllegalArgumentException("Native block write rejected");
-            BlockType after = chunk.getBlockType(x(context),y(context),z(context));
+            BlockType after = HytaleLoadedBlocks.blockType(world, x(context),y(context),z(context));
             if (after == null || !assetId.equals(after.getId()))
                 throw new IllegalArgumentException("Block change not observed after native write");
             result(context, "set-block", Map.of("position",List.of(x(context),y(context),z(context)),
