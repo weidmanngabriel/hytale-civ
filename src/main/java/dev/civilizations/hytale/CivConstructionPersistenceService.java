@@ -213,6 +213,7 @@ public final class CivConstructionPersistenceService {
     private static String definitionToken(PrefabPlacementService.PlacementDefinition definition) {
         if (PrefabPlacementService.FARM.prefabKey().equals(definition.prefabKey())) return "farm";
         if (PrefabPlacementService.WOODCUTTER_HUT.prefabKey().equals(definition.prefabKey())) return "woodcutter_hut";
+        if (PrefabPlacementService.FORESTER_HUT.prefabKey().equals(definition.prefabKey())) return "forester_hut";
         if (PrefabPlacementService.MINE.prefabKey().equals(definition.prefabKey())) return "mine1";
         if (PrefabPlacementService.MINE_02.prefabKey().equals(definition.prefabKey())) return "mine2";
         if (PrefabPlacementService.MINE_03.prefabKey().equals(definition.prefabKey())) return "mine3";
@@ -227,6 +228,7 @@ public final class CivConstructionPersistenceService {
         return switch (token) {
             case "farm" -> PrefabPlacementService.FARM;
             case "woodcutter_hut" -> PrefabPlacementService.WOODCUTTER_HUT;
+            case "forester_hut" -> PrefabPlacementService.FORESTER_HUT;
             case "mine1" -> PrefabPlacementService.MINE;
             case "mine2" -> PrefabPlacementService.MINE_02;
             case "mine3" -> PrefabPlacementService.MINE_03;

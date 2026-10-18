@@ -1,0 +1,1170 @@
+{
+  "version": 8,
+  "blockIdVersion": 11,
+  "anchorX": 0,
+  "anchorY": 0,
+  "anchorZ": 0,
+  "blocks": [
+    {
+      "x": -4,
+      "y": 0,
+      "z": -3,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": -2,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": -1,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 2,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": -4,
+      "y": 0,
+      "z": 3,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": -3,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": -2,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": -1,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 2,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": -3,
+      "y": 0,
+      "z": 3,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": -3,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": -2,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": -1,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 2,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": -2,
+      "y": 0,
+      "z": 3,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": -3,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": -2,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": -1,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 2,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "z": 3,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": -3,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": -2,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": -1,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 0,
+      "name": "Rock_Lime_Brick"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 2,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 0,
+      "y": 0,
+      "z": 3,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": -3,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": -2,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": -1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 0,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 2,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "z": 3,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": -3,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": -2,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": -1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 0,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 2,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "z": 3,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": -3,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": -2,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": -1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 0,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 2,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "z": 3,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": -3,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": -2,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": -1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 0,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 2,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "z": 3,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": -3,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": -2,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": -1,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -4,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": -3,
+      "y": 1,
+      "z": -3,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -3,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -2,
+      "y": 1,
+      "z": -3,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -1,
+      "y": 1,
+      "z": -3,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -1,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": -3,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": -2,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": -1,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "z": 0,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": -3,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": -2,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": -1,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 0,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": -3,
+      "y": 2,
+      "z": -3,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -3,
+      "y": 2,
+      "z": 0,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -2,
+      "y": 2,
+      "z": -3,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -1,
+      "y": 2,
+      "z": -3,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -1,
+      "y": 2,
+      "z": 0,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "z": -3,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "z": -2,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "z": -1,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "z": 0,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": -3,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": -2,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": -1,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -4,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": -3,
+      "y": 3,
+      "z": -3,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -3,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -2,
+      "y": 3,
+      "z": -3,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -2,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -1,
+      "y": 3,
+      "z": -3,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": -1,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "z": -3,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "z": -2,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "z": -1,
+      "name": "Wood_Softwood_Planks"
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": -4,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -3,
+      "y": 3,
+      "z": -4,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -2,
+      "y": 4,
+      "z": -4,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -1,
+      "y": 3,
+      "z": -4,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "z": -4,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": -3,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -3,
+      "y": 3,
+      "z": -3,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -2,
+      "y": 4,
+      "z": -3,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -1,
+      "y": 3,
+      "z": -3,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "z": -3,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": -2,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -3,
+      "y": 3,
+      "z": -2,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -2,
+      "y": 4,
+      "z": -2,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -1,
+      "y": 3,
+      "z": -2,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "z": -2,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": -1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -3,
+      "y": 3,
+      "z": -1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -2,
+      "y": 4,
+      "z": -1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -1,
+      "y": 3,
+      "z": -1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "z": -1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 0,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -3,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -2,
+      "y": 4,
+      "z": 0,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -1,
+      "y": 3,
+      "z": 0,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "z": 0,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -4,
+      "y": 2,
+      "z": 1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -3,
+      "y": 3,
+      "z": 1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -2,
+      "y": 4,
+      "z": 1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": -1,
+      "y": 3,
+      "z": 1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "z": 1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "z": -2,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "z": -2,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "z": -2,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "z": 2,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "z": 2,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "z": 2,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": -2,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": -2,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": -2,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 2,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "z": 2,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "z": 2,
+      "name": "Wood_Apple_Trunk"
+    },
+    {
+      "x": 1,
+      "y": 4,
+      "z": -2,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 1,
+      "y": 4,
+      "z": -1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 1,
+      "y": 4,
+      "z": 0,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 1,
+      "y": 4,
+      "z": 1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 1,
+      "y": 4,
+      "z": 2,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 2,
+      "y": 4,
+      "z": -2,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 2,
+      "y": 4,
+      "z": -1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 2,
+      "y": 4,
+      "z": 0,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 2,
+      "y": 4,
+      "z": 1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 2,
+      "y": 4,
+      "z": 2,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 3,
+      "y": 4,
+      "z": -2,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 3,
+      "y": 4,
+      "z": -1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 3,
+      "y": 4,
+      "z": 0,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 3,
+      "y": 4,
+      "z": 1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 3,
+      "y": 4,
+      "z": 2,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 4,
+      "y": 4,
+      "z": -2,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 4,
+      "y": 4,
+      "z": -1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 4,
+      "y": 4,
+      "z": 0,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 4,
+      "y": 4,
+      "z": 1,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 4,
+      "y": 4,
+      "z": 2,
+      "name": "Wood_Softwood_Roof"
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "z": -1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "z": 0,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "z": 1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": -1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 0,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "z": 1,
+      "name": "Soil_Grass"
+    },
+    {
+      "x": -3,
+      "y": 1,
+      "z": -2,
+      "name": "*Furniture_Crude_Chest_Small_State_Definitions_CloseWindow"
+    }
+  ],
+  "fluids": [],
+  "entities": [
+    {
+      "Components": {
+        "Transform": {
+          "Position": {
+            "X": 0.5,
+            "Y": 0,
+            "Z": 0.5
+          },
+          "Rotation": {
+            "Pitch": 0,
+            "Yaw": 0,
+            "Roll": 0
+          }
+        },
+        "TriggerVolume": {
+          "Shape": {
+            "Type": "Box",
+            "Min": {
+              "X": -5.5,
+              "Y": 0,
+              "Z": -4.5
+            },
+            "Max": {
+              "X": 5.5,
+              "Y": 7,
+              "Z": 4.5
+            }
+          },
+          "Enabled": true,
+          "TargetTypes": [
+            "Npc"
+          ],
+          "Tags": {
+            "civ.building": "forester_hut",
+            "civ.type": "building_bounds"
+          },
+          "KeepLoaded": false,
+          "PrefabIndex": 0,
+          "Name": "civ_forester_building_bounds"
+        }
+      }
+    },
+    {
+      "Components": {
+        "Transform": {
+          "Position": {
+            "X": -1.5,
+            "Y": 1,
+            "Z": 1.5
+          },
+          "Rotation": {
+            "Pitch": 0,
+            "Yaw": 0,
+            "Roll": 0
+          }
+        },
+        "TriggerVolume": {
+          "Shape": {
+            "Type": "Box",
+            "Min": {
+              "X": -1,
+              "Y": 0,
+              "Z": -1
+            },
+            "Max": {
+              "X": 1,
+              "Y": 2,
+              "Z": 1
+            }
+          },
+          "Enabled": true,
+          "TargetTypes": [
+            "Npc"
+          ],
+          "Tags": {
+            "civ.building": "forester_hut",
+            "civ.type": "workplace_access"
+          },
+          "KeepLoaded": false,
+          "PrefabIndex": 1,
+          "Name": "civ_forester_workplace_access"
+        }
+      }
+    },
+    {
+      "Components": {
+        "Transform": {
+          "Position": {
+            "X": -2.5,
+            "Y": 1,
+            "Z": -1.5
+          },
+          "Rotation": {
+            "Pitch": 0,
+            "Yaw": 0,
+            "Roll": 0
+          }
+        },
+        "TriggerVolume": {
+          "Shape": {
+            "Type": "Box",
+            "Min": {
+              "X": -0.5,
+              "Y": 0,
+              "Z": -0.5
+            },
+            "Max": {
+              "X": 0.5,
+              "Y": 2,
+              "Z": 0.5
+            }
+          },
+          "Enabled": true,
+          "TargetTypes": [
+            "Npc"
+          ],
+          "Tags": {
+            "civ.building": "forester_hut",
+            "civ.type": "output_storage"
+          },
+          "KeepLoaded": false,
+          "PrefabIndex": 2,
+          "Name": "civ_forester_output_storage"
+        }
+      }
+    }
+  ]
+}
