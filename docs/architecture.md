@@ -411,3 +411,7 @@ The Core `ForesterPlantingPlanner` chooses nearby pseudorandom planting position
 ### Standalone-Simulator-Distribution
 
 Das Unterprojekt `simulator/` kompiliert die **bestehenden** Quellen aus `core/` und `simulation/` mit Java 21 und einem minimalen eigenständigen CLI-Startpunkt; es enthält weder Hytale-Adapter noch Plugin-Klassen. Die Anwendung wird ausschließlich als separater Artefakt-Export nach einem `main`-Push gebaut. Die eigentliche Hytale-Mod behält die Root-Gradle-Konfiguration mit Java 25. Diese Distribution erzeugt keinen zweiten Gameplay-Core; sie verpackt dieselben Java-Dateien in eine für Headless-Ausführung geeignete Laufzeit.
+
+### Simulierte Holzlogistik
+
+Der Hytale-unabhängige `core/WoodCargoLedger` verbucht Holz als konservierte Einheiten an drei Orten: Bodenstapel nach vollständiger Fällung, begrenzte NPC-Traglast, Lagerbestand. `simulation/SimulationRuntime` entscheidet für das eigenständige `woodcutter-storage`-Szenario über Aufnahme- und Abgabebewegungen. Simulierte 100 Einheiten/Slot und eine Lagerposition sind Testparameter, keine Behauptung über natives Inventar oder Warehouse-Assets. Die native Integration muss später ihre Engine-Containertransaktionen und Persistenz verifizieren; der Simulator führt keine parallele Hytale-Item-Engine aus.
