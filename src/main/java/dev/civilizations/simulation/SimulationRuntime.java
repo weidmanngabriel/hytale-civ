@@ -13,6 +13,7 @@ import dev.civilizations.core.WoodCargoLedger;
 import dev.civilizations.core.WorkDecisionSchedule;
 import dev.civilizations.core.WorldPosition;
 import dev.civilizations.simulation.world.VoxelWorld;
+import dev.civilizations.simulation.world.ForesterSnapshotSurface;
 import dev.civilizations.simulation.world.WorldArchive;
 import dev.civilizations.core.MineFrontCoordinator;
 import dev.civilizations.core.MineNormalTaskSelector;
@@ -93,6 +94,7 @@ public final class SimulationRuntime {
 
     private long tickCount;
     private VoxelWorld voxelWorld;
+    private ForesterSnapshotSurface rawForesterSurface;
     private MineLab mineLab;
 
     public SimulationRuntime() {
@@ -114,6 +116,11 @@ public final class SimulationRuntime {
     public void setVoxelWorld(VoxelWorld world) {
         voxelWorld = Objects.requireNonNull(world);
         for (Resident resident : residents.values()) resident.route = List.of();
+    }
+
+    /** Optional raw-block observation layer over the existing imported VoxelWorld. */
+    public void setForesterSnapshotSurface(ForesterSnapshotSurface surface) {
+        rawForesterSurface = Objects.requireNonNull(surface);
     }
 
     /** Starts deterministic Core-planned excavation against the optional imported voxel adapter. */
@@ -422,7 +429,9 @@ public final class SimulationRuntime {
                 return forester.planner.chooseSurface(blockAt(resident.position), occupied,
                     reserved, column -> voxelWorld == null
                         ? new BlockPosition(column.x(), 0, column.z())
-                        : voxelWorld.openSkySurface(column.x(), column.z()),
+                        : rawForesterSurface != null
+                            ? rawForesterSurface.observedExposedSoil(column.x(), column.z())
+                            : voxelWorld.openSkySurface(column.x(), column.z()),
                     p -> !trees.containsKey(p) && !growingTrees.containsKey(p)
                         && (voxelWorld == null || voxelWorld.canStand(p)));
             }
