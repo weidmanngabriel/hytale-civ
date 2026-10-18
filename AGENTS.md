@@ -52,6 +52,10 @@ Before completing any change, apply the versioning policy in `docs/development.m
 37. For CI, runner and Hytale Local failures, follow the log-first debugging procedure in `docs/runner-debugging.md` before changing the harness or bisecting commits.
 38. For on-demand access to the user's running Hytale world, including permissions, available read/write commands, locked Issue #266, verification and limitations, read `docs/hytale-live.md` before using Hytale Live. Hytale Local for isolated runtime scenarios remains governed by rules 33–37. The workflow is named **Hytale Live Diagnostics** (`.github/workflows/hytale-live.yml`). After posting a request to Issue #266, locate the **new run for that comment** in GitHub Actions, retrieve its `Query running Hytale instance` job ID through the GitHub connector (`fetch_workflow_run_jobs`), then retrieve the job log (`fetch_workflow_job_logs`) and read `HCIV_LIVE_RESULT`. Do not claim that live results cannot be read merely because a connector lacks a general workflow-run listing action; use the Actions workflow page to identify the correct run. Never present older run output as the current game state.
 
+## Conditional local simulator validation
+
+39. For changes to the headless simulator, its scenarios, or shared Core behavior exercised by a simulator scenario, locally validate the modified Java sources **before the PR merge**, using the latest Java 21 simulator ZIP from `main`. Unpack the nested artifact, recompile changed sources against bundled libraries, and run relevant scenarios and regressions. Record scenario, tick count and result in the PR. This ZIP workflow is **not required** for unrelated Hytale-only, UI-only, documentation-only or other work that does not involve the simulator. If local validation is unavailable, disclose that explicitly; never claim it ran. Full PR CI remains required. Details: `docs/development.md`.
+
 ## Projekt-Skills
 Bei passendem Befehl den verlinkten Skill lesen und dessen Ablauf unter Beachtung dieser Projektregeln ausführen.
 
