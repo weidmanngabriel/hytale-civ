@@ -230,6 +230,33 @@ function Run-ForesterPlantScenario {
     }
 }
 
+function Run-ForesterNpcScenario {
+    param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
+    $result = Start-HytaleProbe -RuntimeDir $RuntimeDir -LogPrefix 'foresternpc' -BootCommand 'civforesternpcprobe' -TimeoutSeconds 85
+    $combined = $result.Combined
+    Write-Host '----- Hytale Civ forester NPC and prefab chest -----'
+    Write-Host $combined
+    Write-Host '----- end NPC forestry -----'
+    Assert-CommonRuntimeHealth -Combined $combined
+    if ($combined.Contains('CIV_FORESTER_NPC_FAIL')) {
+        throw 'Native forester NPC runtime scenario reported failure.'
+    }
+    Assert-Evidence -Combined $combined -RequiredEvidence @(
+        'Enabled plugin Civilizations:HytaleCiv',
+        'CIV_FORESTER_NPC_STARTED',
+        'CIV_FORESTER_NPC_PREFAB_READY',
+        'CIV_FORESTER_NPC_CHEST_READY kinds=3 amounts=1,5,20',
+        'CIV_FORESTER_NPC_WORKER_READY role=FORESTER',
+        'CIV_FORESTER_NPC_PLANTED',
+        'CIV_FORESTER_NPC_STOCK_UNCHANGED amounts=1,5,20',
+        'CIV_FORESTER_NPC_PASS',
+        'Shutdown completed!'
+    )
+    if ($result.Process.ExitCode -ne 0) {
+        Write-Warning "Forester NPC server exited with code $($result.Process.ExitCode) after complete PASS and clean shutdown evidence."
+    }
+}
+
 function Run-WoodcutterScenario {
     param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
 
@@ -543,6 +570,7 @@ foreach ($scenario in $Scenarios) {
             'woodcutter' { Run-WoodcutterScenario -RuntimeDir $runtimeDir }
             'foresterassets' { Run-ForesterAssetScenario -RuntimeDir $runtimeDir }
             'foresterplant' { Run-ForesterPlantScenario -RuntimeDir $runtimeDir }
+            'foresternpc' { Run-ForesterNpcScenario -RuntimeDir $runtimeDir }
             'persistence' { Run-PersistenceScenario -RuntimeDir $runtimeDir }
             'reload' { & (Join-Path $PSScriptRoot 'hytale-reload-probe.ps1') -RuntimeDir $runtimeDir }
             'deployment' { . (Join-Path $PSScriptRoot 'hytale-deployment-scenario.ps1'); Run-DeploymentScenario -RuntimeDir $runtimeDir }
