@@ -54,8 +54,16 @@ public final class SimulationScenarios {
         SimulationScenarios::createForesterFlat
     );
 
+    public static final SimulationScenario FORESTER_WOODCUTTER_FLAT = new SimulationScenario(
+        "forester-woodcutter-flat",
+        "Forester and Woodcutter Flat World",
+        "Ein Förster pflanzt, ein Holzfäller erntet ausgewachsene Bäume auf einer 64x64-Flat-World.",
+        SimulationScenarios::createForesterWoodcutterFlat
+    );
+
     private static final List<SimulationScenario> ALL = List.of(
         FORESTER_FLAT,
+        FORESTER_WOODCUTTER_FLAT,
         DEMO_SETTLEMENT,
         WOODCUTTER_BASIC,
         BUILDER_BASIC,
@@ -70,7 +78,14 @@ public final class SimulationScenarios {
         return ALL;
     }
 
-    private static SimulationRuntime createForesterFlat() {
+    private static SimulationRuntime createForesterWoodcutterFlat() {
+        SimulationRuntime runtime = createFlatWorld();
+        runtime.addForester("forester-1", new WorldPosition(-2.5, 0, 0.5), new BlockPosition(0, 0, 0), 42L);
+        runtime.addWoodcutter("woodcutter-1", new WorldPosition(2.5, 0, 0.5));
+        return runtime;
+    }
+
+    private static SimulationRuntime createFlatWorld() {
         SimulationRuntime runtime = new SimulationRuntime();
         var bounds = new WorldArchive.Bounds(-32, -1, -32, 32, 3, 32);
         byte[] cells = new byte[Math.toIntExact(bounds.volume())];
@@ -82,6 +97,11 @@ public final class SimulationScenarios {
                         ? WorldArchive.Material.SOLID.ordinal()
                         : WorldArchive.Material.AIR.ordinal());
         runtime.setVoxelWorld(VoxelWorld.fromMaterialCodes(bounds, cells));
+        return runtime;
+    }
+
+    private static SimulationRuntime createForesterFlat() {
+        SimulationRuntime runtime = createFlatWorld();
         runtime.addForester("forester-1", new WorldPosition(-2.5, 0, 0.5), new BlockPosition(0, 0, 0), 42L);
         runtime.addForester("forester-2", new WorldPosition(2.5, 0, 0.5), new BlockPosition(0, 0, 0), 1337L);
         return runtime;
