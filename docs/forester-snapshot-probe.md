@@ -35,3 +35,17 @@ Die aus dem Original-Snapshot abgeleiteten Stämme werden als semantische Baumzi
 ## Hytale Local
 
 Das getrennte, read-only Diagnoseszenario `foresterassets` (`civforesterassetprobe`) liest die in der gepinnten Hytale-Runtime registrierten Setzlings-Blocktypen und deren Farming-Konfiguration aus. Es nimmt **keine** Pflanzung vor und ersetzt keinen Hytale-NPC-End-to-End-Test. Bis zur echten Pflanzvalidierung ist der Förster noch nicht als produktiv abgeschlossene Hytale-Funktion freigegeben.
+
+
+## Native Ingame-Testanleitung für die Försterei
+
+1. Die aktuelle Civ-Mod und das Asset Pack des fertig integrierten Branches beziehungsweise der neuen Main-Version installieren.
+2. Ingame eine **Försterei** über das Gebäudemenü bauen und die Konstruktion abschließen.
+3. Die native Truhe des Gebäudes öffnen und mindestens einen echten Setzling einlagern, etwa Eiche, Birke und Fichte mit beliebigen Stückzahlen.
+4. Einen Civ-Bewohner beanspruchen und in dessen Personenaktionsmenü **Förster** auswählen. Einen geeigneten Standort innerhalb von 32 Blöcken der Försterei verwenden.
+5. Beobachten, wie der Förster im Umfeld auf natürlich geeignete Flächen läuft und dort Setzlinge platziert. Der Arbeitsbereich ist eine echte 3D-Kugel mit 24 Blöcken Radius um das Gebäude; zu vorhandenen Stämmen bleiben mindestens vier Blöcke horizontaler Abstand.
+6. Die Truhe erneut öffnen. Die Stückzahlen der Setzlinge müssen unverändert bleiben, auch nach mehreren Pflanzungen.
+7. Eine Setzlingsart aus der Truhe entfernen beziehungsweise eine neue hinzufügen; bei nachfolgenden Pflanzungen darf nur noch eine der aktuell vorhandenen Arten ausgewählt werden. Bei vollständig leerer Truhe muss der Förster warten.
+8. Für Wachstum die native Hytale-Farming-Mechanik beobachten; es gibt keine garantierte Wachstumsstufe nach einer festen Simulatortickzahl.
+
+**Automatisierter Nachweis:** Der isolierte Hytale-Local-Lauf [39120832278](https://github.com/weidmanngabriel/hytale-civ/actions/runs/39120832278) wurde grün und umfasste die drei nativen Prüfungen samt echtem Förster-NPC, Setzlingsplatzierung und unverändertem Kistenbestand. Vollständiges Auswachsen und autonomes Fällen in derselben nativen Session bleiben ein gesonderter Langzeittest. Die im Abschnitt „Noch nicht geprüft“ oben genannten älteren Einschränkungen gelten nur für den damaligen Headless-Test, nicht mehr für die bestätigten nativen Platzierungen.
