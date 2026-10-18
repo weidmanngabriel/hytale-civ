@@ -353,3 +353,7 @@ Die standardmäßig genutzte `RealRegionMineFixture.load()` lädt die **gesamte*
 ### Forester flat-world headless checks
 
 `ForesterPlantingPlannerTest` checks deterministic seeded candidate selection, bounded work radius, exclusion and minimum spacing. `ForesterFlatWorldTest` runs two foresters on a 64 × 64 flat voxel world for 1200 simulation ticks, checks reproducible snapshots and tree-site uniqueness. This covers headless Core/adapter behavior, not Hytale engine terrain/block placement.
+
+## Standalone Java-21-Simulator (CI nach Main-Push)
+
+Der unabhängige Workflow `.github/workflows/simulator-build.yml` baut nach jedem Push auf `main` den vorhandenen `core` und `simulation` mit Java 21 als eigene Application-Distribution und führt als Smoke-Test das bestehende Szenario `woodcutter-basic` über 1000 Ticks aus. Dies prüft Laden, Kompilieren und Headless-Ausführung der gemeinsam verwendeten Java-Quellen, jedoch keine Hytale-Engine-Semantik und keine grafische Oberfläche. Der bestehende Java-25-Root-Test-/Buildpfad bleibt unabhängig. Ein lokaler identischer Test lautet: `cd simulator && ../gradlew --project-dir . clean installDist && ./build/install/civ-simulator/bin/civ-simulator woodcutter-basic 1000`.
