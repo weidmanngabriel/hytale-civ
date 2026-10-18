@@ -202,6 +202,32 @@ function Run-ForesterAssetScenario {
     Write-Host 'Native Hytale sapling-asset discovery passed; actual NPC planting is not yet validated.'
 }
 
+function Run-ForesterPlantScenario {
+    param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
+    $result = Start-HytaleProbe -RuntimeDir $RuntimeDir -LogPrefix 'foresterplant' -BootCommand 'civforesterplantprobe' -TimeoutSeconds 80
+    $combined = $result.Combined
+    Write-Host '----- Hytale native forestry placement -----'
+    Write-Host $combined
+    Write-Host '----- end forestry placement -----'
+    Assert-CommonRuntimeHealth -Combined $combined
+    if ($combined.Contains('CIV_FORESTER_NATIVE_FAIL')) {
+        throw 'Native Hytale forester planting reported failure.'
+    }
+    Assert-Evidence -Combined $combined -RequiredEvidence @(
+        'Enabled plugin Civilizations:HytaleCiv',
+        'CIV_FORESTER_NATIVE_STARTED',
+        'CIV_FORESTER_NATIVE_PLACED species=Plant_Sapling_Oak',
+        'CIV_FORESTER_NATIVE_PLACED species=Plant_Sapling_Birch',
+        'CIV_FORESTER_NATIVE_PLACED species=Plant_Sapling_Spruce',
+        'CIV_FORESTER_NATIVE_FARMING species=Plant_Sapling_Oak',
+        'CIV_FORESTER_NATIVE_FARMING species=Plant_Sapling_Birch',
+        'CIV_FORESTER_NATIVE_FARMING species=Plant_Sapling_Spruce',
+        'CIV_FORESTER_NATIVE_PASS',
+        'Shutdown completed!'
+    )
+    if ($result.Process.ExitCode -ne 0) { throw 'Native forester runtime ended with nonzero exit.' }
+}
+
 function Run-WoodcutterScenario {
     param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
 
@@ -514,6 +540,7 @@ foreach ($scenario in $Scenarios) {
         switch ($scenario) {
             'woodcutter' { Run-WoodcutterScenario -RuntimeDir $runtimeDir }
             'foresterassets' { Run-ForesterAssetScenario -RuntimeDir $runtimeDir }
+            'foresterplant' { Run-ForesterPlantScenario -RuntimeDir $runtimeDir }
             'persistence' { Run-PersistenceScenario -RuntimeDir $runtimeDir }
             'reload' { & (Join-Path $PSScriptRoot 'hytale-reload-probe.ps1') -RuntimeDir $runtimeDir }
             'deployment' { . (Join-Path $PSScriptRoot 'hytale-deployment-scenario.ps1'); Run-DeploymentScenario -RuntimeDir $runtimeDir }
