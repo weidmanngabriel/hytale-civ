@@ -6,6 +6,9 @@ import java.util.Map;
 /** Central catalog for currently known Civ building types. */
 public final class BuildingTypes {
     private static final Map<String, BuildingTypeDefinition> TYPES = Map.of(
+        "woodcutter_hut", new BuildingTypeDefinition(
+            "woodcutter_hut", List.of(new BuildingTypeDefinition.PhaseDefinition(1, 1))
+        ),
         "farm", new BuildingTypeDefinition(
             "farm",
             List.of(new BuildingTypeDefinition.PhaseDefinition(1, 1))

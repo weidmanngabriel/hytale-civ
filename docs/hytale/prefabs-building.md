@@ -124,3 +124,7 @@ Die queued Finalisierung normaler Prefab-Entities, die synchrone TriggerVolume-E
 ### Demolition cleanup invariant
 
 A successful Civ demolition is terminal for that building instance. After native terrain/entity/semantic-volume removal succeeds, Civ must evacuate assigned workers that could still be inside (all miners, because their tunnel extends beyond `building_bounds`), clear workplace assignments and building-specific farm/field/mine runtime+persistence, remove the building registry/persistence entry, clear viewer selection/HUD state, remove any related stale upgrade ConstructionSite state, and release orphaned overlapping construction reservations. Live unrelated ConstructionSites must not be unlocked by this defensive cleanup. Upgrade completion itself must explicitly release the ConstructionSite reservation because the upgraded building keeps its stable building UUID.
+
+## Holzfällerhütte
+
+`Civilizations/Woodcutter/Woodcutter_01` ist eine kleine Holzhütte mit Kiste, `building_bounds`, `workplace_access` und `output_storage`-Markierung. Die Markierung transportiert noch keine Items.
