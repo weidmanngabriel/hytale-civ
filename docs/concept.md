@@ -345,3 +345,7 @@ The initial forester has a fixed working area around its forestry home. Instead 
 ### Headless forester + woodcutter scenario
 
 The optional `forester-woodcutter-flat` scenario pairs one forester and one woodcutter on a flat test world, sharing the regrowing tree supply. It demonstrates planting, maturation, selection and felling without a warehouse or transport. No new in-game Hytale actions or buildings are added.
+
+### Headless-Holzfäller-Lager (Simulation)
+
+Das eigenständige Szenario `woodcutter-storage` startet mit genau einem Holzfäller und drei ausgewachsenen Bäumen ohne Förster. Ein vollständig gefällter Baum liefert zufallsdeterministisch zwischen 60 und 140 Holzeinheiten (Erwartungswert 100). Der Holzfäller transportiert höchstens 200 Einheiten in zwei **simulierten** Slots à 100 Einheiten; bei wenig freiem Platz liefert er zum Lager, und Holzreste bleiben als wieder abholbare Bestände am Fällort. Vorhandene Holzstapel werden vor weiteren Bäumen abgeholt. Holzmenge im Lager, bei NPC und am Boden bleibt erhalten. Die Stackgröße ist ein Simulationswert und nicht als native Hytale-Item-Stackgröße verifiziert. Darstellung, echte NPC-Inventare, persistente Hytale-Holzstapel und natives Lager sind noch nicht verbunden. Das vorhandene `forester-woodcutter-flat` bleibt ohne Lager, damit Wachstum und Ernte unabhängig geprüft werden.
