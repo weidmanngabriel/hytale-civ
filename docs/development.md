@@ -310,6 +310,19 @@ Derselbe unabhängige Workflow veröffentlicht nach jedem Push auf `main` zusät
 
 Der Workflow läuft nur bei Pushes auf `main` (auch durch einen PR-Merge), nicht bei normalen Feature-Branch- oder PR-Updates. Er validiert das Quellcode-ZIP mit `unzip -t`; die bestehende Simulator-Kompilierung und der Smoke-Test bleiben unverändert. Für das lokale Kompilieren der Hytale-Mod werden weiterhin Java 25 und die in der Gradle-Konfiguration festgelegten externen Abhängigkeiten benötigt.
 
+### Verifizierter Zugriff durch den GitHub-Connector (18.10.2026)
+
+Für den Main-Commit `9a3c631a6984bf9132b1b60d2b130f9836acfec7` lief [Standalone Simulator Build #6](https://github.com/weidmanngabriel/hytale-civ/actions/runs/39100597325) erfolgreich. Er veröffentlichte die beiden eigenständigen Artefakte `civ-source-9a3c631…` (ca. 1,15 MB) und `civ-simulator-9a3c631…` (ca. 2,64 MB). Beide wurden über den GitHub-Connector heruntergeladen und als lokale ZIP-Dateien mit `unzip -t` erfolgreich auf Integrität geprüft. Das ist ein nachgewiesener Datei-Download, **kein** Nachweis eines vollständigen lokalen Java-/Gradle-Builds.
+
+Vorgehen in neuen Coding-Agent-Sitzungen:
+
+1. Via GitHub-Connector `fetch` die JSON-Liste `https://api.github.com/repos/weidmanngabriel/hytale-civ/actions/runs` lesen; den **neuesten erfolgreichen** Lauf mit `name=Standalone Simulator Build`, `head_branch=main` und passender `head_sha` wählen. `fetch_commit_workflow_runs` allein genügt nicht: Dieser Connector filtert derzeit PR-Läufe und findet den Main-Push-Lauf nicht zuverlässig.
+2. Mit `fetch_workflow_run_artifacts(repo_full_name, run_id)` die tatsächlichen Artefakt-IDs von `civ-source-<sha>` und `civ-simulator-<sha>` ermitteln, statt eine ID zu erraten. Mit `download_workflow_artifact(repo_full_name, artifact_id)` beide ZIP-Dateien abrufen.
+3. Gelieferte Datei-Referenzen bzw. automatisch bereitgestellte Dateien auf einen **tatsächlich existierenden lokalen Pfad** prüfen. GitHub Actions liefert ein äußeres Artefakt-ZIP, darin liegt das jeweils benannte `civ-source-<sha>.zip` bzw. `civ-simulator-<sha>.zip`. Erst anschließend entpacken und die SHA vergleichen. Für große Codeänderungen kann das Source-Paket als lokale Arbeitskopie dienen; es besitzt keine Git-Historie.
+4. Simulator-Tests können die Java-21-Laufzeit aus dem Simulator-Paket nutzen. Für Änderungen an gemeinsamem Core/Simulator gelten die lokalen Vorabprüfungen aus dem folgenden Abschnitt weiterhin. Die Root-Hytale-Mod benötigt ihren gesonderten Java-25-Build und die Hytale-Abhängigkeiten.
+
+Die Download-URLs der Connector-Referenzen können zeitlich begrenzt sein. Bei neuen Sitzungen die Artefakte und lokalen Pfade erneut ermitteln, keine alten IDs oder Pfade blind wiederverwenden.
+
 ## Eigenständiges Simulator-Artefakt
 
 Nach jedem Push auf `main` erstellt der unabhängige Workflow `.github/workflows/simulator-build.yml` ein Java-21-kompatibles Headless-Simulator-Paket. Er ist **kein** Job der Hytale-Haupt-CI und hängt nicht von deren Erfolg ab. Feature-Branches und Pull Requests starten diesen Export nicht. Der Export enthält den gemeinsamen Core, die Simulation, den kleinen CLI-Startpunkt, die benötigten Laufzeitbibliotheken, Quellcode und `commit.txt` mit dem exakten Commit.
