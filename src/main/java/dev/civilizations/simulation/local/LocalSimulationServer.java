@@ -8,6 +8,7 @@ import dev.civilizations.simulation.SimulationScenario;
 import dev.civilizations.simulation.SimulationScenarios;
 import dev.civilizations.simulation.world.WorldArchive;
 import dev.civilizations.simulation.world.VoxelWorld;
+import dev.civilizations.simulation.world.ForesterSnapshotSurface;
 import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.WorldPosition;
 import dev.civilizations.core.MineHeading;
@@ -41,6 +42,7 @@ public final class LocalSimulationServer implements AutoCloseable {
     private int additionalWoodcutters;
     private int additionalBuilders;
     private final WorldArchive sourceArchive;
+    private final ForesterSnapshotSurface foresterSurface;
     private VoxelWorld voxelWorld;
     /** Changes when the entire voxel world is replaced; distinct from block revision. */
     private long terrainEpoch;
@@ -51,6 +53,7 @@ public final class LocalSimulationServer implements AutoCloseable {
 
     public LocalSimulationServer(int port, WorldArchive archive) throws IOException {
         sourceArchive = archive;
+        foresterSurface = archive == null ? null : new ForesterSnapshotSurface(archive);
         voxelWorld = archive == null ? null : new VoxelWorld(archive);
         if (archive != null) { scenario = customMiners(0); runtime = scenario.createRuntime(); }
         server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), port), 0);
@@ -86,7 +89,7 @@ public final class LocalSimulationServer implements AutoCloseable {
 
     private void scenarios(HttpExchange exchange) throws IOException {
         if (!exchange.getRequestMethod().equals("GET")) { respond(exchange, 405, Map.of("error", "GET required")); return; }
-        var all = sourceArchive == null ? SimulationScenarios.all() : List.of(customMiners(0), threeMinerScenario());
+        var all = sourceArchive == null ? SimulationScenarios.all() : List.of(customMiners(0), threeMinerScenario(), importedForesterScenario());
         respond(exchange, 200, all.stream().map(s -> Map.of(
             "id", s.id(), "title", s.displayName(), "description", s.description()
         )).toList());
@@ -297,7 +300,8 @@ public final class LocalSimulationServer implements AutoCloseable {
                     }
                     case "scenario" -> {
                         String id = data.path("id").asText("");
-                        scenario = sourceArchive != null && id.equals("mine-three") ? seedScenarioAndGet()
+                        scenario = sourceArchive != null && id.equals("forester-imported") ? importedForesterScenario()
+                            : sourceArchive != null && id.equals("mine-three") ? seedScenarioAndGet()
                             : sourceArchive != null && id.equals("custom-miners") ? customMiners(0)
                             : sourceArchive == null ? SimulationScenarios.all().stream()
                                 .filter(s -> s.id().equals(id)).findFirst()
@@ -332,6 +336,35 @@ public final class LocalSimulationServer implements AutoCloseable {
 
     private static SimulationScenario throwUnknownScenario() {
         throw new IllegalArgumentException("Only custom miners are available on imported worlds");
+    }
+
+    /** Exposes actual saved block IDs to the shared forester planner without replacing archive import. */
+    private SimulationScenario importedForesterScenario() {
+        return new SimulationScenario("forester-imported", "Forester – Raw Hytale Snapshot",
+            "Conservative open-sky grass/dirt classification; native planting rules are not simulated.",
+            () -> {
+                var sim = new SimulationRuntime();
+                sim.setVoxelWorld(voxelWorld);
+                sim.setForesterSnapshotSurface(foresterSurface);
+                var b = sourceArchive.bounds();
+                int cx = (b.minX()+b.maxX())/2;
+                int cz = (b.minZ()+b.maxZ())/2;
+                BlockPosition home = null;
+                for (int radius=0; radius<Math.max(b.maxX()-b.minX(),b.maxZ()-b.minZ()) && home==null; radius++) {
+                    for(int dx=-radius;dx<=radius && home==null;dx++)
+                        for(int dz=-radius;dz<=radius && home==null;dz++) {
+                            if(Math.max(Math.abs(dx),Math.abs(dz))!=radius)continue;
+                            var p = foresterSurface.observedExposedSoil(cx+dx, cz+dz);
+                            if(p!=null && voxelWorld.canStand(p))home=p;
+                        }
+                }
+                if(home==null)throw new IllegalArgumentException("No exposed grass/dirt surface in snapshot");
+                sim.addForester("forester-snapshot-1",
+                    new WorldPosition(home.x()+0.5,home.y(),home.z()+0.5), home, 4262026L);
+                // Snapshot trees are already present in voxels. The simulator does not
+                // treat each trunk block as a separate harvestable tree.
+                return sim;
+            });
     }
 
     private SimulationScenario customMiners(int count) {
