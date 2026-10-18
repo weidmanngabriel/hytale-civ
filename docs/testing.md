@@ -366,3 +366,7 @@ Der unabhängige Workflow `.github/workflows/simulator-build.yml` baut nach jede
 ### Lokale Simulatorprüfung vor Integration (nur bei betroffenen Änderungen)
 
 Wenn Simulator, Szenario oder simulierte Core-Regeln geändert werden, vor dem PR-Merge Java-21-Quellen mithilfe des aktuellen `main`-Simulator-ZIPs lokal kompilieren und das relevante Szenario sowie passende Regressionen ausführen. Keine allgemeine Pflicht für sonstige Mod-, UI-, Hytale- oder Dokumentationsänderungen. Der CLI-Override und `forester-woodcutter-flat` mit 4000 Ticks wurden am 18.10.2026 nachweislich lokal ausgeführt; Details in `docs/development.md`. Die reguläre PR-CI ersetzt das nicht und bleibt weiterhin verpflichtend.
+
+### Holzlager-Simulation
+
+`woodcutter-storage` prüft isoliert einen Holzfäller, drei bereits ausgewachsene Bäume, zwei simulierte Slots mit je 100 Einheiten und ein Lager. Baum-Erträge sind reproduzierbar zwischen 60 und 140 Holz (Erwartungswert 100); nach vollständigem Fällen wird Holz aufgenommen, Überschuss bleibt als logischer Holzstapel zurück, und der Holzfäller liefert im Lager ab. Die konservierte Menge umfasst Lager, Traglast und Holzstapel; Tests prüfen Teilaufnahme, Abholung nach Transport, Nachlieferung und deterministischen Ablauf. Dieses Szenario benutzt weder Förster noch natives Hytale-Inventar. Lokaler Test vor GitHub-Upload ist Pflicht; siehe `docs/development.md`.
