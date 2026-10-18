@@ -41,3 +41,14 @@ jobs:
           path: build/civ-simulator-${{ github.sha }}.zip
           retention-days: 14
           if-no-files-found: error
+      - name: Package complete tracked sources
+        run: |
+          git archive --format=zip --output="build/civ-source-${GITHUB_SHA}.zip" HEAD
+          unzip -t "build/civ-source-${GITHUB_SHA}.zip"
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: civ-source-${{ github.sha }}
+          path: build/civ-source-${{ github.sha }}.zip
+          retention-days: 14
+          if-no-files-found: error

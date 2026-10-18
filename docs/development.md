@@ -304,6 +304,12 @@ Nach dem Start von `localSimulationServer -PsimWorldArchive=...` und `npm run de
 
 Der separate Issue-Kommentar-Workflow für einzelne Java-Simulationsdiagnosen ist unter [Manuelle Simulationstests](manual-simulation-tests.md) dokumentiert. Er ersetzt keine PR-CI-Gates und startet keine Viewer-, MCP-, Release- oder Hytale-Runtime-Jobs.
 
+## Vollständiges Quellcode-Artefakt
+
+Derselbe unabhängige Workflow veröffentlicht nach jedem Push auf `main` zusätzlich `civ-source-<commit-sha>` als separates GitHub-Actions-Artefakt (14 Tage Aufbewahrung). Das enthaltene `civ-source-<commit-sha>.zip` wird mit `git archive HEAD` aus den versionierten Dateien des exakt getesteten Commits erzeugt. Es enthält den vollständigen getrackten Projektstand einschließlich Plugin-, Core-, Simulator- und Testquellen, Asset-Pack, Dokumentation, Gradle-Wrapper und Workflow-Konfiguration. Es enthält keine Git-Historie, ignorierten lokalen Dateien, generierten Builds, Abhängigkeiten oder die nicht eingecheckte `HytaleServer.jar`. Das ZIP ist eine Quellcodekopie, keine installierbare Mod und keine sofort ausführbare Simulator-Distribution. Der bisherige Simulator-Export bleibt unverändert und separat ausführbar.
+
+Der Workflow läuft nur bei Pushes auf `main` (auch durch einen PR-Merge), nicht bei normalen Feature-Branch- oder PR-Updates. Er validiert das Quellcode-ZIP mit `unzip -t`; die bestehende Simulator-Kompilierung und der Smoke-Test bleiben unverändert. Für das lokale Kompilieren der Hytale-Mod werden weiterhin Java 25 und die in der Gradle-Konfiguration festgelegten externen Abhängigkeiten benötigt.
+
 ## Eigenständiges Simulator-Artefakt
 
 Nach jedem Push auf `main` erstellt der unabhängige Workflow `.github/workflows/simulator-build.yml` ein Java-21-kompatibles Headless-Simulator-Paket. Er ist **kein** Job der Hytale-Haupt-CI und hängt nicht von deren Erfolg ab. Feature-Branches und Pull Requests starten diesen Export nicht. Der Export enthält den gemeinsamen Core, die Simulation, den kleinen CLI-Startpunkt, die benötigten Laufzeitbibliotheken, Quellcode und `commit.txt` mit dem exakten Commit.
