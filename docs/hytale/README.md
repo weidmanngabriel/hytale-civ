@@ -51,6 +51,7 @@ Vor neuer Hytale-spezifischer Arbeit zuerst diese Übersicht und die relevante T
 - [Player-lokale Debug-Volumes](debug-volumes.md)
 - [UI und Interaktion](ui-interaction.md)
 - [NPCs und Navigation](npc-navigation.md)
+- [Kosmetik und NPC-Aussehen](cosmetics.md)
 - [NPC-Combat](npc-combat.md)
 - [Worker-Item-Animationen](worker-item-animations.md)
 - [ECS und Persistenz](ecs-persistence.md)
