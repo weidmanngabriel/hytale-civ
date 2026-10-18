@@ -24,7 +24,8 @@ public final class NativeBuildingStorage {
         return block.getItemContainer().addItemStack(stack, true, true, true).succeeded();
     }
 
-    private ItemContainerBlock findContainer(World world, Vector3i marker) {
+    public ItemContainerBlock findContainer(World world, Vector3i marker) {
+        if (world == null || marker == null) return null;
         ItemContainerBlock best = null;
         int bestDistance = Integer.MAX_VALUE;
         for (int x = marker.x - SEARCH_RADIUS; x <= marker.x + SEARCH_RADIUS; x++) {
