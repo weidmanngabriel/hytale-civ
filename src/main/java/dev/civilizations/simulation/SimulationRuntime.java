@@ -8,6 +8,7 @@ import dev.civilizations.core.InhabitantActivity;
 import dev.civilizations.core.MovementIntent;
 import dev.civilizations.core.Profession;
 import dev.civilizations.core.WoodcutterJob;
+import dev.civilizations.core.WoodCargoLedger;
 import dev.civilizations.core.WorkDecisionSchedule;
 import dev.civilizations.core.WorldPosition;
 import dev.civilizations.simulation.world.VoxelWorld;
@@ -64,6 +65,30 @@ public final class SimulationRuntime {
 
     private final Map<String, ForesterState> foresters = new LinkedHashMap<>();
     private final Map<BlockPosition, Double> growingTrees = new LinkedHashMap<>();
+    private final WoodCargoLedger wood = new WoodCargoLedger();
+    private final Map<String, BlockPosition> pileTargets = new LinkedHashMap<>();
+    private final Set<String> returningWood = new HashSet<>();
+    private BlockPosition lumberStorage;
+    private long woodYieldSeed = 42L;
+
+    /** Configures headless warehouse fixture. Native Hytale inventory integration is separate. */
+    public void configureLumberStorage(BlockPosition position, long seed) {
+        lumberStorage = Objects.requireNonNull(position, "position");
+        woodYieldSeed = seed;
+    }
+
+    public int storedWood() { return wood.warehouse(); }
+    public int carriedWood(String residentId) { return wood.carried(residentId); }
+    public int woodOnGround() { return wood.ground(); }
+    public Map<BlockPosition, Integer> woodPiles() { return wood.piles(); }
+    public int woodInEconomy() { return wood.total(); }
+
+    private int treeYield(BlockPosition position) {
+        long mixed = woodYieldSeed ^ ((long) position.x() * 73856093L)
+            ^ ((long) position.y() * 19349663L) ^ ((long) position.z() * 83492791L);
+        return 60 + new java.util.Random(mixed).nextInt(81);
+    }
+
     private long tickCount;
     private VoxelWorld voxelWorld;
     private MineLab mineLab;
@@ -415,6 +440,7 @@ public final class SimulationRuntime {
     }
 
     private void tickWoodcutter(Resident resident) {
+        if (lumberStorage != null && tickWoodLogistics(resident)) return;
         WoodcutterJob job = resident.woodcutterJob;
         BlockPosition targetTree = job.targetTree();
         if (targetTree != null && !trees.containsKey(targetTree)) {
@@ -455,10 +481,73 @@ public final class SimulationRuntime {
         if (intent instanceof WoodcutterJob.FellTreeIntent fellIntent) {
             clearMovement(resident);
             TreeState removed = trees.remove(fellIntent.tree());
-            if (removed != null) metrics.recordTreeFelled();
+            if (removed != null) {
+                metrics.recordTreeFelled();
+                if (lumberStorage != null) {
+                    wood.fell(fellIntent.tree(), treeYield(fellIntent.tree()));
+                    wood.pickUp(resident.id, fellIntent.tree());
+                }
+            }
             job.fellingCompleted();
             resident.workDecisions.scheduleRetry(0.25);
         }
+    }
+
+    private boolean tickWoodLogistics(Resident resident) {
+        returningWood.remove(resident.id);
+        int carried = wood.carried(resident.id);
+        BlockPosition selectedPile = pileTargets.get(resident.id);
+        if (carried > 0 && (wood.shouldReturn(resident.id)
+                || (selectedPile == null && trees.isEmpty() && wood.piles().isEmpty()))) {
+            pileTargets.remove(resident.id);
+            returningWood.add(resident.id);
+            if (advanceMovement(resident, blockCenter(lumberStorage))) {
+                wood.deposit(resident.id);
+                clearMovement(resident);
+                resident.workDecisions.requestImmediate();
+            }
+            return true;
+        }
+        if (selectedPile != null && !wood.piles().containsKey(selectedPile)) {
+            pileTargets.remove(resident.id);
+            selectedPile = null;
+        }
+        if (selectedPile == null && !wood.piles().isEmpty()) {
+            selectedPile = nearestWoodPile(resident.position);
+            pileTargets.put(resident.id, selectedPile);
+        }
+        if (selectedPile != null) {
+            if (advanceMovement(resident, blockCenter(selectedPile))) {
+                wood.pickUp(resident.id, selectedPile);
+                pileTargets.remove(resident.id);
+                clearMovement(resident);
+                resident.workDecisions.requestImmediate();
+            } else if (resident.navigationBlocked) {
+                pileTargets.remove(resident.id);
+                resident.workDecisions.scheduleRetry(DEFAULT_RETRY_SECONDS);
+            }
+            return true;
+        }
+        if (carried > 0 && trees.isEmpty()) {
+            returningWood.add(resident.id);
+            if (advanceMovement(resident, blockCenter(lumberStorage))) {
+                wood.deposit(resident.id);
+                clearMovement(resident);
+                resident.workDecisions.requestImmediate();
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private BlockPosition nearestWoodPile(WorldPosition from) {
+        BlockPosition closest = null;
+        double best = Double.POSITIVE_INFINITY;
+        for (BlockPosition pile : wood.piles().keySet()) {
+            double distance = distanceSquared(from, blockCenter(pile));
+            if (distance < best) { best = distance; closest = pile; }
+        }
+        return closest;
     }
 
     private void tickBuilder(Resident resident) {
@@ -709,7 +798,7 @@ public final class SimulationRuntime {
         resident.movementTarget = null;
     }
 
-    private static String stateName(Resident resident) {
+    private String stateName(Resident resident) {
         InhabitantActivity.ActivityMode activityMode = resident.activity.snapshot().mode();
         if (resident.navigationBlocked) return "NAVIGATION_BLOCKED";
         if (activityMode == InhabitantActivity.ActivityMode.MANUAL_MOVE) return "MANUAL_MOVE";
@@ -717,9 +806,11 @@ public final class SimulationRuntime {
         return autonomousStateName(resident);
     }
 
-    private static String autonomousStateName(Resident resident) {
+    private String autonomousStateName(Resident resident) {
         return switch (resident.profession) {
-            case WOODCUTTER -> resident.woodcutterJob.state().name();
+            case WOODCUTTER -> returningWood.contains(resident.id) ? "RETURNING_WITH_WOOD"
+                : pileTargets.containsKey(resident.id) ? "COLLECTING_WOOD"
+                : resident.woodcutterJob.state().name();
             case FORESTER -> "PLANTING";
             case CONSTRUCTION_WORKER -> resident.constructionJob.state().name();
             case FARMER -> resident.farm.workState().name();
