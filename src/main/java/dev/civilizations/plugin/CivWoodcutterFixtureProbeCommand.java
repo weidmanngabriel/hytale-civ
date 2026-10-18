@@ -105,15 +105,28 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
             for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
                 for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
                     long chunkIndex = ChunkUtil.indexChunkFromBlock(chunkX * 32, chunkZ * 32);
-                    futures.add(world.getChunkStore().getChunkReferenceAsync(chunkIndex));
+                    // Hytale's no-flag load may return NonTicking column/section references.
+                    // Flag 4 requests their active, ticking form (verified against pinned ChunkGrid bytecode).
+                    futures.add(world.getChunkStore().getChunkReferenceAsync(chunkIndex, 4));
+                    futures.add(world.getChunkStore().getChunkSectionReferenceAtBlockAsync(
+                        chunkX * 32, 1, chunkZ * 32, 4));
+                    futures.add(world.getChunkStore().getChunkSectionReferenceAtBlockAsync(
+                        chunkX * 32, 17, chunkZ * 32, 4));
                 }
             }
 
             CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
                 .whenComplete((ignored, throwable) -> world.execute(() -> {
                     if (throwable != null) {
-                        fail("fixture chunks could not be loaded", throwable);
+                        fail("fixture chunks or ticking sections could not be loaded", throwable);
                         return;
+                    }
+                    for (CompletableFuture<Ref<ChunkStore>> future : futures) {
+                        Ref<ChunkStore> loaded = future.getNow(null);
+                        if (loaded == null || !loaded.isValid()) {
+                            fail("fixture chunk or ticking section returned no valid reference", null);
+                            return;
+                        }
                     }
                     placeTreesAndScheduleStart(world);
                 }));
