@@ -88,6 +88,9 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
                     fail("flat test world could not be created", throwable);
                     return;
                 }
+                // The isolated headless world has no player to hold NPC chunks active.
+                // Prevent the normal unload timer from removing the worker during this runtime test.
+                world.getWorldConfig().setCanUnloadChunks(false);
                 CivRuntimeProbeSuite.applyWarmDilation(world);
                 world.execute(() -> preloadFixtureChunks(world));
             });
@@ -105,15 +108,28 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
             for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
                 for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
                     long chunkIndex = ChunkUtil.indexChunkFromBlock(chunkX * 32, chunkZ * 32);
-                    futures.add(world.getChunkStore().getChunkReferenceAsync(chunkIndex));
+                    // Hytale's no-flag load may return NonTicking column/section references.
+                    // Flag 4 requests their active, ticking form (verified against pinned ChunkGrid bytecode).
+                    futures.add(world.getChunkStore().getChunkReferenceAsync(chunkIndex, 4));
+                    futures.add(world.getChunkStore().getChunkSectionReferenceAtBlockAsync(
+                        chunkX * 32, 1, chunkZ * 32, 4));
+                    futures.add(world.getChunkStore().getChunkSectionReferenceAtBlockAsync(
+                        chunkX * 32, 17, chunkZ * 32, 4));
                 }
             }
 
             CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
                 .whenComplete((ignored, throwable) -> world.execute(() -> {
                     if (throwable != null) {
-                        fail("fixture chunks could not be loaded", throwable);
+                        fail("fixture chunks or ticking sections could not be loaded", throwable);
                         return;
+                    }
+                    for (CompletableFuture<Ref<ChunkStore>> future : futures) {
+                        Ref<ChunkStore> loaded = future.getNow(null);
+                        if (loaded == null || !loaded.isValid()) {
+                            fail("fixture chunk or ticking section returned no valid reference", null);
+                            return;
+                        }
                     }
                     placeTreesAndScheduleStart(world);
                 }));
@@ -200,26 +216,40 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
             System.out.println("CIV_WOODCUTTER_SPAWN_DIAG stage=before roleIndex=" + roleIndex
                 + " role=" + ROLE + " position=" + requestedStart + " world=" + world.getName()
                 + " woodBlocks=" + initialWoodBlocks);
-            var spawned = NPCPlugin.get().spawnNPC(
-                world.getEntityStore().getStore(),
-                ROLE,
-                null,
-                requestedStart,
-                new Rotation3f()
+            java.util.concurrent.atomic.AtomicReference<Ref<EntityStore>> spawnedRef =
+                new java.util.concurrent.atomic.AtomicReference<>();
+            int sx = (int) Math.floor(requestedStart.x());
+            int sy = (int) Math.floor(requestedStart.y());
+            int sz = (int) Math.floor(requestedStart.z());
+            var chunks = world.getChunkStore();
+            var chunkRef = chunks.getChunkReference(ChunkUtil.indexChunkFromBlock(sx, sz));
+            var sectionRef = chunks.getChunkSectionReferenceAtBlock(sx, sy, sz);
+            var nonTickingType = com.hypixel.hytale.server.core.universe.world.storage.ChunkStore.REGISTRY
+                .getNonTickingComponentType();
+            boolean chunkTicking = chunkRef != null && chunkRef.isValid()
+                && !chunks.getStore().getArchetype(chunkRef).contains(nonTickingType);
+            boolean sectionTicking = sectionRef != null && sectionRef.isValid()
+                && !chunks.getStore().getArchetype(sectionRef).contains(nonTickingType);
+            System.out.println("CIV_WOODCUTTER_SPAWN_CHUNKS chunkRef="
+                + (chunkRef != null && chunkRef.isValid()) + " chunkTicking=" + chunkTicking
+                + " sectionRef=" + (sectionRef != null && sectionRef.isValid())
+                + " sectionTicking=" + sectionTicking);
+
+            var validation = NPCPlugin.get().spawnNPCWithSpaceValidation(
+                world.getEntityStore().getStore(), ROLE, null, requestedStart, new Rotation3f(),
+                (npc, ref, store) -> spawnedRef.set(ref)
             );
-            boolean returnedPair = spawned != null;
-            boolean returnedRef = returnedPair && spawned.first() != null;
-            boolean validRef = returnedRef && spawned.first().isValid();
+            Ref<EntityStore> ref = spawnedRef.get();
+            boolean validRef = ref != null && ref.isValid();
             System.out.println("CIV_WOODCUTTER_SPAWN_DIAG stage=after roleIndex=" + roleIndex
-                + " returnedPair=" + returnedPair + " returnedRef=" + returnedRef
-                + " validRef=" + validRef + " returnedNpc=" + (returnedPair && spawned.second() != null));
+                + " validation=" + validation + " returnedRef=" + (ref != null)
+                + " validRef=" + validRef);
             if (!validRef) {
                 fail("Hytale could not spawn Civ_Inhabitant; roleIndex=" + roleIndex
-                    + " returnedPair=" + returnedPair + " returnedRef=" + returnedRef, null);
+                    + " validation=" + validation + " returnedRef=" + (ref != null), null);
                 return;
             }
 
-            Ref<EntityStore> ref = spawned.first();
             if (!unitRegistry.toggleClaim(ref) || !unitRegistry.isClaimed(ref)) {
                 fail("spawned NPC could not be claimed as a Civ inhabitant", null);
                 return;
