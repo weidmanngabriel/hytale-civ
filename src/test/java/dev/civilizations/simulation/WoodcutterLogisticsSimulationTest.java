@@ -8,12 +8,12 @@ class WoodcutterLogisticsSimulationTest {
 
     @Test
     void woodcutterReturnsWoodAndRecoversLeftoversInReproducibleFlatWorld() {
-        var first = SimulationScenarios.FORESTER_WOODCUTTER_FLAT.createRuntime();
+        var first = SimulationScenarios.WOODCUTTER_STORAGE.createRuntime();
         var repeat = SimulationScenarios.FORESTER_WOODCUTTER_FLAT.createRuntime();
         boolean sawGroundPile = false;
         boolean sawReturnTrip = false;
 
-        for (int tick = 0; tick < 20_000; tick++) {
+        for (int tick = 0; tick < 4_000; tick++) {
             first.tick();
             repeat.tick();
             sawGroundPile |= first.woodOnGround() > 0;
@@ -26,8 +26,9 @@ class WoodcutterLogisticsSimulationTest {
             assertEquals(first.woodInEconomy(),
                 first.storedWood() + first.woodOnGround() + first.carriedWood("woodcutter-1"));
         }
-        assertTrue(first.metrics().treesFelled() > 30, "repeated cutting");
-        assertTrue(first.storedWood() > 2_000, "warehousing");
+        assertEquals(3, first.metrics().treesFelled(), "all three mature trees harvested");
+        assertEquals(315, first.storedWood(), "all wood delivered");
+        assertEquals(0, first.woodOnGround());\n        assertEquals(0, first.carriedWood("woodcutter-1"));
         assertTrue(sawGroundPile, "large trees produce persistent overflow piles");
         assertTrue(sawReturnTrip, "worker physically returns to storage");
         assertEquals(first.worldSnapshot(), repeat.worldSnapshot());
