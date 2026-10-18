@@ -54,7 +54,9 @@ public final class ForesterWorkSystem extends DelayedEntitySystem<EntityStore> {
         Ref<EntityStore> ref = chunk.getReferenceTo(index);
         CivUnitRegistry.UnitKey key = units.keyOf(ref);
         if (!ref.isValid() || units.getProfession(ref) != Profession.FORESTER) {
-            release(key, ref);
+            // Other professions own their own native movement intents. Only release
+            // work that this system previously claimed for this particular worker.
+            if (key != null && planners.containsKey(key)) release(key, ref);
             return;
         }
         if (!activities.autonomousWorkAllowed(ref)) {
