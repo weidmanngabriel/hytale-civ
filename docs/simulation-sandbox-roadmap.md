@@ -82,3 +82,8 @@ Dieses Dokument trennt **im Branch implementiert** von **abschließend abgenomme
 - [Main-CI 38068322122](https://github.com/weidmanngabriel/hytale-civ/actions/runs/38068322122) für diesen Merge erfolgreich: Java-Test/Build, Browser Viewer, MCP auf Ubuntu/Windows und Publish GitHub Release. **Phase 5B ist damit am 10. Oktober 2026 abgeschlossen.**
 - Dieser Roadmap-Nachtrag wird separat nach der geprüften Main-CI integriert; er ändert keinen Gameplay-Code.
 - Unabhängig offen: realer Weltexport, native Navigation/Placementphysik und Nutzerabnahme auf großem Echtweltarchiv. Diese Punkte gehören nicht zum Core-Abschluss von Phase 5B.
+
+
+## Grundsatz für neue echte Welt-Szenarien (18.10.2026)
+
+Bestehende Miner-Szenarien, die Flat-Fixtures und die vereinfachte `full-region-materials.b64` bleiben **unverändert**. Neue realitätsnahe Szenarien sollen nach Möglichkeit dasselbe unveränderte Originalarchiv `src/test/resources/fixtures/region.civworld.gz` verwenden. Berufsbezogene Sichten (z. B. Boden-/Baumklassifikation für Förster und Holzfäller) aus dessen nativen Blocknamen zur Laufzeit ableiten, nicht als weitere persistente reduzierte Weltversionen ablegen. Jeder Szenariostart erzeugt einen isolierten veränderbaren Laufzeitzustand; die Originaldatei wird nicht verändert. Konservative Klassifizierungen sind kein Ersatz für nachgewiesene native Hytale-Interaktionsregeln. Bestehende Simulationen werden **nicht rückwirkend migriert**, solange kein gesonderter Auftrag dazu erteilt wird.
