@@ -1,13 +1,16 @@
 package dev.civilizations.core;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
-/** Engine-independent, reproducible search for a forester's next planting site. */
+/** Engine-independent, seeded Phase-1 natural planting strategy. */
 public final class ForesterPlantingPlanner {
+    public static final int PHASE_ONE_RADIUS = 24;
+    public static final int PHASE_ONE_SPACING = 4;
+    private static final int ATTEMPTS = 64;
     private final BlockPosition home;
     private final int radius;
     private final int spacing;
@@ -21,34 +24,53 @@ public final class ForesterPlantingPlanner {
         this.random = new Random(seed);
     }
 
+    /** True three-dimensional sphere, including its boundary. Uses long arithmetic to avoid overflow. */
+    public boolean contains(BlockPosition position) {
+        Objects.requireNonNull(position, "position");
+        long dx = (long) position.x() - home.x();
+        long dy = (long) position.y() - home.y();
+        long dz = (long) position.z() - home.z();
+        return dx * dx + dy * dy + dz * dz <= (long) radius * radius;
+    }
+
     /**
-     * A bounded local random walk: nearby destinations are more likely than distant ones.
-     * The adapter supplies valid standing/planting locations; reservations exclude concurrent picks.
+     * The engine supplies the highest open-sky standing/planting location for each X/Z column.
+     * A null result means that the column is not a plantable surface. Native soil, trees,
+     * protected volumes and fluid rules are never inferred from generic Core block names.
      */
-    public BlockPosition choose(BlockPosition current, Set<BlockPosition> occupied,
-                                Set<BlockPosition> reserved, java.util.function.Predicate<BlockPosition> valid) {
+    public BlockPosition chooseSurface(BlockPosition current, Set<BlockPosition> occupied,
+                                       Set<BlockPosition> reserved,
+                                       Function<BlockPosition, BlockPosition> resolveSurface,
+                                       Predicate<BlockPosition> valid) {
         Objects.requireNonNull(current, "current");
         Objects.requireNonNull(occupied, "occupied");
         Objects.requireNonNull(reserved, "reserved");
+        Objects.requireNonNull(resolveSurface, "resolveSurface");
         Objects.requireNonNull(valid, "valid");
-        List<BlockPosition> candidates = new ArrayList<>();
-        int near = Math.min(radius, 7);
-        for (int attempt = 0; attempt < 20; attempt++) {
-            int localRadius = attempt < 16 ? near : radius;
+        for (int attempt = 0; attempt < ATTEMPTS; attempt++) {
+            int localRadius = attempt < 48 ? Math.min(radius, 8) : radius;
             int x = current.x() + random.nextInt(2 * localRadius + 1) - localRadius;
             int z = current.z() + random.nextInt(2 * localRadius + 1) - localRadius;
-            if (Math.abs(x - home.x()) > radius || Math.abs(z - home.z()) > radius) continue;
-            BlockPosition candidate = new BlockPosition(x, home.y(), z);
-            if (reserved.contains(candidate) || !valid.test(candidate)) continue;
+            BlockPosition candidate = resolveSurface.apply(new BlockPosition(x, home.y(), z));
+            if (candidate == null || !contains(candidate) || reserved.contains(candidate) || !valid.test(candidate))
+                continue;
             boolean spaced = true;
             for (BlockPosition tree : occupied) {
-                long dx = x - tree.x(), dz = z - tree.z();
-                if (dx * dx + dz * dz < (long) spacing * spacing) { spaced = false; break; }
+                long dx = (long) x - tree.x(), dz = (long) z - tree.z();
+                if (dx * dx + dz * dz < (long) spacing * spacing) {
+                    spaced = false;
+                    break;
+                }
             }
-            if (!spaced) continue;
-            candidates.add(candidate);
-            break;
+            if (spaced) return candidate;
         }
-        return candidates.isEmpty() ? null : candidates.get(0);
+        return null;
+    }
+
+    /** Compatibility for the existing flat-world headless scenarios. */
+    public BlockPosition choose(BlockPosition current, Set<BlockPosition> occupied,
+                                Set<BlockPosition> reserved, Predicate<BlockPosition> valid) {
+        return chooseSurface(current, occupied, reserved,
+            column -> new BlockPosition(column.x(), home.y(), column.z()), valid);
     }
 }

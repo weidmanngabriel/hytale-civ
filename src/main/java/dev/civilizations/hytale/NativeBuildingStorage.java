@@ -24,7 +24,31 @@ public final class NativeBuildingStorage {
         return block.getItemContainer().addItemStack(stack, true, true, true).succeeded();
     }
 
-    private ItemContainerBlock findContainer(World world, Vector3i marker) {
+    /**
+     * Repairs a just-authored prefab chest lacking its native block entity. This is
+     * only safe before the building can receive player items; never replace an
+     * existing, populated native container.
+     */
+    public boolean initializeNewPrefabChest(World world, Vector3i marker) {
+        if (world == null || marker == null) return false;
+        if (findContainer(world, marker) != null) return true;
+        for (int x = marker.x - SEARCH_RADIUS; x <= marker.x + SEARCH_RADIUS; x++) {
+            for (int y = marker.y - 1; y <= marker.y + 1; y++) {
+                for (int z = marker.z - SEARCH_RADIUS; z <= marker.z + SEARCH_RADIUS; z++) {
+                    var type = HytaleLoadedBlocks.blockType(world, x, y, z);
+                    String id = type == null ? null : type.getId();
+                    if (id == null || !id.contains("Chest")) continue;
+                    if (!HytaleBlockMutations.setBlock(world,x,y,z,com.hypixel.hytale.server.core.asset.type.blocktype.config.BlockType.EMPTY)) return false;
+                    if (!HytaleBlockMutations.setBlock(world,x,y,z,type)) return false;
+                    return findContainer(world, marker) != null;
+                }
+            }
+        }
+        return false;
+    }
+
+    public ItemContainerBlock findContainer(World world, Vector3i marker) {
+        if (world == null || marker == null) return null;
         ItemContainerBlock best = null;
         int bestDistance = Integer.MAX_VALUE;
         for (int x = marker.x - SEARCH_RADIUS; x <= marker.x + SEARCH_RADIUS; x++) {

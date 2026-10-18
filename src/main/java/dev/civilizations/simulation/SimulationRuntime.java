@@ -4,6 +4,7 @@ import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.ConstructionJob;
 import dev.civilizations.core.FarmBuilding;
 import dev.civilizations.core.ForesterPlantingPlanner;
+import dev.civilizations.core.ForesterWorkController;
 import dev.civilizations.core.InhabitantActivity;
 import dev.civilizations.core.MovementIntent;
 import dev.civilizations.core.Profession;
@@ -12,6 +13,7 @@ import dev.civilizations.core.WoodCargoLedger;
 import dev.civilizations.core.WorkDecisionSchedule;
 import dev.civilizations.core.WorldPosition;
 import dev.civilizations.simulation.world.VoxelWorld;
+import dev.civilizations.simulation.world.ForesterSnapshotSurface;
 import dev.civilizations.simulation.world.WorldArchive;
 import dev.civilizations.core.MineFrontCoordinator;
 import dev.civilizations.core.MineNormalTaskSelector;
@@ -60,10 +62,12 @@ public final class SimulationRuntime {
     private final SimulationMetrics metrics = new SimulationMetrics();
     private final Map<String, Resident> residents = new LinkedHashMap<>();
     private final Map<BlockPosition, TreeState> trees = new LinkedHashMap<>();
+    private final Map<BlockPosition, WorldPosition> importedTreeWorkPoints = new LinkedHashMap<>();
     private final Map<String, ConstructionSiteState> constructionSites = new LinkedHashMap<>();
     private final Map<String, List<WorldPosition>> farmFields = new LinkedHashMap<>();
 
     private final Map<String, ForesterState> foresters = new LinkedHashMap<>();
+    private final ForesterWorkController<String> foresterController = new ForesterWorkController<>();
     private final Map<BlockPosition, Double> growingTrees = new LinkedHashMap<>();
     private final WoodCargoLedger wood = new WoodCargoLedger();
     private final Map<String, BlockPosition> pileTargets = new LinkedHashMap<>();
@@ -91,6 +95,7 @@ public final class SimulationRuntime {
 
     private long tickCount;
     private VoxelWorld voxelWorld;
+    private ForesterSnapshotSurface rawForesterSurface;
     private MineLab mineLab;
 
     public SimulationRuntime() {
@@ -112,6 +117,11 @@ public final class SimulationRuntime {
     public void setVoxelWorld(VoxelWorld world) {
         voxelWorld = Objects.requireNonNull(world);
         for (Resident resident : residents.values()) resident.route = List.of();
+    }
+
+    /** Optional raw-block observation layer over the existing imported VoxelWorld. */
+    public void setForesterSnapshotSurface(ForesterSnapshotSurface surface) {
+        rawForesterSurface = Objects.requireNonNull(surface);
     }
 
     /** Starts deterministic Core-planned excavation against the optional imported voxel adapter. */
@@ -174,7 +184,7 @@ public final class SimulationRuntime {
     public void addForester(String id, WorldPosition position, BlockPosition home, long seed) {
         requireAvailableResidentId(id);
         residents.put(id, new Resident(id, Profession.FORESTER, position, null, null, null));
-        foresters.put(id, new ForesterState(new ForesterPlantingPlanner(home, 18, 4, seed)));
+        foresters.put(id, new ForesterState(new ForesterPlantingPlanner(home, ForesterPlantingPlanner.PHASE_ONE_RADIUS, ForesterPlantingPlanner.PHASE_ONE_SPACING, seed)));
     }
 
     public int growingTreeCount() { return growingTrees.size(); }
@@ -202,6 +212,15 @@ public final class SimulationRuntime {
                 resident.workDecisions.requestImmediate();
             }
         }
+    }
+
+    /** A real snapshot trunk may be surrounded by impassable leaves and terrain. */
+    public void addImportedTree(BlockPosition trunk, WorldPosition accessibleWorkPoint) {
+        Objects.requireNonNull(accessibleWorkPoint, "accessibleWorkPoint");
+        if (voxelWorld == null || !voxelWorld.canStand(blockAt(accessibleWorkPoint)))
+            throw new IllegalArgumentException("Imported tree requires a walkable work point");
+        addTree(trunk);
+        importedTreeWorkPoints.put(trunk, accessibleWorkPoint);
     }
 
     public void addConstructionSite(String siteId, WorldPosition workPoint, int totalSteps) {
@@ -378,6 +397,7 @@ public final class SimulationRuntime {
         resident.activity.advance(tickSeconds);
 
         MovementIntent manual = resident.activity.manualMovementIntent();
+        if (manual != null && resident.profession == Profession.FORESTER) foresterController.interrupt(resident.id);
         if (manual != null) {
             if (mineLab != null && resident.profession == Profession.MINER && !resident.minerSuspended) {
                 mineLab.releaseWorker(resident.id);
@@ -406,36 +426,52 @@ public final class SimulationRuntime {
     }
 
     private void tickForester(Resident resident) {
-        ForesterState forest = foresters.get(resident.id);
-        if (forest.target == null) {
-            if (resident.workDecisions.advance(tickSeconds) == WorkDecisionSchedule.DecisionKind.NONE) return;
-            Set<BlockPosition> occupied = new HashSet<>(trees.keySet());
-            occupied.addAll(growingTrees.keySet());
-            for (ForesterState other : foresters.values()) if (other.target != null) occupied.add(other.target);
-            BlockPosition candidate = forest.planner.choose(blockAt(resident.position), occupied,
-                Set.of(), p -> !trees.containsKey(p) && !growingTrees.containsKey(p)
-                    && (voxelWorld == null || voxelWorld.canStand(p)));
-            if (candidate == null) {
-                resident.workDecisions.scheduleRetry(DEFAULT_RETRY_SECONDS);
-                return;
+        ForesterState forester = foresters.get(resident.id);
+        ForesterWorkController.Snapshot before = foresterController.snapshot(resident.id);
+        if (before.target() == null
+            && resident.workDecisions.advance(tickSeconds) == WorkDecisionSchedule.DecisionKind.NONE) return;
+        var after = foresterController.tick(resident.id, new ForesterWorkController.Engine() {
+            @Override public int saplingsAvailable() { return forester.saplings; }
+            @Override public BlockPosition selectSite(Set<BlockPosition> reserved) {
+                Set<BlockPosition> occupied = new HashSet<>(trees.keySet());
+                occupied.addAll(growingTrees.keySet());
+                if (rawForesterSurface != null) occupied.addAll(rawForesterSurface.observedTrunkBlocks());
+                occupied.addAll(reserved);
+                return forester.planner.chooseSurface(blockAt(resident.position), occupied,
+                    reserved, column -> voxelWorld == null
+                        ? new BlockPosition(column.x(), 0, column.z())
+                        : rawForesterSurface != null
+                            ? rawForesterSurface.observedExposedSoil(column.x(), column.z())
+                            : voxelWorld.openSkySurface(column.x(), column.z()),
+                    p -> !trees.containsKey(p) && !growingTrees.containsKey(p)
+                        && (voxelWorld == null || voxelWorld.canStand(p)));
             }
-            forest.target = candidate;
-        }
-        if (advanceMovement(resident, blockCenter(forest.target))) {
-            BlockPosition planted = forest.target;
-            forest.target = null;
-            growingTrees.put(planted, 0.0);
+            @Override public boolean siteStillValid(BlockPosition target) {
+                return !trees.containsKey(target) && !growingTrees.containsKey(target)
+                    && (voxelWorld == null || voxelWorld.canStand(target));
+            }
+            @Override public ForesterWorkController.Navigation navigate(BlockPosition target) {
+                if (advanceMovement(resident, blockCenter(target))) return ForesterWorkController.Navigation.ARRIVED;
+                return resident.navigationBlocked ? ForesterWorkController.Navigation.FAILED
+                    : ForesterWorkController.Navigation.MOVING;
+            }
+            @Override public boolean plant(BlockPosition target) {
+                if (forester.saplings <= 0) return false;
+                forester.saplings--;
+                growingTrees.put(target, 0.0);
+                return true;
+            }
+        });
+        if (after.target() == null) {
             clearMovement(resident);
-            resident.workDecisions.scheduleRetry(0.5);
-        } else if (resident.navigationBlocked) {
-            forest.target = null;
-            resident.workDecisions.scheduleRetry(DEFAULT_RETRY_SECONDS);
+            resident.workDecisions.scheduleRetry(after.state() == ForesterWorkController.State.SELECTING
+                ? 0.5 : DEFAULT_RETRY_SECONDS);
         }
     }
 
     private static final class ForesterState {
         final ForesterPlantingPlanner planner;
-        BlockPosition target;
+        int saplings = 100; // Headless-only finite fixture; native inventory is adapter-owned.
         ForesterState(ForesterPlantingPlanner planner) { this.planner = planner; }
     }
 
@@ -463,7 +499,8 @@ public final class SimulationRuntime {
                 return;
             }
             tree.reservedBy = resident.id;
-            WorldPosition interactionPoint = interactionPoint(tree.position, resident.position);
+            WorldPosition interactionPoint = importedTreeWorkPoints.getOrDefault(tree.position,
+                interactionPoint(tree.position, resident.position));
             if (!job.assignTarget(new WoodcutterJob.WorkTarget(tree.position, interactionPoint))) {
                 tree.reservedBy = null;
             }
@@ -663,10 +700,10 @@ public final class SimulationRuntime {
         for (TreeState tree : trees.values()) {
             if (tree.reservedBy != null) continue;
             double distance = distanceSquared(position, blockCenter(tree.position));
-            if (distance < bestDistance) {
-                best = tree;
-                bestDistance = distance;
-            }
+            if (distance >= bestDistance) continue;
+            if (voxelWorld != null && interactionPoint(tree.position, position) == null) continue;
+            best = tree;
+            bestDistance = distance;
         }
         return best;
     }
@@ -767,7 +804,29 @@ public final class SimulationRuntime {
         return false;
     }
 
-    private static WorldPosition interactionPoint(BlockPosition tree, WorldPosition worker) {
+    /** Use a reachable neighbor of the imported trunk instead of a blocked trunk-centered target. */
+    private WorldPosition interactionPoint(BlockPosition tree, WorldPosition worker) {
+        if (voxelWorld != null) {
+            BlockPosition from = blockAt(worker);
+            BlockPosition best = null;
+            int bestLength = Integer.MAX_VALUE;
+            for (int d = 1; d <= 2; d++) {
+                for (int dx = -d; dx <= d; dx++) for (int dz = -d; dz <= d; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != d) continue;
+                    for (int dy = -3; dy <= 3; dy++) {
+                        BlockPosition candidate = new BlockPosition(tree.x()+dx,tree.y()+dy,tree.z()+dz);
+                        if (!voxelWorld.canStand(candidate)) continue;
+                        var path = voxelWorld.path(from,candidate);
+                        if (!path.isEmpty() && path.size()<bestLength) {
+                            best=candidate;
+                            bestLength=path.size();
+                        }
+                    }
+                }
+                if (best != null) break;
+            }
+            return best==null?null:blockCenter(best);
+        }
         double centerX = tree.x() + 0.5;
         double centerZ = tree.z() + 0.5;
         double dx = worker.x() - centerX;

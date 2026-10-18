@@ -6,6 +6,31 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ForesterPlantingPlannerTest {
+    @Test void sphereIncludesVerticalBoundaryButRejectsCylinderCorners() {
+        var planner = new ForesterPlantingPlanner(new BlockPosition(0,0,0), 24, 4, 9L);
+        assertTrue(planner.contains(new BlockPosition(0,24,0)));
+        assertFalse(planner.contains(new BlockPosition(0,25,0)));
+        assertFalse(planner.contains(new BlockPosition(24,1,0)));
+        assertFalse(planner.contains(new BlockPosition(17,17,0)));
+    }
+
+    @Test void heightResolverAndSeedProduceIdenticalTerrainSelections() {
+        var a = new ForesterPlantingPlanner(new BlockPosition(0,0,0), 24, 4, 19L);
+        var b = new ForesterPlantingPlanner(new BlockPosition(0,0,0), 24, 4, 19L);
+        for (int n=0; n<20; n++) {
+            var x=a.chooseSurface(new BlockPosition(0,0,0), Set.of(), Set.of(),
+                column -> new BlockPosition(column.x(), 5, column.z()), p -> true);
+            var y=b.chooseSurface(new BlockPosition(0,0,0), Set.of(), Set.of(),
+                column -> new BlockPosition(column.x(), 5, column.z()), p -> true);
+            assertEquals(x,y);
+            assertNotNull(x);
+            assertEquals(5,x.y());
+            assertTrue(a.contains(x));
+        }
+        assertNull(a.chooseSurface(new BlockPosition(0,0,0), Set.of(), Set.of(),
+            column -> new BlockPosition(column.x(), 30, column.z()), p -> true));
+    }
+
     @Test void seededSelectionIsDeterministicAndWithinHomeArea() {
         var a = new ForesterPlantingPlanner(new BlockPosition(0,0,0), 18, 4, 19L);
         var b = new ForesterPlantingPlanner(new BlockPosition(0,0,0), 18, 4, 19L);

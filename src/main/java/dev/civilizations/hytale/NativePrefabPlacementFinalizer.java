@@ -99,6 +99,20 @@ final class NativePrefabPlacementFinalizer {
                 .map(NativePrefabPlacementFinalizer::toMarker)
                 .toList();
 
+            if ("forester_hut".equals(site.candidate().definition().id())) {
+                NativeBuildingStorage storage = new NativeBuildingStorage();
+                boolean found = false;
+                for (PrefabPlacementService.PlacedMarker marker : markers) {
+                    if (!marker.hasTag("civ.type","output_storage")) continue;
+                    found = true;
+                    if (!storage.initializeNewPrefabChest(world,marker.position())) {
+                        System.out.println("[Civ Buildings] WARNING forester native chest block entity not initialized"
+                            +" site="+site.id()+" marker="+marker.position());
+                    }
+                }
+                if (!found) System.out.println("[Civ Buildings] WARNING forester output_storage marker absent site="+site.id());
+            }
+
             System.out.println(
                 "[Civ Buildings] finalized prefab site=" + site.id()
                     + " entities=" + prefabEntityIds.size()

@@ -80,6 +80,21 @@ public final class VoxelWorld {
         if (changeHistory.size() > MAX_CHANGE_HISTORY) changeHistory.removeFirst();
     }
 
+    /** Finds the first standable point beneath open sky, never a cave floor beneath a roof. */
+    public BlockPosition openSkySurface(int x, int z) {
+        if (x < bounds.minX() || x >= bounds.maxX() || z < bounds.minZ() || z >= bounds.maxZ())
+            return null;
+        for (int y = bounds.maxY() - 1; y >= bounds.minY(); y--) {
+            var at = material(new BlockPosition(x, y, z));
+            if (at != WorldArchive.Material.AIR) {
+                if (at != WorldArchive.Material.SOLID) return null;
+                var feet = new BlockPosition(x, y + 1, z);
+                return canStand(feet) ? feet : null;
+            }
+        }
+        return null;
+    }
+
     public boolean canStand(BlockPosition feet) {
         BlockPosition head=new BlockPosition(feet.x(),feet.y()+1,feet.z());
         BlockPosition ground=new BlockPosition(feet.x(),feet.y()-1,feet.z());

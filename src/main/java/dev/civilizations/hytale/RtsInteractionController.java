@@ -1028,6 +1028,7 @@ public final class RtsInteractionController {
         return new PersonActionsPage(
             playerRef,
             () -> assignWoodcutter(playerRef, target),
+            () -> assignForester(playerRef, target),
             () -> assignMinerProfession(playerRef, target),
             () -> assignConstructionWorker(playerRef, target),
             () -> assignFarmerProfession(playerRef, target),
@@ -1064,6 +1065,7 @@ public final class RtsInteractionController {
             new PersonActionsPage(
                 playerRef,
                 () -> assignWoodcutter(playerRef, selected),
+                () -> assignForester(playerRef, selected),
                 () -> assignMinerProfession(playerRef, selected),
                 () -> assignConstructionWorker(playerRef, selected),
                 () -> assignFarmerProfession(playerRef, selected),
@@ -1161,6 +1163,16 @@ public final class RtsInteractionController {
         unitRegistry.cancelMoveTarget(selected);
         unitRegistry.assignProfession(selected, Profession.MINER);
         playerRef.sendMessage(Message.raw("Minenabbauer zugewiesen."));
+    }
+
+    private void assignForester(PlayerRef playerRef, Ref<EntityStore> selected) {
+        if (!unitRegistry.isClaimed(selected)) return;
+        farmRegistry.unassignFarmer(selected);
+        unitRegistry.clearWorkplace(selected);
+        activityRegistry.cancelManualMove(selected);
+        unitRegistry.cancelMoveTarget(selected);
+        unitRegistry.assignProfession(selected, Profession.FORESTER);
+        playerRef.sendMessage(Message.raw("Förster zugewiesen. In der Nähe einer Försterei arbeitet er automatisch mit den Setzlingen aus ihrer Truhe."));
     }
 
     private void assignWoodcutter(PlayerRef playerRef, Ref<EntityStore> selected) {

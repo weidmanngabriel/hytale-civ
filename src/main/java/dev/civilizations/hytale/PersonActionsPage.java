@@ -20,6 +20,7 @@ import javax.annotation.Nonnull;
 public final class PersonActionsPage extends InteractiveCustomUIPage<PersonActionsPage.ActionData> {
 
     private static final String ACTION_WOODCUTTER = "woodcutter";
+    private static final String ACTION_FORESTER = "forester";
     private static final String ACTION_MINER = "miner";
     private static final String ACTION_CONSTRUCTION_WORKER = "construction_worker";
     private static final String ACTION_FARMER = "farmer";
@@ -27,6 +28,7 @@ public final class PersonActionsPage extends InteractiveCustomUIPage<PersonActio
     private static final String ACTION_INVENTORY = "inventory";
 
     private final Runnable assignWoodcutter;
+    private final Runnable assignForester;
     private final Runnable assignMiner;
     private final Runnable assignConstructionWorker;
     private final Runnable assignFarmer;
@@ -36,6 +38,7 @@ public final class PersonActionsPage extends InteractiveCustomUIPage<PersonActio
     public PersonActionsPage(
         PlayerRef playerRef,
         Runnable assignWoodcutter,
+        Runnable assignForester,
         Runnable assignMiner,
         Runnable assignConstructionWorker,
         Runnable assignFarmer,
@@ -44,6 +47,7 @@ public final class PersonActionsPage extends InteractiveCustomUIPage<PersonActio
     ) {
         super(playerRef, CustomPageLifetime.CanDismissOrCloseThroughInteraction, ActionData.CODEC);
         this.assignWoodcutter = assignWoodcutter;
+        this.assignForester = assignForester;
         this.assignMiner = assignMiner;
         this.assignConstructionWorker = assignConstructionWorker;
         this.assignFarmer = assignFarmer;
@@ -60,6 +64,7 @@ public final class PersonActionsPage extends InteractiveCustomUIPage<PersonActio
     ) {
         commands.append("Pages/CivPersonActions.ui");
         events.addEventBinding(CustomUIEventBindingType.Activating, "#WoodcutterButton", EventData.of("Action", ACTION_WOODCUTTER), false);
+        events.addEventBinding(CustomUIEventBindingType.Activating, "#ForesterButton", EventData.of("Action", ACTION_FORESTER), false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#MinerButton", EventData.of("Action", ACTION_MINER), false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#FarmerButton", EventData.of("Action", ACTION_FARMER), false);
         events.addEventBinding(CustomUIEventBindingType.Activating, "#SoldierButton", EventData.of("Action", ACTION_SOLDIER), false);
@@ -78,6 +83,9 @@ public final class PersonActionsPage extends InteractiveCustomUIPage<PersonActio
             openInventory.run();
         } else if (ACTION_WOODCUTTER.equals(data.action)) {
             assignWoodcutter.run();
+            close();
+        } else if (ACTION_FORESTER.equals(data.action)) {
+            assignForester.run();
             close();
         } else if (ACTION_MINER.equals(data.action)) {
             assignMiner.run();
