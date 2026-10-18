@@ -700,10 +700,10 @@ public final class SimulationRuntime {
         for (TreeState tree : trees.values()) {
             if (tree.reservedBy != null) continue;
             double distance = distanceSquared(position, blockCenter(tree.position));
-            if (distance < bestDistance) {
-                best = tree;
-                bestDistance = distance;
-            }
+            if (distance >= bestDistance) continue;
+            if (voxelWorld != null && interactionPoint(tree.position, position) == null) continue;
+            best = tree;
+            bestDistance = distance;
         }
         return best;
     }
@@ -804,7 +804,29 @@ public final class SimulationRuntime {
         return false;
     }
 
-    private static WorldPosition interactionPoint(BlockPosition tree, WorldPosition worker) {
+    /** Use a reachable neighbor of the imported trunk instead of a blocked trunk-centered target. */
+    private WorldPosition interactionPoint(BlockPosition tree, WorldPosition worker) {
+        if (voxelWorld != null) {
+            BlockPosition from = blockAt(worker);
+            BlockPosition best = null;
+            int bestLength = Integer.MAX_VALUE;
+            for (int d = 1; d <= 2; d++) {
+                for (int dx = -d; dx <= d; dx++) for (int dz = -d; dz <= d; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != d) continue;
+                    for (int dy = -3; dy <= 3; dy++) {
+                        BlockPosition candidate = new BlockPosition(tree.x()+dx,tree.y()+dy,tree.z()+dz);
+                        if (!voxelWorld.canStand(candidate)) continue;
+                        var path = voxelWorld.path(from,candidate);
+                        if (!path.isEmpty() && path.size()<bestLength) {
+                            best=candidate;
+                            bestLength=path.size();
+                        }
+                    }
+                }
+                if (best != null) break;
+            }
+            return best==null?null:blockCenter(best);
+        }
         double centerX = tree.x() + 0.5;
         double centerZ = tree.z() + 0.5;
         double dx = worker.x() - centerX;
