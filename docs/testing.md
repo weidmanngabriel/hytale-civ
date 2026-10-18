@@ -370,3 +370,7 @@ Wenn Simulator, Szenario oder simulierte Core-Regeln geändert werden, vor dem P
 ### Holzlager-Simulation
 
 `woodcutter-storage` prüft isoliert einen Holzfäller, drei bereits ausgewachsene Bäume, zwei simulierte Slots mit je 100 Einheiten und ein Lager. Baum-Erträge sind reproduzierbar zwischen 60 und 140 Holz (Erwartungswert 100); nach vollständigem Fällen wird Holz aufgenommen, Überschuss bleibt als logischer Holzstapel zurück, und der Holzfäller liefert im Lager ab. Die konservierte Menge umfasst Lager, Traglast und Holzstapel; Tests prüfen Teilaufnahme, Abholung nach Transport, Nachlieferung und deterministischen Ablauf. Dieses Szenario benutzt weder Förster noch natives Hytale-Inventar. Lokaler Test vor GitHub-Upload ist Pflicht; siehe `docs/development.md`.
+
+### Hytale Local: Woodcutter-Spawn und Asset-Kompatibilität
+
+Das `woodcutter`-Szenario muss die gesamte Spawn-Voraussetzung prüfen: eine aktive Chunk-Spalte, aktive Y-Sektion, ein erfolgreicher nativer Spawn-Test, gültiger Entity-Verweis und erfolgreiches Claimen. In einer isolierten Welt ohne Spieler werden Chunks während des Szenarios aktiv gehalten, damit Hytales normales Unloading den Test nicht vorzeitig beendet. Ein separater Fehlerpfad betrifft fehlende Kosmetik-IDs im Wikinger-Aussehenskatalog; der Generator gleicht Pflichtslots gegen das native Register ab. Der Hytale-Local-Test ergänzt die grüne CI, weil weder Tick-/Chunk-Lebenszyklus noch native Skin-Validierung allein durch Java-Kompilierung bestätigt werden.
