@@ -357,3 +357,7 @@ Die standardmäßig genutzte `RealRegionMineFixture.load()` lädt die **gesamte*
 ## Standalone Java-21-Simulator (CI nach Main-Push)
 
 Der unabhängige Workflow `.github/workflows/simulator-build.yml` baut nach jedem Push auf `main` den vorhandenen `core` und `simulation` mit Java 21 als eigene Application-Distribution und führt als Smoke-Test das bestehende Szenario `woodcutter-basic` über 1000 Ticks aus. Dies prüft Laden, Kompilieren und Headless-Ausführung der gemeinsam verwendeten Java-Quellen, jedoch keine Hytale-Engine-Semantik und keine grafische Oberfläche. Der bestehende Java-25-Root-Test-/Buildpfad bleibt unabhängig. Ein lokaler identischer Test lautet: `cd simulator && ../gradlew --project-dir . clean installDist && ./build/install/civ-simulator/bin/civ-simulator woodcutter-basic 1000`.
+
+### Forester and woodcutter regeneration scenario
+
+`forester-woodcutter-flat` extends the existing 64 × 64 flat-world fixture with exactly one forester and one woodcutter. No trees are mature at startup. The forester plants and saplings mature; the woodcutter subsequently finds and fells those trees via the existing Core woodcutter behavior. `ForesterWoodcutterFlatWorldTest` verifies both occupations, deterministic seeded replay, actual tree felling and continuing tree supply over 4000 ticks. It does not test wood inventories or warehouse delivery, which are not implemented in this scenario.
