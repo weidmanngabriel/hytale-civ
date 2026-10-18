@@ -62,6 +62,7 @@ public final class SimulationRuntime {
     private final SimulationMetrics metrics = new SimulationMetrics();
     private final Map<String, Resident> residents = new LinkedHashMap<>();
     private final Map<BlockPosition, TreeState> trees = new LinkedHashMap<>();
+    private final Map<BlockPosition, WorldPosition> importedTreeWorkPoints = new LinkedHashMap<>();
     private final Map<String, ConstructionSiteState> constructionSites = new LinkedHashMap<>();
     private final Map<String, List<WorldPosition>> farmFields = new LinkedHashMap<>();
 
@@ -211,6 +212,15 @@ public final class SimulationRuntime {
                 resident.workDecisions.requestImmediate();
             }
         }
+    }
+
+    /** A real snapshot trunk may be surrounded by impassable leaves and terrain. */
+    public void addImportedTree(BlockPosition trunk, WorldPosition accessibleWorkPoint) {
+        Objects.requireNonNull(accessibleWorkPoint, "accessibleWorkPoint");
+        if (voxelWorld == null || !voxelWorld.canStand(blockAt(accessibleWorkPoint)))
+            throw new IllegalArgumentException("Imported tree requires a walkable work point");
+        addTree(trunk);
+        importedTreeWorkPoints.put(trunk, accessibleWorkPoint);
     }
 
     public void addConstructionSite(String siteId, WorldPosition workPoint, int totalSteps) {
@@ -489,7 +499,8 @@ public final class SimulationRuntime {
                 return;
             }
             tree.reservedBy = resident.id;
-            WorldPosition interactionPoint = interactionPoint(tree.position, resident.position);
+            WorldPosition interactionPoint = importedTreeWorkPoints.getOrDefault(tree.position,
+                interactionPoint(tree.position, resident.position));
             if (!job.assignTarget(new WoodcutterJob.WorkTarget(tree.position, interactionPoint))) {
                 tree.reservedBy = null;
             }
