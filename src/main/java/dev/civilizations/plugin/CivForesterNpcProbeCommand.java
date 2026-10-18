@@ -104,6 +104,19 @@ final class CivForesterNpcProbeCommand extends CommandBase {
         try {
             var chest=storage.findContainer(world,CHEST);
             if(chest==null || chest.getItemContainer()==null){
+                BlockType chestType=HytaleLoadedBlocks.blockType(world,CHEST.x,CHEST.y,CHEST.z);
+                String expected=chestType==null?"null":chestType.getId();
+                var empty=BlockType.EMPTY;
+                boolean removed=dev.civilizations.hytale.HytaleBlockMutations.setBlock(
+                    world,CHEST.x,CHEST.y,CHEST.z,empty);
+                boolean recreated=removed && dev.civilizations.hytale.HytaleBlockMutations.setBlock(
+                    world,CHEST.x,CHEST.y,CHEST.z,chestType);
+                chest=storage.findContainer(world,CHEST);
+                System.out.println("CIV_FORESTER_NPC_CHEST_REPLACE_TEST original="+expected
+                    +" removed="+removed+" recreated="+recreated
+                    +" hasContainer="+(chest!=null&&chest.getItemContainer()!=null));
+            }
+            if(chest==null || chest.getItemContainer()==null){
                 System.out.println("CIV_FORESTER_NPC_CHEST_DIAG_BEGIN");
                 for(int x=-6;x<=1;x++)for(int y=0;y<=4;y++)for(int z=-5;z<=2;z++){
                     BlockType block=HytaleLoadedBlocks.blockType(world,x,y,z);
