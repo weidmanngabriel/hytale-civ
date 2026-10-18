@@ -311,3 +311,16 @@ Nach jedem Push auf `main` erstellt der unabhängige Workflow `.github/workflows
 Das Actions-Artefakt heißt `civ-simulator-<commit-sha>` und enthält ein ZIP gleichen Namens. Nach dem Entpacken des inneren ZIP startet unter Linux `simulator-package/civ-simulator/bin/civ-simulator woodcutter-basic 1000` den Headless-Test. Unter Windows die gleichnamige `.bat`-Datei verwenden. Der zweite Parameter ist die Tickzahl; unterstützte Szenarien stammen aus `SimulationScenarios`. Das Paket benötigt Java 21, aber weder Hytale noch dessen Server-JAR.
 
 Der Export wird separat unter `simulator/` mit `../gradlew --project-dir . clean installDist` gebaut. Für die native Hytale-Mod verbleiben Java 25 und der bestehende Root-Build unverändert. Einen Simulator-Release nur als bestanden ansehen, wenn dessen eigener Smoke-Test und Artefakt-Upload erfolgreich waren; ein grüner Root-CI-Lauf allein bestätigt Java-21-Kompatibilität nicht.
+
+
+## Lokaler Pre-Merge-Ablauf für Simulator und Szenarien
+
+Dieser zusätzliche Ablauf gilt **nur**, wenn der Headless-Simulator, seine Szenarien oder darin getestete gemeinsame Core-Logik verändert werden. Für andere Mod- und Hytale-Arbeiten ist er nicht erforderlich.
+
+1. Das neueste erfolgreiche `civ-simulator-<main-sha>`-ZIP aus der unabhängigen GitHub-Actions-Pipeline herunterladen, äußeres und inneres ZIP entpacken und die Basis-SHA in `simulator-package/commit.txt` prüfen.
+2. Betroffene Quellen aus `core-source/`, `simulation-source/` oder `cli-source/` in einem lokalen Arbeitsverzeichnis unter dem zugehörigen Java-Paketpfad verändern. Abhängige geänderte Klassen gemeinsam kompilieren; das Paket ist keine vollständige Gradle-Projektkopie.
+3. Unter Linux zum Beispiel eine lokal geänderte CLI-Klasse mit Java 21 kompilieren: `javac --release 21 -cp "simulator-package/civ-simulator/lib/*" -d local-overrides local-src/dev/civilizations/simulation/cli/SimulatorCli.java`.
+4. Sicherstellen, dass geänderte Klassen vor der gelieferten JAR geladen werden: `java -cp "local-overrides:simulator-package/civ-simulator/lib/*" dev.civilizations.simulation.cli.SimulatorCli forester-woodcutter-flat 4000` (Windows: `;` statt `:` im Classpath).
+5. Szenarioergebnisse und passende Regressionen lokal prüfen und gegebenenfalls korrigieren. **Erst dann** Änderungen auf einen temporären GitHub-Branch übertragen, PR öffnen und vollständige CI samt Build abwarten. Bei einem erfolgreichen Merge das neue Main-Simulator-Artefakt kontrollieren.
+
+**Validiert am 18.10.2026:** Das ZIP für `c164912e1f7663c4780c4756246117276b670a10` wurde lokal mit Java 21 verwendet. Eine geänderte `SimulatorCli` wurde mit `javac --release 21` neu kompiliert und per Override-Classpath gestartet. Beim Lauf `forester-woodcutter-flat 4000` erschien nachweislich die geänderte Markierung `LOCAL_RECOMPILE_VERIFIED`. Damit ist gezieltes lokales Neubauen/Ausführen bewiesen; ein vollständiger Neu-Build aller Simulator-Quellen aus dem ZIP ist nicht nachgewiesen.
