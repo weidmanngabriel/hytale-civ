@@ -11,6 +11,7 @@
     "deploymentrollback",
     "deploymentreal",
     "foresterassets",
-    "foresterplant"
+    "foresterplant",
+    "foresternpc"
   ]
 }
