@@ -103,7 +103,24 @@ final class CivForesterNpcProbeCommand extends CommandBase {
     private void stockChestAndSpawn(World world,UUID buildingId) {
         try {
             var chest=storage.findContainer(world,CHEST);
-            if(chest==null || chest.getItemContainer()==null){fail("native prefab chest not found near "+CHEST,null);return;}
+            if(chest==null || chest.getItemContainer()==null){
+                System.out.println("CIV_FORESTER_NPC_CHEST_DIAG_BEGIN");
+                for(int x=-6;x<=1;x++)for(int y=0;y<=4;y++)for(int z=-5;z<=2;z++){
+                    BlockType block=HytaleLoadedBlocks.blockType(world,x,y,z);
+                    if(block==null || block.getId()==null || !block.getId().toLowerCase().contains("chest")) continue;
+                    Ref<ChunkStore> section=world.getChunkStore().getChunkSectionReferenceAtBlock(x,y,z);
+                    var comps=section==null||!section.isValid()?null:world.getChunkStore().getStore()
+                        .getComponent(section,com.hypixel.hytale.server.core.universe.world.chunk.section.BlockComponentSection.getComponentType());
+                    Ref<ChunkStore> blockRef=comps==null?null:comps.getBlockReference(ChunkUtil.indexBlock(x,y,z));
+                    var inventory=blockRef==null||!blockRef.isValid()?null:blockRef.getStore().getComponent(
+                        blockRef,com.hypixel.hytale.server.core.modules.block.components.ItemContainerBlock.getComponentType());
+                    System.out.println("CIV_FORESTER_NPC_CHEST_DIAG x="+x+" y="+y+" z="+z
+                        +" key="+block.getId()+" blockRef="+(blockRef!=null&&blockRef.isValid())
+                        +" itemContainer="+(inventory!=null));
+                }
+                System.out.println("CIV_FORESTER_NPC_CHEST_DIAG_END");
+                fail("native prefab chest not found near "+CHEST,null);return;
+            }
             var container=chest.getItemContainer();
             if(container.getCapacity()<3){fail("native chest capacity < 3",null);return;}
             for(int i=0;i<SPECIES.length;i++)
