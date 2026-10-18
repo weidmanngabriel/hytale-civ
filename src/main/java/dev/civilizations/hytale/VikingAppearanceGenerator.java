@@ -130,9 +130,32 @@ public final class VikingAppearanceGenerator {
             .filter(option -> option.matches(gender, age, hairColor))
             .filter(option -> option.assetId() == null || available.containsKey(option.assetId()))
             .toList();
+        if (valid.isEmpty() && isRawAssetSlot(slot)) {
+            // Face, ears and mouth are required by Hytale's validateSkin().
+            // If this version removed every curated ID for the age/gender combination,
+            // preserve a curated native ID where possible, otherwise choose a stable native ID.
+            String genderName = gender == Gender.MALE ? "Male" : "Female";
+            List<SlotOption> nativeSameGender = options.stream()
+                .filter(option -> option.assetId() != null && available.containsKey(option.assetId()))
+                .filter(option -> option.sexes().contains(genderName))
+                .toList();
+            if (!nativeSameGender.isEmpty()) {
+                return nativeSameGender.get(random.nextInt(nativeSameGender.size()));
+            }
+            List<SlotOption> nativeCurated = options.stream()
+                .filter(option -> option.assetId() != null && available.containsKey(option.assetId()))
+                .toList();
+            if (!nativeCurated.isEmpty()) {
+                return nativeCurated.get(random.nextInt(nativeCurated.size()));
+            }
+            if (!available.isEmpty()) {
+                String nativeId = available.keySet().stream().sorted().findFirst().orElseThrow();
+                return new SlotOption(nativeId, List.of(), List.of(), List.of(), List.of());
+            }
+        }
         if (valid.isEmpty()) {
             throw new IllegalStateException(
-                "No valid Viking appearance option for slot=" + slot
+                "No valid Hytale cosmetic available for Viking slot=" + slot
                     + ", gender=" + gender + ", age=" + age
             );
         }
