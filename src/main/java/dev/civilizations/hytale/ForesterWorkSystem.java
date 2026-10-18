@@ -91,7 +91,7 @@ public final class ForesterWorkSystem extends DelayedEntitySystem<EntityStore> {
             @Override public BlockPosition selectSite(Set<BlockPosition> reserved){
                 return planner.chooseSurface(
                     new BlockPosition((int)Math.floor(actor.x),(int)Math.floor(actor.y),(int)Math.floor(actor.z)),
-                    Set.of(),reserved,
+                    reserved,reserved,
                     column->surface(world,column.x(),column.z(),center.y()),
                     position->eligible(world,position,home));
             }
