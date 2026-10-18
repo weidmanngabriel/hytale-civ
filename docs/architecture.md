@@ -407,3 +407,7 @@ Die importierte Terrain-API stellt zusätzlich zur per-Block-`worldRevision` die
 ### Forester flat-world simulation (MVP)
 
 The Core `ForesterPlantingPlanner` chooses nearby pseudorandom planting positions within a fixed home-centered square work area. It has a bounded 20-attempt search, configurable minimum trunk spacing and seed-controlled reproducibility. Candidates are validated by the adapter; no Hytale API is used in this planner. The headless `SimulationRuntime` advances foresters through planning, movement, sapling placement and timed maturation. A 64 × 64 flat voxel world is provided by `forester-flat` for deterministic testing. This first slice does not yet wire a native Hytale forester, building registry, tree growth API or wood transport; those are separate follow-up steps.
+
+### Standalone-Simulator-Distribution
+
+Das Unterprojekt `simulator/` kompiliert die **bestehenden** Quellen aus `core/` und `simulation/` mit Java 21 und einem minimalen eigenständigen CLI-Startpunkt; es enthält weder Hytale-Adapter noch Plugin-Klassen. Die Anwendung wird ausschließlich als separater Artefakt-Export nach einem `main`-Push gebaut. Die eigentliche Hytale-Mod behält die Root-Gradle-Konfiguration mit Java 25. Diese Distribution erzeugt keinen zweiten Gameplay-Core; sie verpackt dieselben Java-Dateien in eine für Headless-Ausführung geeignete Laufzeit.
