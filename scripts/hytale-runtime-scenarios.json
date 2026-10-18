@@ -10,6 +10,7 @@
     "deployment",
     "deploymentrollback",
     "deploymentreal",
-    "foresterassets"
+    "foresterassets",
+    "foresterplant"
   ]
 }
