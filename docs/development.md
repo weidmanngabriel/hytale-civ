@@ -163,7 +163,7 @@ Technisch wird der Lauf über die feste GitHub-Issue <code>#126 Hytale Runtime T
 
 ## Integration von Änderungen
 
-Jede Änderung wird auf einem temporären Branch umgesetzt. Zwischen-Commits sind während der Arbeit erlaubt.
+Änderungen an Code, Tests, Assets, Konfiguration und Workflows werden auf einem temporären Branch umgesetzt. Zwischen-Commits sind erlaubt. **Ausnahme:** Reine Dokumentationsänderungen (nur Text/Markdown, einschließlich `AGENTS.md`, ohne Code, Tests, Assets, Konfiguration oder Workflow-Änderungen) dürfen direkt auf Remote-`main` committed werden. Dafür sind PR, lokaler Build und CI-Abnahme nicht nötig. Automatische Main-Workflows können trotzdem starten, sind aber kein Abschluss-Gate. Den erfolgreichen Remote-Schreibvorgang prüfen.
 
 Vor der Integration:
 
