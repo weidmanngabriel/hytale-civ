@@ -58,6 +58,7 @@ import dev.civilizations.hytale.SoldierWorkSystem;
 import dev.civilizations.hytale.VikingAppearanceGenerator;
 import dev.civilizations.hytale.WoodcutterScanDiagnostics;
 import dev.civilizations.hytale.WoodcutterWorkSystem;
+import dev.civilizations.hytale.ForesterWorkSystem;
 
 public final class CivilizationsPlugin extends JavaPlugin {
 
@@ -203,6 +204,7 @@ public final class CivilizationsPlugin extends JavaPlugin {
 
         getEntityStoreRegistry().registerSystem(farmNpcWorkSystem);
         getEntityStoreRegistry().registerSystem(woodcutterWorkSystem);
+        getEntityStoreRegistry().registerSystem(new ForesterWorkSystem(unitRegistry, activityRegistry, buildingRegistry));
         getEntityStoreRegistry().registerSystem(minerWorkSystem);
         getEntityStoreRegistry().registerSystem(
             new MinerNavigationSystem(
