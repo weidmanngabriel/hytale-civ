@@ -380,7 +380,19 @@ public final class LocalSimulationServer implements AutoCloseable {
                         .toList();
                     for(var trunk:roots){
                         if(!seen.add(trunk.x()+":"+trunk.z()))continue;
-                        sim.addTree(trunk);
+                        WorldPosition bestWorkPoint = null;
+                        int shortest = Integer.MAX_VALUE;
+                        for (int[] offset : new int[][]{{1,0},{-1,0},{0,1},{0,-1}}) {
+                            for (int dy=-2;dy<=2;dy++) {
+                                var stand = new BlockPosition(trunk.x()+offset[0],trunk.y()+dy,trunk.z()+offset[1]);
+                                if (!fresh.canStand(stand)) continue;
+                                var path = fresh.path(home,stand);
+                                if (path.isEmpty() || path.size() >= shortest) continue;
+                                shortest = path.size();
+                                bestWorkPoint = new WorldPosition(stand.x()+0.5,stand.y(),stand.z()+0.5);
+                            }
+                        }
+                        if (bestWorkPoint != null) sim.addImportedTree(trunk,bestWorkPoint);
                     }
                 }
                 return sim;
