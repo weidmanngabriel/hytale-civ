@@ -143,7 +143,8 @@ final class CivForesterNpcProbeCommand extends CommandBase {
             if(ref==null || !ref.isValid()){fail("native NPC spawn failed: "+validation,null);return;}
             if(!units.toggleClaim(ref) || !units.isClaimed(ref)){fail("cannot claim native NPC",null);return;}
             units.assignProfession(ref,Profession.FORESTER);
-            units.assignWorkplace(ref,buildingId);
+            // Intentionally do not assign a workplace: ForesterWorkSystem must discover
+            // the nearest available native forester hut just as a player-assigned NPC does.
             if(units.getProfession(ref)!=Profession.FORESTER){fail("native NPC has wrong profession",null);return;}
             System.out.println("CIV_FORESTER_NPC_WORKER_READY role=FORESTER");
             long end=System.nanoTime()+TIMEOUT_NANOS;
