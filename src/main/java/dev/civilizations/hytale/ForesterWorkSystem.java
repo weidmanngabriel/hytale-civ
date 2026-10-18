@@ -77,9 +77,9 @@ public final class ForesterWorkSystem extends DelayedEntitySystem<EntityStore> {
         List<String> palette=saplings.available(world,chestMarker);
         Vector3d actor=transform.getPosition();
         BlockPosition center=new BlockPosition(
-            (home.bounds().minX()+home.bounds().maxX())/2,
-            (home.bounds().minY()+home.bounds().maxY())/2,
-            (home.bounds().minZ()+home.bounds().maxZ())/2);
+            (int)Math.floor((home.bounds().minX()+home.bounds().maxX())/2.0),
+            (int)Math.floor((home.bounds().minY()+home.bounds().maxY())/2.0),
+            (int)Math.floor((home.bounds().minZ()+home.bounds().maxZ())/2.0));
         ForesterPlantingPlanner planner=planners.computeIfAbsent(key,k->
             new ForesterPlantingPlanner(center,RADIUS,ForesterPlantingPlanner.PHASE_ONE_SPACING,
                 Integer.toUnsignedLong(k.hashCode())));
