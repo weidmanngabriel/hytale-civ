@@ -19,3 +19,9 @@ Beim aktuellen Farmer-Slice werden vier Seed-Bags als ein nativer Stack angeford
 ## Projektgrenze
 
 Civ soll keine parallelen Farming-, Drop-, Wachstums- oder Containerregeln erfinden, wenn Hytale dafür native Mechanismen bereitstellt. Wo ein benötigter nativer Pfad nicht verifiziert ist, wird das offen behandelt statt durch eine scheinbar ähnliche Spieleraktion ersetzt.
+
+## Försterei: native API-Prüfung vor der Implementierung (18.10.2026)
+
+Die bereitgestellte HytaleServer.jar enthält `BlockType.getFarming()`, `FarmingData.getStages()` und `FarmingData.getStartingStageSet()`. `FarmingBlock` besitzt eine registrierte ChunkStore-Komponente und Felder für GrowthProgress, CurrentStageSet und LastTickGameTime. In `FarmingSystems.OnFarmBlockAdded` wurde per Bytecode nachvollzogen, dass beim Hinzufügen einer **bereits existierenden FarmingBlock-Komponente** das StageSet und der GameTime-Zeitstempel gesetzt werden. Das **beweist nicht**, dass das Civ-`MineBlockPlacement.placeDetailed` für einen Setzling die benötigte native FarmingBlock-Komponente erzeugt.
+
+Die allgemeine `BlockOperations.setBlock`-Signatur und der bereits verwendete Spieler-ähnliche Platzierungsadapter `MineBlockPlacement` existieren. Vor produktiver Aktivierung eines Försters sind ein exakt registrierter Sapling-Block inklusive passendem Item, native Soil-/Fluid-/Freiraumvalidierung, ein bestätigter FarmingBlock-Lifecycle und eine Native-Inventory-Transaktion mit gezielter Hytale-Local-Probe zu verifizieren. Bis dahin bleibt native Setzlingsplatzierung **offen**, statt eine nur visuelle Blockplatzierung fälschlich als gewachsenen Baum zu bestätigen. <Link-Referenz nicht im Repo gespeichert: https://hytale.com/news/2026/8/update-6-patch-notes> beschreibt Hytales Prefab-Sapling-Growth-Obstruction-Regeln. 
