@@ -196,6 +196,10 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
                 WoodcutterBasicScenario.WOODCUTTER_START.y(),
                 WoodcutterBasicScenario.WOODCUTTER_START.z()
             );
+            int roleIndex = NPCPlugin.get().getIndex(ROLE);
+            System.out.println("CIV_WOODCUTTER_SPAWN_DIAG stage=before roleIndex=" + roleIndex
+                + " role=" + ROLE + " position=" + requestedStart + " world=" + world.getName()
+                + " woodBlocks=" + initialWoodBlocks);
             var spawned = NPCPlugin.get().spawnNPC(
                 world.getEntityStore().getStore(),
                 ROLE,
@@ -203,8 +207,15 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
                 requestedStart,
                 new Rotation3f()
             );
-            if (spawned == null || spawned.first() == null || !spawned.first().isValid()) {
-                fail("Hytale could not spawn Civ_Inhabitant", null);
+            boolean returnedPair = spawned != null;
+            boolean returnedRef = returnedPair && spawned.first() != null;
+            boolean validRef = returnedRef && spawned.first().isValid();
+            System.out.println("CIV_WOODCUTTER_SPAWN_DIAG stage=after roleIndex=" + roleIndex
+                + " returnedPair=" + returnedPair + " returnedRef=" + returnedRef
+                + " validRef=" + validRef + " returnedNpc=" + (returnedPair && spawned.second() != null));
+            if (!validRef) {
+                fail("Hytale could not spawn Civ_Inhabitant; roleIndex=" + roleIndex
+                    + " returnedPair=" + returnedPair + " returnedRef=" + returnedRef, null);
                 return;
             }
 
