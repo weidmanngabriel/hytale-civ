@@ -357,3 +357,8 @@ Im Baumenü steht eine kleine Holzfällerhütte mit nativer Lagerkiste zur Verf�
 ## Waldbaumschule (Phase 1)
 
 Das Baumenü bietet eine 9×7-Waldbaumschule (`forester_hut`) für einen Förster mit überdachtem Arbeitsplatz, Pflanzkästen, nativer Vorratskiste sowie Arbeitsplatz- und Vorratsmarkern. Ein zuweisbares Aufforstungsgebiet und das automatische Pflanzen in Hytale sind noch nicht implementiert; das Gebäude allein aktiviert keinen Förster.
+
+
+### Försterei – laufende Umsetzung von Phase 1
+
+Die bisherige flache Vorschau wird schrittweise auf eine 3D-Kugel mit 24 Blöcken Radius und vier Blöcken Mindestabstand umgestellt. Der Headless-Prototyp verwendet bislang einen begrenzten Testvorrat von 100 Setzlingen je Förster; die echte Gebäudekiste, die nativen Pflanzenitems, der gemeinsame Hytale-Adapter und die spielbare Försterei sind **noch nicht umgesetzt**. Die Baumschule als geplante Phase 2 bleibt außerhalb dieses Teilschritts.
