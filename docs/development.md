@@ -6,21 +6,13 @@
 - Git
 - Keine globale Gradle-Installation; den Wrapper verwenden.
 
-## Lokaler Ablauf
+## Validierungsablauf nach Änderungsart
 
-~~~text
-Code/Assets ändern
-    ↓
-./gradlew test
-    ↓
-./gradlew build
-    ↓
-optional: ./gradlew deployToHytale
-    ↓
-in Hytale testen
-~~~
+**Simulator oder durch Simulator-Szenarien abgedeckter gemeinsamer Core:** Geänderte Java-Quellen vor dem ersten Branch-Upload lokal mit dem aktuellen Java-21-Simulator-ZIP kompilieren und relevante Szenarien/Regressionen ausführen (Details unten). Anschließend ist GitHub PR CI weiterhin Pflicht.
 
-Unter Windows <code>gradlew.bat</code> verwenden.
+**Nur Hytale-Mod, Assets, UI oder Dokumentation ohne Simulator-Auswirkung:** Kein lokaler Gradle-Build und kein lokaler Gradle-Test als Voraussetzung. Änderungen auf Feature-Branch hochladen und den Build sowie die automatisierten Tests durch GitHub PR CI prüfen lassen. Bei Hytale-spezifischem Laufzeitverhalten nach Bedarf ein fokussiertes Hytale-Local-Szenario durchführen; ein erfolgreicher CI-Build allein bestätigt kein Verhalten im echten Spiel. Hytale Local bleibt opt-in und kein allgemeines Merge-Gate.
+
+Lokale Gradle-Builds oder Deployment sind für Entwickler weiterhin freiwillig möglich. Unter Windows <code>gradlew.bat</code> verwenden.
 
 ## Simulation Viewer
 
@@ -171,12 +163,12 @@ Technisch wird der Lauf über die feste GitHub-Issue <code>#126 Hytale Runtime T
 
 ## Integration von Änderungen
 
-Jede Änderung wird auf einem temporären Branch umgesetzt. Zwischen-Commits sind während der Arbeit erlaubt.
+Änderungen an Code, Tests, Assets, Konfiguration und Workflows werden auf einem temporären Branch umgesetzt. Zwischen-Commits sind erlaubt. **Ausnahme:** Reine Dokumentationsänderungen (nur Text/Markdown, einschließlich `AGENTS.md`, ohne Code, Tests, Assets, Konfiguration oder Workflow-Änderungen) dürfen direkt auf Remote-`main` committed werden. Dafür sind PR, lokaler Build und CI-Abnahme nicht nötig. Automatische Main-Workflows können trotzdem starten, sind aber kein Abschluss-Gate. Den erfolgreichen Remote-Schreibvorgang prüfen.
 
 Vor der Integration:
 
 1. Vorgesehenen Code, Tests und betroffene Dokumentation auf dem temporären Branch fertigstellen.
-2. <code>./gradlew test</code> und <code>./gradlew build</code> ausführen, sofern die lokale Umgebung dies erlaubt.
+2. Bei Simulator-/simulatorrelevanten Core-Änderungen die verpflichtenden lokalen Vorabprüfungen mit dem Java-21-Simulator-ZIP ausführen. Bei reinen Hytale-/UI-/Asset-/Dokumentationsänderungen entfällt ein lokaler Gradle-Test/Build; freiwillige lokale Prüfungen sind möglich.
 3. Einen Pull Request gegen <code>main</code> öffnen, damit GitHub Actions die finale Version prüft.
 4. Wenn die Validierung Änderungen verlangt, diese auf denselben temporären Branch pushen und erneut validieren.
 5. Nur den final validierten Branch per Squash-Merge integrieren, damit genau ein sinnvoller Commit für die Änderung auf <code>main</code> verbleibt.
