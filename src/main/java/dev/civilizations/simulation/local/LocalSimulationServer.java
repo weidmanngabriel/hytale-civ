@@ -15,6 +15,7 @@ import dev.civilizations.core.MineHeading;
 import java.util.Comparator;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -89,7 +90,7 @@ public final class LocalSimulationServer implements AutoCloseable {
 
     private void scenarios(HttpExchange exchange) throws IOException {
         if (!exchange.getRequestMethod().equals("GET")) { respond(exchange, 405, Map.of("error", "GET required")); return; }
-        var all = sourceArchive == null ? SimulationScenarios.all() : List.of(customMiners(0), threeMinerScenario(), importedForesterScenario());
+        var all = sourceArchive == null ? SimulationScenarios.all() : List.of(customMiners(0), threeMinerScenario(), importedForestScenario(true, false), importedForestScenario(false, true), importedForestScenario(true, true));
         respond(exchange, 200, all.stream().map(s -> Map.of(
             "id", s.id(), "title", s.displayName(), "description", s.description()
         )).toList());
@@ -300,7 +301,9 @@ public final class LocalSimulationServer implements AutoCloseable {
                     }
                     case "scenario" -> {
                         String id = data.path("id").asText("");
-                        scenario = sourceArchive != null && id.equals("forester-imported") ? importedForesterScenario()
+                        scenario = sourceArchive != null && id.equals("forester-imported") ? importedForestScenario(true, false)
+                            : sourceArchive != null && id.equals("woodcutter-imported") ? importedForestScenario(false, true)
+                            : sourceArchive != null && id.equals("forest-cycle-imported") ? importedForestScenario(true, true)
                             : sourceArchive != null && id.equals("mine-three") ? seedScenarioAndGet()
                             : sourceArchive != null && id.equals("custom-miners") ? customMiners(0)
                             : sourceArchive == null ? SimulationScenarios.all().stream()
@@ -339,30 +342,47 @@ public final class LocalSimulationServer implements AutoCloseable {
     }
 
     /** Exposes actual saved block IDs to the shared forester planner without replacing archive import. */
-    private SimulationScenario importedForesterScenario() {
-        return new SimulationScenario("forester-imported", "Forester – Raw Hytale Snapshot",
-            "Conservative open-sky grass/dirt classification; native planting rules are not simulated.",
-            () -> {
+    /** Each forest test starts with a fresh voxel copy of the same immutable export. */
+    private SimulationScenario importedForestScenario(boolean forester, boolean woodcutter) {
+        String id = forester ? (woodcutter ? "forest-cycle-imported" : "forester-imported") : "woodcutter-imported";
+        String name = forester ? (woodcutter ? "Forester + Woodcutter – Raw Hytale Snapshot" : "Forester – Raw Hytale Snapshot")
+            : "Woodcutter – Raw Hytale Snapshot";
+        return new SimulationScenario(id, name,
+            "Same raw Hytale forest region; simulated NPC work, no native tree interactions.", () -> {
+                VoxelWorld fresh = new VoxelWorld(sourceArchive);
+                voxelWorld = fresh;
+                terrainEpoch++;
                 var sim = new SimulationRuntime();
-                sim.setVoxelWorld(voxelWorld);
+                sim.setVoxelWorld(fresh);
                 sim.setForesterSnapshotSurface(foresterSurface);
                 var b = sourceArchive.bounds();
-                int cx = (b.minX()+b.maxX())/2;
-                int cz = (b.minZ()+b.maxZ())/2;
+                int cx = (b.minX()+b.maxX()) / 2, cz = (b.minZ()+b.maxZ()) / 2;
                 BlockPosition home = null;
-                for (int radius=0; radius<Math.max(b.maxX()-b.minX(),b.maxZ()-b.minZ()) && home==null; radius++) {
+                for (int radius=0; radius<Math.max(b.maxX()-b.minX(),b.maxZ()-b.minZ()) && home==null;radius++) {
                     for(int dx=-radius;dx<=radius && home==null;dx++)
                         for(int dz=-radius;dz<=radius && home==null;dz++) {
                             if(Math.max(Math.abs(dx),Math.abs(dz))!=radius)continue;
-                            var p = foresterSurface.observedExposedSoil(cx+dx, cz+dz);
-                            if(p!=null && voxelWorld.canStand(p))home=p;
+                            var p=foresterSurface.observedExposedSoil(cx+dx,cz+dz);
+                            if(p!=null && fresh.canStand(p))home=p;
                         }
                 }
-                if(home==null)throw new IllegalArgumentException("No exposed grass/dirt surface in snapshot");
-                sim.addForester("forester-snapshot-1",
-                    new WorldPosition(home.x()+0.5,home.y(),home.z()+0.5), home, 4262026L);
-                // Snapshot trees are already present in voxels. The simulator does not
-                // treat each trunk block as a separate harvestable tree.
+                if(home==null)throw new IllegalArgumentException("No open-sky soil surface in snapshot");
+                var start = new WorldPosition(home.x()+0.5,home.y(),home.z()+0.5);
+                if(forester)sim.addForester("forester-snapshot-1",start,home,4262026L);
+                if(woodcutter){
+                    sim.addWoodcutter("woodcutter-snapshot-1",start);
+                    var seen=new java.util.HashSet<String>();
+                    final BlockPosition center=home;
+                    var roots=foresterSurface.observedTrunkBlocks().stream()
+                        .filter(p->Math.abs(p.x()-center.x())<=24 && Math.abs(p.z()-center.z())<=24)
+                        .sorted(Comparator.comparingInt((BlockPosition p)->p.y())
+                            .thenComparingInt(BlockPosition::x).thenComparingInt(BlockPosition::z))
+                        .toList();
+                    for(var trunk:roots){
+                        if(!seen.add(trunk.x()+":"+trunk.z()))continue;
+                        sim.addTree(trunk);
+                    }
+                }
                 return sim;
             });
     }
