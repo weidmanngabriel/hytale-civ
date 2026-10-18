@@ -384,3 +384,9 @@ Das `woodcutter`-Szenario muss die gesamte Spawn-Voraussetzung prüfen: eine akt
 
 
 Das reale `region.civworld.gz` wurde lokal mit `WorldArchive.read` geladen: 1.872.500 Zellen, 9.164 konservativ als freiliegend klassifizierte Gras-/Erdspalten, 1.057 beobachtete Stammblöcke. Das bestehende Local-Simulation-HTTP-API hat `forester-imported` im Szenariokatalog angeboten; Auswahl und 3.200 Ticks mit originalem Terrain liefen lokal, mit 43 simulierten Bäumen im WorldSnapshot. Der Test beweist **nicht**, dass Hytale diese Pflanzenarten nativ akzeptiert, dass die Försterei als Hütte gebaut wurde oder dass ein echter NPC Setzlinge gesetzt hat.
+
+### Drei Waldszenarien auf demselben Original-Snapshot
+
+`ImportedForestScenarioTest` verwendet das eingecheckte `src/test/resources/fixtures/region.civworld.gz`. Die Varianten `forester-imported`, `woodcutter-imported` und `forest-cycle-imported` erzeugen jeweils eine unabhängige Voxelwelt aus demselben Roharchiv; bestehende Miner-Fixtures bleiben unverändert. Für importierte Holzfällerbäume wird vor der Zuweisung ein tatsächlich begehbarer Nachbarstandpunkt mit dem bestehenden Voxel-A* gesucht; unerreichbare Stämme werden nicht als Aufgaben ausgegeben.
+
+Lokaler Java-21-Test vor Upload der geänderten Quellen: 3.000 Ticks je Variante, 41 Bäume bei Förster-only, 4 gefällte Bäume bei Holzfäller-only, 6 gefällte Bäume und 40 verbleibende Bäume in der gemeinsamen Variante. Kompilation und HTTP-Szenarioauswahl für alle drei Varianten erfolgreich. Der Test ist ein Headless-Nachweis und kein Hytale-Local-Szenario. Die importierten Bäume werden derzeit als erreichbare Stammziele behandelt; ein vollständiges natives Entfernen aller Stamm-/Blattblöcke ist nicht implementiert.
