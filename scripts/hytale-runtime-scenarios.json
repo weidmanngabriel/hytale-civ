@@ -9,6 +9,7 @@
     "reload",
     "deployment",
     "deploymentrollback",
-    "deploymentreal"
+    "deploymentreal",
+    "foresterassets"
   ]
 }
