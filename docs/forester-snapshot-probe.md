@@ -13,9 +13,9 @@
    ```
 
 4. Den bereits vorhandenen 3D-Viewer unter `http://localhost:5173/live.html` öffnen (Viewer-Dev-Server wie in `docs/simulation-sandbox-manual-test.md` starten).
-5. Szenario **Forester – Raw Hytale Snapshot** (`forester-imported`) auswählen und mit **Play** oder **Step** starten.
-6. Die Bewegung des Försters und nach der simulierten Wachstumszeit neue Baumpositionen beobachten.
-7. Mit Reset erneut starten; bei gleichen Eingaben und Seed muss der Lauf deterministisch bleiben.
+5. Eine der drei Varianten auswählen: **Forester – Raw Hytale Snapshot** (`forester-imported`), **Woodcutter – Raw Hytale Snapshot** (`woodcutter-imported`) oder **Forester + Woodcutter – Raw Hytale Snapshot** (`forest-cycle-imported`). Alle verwenden dasselbe unveränderte Originalarchiv.
+6. Im Förster-Szenario die neue Bepflanzung beobachten; im Holzfäller-Szenario echte importierte Baumziele und das Fällen beobachten; im kombinierten Szenario beides gleichzeitig. Die `treesFelled`-Metrik muss bei Holzfällerbeteiligung ansteigen.
+7. Mit Reset erneut starten; jeder Szenariostart lädt frische veränderbare Voxel aus demselben unveränderten Originalarchiv. Die alten Flat-World-Tests und Miner-Szenarien bleiben unberührt.
 
 ## Was wird geprüft?
 
@@ -26,3 +26,12 @@ Auf dem originalen Export wurden lokal 1.872.500 Zellen, 9.164 beobachtete geeig
 ## Noch nicht geprüft
 
 Die Gebäudeplatzierung und Arbeitsplatzzuweisung des echten Försters, native Hytale-Sapling-Items, Verbrauch aus der originalen Kiste, echte NPC-Navigation und native Setzlingsplatzierung sowie Hytale-Wachstum. Diese Funktionen werden durch den Headless-Lauf nicht nachgewiesen.
+
+
+## Lokaler Regressionstest der kombinierten Originalwelt
+
+Die aus dem Original-Snapshot abgeleiteten Stämme werden als semantische Baumziele initialisiert. Der Headless-Holzfäller sucht sich über den vorhandenen Voxel-A* eine tatsächlich begehbare Nachbarposition des Stamms. Ein lokal neu kompilierter Simulatorlauf über **2.400 Ticks** lieferte **4 gefällte Bäume** im Holzfäller-Einzelszenario und **17 gefällte Bäume** im gemeinsamen Szenario. Diese Zahlen sind lediglich Beobachtungen des Simulators, keine Zusage für jede spätere Seed- oder Weltversion. Der ursprüngliche Export bleibt unangetastet.
+
+## Hytale Local
+
+Das getrennte, read-only Diagnoseszenario `foresterassets` (`civforesterassetprobe`) liest die in der gepinnten Hytale-Runtime registrierten Setzlings-Blocktypen und deren Farming-Konfiguration aus. Es nimmt **keine** Pflanzung vor und ersetzt keinen Hytale-NPC-End-to-End-Test. Bis zur echten Pflanzvalidierung ist der Förster noch nicht als produktiv abgeschlossene Hytale-Funktion freigegeben.
