@@ -338,13 +338,13 @@ Das lokale Simulation Lab unterstützt zur Diagnose einzelner NPCs `/sim worker 
 
 Mod und lokales Lab verwenden dieselbe Ablaufsteuerung für Aufgaben, Arbeitsdauer, Reservierungen und Wiederaufnahme. Unterbrechungen geben Block- und Aufgabenclaims frei; bereits ausgegrabene Blöcke bleiben erhalten. Nach der Pause wird aktuell ausführbare Arbeit neu gewählt. Ohne freie Arbeit führt der Rückweg über Tunnel-Connector und Minenzugang beziehungsweise zu einer verfügbaren Ruhestelle. Fehlgeschlagene Arbeit wird begrenzt erneut versucht und anschließend entsprechend ihrer Sicherheits-/Pflichtklasse beendet; explizite Debug-Recovery prüft sie erneut. Das Lab bildet native Navigation und Gebäude-/Blockphysik weiterhin vereinfacht ab.
 
-### Forester planting MVP (headless preview)
+### Förster: einfaches Headless-Modell
 
-The initial forester has a fixed working area around its forestry home. Instead of methodically filling rows, it tries nearby random valid spots, with a bias towards shorter walking distances and at least four blocks between trunks. It does not return home after every planting. Saplings mature independently of a forester's immediate actions. This behavior is currently exposed only through the `forester-flat` headless simulation scenario and is not yet an in-game building or NPC command. Later upgrades may optimize search and planting routes.
+Der Simulator verarbeitet Bäume unabhängig von ihrer Art als Positionen mit einfachem Wachstumsfortschritt. Der Förster sucht deterministisch-seeded natürliche Pflanzpunkte innerhalb einer 3D-Kugel und hält vier horizontale Blöcke Stammabstand. Die originalen Flat-Fixtures bleiben bestehen, und die drei separaten importierten Waldszenarien verwenden dasselbe Roh-Weltarchiv. Hytales echte Setzlingsarten und native Farming-Stufen werden **nicht** im Simulator nachgebildet.
 
 ### Headless forester + woodcutter scenario
 
-The optional `forester-woodcutter-flat` scenario pairs one forester and one woodcutter on a flat test world, sharing the regrowing tree supply. It demonstrates planting, maturation, selection and felling without a warehouse or transport. No new in-game Hytale actions or buildings are added.
+The optional `forester-woodcutter-flat` scenario pairs one forester and one woodcutter on a flat test world, sharing the regrowing tree supply. It demonstrates planting, maturation, selection and felling without a warehouse or transport. This is a regression fixture, separate from the real in-game forestry building.
 
 ### Headless-Holzfäller-Lager (Simulation)
 
@@ -359,6 +359,8 @@ Im Baumenü steht eine kleine Holzfällerhütte mit nativer Lagerkiste zur Verf�
 Das Baumenü bietet eine 9×7-Försterei (`forester_hut`) für einen Förster mit überdachtem Arbeitsplatz, Pflanzkästen, nativer Vorratskiste sowie Arbeitsplatz- und Vorratsmarkern. Der Spieler weist einem beanspruchten Bewohner den Beruf **Förster** über das Personenaktionsmenü zu. Er übernimmt automatisch die nächste geeignete, nahe `forester_hut` mit freiem Platz (bis 32 Blöcke). Ihre Originaltruhe dient als Setzlingspalette. Eine Art bleibt verfügbar, solange mindestens ein Exemplar in der Truhe liegt; die Stückzahlen werden beim Pflanzen nicht verbraucht. Mehrere Arten werden unabhängig von den Mengen zufällig und gleichgewichtet ausgewählt. Ohne gültige Setzlinge wartet der Förster. Der Core sucht innerhalb einer 3D-Kugel (Radius 24) natürliche Stellen mit mindestens vier Blöcken Abstand zu anderen Stämmen; die Hytale-Engine verarbeitet die echten Sapling-Blöcke und das native Wachstum.
 
 
-### Försterei – laufende Umsetzung von Phase 1
+### Implementierung und Grenzen
 
-Die bisherige flache Vorschau wird schrittweise auf eine 3D-Kugel mit 24 Blöcken Radius und vier Blöcken Mindestabstand umgestellt. Der Headless-Prototyp verwendet bislang einen begrenzten Testvorrat von 100 Setzlingen je Förster; die echte Gebäudekiste, die nativen Pflanzenitems, der gemeinsame Hytale-Adapter und die Ingame-Truhenauswahl sind nun implementiert; die native Platzierung und Initialisierung von Oak, Birch und Spruce wurden in Hytale Local geprüft. Ein vollständiger autonomer NPC-Arbeitstest und ein Nachweis des Auswachsens bleiben getrennte Abnahmefälle. Im vorhandenen lokalen Live-3D-Simulator gibt es mit importiertem Weltarchiv zusätzlich das Szenario `forester-imported`: Es wählt nach beobachteten Gras-/Erdblöcken geeignete Oberflächen und blendet die bereits importierten Baumstämme für die Zielabstände ein. Die Baumschule als geplante Phase 2 bleibt außerhalb dieses Teilschritts.
+Die originale Hytale-Gebäudetruhe und die nativen Setzlings-Blocktypen wurden in Hytale Local überprüft. Drei echte Arten (Eiche, Birke und Fichte) können mit unveränderten Vorräten gepflanzt werden. Der automatische Arbeitsplatz, das Zuordnen über die Personenaktionen und das autonome Pflanzen nutzen den gleichen `ForesterWorkController` wie der Headless-Pfad, ohne dort unterschiedliche Baumarten zu simulieren.
+
+Das vollständige native Baumwachstum hat keine garantierte Fertigstellung bei einer bestimmten Tickzahl. Der getrennte native Growth-/Holzfäller-End-to-End-Nachweis bleibt unabhängig von der erfolgreichen Pflanzprüfung. Direkte Item-Übergaben vom Spieler an den NPC gehören nicht zu Phase 1. Die Baumschule als mögliche Phase 2 bleibt unberührt.
