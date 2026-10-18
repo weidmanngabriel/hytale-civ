@@ -200,26 +200,23 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
             System.out.println("CIV_WOODCUTTER_SPAWN_DIAG stage=before roleIndex=" + roleIndex
                 + " role=" + ROLE + " position=" + requestedStart + " world=" + world.getName()
                 + " woodBlocks=" + initialWoodBlocks);
-            var spawned = NPCPlugin.get().spawnNPC(
-                world.getEntityStore().getStore(),
-                ROLE,
-                null,
-                requestedStart,
-                new Rotation3f()
+            java.util.concurrent.atomic.AtomicReference<Ref<EntityStore>> spawnedRef =
+                new java.util.concurrent.atomic.AtomicReference<>();
+            var validation = NPCPlugin.get().spawnNPCWithSpaceValidation(
+                world.getEntityStore().getStore(), ROLE, null, requestedStart, new Rotation3f(),
+                (npc, ref, store) -> spawnedRef.set(ref)
             );
-            boolean returnedPair = spawned != null;
-            boolean returnedRef = returnedPair && spawned.first() != null;
-            boolean validRef = returnedRef && spawned.first().isValid();
+            Ref<EntityStore> ref = spawnedRef.get();
+            boolean validRef = ref != null && ref.isValid();
             System.out.println("CIV_WOODCUTTER_SPAWN_DIAG stage=after roleIndex=" + roleIndex
-                + " returnedPair=" + returnedPair + " returnedRef=" + returnedRef
-                + " validRef=" + validRef + " returnedNpc=" + (returnedPair && spawned.second() != null));
+                + " validation=" + validation + " returnedRef=" + (ref != null)
+                + " validRef=" + validRef);
             if (!validRef) {
                 fail("Hytale could not spawn Civ_Inhabitant; roleIndex=" + roleIndex
-                    + " returnedPair=" + returnedPair + " returnedRef=" + returnedRef, null);
+                    + " validation=" + validation + " returnedRef=" + (ref != null), null);
                 return;
             }
 
-            Ref<EntityStore> ref = spawned.first();
             if (!unitRegistry.toggleClaim(ref) || !unitRegistry.isClaimed(ref)) {
                 fail("spawned NPC could not be claimed as a Civ inhabitant", null);
                 return;
