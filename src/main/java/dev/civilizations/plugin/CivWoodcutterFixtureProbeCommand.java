@@ -202,6 +202,23 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
                 + " woodBlocks=" + initialWoodBlocks);
             java.util.concurrent.atomic.AtomicReference<Ref<EntityStore>> spawnedRef =
                 new java.util.concurrent.atomic.AtomicReference<>();
+            int sx = (int) Math.floor(requestedStart.x());
+            int sy = (int) Math.floor(requestedStart.y());
+            int sz = (int) Math.floor(requestedStart.z());
+            var chunks = world.getChunkStore();
+            var chunkRef = chunks.getChunkReference(ChunkUtil.indexChunkFromBlock(sx, sz));
+            var sectionRef = chunks.getChunkSectionReferenceAtBlock(sx, sy, sz);
+            var nonTickingType = com.hypixel.hytale.server.core.universe.world.storage.ChunkStore.REGISTRY
+                .getNonTickingComponentType();
+            boolean chunkTicking = chunkRef != null && chunkRef.isValid()
+                && !chunks.getStore().getArchetype(chunkRef).contains(nonTickingType);
+            boolean sectionTicking = sectionRef != null && sectionRef.isValid()
+                && !chunks.getStore().getArchetype(sectionRef).contains(nonTickingType);
+            System.out.println("CIV_WOODCUTTER_SPAWN_CHUNKS chunkRef="
+                + (chunkRef != null && chunkRef.isValid()) + " chunkTicking=" + chunkTicking
+                + " sectionRef=" + (sectionRef != null && sectionRef.isValid())
+                + " sectionTicking=" + sectionTicking);
+
             var validation = NPCPlugin.get().spawnNPCWithSpaceValidation(
                 world.getEntityStore().getStore(), ROLE, null, requestedStart, new Rotation3f(),
                 (npc, ref, store) -> spawnedRef.set(ref)
