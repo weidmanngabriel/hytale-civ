@@ -88,6 +88,9 @@ final class CivWoodcutterFixtureProbeCommand extends CommandBase {
                     fail("flat test world could not be created", throwable);
                     return;
                 }
+                // The isolated headless world has no player to hold NPC chunks active.
+                // Prevent the normal unload timer from removing the worker during this runtime test.
+                world.getWorldConfig().setCanUnloadChunks(false);
                 CivRuntimeProbeSuite.applyWarmDilation(world);
                 world.execute(() -> preloadFixtureChunks(world));
             });
