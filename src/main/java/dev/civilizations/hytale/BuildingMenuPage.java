@@ -25,6 +25,7 @@ public final class BuildingMenuPage
 
     private static final String ACTION_FARM = "farm";
     private static final String ACTION_WOODCUTTER = "woodcutter_hut";
+    private static final String ACTION_FORESTER = "forester_hut";
     private static final String ACTION_MINE_1 = "mine1";
     private static final String ACTION_MINE_2 = "mine2";
     private static final String ACTION_MINE_3 = "mine3";
@@ -34,6 +35,7 @@ public final class BuildingMenuPage
 
     private final Runnable selectFarm;
     private final Runnable selectWoodcutter;
+    private final Runnable selectForester;
     private final Runnable selectMine1;
     private final Runnable selectMine2;
     private final Runnable selectMine3;
@@ -44,6 +46,7 @@ public final class BuildingMenuPage
         PlayerRef playerRef,
         Runnable selectFarm,
         Runnable selectWoodcutter,
+        Runnable selectForester,
         Runnable selectMine1,
         Runnable selectMine2,
         Runnable selectMine3,
@@ -57,6 +60,7 @@ public final class BuildingMenuPage
         );
         this.selectFarm = selectFarm;
         this.selectWoodcutter = selectWoodcutter;
+        this.selectForester = selectForester;
         this.selectMine1 = selectMine1;
         this.selectMine2 = selectMine2;
         this.selectMine3 = selectMine3;
@@ -74,6 +78,7 @@ public final class BuildingMenuPage
         commands.append("Pages/CivBuildingMenu.ui");
         bind(events, "#FarmButton", ACTION_FARM);
         bind(events, "#WoodcutterButton", ACTION_WOODCUTTER);
+        bind(events, "#ForesterButton", ACTION_FORESTER);
         bind(events, "#Mine1Button", ACTION_MINE_1);
         bind(events, "#Mine2Button", ACTION_MINE_2);
         bind(events, "#Mine3Button", ACTION_MINE_3);
@@ -97,6 +102,11 @@ public final class BuildingMenuPage
         @Nonnull Store<EntityStore> store,
         @Nonnull ActionData data
     ) {
+        if (ACTION_FORESTER.equals(data.action)) {
+            selectForester.run();
+            close();
+            return;
+        }
         if (ACTION_WOODCUTTER.equals(data.action)) {
             selectWoodcutter.run();
             close();

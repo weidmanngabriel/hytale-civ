@@ -353,3 +353,7 @@ Das eigenständige Szenario `woodcutter-storage` startet mit genau einem Holzfä
 ## Holzfällerhütte
 
 Im Baumenü steht eine kleine Holzfällerhütte mit nativer Lagerkiste zur Verfügung. Die autonome Ablieferung des Holzes gehört zu einem gesonderten Integrationsschritt.
+
+## Waldbaumschule (Phase 1)
+
+Das Baumenü bietet eine 9×7-Waldbaumschule (`forester_hut`) für einen Förster mit überdachtem Arbeitsplatz, Pflanzkästen, nativer Vorratskiste sowie Arbeitsplatz- und Vorratsmarkern. Ein zuweisbares Aufforstungsgebiet und das automatische Pflanzen in Hytale sind noch nicht implementiert; das Gebäude allein aktiviert keinen Förster.

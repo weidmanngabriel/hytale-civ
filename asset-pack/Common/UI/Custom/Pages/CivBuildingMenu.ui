@@ -53,6 +53,11 @@ $C.@DecoratedContainer {
       Anchor: (Width: 300, Height: 48, Bottom: 8);
     }
 
+    $C.@TextButton #ForesterButton {
+      @Text = "Waldbaumschule";
+      Anchor: (Width: 300, Height: 48, Bottom: 8);
+    }
+
     $C.@TextButton #WoodcutterButton {
       @Text = "Holzfällerhütte";
       Anchor: (Width: 300, Height: 48, Bottom: 8);

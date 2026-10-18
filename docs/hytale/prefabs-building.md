@@ -128,3 +128,7 @@ A successful Civ demolition is terminal for that building instance. After native
 ## Holzfällerhütte
 
 `Civilizations/Woodcutter/Woodcutter_01` ist eine kleine Holzhütte mit Kiste, `building_bounds`, `workplace_access` und `output_storage`-Markierung. Die Markierung transportiert noch keine Items.
+
+## Waldbaumschule
+
+`Civilizations/Forester/Forester_01` ist ein gebautes 9×7-Prefab mit Gebäudebounds, Zugang, Vorratsmarker und native Kiste. TriggerVolume-Marker verwenden die bestehenden Typen `building_bounds`, `workplace_access` und `output_storage`. Das Prefab ist kein Beleg für NPC-Pflanzverhalten.

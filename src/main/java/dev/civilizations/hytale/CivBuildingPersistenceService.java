@@ -126,6 +126,7 @@ public final class CivBuildingPersistenceService {
         return switch (type) {
             case "farm" -> PrefabPlacementService.FARM;
             case "woodcutter_hut" -> PrefabPlacementService.WOODCUTTER_HUT;
+            case "forester_hut" -> PrefabPlacementService.FORESTER_HUT;
             case "mine" -> PrefabPlacementService.minePhase(phase);
             case "dwarf_mine" -> PrefabPlacementService.minePhase("dwarf_mine", phase);
             case "wheat_field" -> PrefabPlacementService.WHEAT_FIELD;

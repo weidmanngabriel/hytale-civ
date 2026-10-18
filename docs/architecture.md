@@ -419,3 +419,7 @@ Der Hytale-unabhängige `core/WoodCargoLedger` verbucht Holz als konservierte Ei
 ## Holzfällerhütte
 
 Die Holzfällerhütte verwendet die vorhandenen Gebäudedefinitionen, Bau-Menü und Prefab-Platzierung. Sie enthält eine native Kiste und `workplace_access`/`output_storage`-Marker. Der automatische Transport nativer Hytale-Items ist noch nicht angebunden.
+
+## Förstergebäude
+
+`forester_hut` nutzt den bestehenden Prefab-, Gebäude-, Bau- und Persistenzpfad. Semantische Marker legen einen Zugang und die Vorratsposition fest. Ein nativer Förster-Adapter für tatsächliches Pflanzen ist noch offen; die reine Hytale-Gebäudeergänzung verändert keine simulierten Core-Arbeitsabläufe.

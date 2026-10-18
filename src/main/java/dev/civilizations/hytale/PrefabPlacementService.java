@@ -60,6 +60,9 @@ public final class PrefabPlacementService {
     private final Map<UUID, ConstructionSite> constructionSites =
         new ConcurrentHashMap<>();
 
+    public static final PlacementDefinition FORESTER_HUT = new PlacementDefinition(
+        "forester_hut", "Waldbaumschule", "Civilizations/Forester/Forester_01", 1
+    );
     public static final PlacementDefinition WOODCUTTER_HUT = new PlacementDefinition(
         "woodcutter_hut", "Holzfällerhütte", "Civilizations/Woodcutter/Woodcutter_01", 1
     );
