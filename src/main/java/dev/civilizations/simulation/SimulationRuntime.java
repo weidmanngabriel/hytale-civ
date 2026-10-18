@@ -425,6 +425,7 @@ public final class SimulationRuntime {
             @Override public BlockPosition selectSite(Set<BlockPosition> reserved) {
                 Set<BlockPosition> occupied = new HashSet<>(trees.keySet());
                 occupied.addAll(growingTrees.keySet());
+                if (rawForesterSurface != null) occupied.addAll(rawForesterSurface.observedTrunkBlocks());
                 occupied.addAll(reserved);
                 return forester.planner.chooseSurface(blockAt(resident.position), occupied,
                     reserved, column -> voxelWorld == null
