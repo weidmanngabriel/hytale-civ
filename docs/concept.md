@@ -341,3 +341,7 @@ Mod und lokales Lab verwenden dieselbe Ablaufsteuerung für Aufgaben, Arbeitsdau
 ### Forester planting MVP (headless preview)
 
 The initial forester has a fixed working area around its forestry home. Instead of methodically filling rows, it tries nearby random valid spots, with a bias towards shorter walking distances and at least four blocks between trunks. It does not return home after every planting. Saplings mature independently of a forester's immediate actions. This behavior is currently exposed only through the `forester-flat` headless simulation scenario and is not yet an in-game building or NPC command. Later upgrades may optimize search and planting routes.
+
+### Headless forester + woodcutter scenario
+
+The optional `forester-woodcutter-flat` scenario pairs one forester and one woodcutter on a flat test world, sharing the regrowing tree supply. It demonstrates planting, maturation, selection and felling without a warehouse or transport. No new in-game Hytale actions or buildings are added.
