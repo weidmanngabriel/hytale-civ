@@ -4,6 +4,7 @@ import dev.civilizations.core.BlockPosition;
 import dev.civilizations.core.ConstructionJob;
 import dev.civilizations.core.FarmBuilding;
 import dev.civilizations.core.ForesterPlantingPlanner;
+import dev.civilizations.core.ForesterWorkController;
 import dev.civilizations.core.InhabitantActivity;
 import dev.civilizations.core.MovementIntent;
 import dev.civilizations.core.Profession;
@@ -64,6 +65,7 @@ public final class SimulationRuntime {
     private final Map<String, List<WorldPosition>> farmFields = new LinkedHashMap<>();
 
     private final Map<String, ForesterState> foresters = new LinkedHashMap<>();
+    private final ForesterWorkController<String> foresterController = new ForesterWorkController<>();
     private final Map<BlockPosition, Double> growingTrees = new LinkedHashMap<>();
     private final WoodCargoLedger wood = new WoodCargoLedger();
     private final Map<String, BlockPosition> pileTargets = new LinkedHashMap<>();
@@ -174,7 +176,7 @@ public final class SimulationRuntime {
     public void addForester(String id, WorldPosition position, BlockPosition home, long seed) {
         requireAvailableResidentId(id);
         residents.put(id, new Resident(id, Profession.FORESTER, position, null, null, null));
-        foresters.put(id, new ForesterState(new ForesterPlantingPlanner(home, 18, 4, seed)));
+        foresters.put(id, new ForesterState(new ForesterPlantingPlanner(home, ForesterPlantingPlanner.PHASE_ONE_RADIUS, ForesterPlantingPlanner.PHASE_ONE_SPACING, seed)));
     }
 
     public int growingTreeCount() { return growingTrees.size(); }
@@ -378,6 +380,7 @@ public final class SimulationRuntime {
         resident.activity.advance(tickSeconds);
 
         MovementIntent manual = resident.activity.manualMovementIntent();
+        if (manual != null && resident.profession == Profession.FORESTER) foresterController.interrupt(resident.id);
         if (manual != null) {
             if (mineLab != null && resident.profession == Profession.MINER && !resident.minerSuspended) {
                 mineLab.releaseWorker(resident.id);
@@ -406,36 +409,49 @@ public final class SimulationRuntime {
     }
 
     private void tickForester(Resident resident) {
-        ForesterState forest = foresters.get(resident.id);
-        if (forest.target == null) {
-            if (resident.workDecisions.advance(tickSeconds) == WorkDecisionSchedule.DecisionKind.NONE) return;
-            Set<BlockPosition> occupied = new HashSet<>(trees.keySet());
-            occupied.addAll(growingTrees.keySet());
-            for (ForesterState other : foresters.values()) if (other.target != null) occupied.add(other.target);
-            BlockPosition candidate = forest.planner.choose(blockAt(resident.position), occupied,
-                Set.of(), p -> !trees.containsKey(p) && !growingTrees.containsKey(p)
-                    && (voxelWorld == null || voxelWorld.canStand(p)));
-            if (candidate == null) {
-                resident.workDecisions.scheduleRetry(DEFAULT_RETRY_SECONDS);
-                return;
+        ForesterState forester = foresters.get(resident.id);
+        ForesterWorkController.Snapshot before = foresterController.snapshot(resident.id);
+        if (before.target() == null
+            && resident.workDecisions.advance(tickSeconds) == WorkDecisionSchedule.DecisionKind.NONE) return;
+        var after = foresterController.tick(resident.id, new ForesterWorkController.Engine() {
+            @Override public int saplingsAvailable() { return forester.saplings; }
+            @Override public BlockPosition selectSite(Set<BlockPosition> reserved) {
+                Set<BlockPosition> occupied = new HashSet<>(trees.keySet());
+                occupied.addAll(growingTrees.keySet());
+                occupied.addAll(reserved);
+                return forester.planner.chooseSurface(blockAt(resident.position), occupied,
+                    reserved, column -> voxelWorld == null
+                        ? new BlockPosition(column.x(), 0, column.z())
+                        : voxelWorld.openSkySurface(column.x(), column.z()),
+                    p -> !trees.containsKey(p) && !growingTrees.containsKey(p)
+                        && (voxelWorld == null || voxelWorld.canStand(p)));
             }
-            forest.target = candidate;
-        }
-        if (advanceMovement(resident, blockCenter(forest.target))) {
-            BlockPosition planted = forest.target;
-            forest.target = null;
-            growingTrees.put(planted, 0.0);
+            @Override public boolean siteStillValid(BlockPosition target) {
+                return !trees.containsKey(target) && !growingTrees.containsKey(target)
+                    && (voxelWorld == null || voxelWorld.canStand(target));
+            }
+            @Override public ForesterWorkController.Navigation navigate(BlockPosition target) {
+                if (advanceMovement(resident, blockCenter(target))) return ForesterWorkController.Navigation.ARRIVED;
+                return resident.navigationBlocked ? ForesterWorkController.Navigation.FAILED
+                    : ForesterWorkController.Navigation.MOVING;
+            }
+            @Override public boolean plant(BlockPosition target) {
+                if (forester.saplings <= 0) return false;
+                forester.saplings--;
+                growingTrees.put(target, 0.0);
+                return true;
+            }
+        });
+        if (after.target() == null) {
             clearMovement(resident);
-            resident.workDecisions.scheduleRetry(0.5);
-        } else if (resident.navigationBlocked) {
-            forest.target = null;
-            resident.workDecisions.scheduleRetry(DEFAULT_RETRY_SECONDS);
+            resident.workDecisions.scheduleRetry(after.state() == ForesterWorkController.State.SELECTING
+                ? 0.5 : DEFAULT_RETRY_SECONDS);
         }
     }
 
     private static final class ForesterState {
         final ForesterPlantingPlanner planner;
-        BlockPosition target;
+        int saplings = 100; // Headless-only finite fixture; native inventory is adapter-owned.
         ForesterState(ForesterPlantingPlanner planner) { this.planner = planner; }
     }
 
