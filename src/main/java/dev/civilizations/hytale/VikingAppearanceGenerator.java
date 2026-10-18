@@ -123,8 +123,12 @@ public final class VikingAppearanceGenerator {
         if (options.isEmpty()) {
             return null;
         }
+        // CharacterCreator catalogs can contain cosmetics removed by a later Hytale release.
+        // Select only IDs currently present in the native registry, including raw face/ear/mouth slots.
+        Map<String, PlayerSkinPart> available = partMap(slot);
         List<SlotOption> valid = options.stream()
             .filter(option -> option.matches(gender, age, hairColor))
+            .filter(option -> option.assetId() == null || available.containsKey(option.assetId()))
             .toList();
         if (valid.isEmpty()) {
             throw new IllegalStateException(
@@ -218,6 +222,9 @@ public final class VikingAppearanceGenerator {
     private Map<String, PlayerSkinPart> partMap(String slot) {
         CosmeticRegistry registry = CosmeticsModule.get().getRegistry();
         return switch (slot) {
+            case "face" -> registry.getFaces();
+            case "ears" -> registry.getEars();
+            case "mouth" -> registry.getMouths();
             case "bodyCharacteristic" -> registry.getBodyCharacteristics();
             case "underwear" -> registry.getUnderwear();
             case "eyes" -> registry.getEyes();
