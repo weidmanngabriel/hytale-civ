@@ -361,3 +361,8 @@ Der unabhängige Workflow `.github/workflows/simulator-build.yml` baut nach jede
 ### Forester and woodcutter regeneration scenario
 
 `forester-woodcutter-flat` extends the existing 64 × 64 flat-world fixture with exactly one forester and one woodcutter. No trees are mature at startup. The forester plants and saplings mature; the woodcutter subsequently finds and fells those trees via the existing Core woodcutter behavior. `ForesterWoodcutterFlatWorldTest` verifies both occupations, deterministic seeded replay, actual tree felling and continuing tree supply over 4000 ticks. It does not test wood inventories or warehouse delivery, which are not implemented in this scenario.
+
+
+### Lokale Simulatorprüfung vor Integration (nur bei betroffenen Änderungen)
+
+Wenn Simulator, Szenario oder simulierte Core-Regeln geändert werden, vor dem PR-Merge Java-21-Quellen mithilfe des aktuellen `main`-Simulator-ZIPs lokal kompilieren und das relevante Szenario sowie passende Regressionen ausführen. Keine allgemeine Pflicht für sonstige Mod-, UI-, Hytale- oder Dokumentationsänderungen. Der CLI-Override und `forester-woodcutter-flat` mit 4000 Ticks wurden am 18.10.2026 nachweislich lokal ausgeführt; Details in `docs/development.md`. Die reguläre PR-CI ersetzt das nicht und bleibt weiterhin verpflichtend.
