@@ -28,12 +28,14 @@ final class BuildingTypesTest {
     @Test
     void singlePhaseBuildingsDoNotOfferAnUpgrade() {
         assertEquals(0, BuildingTypes.nextPhase("farm", 1));
+        assertEquals(0, BuildingTypes.nextPhase("woodcutter_hut", 1));
         assertEquals(0, BuildingTypes.nextPhase("wheat_field", 1));
     }
 
     @Test
     void currentFarmAndFieldMetadataMatchesImplementedRoles() {
         assertEquals(1, BuildingTypes.workerCapacity("farm", 1));
+        assertEquals(1, BuildingTypes.workerCapacity("woodcutter_hut", 1));
         assertEquals(0, BuildingTypes.workerCapacity("wheat_field", 1));
     }
 

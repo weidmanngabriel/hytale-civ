@@ -308,6 +308,7 @@ public final class RtsInteractionController {
             new BuildingMenuPage(
                 playerRef,
                 () -> startPlacement(playerRef, session, PrefabPlacementService.FARM),
+                () -> startPlacement(playerRef, session, PrefabPlacementService.WOODCUTTER_HUT),
                 () -> startPlacement(playerRef, session, PrefabPlacementService.MINE),
                 () -> startPlacement(playerRef, session, PrefabPlacementService.MINE_02),
                 () -> startPlacement(playerRef, session, PrefabPlacementService.MINE_03),

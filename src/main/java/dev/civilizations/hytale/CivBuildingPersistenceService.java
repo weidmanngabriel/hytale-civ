@@ -125,6 +125,7 @@ public final class CivBuildingPersistenceService {
     static PrefabPlacementService.PlacementDefinition definitionForBuilding(String type, int phase) {
         return switch (type) {
             case "farm" -> PrefabPlacementService.FARM;
+            case "woodcutter_hut" -> PrefabPlacementService.WOODCUTTER_HUT;
             case "mine" -> PrefabPlacementService.minePhase(phase);
             case "dwarf_mine" -> PrefabPlacementService.minePhase("dwarf_mine", phase);
             case "wheat_field" -> PrefabPlacementService.WHEAT_FIELD;

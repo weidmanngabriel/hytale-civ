@@ -377,6 +377,7 @@ final class CivAgentCommand extends AbstractCommandCollection {
             PrefabPlacementService.PlacementDefinition definition = switch (context.get(buildingType)) {
                 case "mine" -> PrefabPlacementService.MINE;
                 case "farm" -> PrefabPlacementService.FARM;
+                case "woodcutter_hut" -> PrefabPlacementService.WOODCUTTER_HUT;
                 case "wheat_field" -> PrefabPlacementService.WHEAT_FIELD;
                 default -> throw new IllegalArgumentException("Unknown authored Civ building type");
             };

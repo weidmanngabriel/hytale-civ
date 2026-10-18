@@ -415,3 +415,7 @@ Das Unterprojekt `simulator/` kompiliert die **bestehenden** Quellen aus `core/`
 ### Simulierte Holzlogistik
 
 Der Hytale-unabhängige `core/WoodCargoLedger` verbucht Holz als konservierte Einheiten an drei Orten: Bodenstapel nach vollständiger Fällung, begrenzte NPC-Traglast, Lagerbestand. `simulation/SimulationRuntime` entscheidet für das eigenständige `woodcutter-storage`-Szenario über Aufnahme- und Abgabebewegungen. Simulierte 100 Einheiten/Slot und eine Lagerposition sind Testparameter, keine Behauptung über natives Inventar oder Warehouse-Assets. Die native Integration muss später ihre Engine-Containertransaktionen und Persistenz verifizieren; der Simulator führt keine parallele Hytale-Item-Engine aus.
+
+## Holzfällerhütte
+
+Die Holzfällerhütte verwendet die vorhandenen Gebäudedefinitionen, Bau-Menü und Prefab-Platzierung. Sie enthält eine native Kiste und `workplace_access`/`output_storage`-Marker. Der automatische Transport nativer Hytale-Items ist noch nicht angebunden.

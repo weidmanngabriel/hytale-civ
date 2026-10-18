@@ -24,6 +24,7 @@ public final class BuildingMenuPage
     extends InteractiveCustomUIPage<BuildingMenuPage.ActionData> {
 
     private static final String ACTION_FARM = "farm";
+    private static final String ACTION_WOODCUTTER = "woodcutter_hut";
     private static final String ACTION_MINE_1 = "mine1";
     private static final String ACTION_MINE_2 = "mine2";
     private static final String ACTION_MINE_3 = "mine3";
@@ -32,6 +33,7 @@ public final class BuildingMenuPage
     private static final String ACTION_CLOSE = "close";
 
     private final Runnable selectFarm;
+    private final Runnable selectWoodcutter;
     private final Runnable selectMine1;
     private final Runnable selectMine2;
     private final Runnable selectMine3;
@@ -41,6 +43,7 @@ public final class BuildingMenuPage
     public BuildingMenuPage(
         PlayerRef playerRef,
         Runnable selectFarm,
+        Runnable selectWoodcutter,
         Runnable selectMine1,
         Runnable selectMine2,
         Runnable selectMine3,
@@ -53,6 +56,7 @@ public final class BuildingMenuPage
             ActionData.CODEC
         );
         this.selectFarm = selectFarm;
+        this.selectWoodcutter = selectWoodcutter;
         this.selectMine1 = selectMine1;
         this.selectMine2 = selectMine2;
         this.selectMine3 = selectMine3;
@@ -69,6 +73,7 @@ public final class BuildingMenuPage
     ) {
         commands.append("Pages/CivBuildingMenu.ui");
         bind(events, "#FarmButton", ACTION_FARM);
+        bind(events, "#WoodcutterButton", ACTION_WOODCUTTER);
         bind(events, "#Mine1Button", ACTION_MINE_1);
         bind(events, "#Mine2Button", ACTION_MINE_2);
         bind(events, "#Mine3Button", ACTION_MINE_3);
@@ -92,6 +97,11 @@ public final class BuildingMenuPage
         @Nonnull Store<EntityStore> store,
         @Nonnull ActionData data
     ) {
+        if (ACTION_WOODCUTTER.equals(data.action)) {
+            selectWoodcutter.run();
+            close();
+            return;
+        }
         if (ACTION_FARM.equals(data.action)) {
             selectFarm.run();
             close();
