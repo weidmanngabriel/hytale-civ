@@ -324,3 +324,7 @@ Dieser zusätzliche Ablauf gilt **nur**, wenn der Headless-Simulator, seine Szen
 5. Szenarioergebnisse und passende Regressionen lokal prüfen und gegebenenfalls korrigieren. **Erst dann** Änderungen auf einen temporären GitHub-Branch übertragen, PR öffnen und vollständige CI samt Build abwarten. Bei einem erfolgreichen Merge das neue Main-Simulator-Artefakt kontrollieren.
 
 **Validiert am 18.10.2026:** Das ZIP für `c164912e1f7663c4780c4756246117276b670a10` wurde lokal mit Java 21 verwendet. Eine geänderte `SimulatorCli` wurde mit `javac --release 21` neu kompiliert und per Override-Classpath gestartet. Beim Lauf `forester-woodcutter-flat 4000` erschien nachweislich die geänderte Markierung `LOCAL_RECOMPILE_VERIFIED`. Damit ist gezieltes lokales Neubauen/Ausführen bewiesen; ein vollständiger Neu-Build aller Simulator-Quellen aus dem ZIP ist nicht nachgewiesen.
+
+### Verbindliche Reihenfolge bei Simulator-Änderungen
+
+**Vor dem ersten GitHub-Upload** von Simulator-, Szenario- oder darin getesteten Core-Quellen müssen deren Änderungen lokal gegen das aktuelle Simulator-ZIP kompiliert und als betroffene Szenarien ausgeführt worden sein. Bei jeder folgenden Gameplay-Korrektur lokal erneut testen, bevor sie auf GitHub übertragen wird. Im PR den tatsächlich lokal getesteten Quellstand, Szenarionamen, Tickzahl und das Ergebnis nennen. Ein altes grünes Ergebnis ersetzt keinen neuen Test. Diese Zusatzpflicht gilt **nicht** für Änderungen ohne Simulator-Bezug. Normale CI/Build-Prüfungen bleiben bestehen.

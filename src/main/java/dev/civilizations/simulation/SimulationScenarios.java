@@ -28,6 +28,13 @@ public final class SimulationScenarios {
         SimulationScenarios::createWoodcutterBasic
     );
 
+    public static final SimulationScenario WOODCUTTER_STORAGE = new SimulationScenario(
+        "woodcutter-storage",
+        "Woodcutter Storage",
+        "Ein Holzfäller fällt drei ausgewachsene Bäume und bringt das Holz in sein Lager.",
+        SimulationScenarios::createWoodcutterStorage
+    );
+
     public static final SimulationScenario BUILDER_BASIC = new SimulationScenario(
         "builder-basic",
         "Builder Basic",
@@ -64,6 +71,7 @@ public final class SimulationScenarios {
     private static final List<SimulationScenario> ALL = List.of(
         FORESTER_FLAT,
         FORESTER_WOODCUTTER_FLAT,
+        WOODCUTTER_STORAGE,
         DEMO_SETTLEMENT,
         WOODCUTTER_BASIC,
         BUILDER_BASIC,
@@ -82,6 +90,16 @@ public final class SimulationScenarios {
         SimulationRuntime runtime = createFlatWorld();
         runtime.addForester("forester-1", new WorldPosition(-2.5, 0, 0.5), new BlockPosition(0, 0, 0), 42L);
         runtime.addWoodcutter("woodcutter-1", new WorldPosition(2.5, 0, 0.5));
+        return runtime;
+    }
+
+    private static SimulationRuntime createWoodcutterStorage() {
+        SimulationRuntime runtime = createFlatWorld();
+        runtime.addWoodcutter("woodcutter-1", new WorldPosition(0.5, 0, -1.5));
+        runtime.configureLumberStorage(new BlockPosition(0, 0, -6), 2026L);
+        runtime.addTree(new BlockPosition(6, 0, 0));
+        runtime.addTree(new BlockPosition(8, 0, 3));
+        runtime.addTree(new BlockPosition(10, 0, -2));
         return runtime;
     }
 
