@@ -177,6 +177,31 @@ function Assert-CommonRuntimeHealth {
     }
 }
 
+function Run-ForesterAssetScenario {
+    param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
+
+    $result = Start-HytaleProbe -RuntimeDir $RuntimeDir -LogPrefix 'foresterassets' -BootCommand 'civforesterassetprobe'
+    $combined = $result.Combined
+    Write-Host '----- Hytale native sapling-asset probe -----'
+    Write-Host $combined
+    Write-Host '----- end sapling-asset probe -----'
+
+    Assert-CommonRuntimeHealth -Combined $combined
+    if ($combined.Contains('CIV_FORESTER_ASSET_PROBE_FAIL')) {
+        throw 'Native Hytale did not expose any sapling assets.'
+    }
+    Assert-Evidence -Combined $combined -RequiredEvidence @(
+        'Loaded pack: Hytale:Hytale from Assets.zip',
+        'Enabled plugin Civilizations:HytaleCiv',
+        'Console executed command: civforesterassetprobe',
+        'CIV_FORESTER_ASSET_PROBE_STARTED',
+        'CIV_FORESTER_ASSET_CANDIDATES=',
+        'CIV_FORESTER_ASSET_PROBE_PASS',
+        'Shutdown completed!'
+    )
+    Write-Host 'Native Hytale sapling-asset discovery passed; actual NPC planting is not yet validated.'
+}
+
 function Run-WoodcutterScenario {
     param([Parameter(Mandatory = $true)] [string] $RuntimeDir)
 
@@ -488,6 +513,7 @@ foreach ($scenario in $Scenarios) {
     try {
         switch ($scenario) {
             'woodcutter' { Run-WoodcutterScenario -RuntimeDir $runtimeDir }
+            'foresterassets' { Run-ForesterAssetScenario -RuntimeDir $runtimeDir }
             'persistence' { Run-PersistenceScenario -RuntimeDir $runtimeDir }
             'reload' { & (Join-Path $PSScriptRoot 'hytale-reload-probe.ps1') -RuntimeDir $runtimeDir }
             'deployment' { . (Join-Path $PSScriptRoot 'hytale-deployment-scenario.ps1'); Run-DeploymentScenario -RuntimeDir $runtimeDir }
