@@ -404,9 +404,11 @@ Das lokale Lab verwendet die authored Block-/Empty-Zellen und Civ-Trigger-Marker
 
 Die importierte Terrain-API stellt zusätzlich zur per-Block-`worldRevision` die monotone `terrainEpoch` bereit. Reset oder erneute Prefab-Platzierung ersetzen den gesamten `VoxelWorld`, dessen Revisionszähler erneut bei 0 beginnen kann. Der Browser erzwingt bei einer anderen Epoch deshalb einen vollständigen Terrain-Snapshot, selbst wenn die zufällig gleichen Revisionswerte sonst eine notwendige Aktualisierung unterdrücken würden. Deltaupdates innerhalb derselben Epoch bleiben unverändert.
 
-### Forester flat-world simulation (MVP)
+### Forester Core und 3D-Oberflächen (Teilschritt)
 
-The Core `ForesterPlantingPlanner` chooses nearby pseudorandom planting positions within a fixed home-centered square work area. It has a bounded 20-attempt search, configurable minimum trunk spacing and seed-controlled reproducibility. Candidates are validated by the adapter; no Hytale API is used in this planner. The headless `SimulationRuntime` advances foresters through planning, movement, sapling placement and timed maturation. A 64 × 64 flat voxel world is provided by `forester-flat` for deterministic testing. This first slice does not yet wire a native Hytale forester, building registry, tree growth API or wood transport; those are separate follow-up steps.
+`ForesterPlantingPlanner` begrenzt Phase-1-Pflanzziele auf eine echte 3D-Kugel mit Radius 24 und einem horizontalen Mindestabstand von vier Blöcken. Die Engine liefert die tatsächliche Höhe als `resolveSurface` und validiert native Materialien und Hindernisse. `ForesterWorkController` besitzt für den Headless-Pfad Zielreservierung, Auswahl, Navigationsergebnisse, Pflanzresultate, Retry und Unterbrechung. `SimulationRuntime` führt diese Engine-Intents gegen `VoxelWorld` aus. `openSkySurface` wählt den obersten freien Stehpunkt und vermeidet unterirdische Höhlenböden. Die bestehende Materialklassifikation kennt nur `AIR/SOLID/FLUID` und beweist noch keine native Pflanzbarkeit; die vollständige Weltarchivdatei mit Block-IDs ist inzwischen unter `src/test/resources/fixtures/region.civworld.gz` vorhanden und soll im nächsten Schritt für eine projektspezifisch belegte Klassifikation verwendet werden.
+
+**Noch nicht implementiert:** Hytale-`ForesterWorkSystem`-Adapter, native Setzlingsinventare, native Baumwachstums- und Pflanzbestätigung, Gebäudeverknüpfung sowie Hytale-Local-End-to-End-Szenario. Deshalb kein Abschluss der gesamten Försterei.
 
 ### Standalone-Simulator-Distribution
 
