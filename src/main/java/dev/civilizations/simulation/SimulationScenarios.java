@@ -82,6 +82,7 @@ public final class SimulationScenarios {
         SimulationRuntime runtime = createFlatWorld();
         runtime.addForester("forester-1", new WorldPosition(-2.5, 0, 0.5), new BlockPosition(0, 0, 0), 42L);
         runtime.addWoodcutter("woodcutter-1", new WorldPosition(2.5, 0, 0.5));
+        runtime.configureLumberStorage(new BlockPosition(0, 0, -6), 2026L);
         return runtime;
     }
 
